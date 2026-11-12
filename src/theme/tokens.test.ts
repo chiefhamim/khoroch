@@ -1,0 +1,54 @@
+import { darkColors, lightColors, type ColorPalette } from './tokens';
+
+function relativeLuminance(hex: string): number {
+  const num = Number.parseInt(hex.slice(1), 16);
+  const channels = [(num >> 16) & 255, (num >> 8) & 255, num & 255].map((v) => {
+    const c = v / 255;
+    return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+
+function contrastRatio(fg: string, bg: string): number {
+  const la = relativeLuminance(fg);
+  const lb = relativeLuminance(bg);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+function assertPaletteContrast(name: string, p: ColorPalette): void {
+  const backgrounds: (keyof ColorPalette)[] = ['bg', 'surface', 'surfaceAlt'];
+  const foregrounds: (keyof ColorPalette)[] = [
+    'text',
+    'textMuted',
+    'primary',
+    'income',
+    'expense',
+    'warning',
+    'danger',
+  ];
+
+  for (const bg of backgrounds) {
+    for (const fg of foregrounds) {
+      const ratio = contrastRatio(p[fg], p[bg]);
+      if (ratio < 4.5) {
+        throw new Error(`${name}: ${fg} (${p[fg]}) on ${bg} (${p[bg]}) contrast ${ratio.toFixed(2)} < 4.5`);
+      }
+    }
+  }
+
+  expect(contrastRatio(p.text, p.primarySoft)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.textMuted, p.primarySoft)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.primary, p.primarySoft)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.onPrimary, p.primary)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.onDanger, p.danger)).toBeGreaterThanOrEqual(4.5);
+}
+
+describe('theme token WCAG AA contrast', () => {
+  it('ensures light palette passes >= 4.5:1 across all surfaces', () => {
+    assertPaletteContrast('light', lightColors);
+  });
+
+  it('ensures dark palette passes >= 4.5:1 across all surfaces', () => {
+    assertPaletteContrast('dark', darkColors);
+  });
+});

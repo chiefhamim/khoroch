@@ -21,20 +21,20 @@ Already done by the planner: Expo SDK 58 project created, template demo code rem
 
 ---
 
-## Phase 1 — Foundation  [ ]
+## Phase 1 — Foundation  [x]
 Re-read: SPEC **DECISIONS**, §2, §3, §4, §17, §20 · ARCHITECTURE (all) · TEST-CASES §1, §2, §3, §6
 
-- [ ] Install with `npx expo install`: `expo-sqlite`, `react-native-svg`, `@expo-google-fonts/inter`, `expo-crypto` (UUIDs), `jest-expo`, `jest`, `@types/jest`, `@testing-library/react-native` (dev deps where appropriate). Optional: `zustand`.
-- [ ] Jest configured (`preset: 'jest-expo'`), `"test": "jest --watchAll=false"` in package.json, ignores `dist-check/`
-- [ ] `src/theme/tokens.ts` (light + dark exactly as ARCHITECTURE §6, contrast-checked), ThemeProvider with system/light/dark, Inter loaded
-- [ ] `src/i18n` with `t()`, `en.ts`, `bn.ts` stub (same keys)
-- [ ] UI primitives: `Screen` (safe area + 20dp margins), `AppText` (variants from tokens), `Money` (tabular nums, uses formatMoney), `Card`, `Button`, `EmptyState`
-- [ ] `src/domain`: `types.ts`, `money.ts`, `dates.ts`, `period.ts`, `calc.ts`, `validation.ts`, `categories.ts` (defaults + keyword map)
-- [ ] Tests for TEST-CASES §1, §2 (incl. the property test), §3 — all passing
-- [ ] `src/data`: migrations (schema in ARCHITECTURE §3), `repo.ts` interface, `sqliteRepo.ts`, `memoryRepo.ts` + tests for TEST-CASES §6
-- [ ] DB opens + migrates at startup in root `_layout.tsx`; on web, if expo-sqlite web can't work after 3 attempts, use memoryRepo on web only and log it in DECISIONS-LOG
-- [ ] `(tabs)/_layout.tsx`: Overview, Activity, Budget, Insights, Settings + visible Add button; each tab shows a proper titled `EmptyState` (no fake numbers)
-- [ ] Add button opens `transaction/new` (may show a minimal working form here; full sheet is Phase 2)
+- [x] Install with `npx expo install`: `expo-sqlite`, `react-native-svg`, `@expo-google-fonts/inter`, `expo-crypto` (UUIDs), `jest-expo`, `jest`, `@types/jest`, `@testing-library/react-native` (dev deps where appropriate). Optional: `zustand`.
+- [x] Jest configured (`preset: 'jest-expo'`), `"test": "jest --watchAll=false"` in package.json, ignores `dist-check/`
+- [x] `src/theme/tokens.ts` (light + dark exactly as ARCHITECTURE §6, contrast-checked), ThemeProvider with system/light/dark, Inter loaded
+- [x] `src/i18n` with `t()`, `en.ts`, `bn.ts` stub (same keys)
+- [x] UI primitives: `Screen` (safe area + 20dp margins), `AppText` (variants from tokens), `Money` (tabular nums, uses formatMoney), `Card`, `Button`, `EmptyState`
+- [x] `src/domain`: `types.ts`, `money.ts`, `dates.ts`, `period.ts`, `calc.ts`, `validation.ts`, `categories.ts` (defaults + keyword map)
+- [x] Tests for TEST-CASES §1, §2 (incl. the property test), §3 — all passing
+- [x] `src/data`: migrations (schema in ARCHITECTURE §3), `repo.ts` interface, `sqliteRepo.ts`, `memoryRepo.ts` + tests for TEST-CASES §6
+- [x] DB opens + migrates at startup in root `_layout.tsx`; on web, if expo-sqlite web can't work after 3 attempts, use memoryRepo on web only and log it in DECISIONS-LOG
+- [x] `(tabs)/_layout.tsx`: Overview, Activity, Budget, Insights, Settings + visible Add button; each tab shows a proper titled `EmptyState` (no fake numbers)
+- [x] Add button opens `transaction/new` (may show a minimal working form here; full sheet is Phase 2)
 
 **Done when:**
 - CHECKS pass; every TEST-CASES §1, §2, §3, §6 case exists as a test and passes
@@ -161,6 +161,13 @@ Do **not** start v2 items. Instead: re-run all CHECKS, hunt for bugs (edge cases
 - Visual check: N/A in Phase 0
 - Problems / BLOCKED: none
 - Decisions logged: none
+
+### 2026-11-13 01:14 — Phase 1 — done
+- Built: Installed SDK 58 deps (`expo-sqlite`, `react-native-svg`, `@expo-google-fonts/inter`, `expo-crypto`, `@expo/vector-icons`, `zustand`, `jest-expo`, `jest`, `@types/jest`, `@testing-library/react-native`); pure domain layer (`types`, `money`, `dates`, `period`, `calc`, `validation`, `categories`); contrast-checked `src/theme/tokens.ts` + `ThemeProvider` (system/light/dark + reducedMotion); `src/i18n` (`t()`, `en.ts`, `bn.ts` stub); UI primitives (`Screen`, `AppText`, `Money`, `Card`, `Button`, `EmptyState`, `ErrorState`); `src/data` (`repo`, `migrations`, `sqliteRepo`, `memoryRepo`, `db` + `metro.config.js` WASM/COEP/COOP); root `_layout`, 5-tab layout + Add FAB + minimal `transaction/new`.
+- CHECKS: typecheck ✔ · lint ✔ · tests 47 passed / 47 total (7 suites) · web export ✔
+- Visual check: Web preview at 390×844 light & dark (`docs/screenshots/phase-1/overview-390-light.png`, `overview-390-dark.png`, `add-390-light.png`); caught and fixed bottom tab label clipping (`height: tabBarHeight` + `tabBarItemStyle`) and faux-bold fontWeight on Inter faces; 0 console errors/warnings (`expo-sqlite` WASM booted cleanly on web).
+- Problems / BLOCKED: Playwright MCP server unavailable because Chrome binary is absent at Google Chrome's default path; verified via existing `playwright-core` + `ms-playwright/chromium-1254`.
+- Decisions logged: D-001, D-002
 
 ## Morning summary
 <!-- Agent writes this at the very end:

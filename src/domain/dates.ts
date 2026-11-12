@@ -1,0 +1,104 @@
+import type { LocalDate } from './types';
+
+export interface DateParts {
+  year: number;
+  month: number; // 1..12
+  day: number; // 1..31
+}
+
+export function isLeapYear(year: number): boolean {
+  return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+}
+
+export function daysInMonth(year: number, month: number): number {
+  switch (month) {
+    case 2:
+      return isLeapYear(year) ? 29 : 28;
+    case 4:
+    case 6:
+    case 9:
+    case 11:
+      return 30;
+    default:
+      return 31;
+  }
+}
+
+export function formatLocalDate(year: number, month: number, day: number): LocalDate {
+  return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+export function parseLocalDate(date: LocalDate): DateParts {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) {
+    throw new Error(`Invalid LocalDate format: ${date}`);
+  }
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const day = Number.parseInt(match[3], 10);
+  if (month < 1 || month > 12 || day < 1 || day > daysInMonth(year, month)) {
+    throw new Error(`Invalid calendar date: ${date}`);
+  }
+  return { year, month, day };
+}
+
+export function isValidLocalDate(date: string): date is LocalDate {
+  try {
+    parseLocalDate(date);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Converts a LocalDate to days since 1970-01-01 using pure civil calendar math
+ * (Howard Hinnant's algorithm) with zero local timezone / DST dependency.
+ */
+export function toEpochDay(date: LocalDate): number {
+  const { year, month, day } = parseLocalDate(date);
+  const y = year - (month <= 2 ? 1 : 0);
+  const era = Math.floor(y / 400);
+  const yoe = y - era * 400;
+  const doy = Math.floor((153 * (month + (month > 2 ? -3 : 9)) + 2) / 5) + day - 1;
+  const doe = yoe * 365 + Math.floor(yoe / 4) - Math.floor(yoe / 100) + doy;
+  return era * 146097 + doe - 719468;
+}
+
+export function fromEpochDay(epochDay: number): LocalDate {
+  const z = epochDay + 719468;
+  const era = Math.floor(z / 146097);
+  const doe = z - era * 146097;
+  const yoe = Math.floor(
+    (doe - Math.floor(doe / 1460) + Math.floor(doe / 36524) - Math.floor(doe / 146096)) / 365
+  );
+  const y = yoe + era * 400;
+  const doy = doe - (365 * yoe + Math.floor(yoe / 4) - Math.floor(yoe / 100));
+  const mp = Math.floor((5 * doy + 2) / 153);
+  const d = doy - Math.floor((153 * mp + 2) / 5) + 1;
+  const m = mp + (mp < 10 ? 3 : -9);
+  const year = y + (m <= 2 ? 1 : 0);
+  return formatLocalDate(year, m, d);
+}
+
+export function addDays(date: LocalDate, deltaDays: number): LocalDate {
+  return fromEpochDay(toEpochDay(date) + deltaDays);
+}
+
+/** Returns (a - b) in whole calendar days. */
+export function diffDays(a: LocalDate, b: LocalDate): number {
+  return toEpochDay(a) - toEpochDay(b);
+}
+
+/** Returns local calendar date of `now` (defaults to current system time). */
+export function todayLocalDate(now: Date = new Date()): LocalDate {
+  return formatLocalDate(now.getFullYear(), now.getMonth() + 1, now.getDate());
+}
+
+export function minLocalDate(a: LocalDate, b: LocalDate): LocalDate {
+  return a <= b ? a : b;
+}
+
+export function maxLocalDate(a: LocalDate, b: LocalDate): LocalDate {
+  return a >= b ? a : b;
+}
