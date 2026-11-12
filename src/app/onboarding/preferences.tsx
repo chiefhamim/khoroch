@@ -115,7 +115,7 @@ export default function OnboardingPreferencesScreen() {
             <Button
               title="-"
               variant="secondary"
-              accessibilityLabel="Decrease start day"
+              accessibilityLabel={t('onboarding.decreaseStartDay')}
               disabled={monthStartDay <= 1}
               onPress={() => setMonthStartDay(Math.max(1, monthStartDay - 1))}
               style={{ minWidth: theme.touch.min + theme.spacing.lg }}
@@ -131,7 +131,7 @@ export default function OnboardingPreferencesScreen() {
             <Button
               title="+"
               variant="secondary"
-              accessibilityLabel="Increase start day"
+              accessibilityLabel={t('onboarding.increaseStartDay')}
               disabled={monthStartDay >= 28}
               onPress={() => setMonthStartDay(Math.min(28, monthStartDay + 1))}
               style={{ minWidth: theme.touch.min + theme.spacing.lg }}
@@ -141,7 +141,7 @@ export default function OnboardingPreferencesScreen() {
             {QUICK_DAYS.map((day) => (
               <Chip
                 key={day}
-                label={`Day ${day}`}
+                label={t('onboarding.dayN', { day })}
                 selected={monthStartDay === day}
                 onPress={() => setMonthStartDay(day)}
               />

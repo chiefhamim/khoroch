@@ -138,3 +138,14 @@ export function formatMoney(amountMinor: number, currency: CurrencyCode): string
 export function getCurrencySymbol(currency: CurrencyCode): string {
   return (CURRENCIES[currency] ?? CURRENCIES.BDT).symbol;
 }
+
+/**
+ * Formats non-negative minor units into a plain decimal input string (e.g. `1250` -> `"12.5"`).
+ */
+export function formatMinorToDraft(amountMinor: number): string {
+  const safeMinor = Math.max(0, Math.trunc(amountMinor));
+  const frac = safeMinor % 100;
+  const whole = (safeMinor - frac) / 100;
+  if (frac === 0) return String(whole);
+  return `${whole}.${String(frac).padStart(2, '0').replace(/0$/, '')}`;
+}

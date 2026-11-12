@@ -2,10 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { formatUtilizationPct } from '@/domain/calc';
 import { formatPeriodRange } from '@/domain/dates';
-import { getCurrencySymbol, parseMoneyInput } from '@/domain/money';
+import { formatMinorToDraft, getCurrencySymbol, parseMoneyInput } from '@/domain/money';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { useBudgets } from '@/state/useBudgets';
+import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from '@/ui/AppText';
 import { BudgetStatusBadge } from '@/ui/BudgetStatusBadge';
@@ -22,9 +23,7 @@ import { SectionHeader } from '@/ui/SectionHeader';
 
 function formatMinorInput(minor: number | null): string {
   if (minor === null || minor <= 0) return '';
-  const whole = Math.floor(minor / 100);
-  const frac = minor % 100;
-  return frac === 0 ? String(whole) : `${whole}.${String(frac).padStart(2, '0').replace(/0$/, '')}`;
+  return formatMinorToDraft(minor);
 }
 
 export default function BudgetScreen() {
@@ -585,7 +584,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: spacing.md,
   },
   daysPill: {
     borderWidth: 1,
@@ -594,7 +593,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: spacing.sm,
   },
   catLeft: {
     flex: 1,

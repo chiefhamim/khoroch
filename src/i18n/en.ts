@@ -163,6 +163,12 @@ export const en = {
   'settings.aboutName': 'Budget App v1.0.0',
   'settings.aboutDesc': 'Offline-first personal budget companion. Local {backend} storage, zero cloud tracking.',
   'settings.savedNotice': 'Saved',
+  'settings.decreaseMonthStart': 'Decrease month start day',
+  'settings.increaseMonthStart': 'Increase month start day',
+  'settings.actionError': 'Could not update your data. Please try again.',
+  'onboarding.dayN': 'Day {day}',
+  'onboarding.decreaseStartDay': 'Decrease start day',
+  'onboarding.increaseStartDay': 'Increase start day',
 
   // Categories management
   'categories.title': 'Categories',
@@ -391,6 +397,12 @@ export const en = {
   'insights.viewInActivity': 'View transactions',
   'insights.noWindowExpenses': 'No recorded expenses in this selected period.',
   'insights.noChangeYet': 'No prior month data for comparison yet.',
+  'common.dateFormatHint': 'YYYY-MM-DD',
+  'tx.errorLoadFailed': 'Could not load this transaction. Please try again.',
+  'categoryDetail.loadError': 'Could not load category transactions.',
+  'categories.loadError': 'Could not load categories.',
+  'categories.errorSaveFailed': 'Could not save category changes. Please try again.',
+  'metricCard.about': 'About {label}',
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -9,6 +9,7 @@ import type { LocalDate } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { useDashboard } from '@/state/useDashboard';
+import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from '@/ui/AppText';
 import { BudgetStatusBadge } from '@/ui/BudgetStatusBadge';
@@ -554,7 +555,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: spacing.md,
   },
   headerText: {
     flex: 1,
@@ -582,7 +583,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: spacing.sm,
   },
   breakdownLeft: {
     flex: 1,
@@ -600,7 +601,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: spacing.md,
   },
   highlightValRight: {
     flexShrink: 1,

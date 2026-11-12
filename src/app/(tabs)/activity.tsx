@@ -370,6 +370,7 @@ export default function ActivityScreen() {
                 color: theme.colors.text,
                 fontFamily: theme.typography.body.fontFamily,
                 fontSize: theme.typography.body.fontSize,
+                paddingVertical: theme.spacing.sm,
               },
             ]}
           />
@@ -379,7 +380,7 @@ export default function ActivityScreen() {
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}
               onPress={() => setSearch('')}
-              style={styles.clearIconBtn}
+              style={[styles.clearIconBtn, { minWidth: theme.touch.min, minHeight: theme.touch.min }]}
             >
               <Ionicons name="close-circle" size={18} color={theme.colors.textMuted} />
             </Pressable>
@@ -552,7 +553,7 @@ export default function ActivityScreen() {
           animationType="fade"
           onRequestClose={() => setFilterModalOpen(false)}
         >
-          <View style={styles.modalBackdrop}>
+          <View style={[styles.modalBackdrop, { padding: theme.spacing.xl }]}>
             <Card
               style={[
                 styles.modalCard,
@@ -631,7 +632,7 @@ export default function ActivityScreen() {
                             setDraftFrom(txt);
                             if (modalError) setModalError(null);
                           }}
-                          placeholder="YYYY-MM-DD"
+                          placeholder={t('common.dateFormatHint')}
                           placeholderTextColor={theme.colors.textMuted}
                           style={[
                             styles.modalInput,
@@ -659,7 +660,7 @@ export default function ActivityScreen() {
                             setDraftTo(txt);
                             if (modalError) setModalError(null);
                           }}
-                          placeholder="YYYY-MM-DD"
+                          placeholder={t('common.dateFormatHint')}
                           placeholderTextColor={theme.colors.textMuted}
                           style={[
                             styles.modalInput,
@@ -809,11 +810,8 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     minWidth: 0,
-    paddingVertical: 8,
   },
   clearIconBtn: {
-    minWidth: 32,
-    minHeight: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -843,7 +841,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'center',
-    padding: 20,
   },
   modalCard: {
     width: '100%',

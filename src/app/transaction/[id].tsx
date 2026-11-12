@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { formatMinorToDraft } from '@/domain/money';
 import type { Category, Transaction } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
@@ -11,15 +12,9 @@ import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { ConfirmModal } from '@/ui/ConfirmModal';
 import { EmptyState } from '@/ui/EmptyState';
+import { ErrorState } from '@/ui/ErrorState';
 import { Screen } from '@/ui/Screen';
 import { TransactionForm, type TransactionFormValues } from '@/ui/TransactionForm';
-
-function formatAmountMinorForInput(amountMinor: number): string {
-  const whole = Math.floor(amountMinor / 100);
-  const frac = amountMinor % 100;
-  if (frac === 0) return String(whole);
-  return `${whole}.${String(frac).padStart(2, '0').replace(/0$/, '')}`;
-}
 
 export default function TransactionDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,6 +26,8 @@ export default function TransactionDetailScreen() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [recentDescriptions, setRecentDescriptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -46,6 +43,7 @@ export default function TransactionDetailScreen() {
           repo.listRecentDescriptions(8),
         ]);
         if (!active) return;
+        setLoadError(false);
         setTx(loadedTx);
         const visibleCats = allCats.filter(
           (c) => c.archivedAt === null || c.id === loadedTx?.categoryId
@@ -54,6 +52,7 @@ export default function TransactionDetailScreen() {
         setRecentDescriptions(recents);
       } catch {
         if (!active) return;
+        setLoadError(true);
         setTx(null);
       } finally {
         if (active) setLoading(false);
@@ -63,7 +62,7 @@ export default function TransactionDetailScreen() {
     return () => {
       active = false;
     };
-  }, [repo, id]);
+  }, [repo, id, reloadTick]);
 
   const handleUpdate = async (values: TransactionFormValues) => {
     if (!tx) return;
@@ -101,6 +100,19 @@ export default function TransactionDetailScreen() {
         <AppText variant="body" color="textMuted">
           {t('tx.detailTitle')}
         </AppText>
+      </Screen>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <Screen edges={['top', 'bottom', 'left', 'right']}>
+        <ErrorState
+          title={t('error.genericTitle')}
+          body={t('tx.errorLoadFailed')}
+          retryLabel={t('common.retry')}
+          onRetry={() => setReloadTick((v) => v + 1)}
+        />
       </Screen>
     );
   }
@@ -151,7 +163,7 @@ export default function TransactionDetailScreen() {
         recentDescriptions={recentDescriptions}
         initialValues={{
           type: tx.type,
-          amountText: formatAmountMinorForInput(tx.amountMinor),
+          amountText: formatMinorToDraft(tx.amountMinor),
           categoryId: tx.categoryId,
           description: tx.description,
           occurredOn: tx.occurredOn,

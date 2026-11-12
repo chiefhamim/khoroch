@@ -48,6 +48,7 @@ export default function SettingsScreen() {
   const [savedFlag, setSavedFlag] = useState(false);
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
   const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [reminderTimeOverride, setReminderTimeOverride] = useState<string | null>(null);
   const [reminderTimeError, setReminderTimeError] = useState<string | null>(null);
   const [reminderExplainOpen, setReminderExplainOpen] = useState(false);
@@ -115,9 +116,14 @@ export default function SettingsScreen() {
   const handleSaveName = async () => {
     const trimmed = nameDraft.trim();
     if (trimmed === settings.name) return;
-    await updateSetting('name', trimmed);
-    setSavedFlag(true);
-    setTimeout(() => setSavedFlag(false), 1500);
+    setActionError(null);
+    try {
+      await updateSetting('name', trimmed);
+      setSavedFlag(true);
+      setTimeout(() => setSavedFlag(false), 1500);
+    } catch {
+      setActionError(t('settings.actionError'));
+    }
   };
 
   const handleDeleteAllConfirm = async () => {
@@ -127,11 +133,15 @@ export default function SettingsScreen() {
     }
     if (deleteStep === 2 && !busy) {
       setBusy(true);
+      setActionError(null);
       try {
         await repo.deleteAllData();
         setDeleteStep(0);
         await refreshSettings();
         bumpDataVersion();
+      } catch {
+        setDeleteStep(0);
+        setActionError(t('settings.actionError'));
       } finally {
         setBusy(false);
       }
@@ -141,6 +151,7 @@ export default function SettingsScreen() {
   const handleLoadSample = async () => {
     if (busy) return;
     setBusy(true);
+    setActionError(null);
     try {
       const today = todayLocalDate();
       const txs = buildSampleTransactions(settings.currency, today);
@@ -155,6 +166,8 @@ export default function SettingsScreen() {
 
       await updateSetting('sampleDataLoaded', true);
       bumpDataVersion();
+    } catch {
+      setActionError(t('settings.actionError'));
     } finally {
       setBusy(false);
     }
@@ -163,10 +176,13 @@ export default function SettingsScreen() {
   const handleClearSample = async () => {
     if (busy) return;
     setBusy(true);
+    setActionError(null);
     try {
       await repo.clearSampleTransactions();
       await updateSetting('sampleDataLoaded', false);
       bumpDataVersion();
+    } catch {
+      setActionError(t('settings.actionError'));
     } finally {
       setBusy(false);
     }
@@ -175,6 +191,14 @@ export default function SettingsScreen() {
   return (
     <Screen scroll bottomSpacer>
       <AppText variant="title">{t('settings.title')}</AppText>
+
+      {actionError ? (
+        <Card tone="alt">
+          <AppText variant="caption" color="danger">
+            {actionError}
+          </AppText>
+        </Card>
+      ) : null}
 
       <SectionHeader title={t('settings.sectionPersonal')} />
       <Card style={{ gap: theme.spacing.lg }}>
@@ -263,7 +287,7 @@ export default function SettingsScreen() {
             <Button
               title="-"
               variant="secondary"
-              accessibilityLabel="Decrease month start day"
+              accessibilityLabel={t('settings.decreaseMonthStart')}
               disabled={settings.monthStartDay <= 1}
               onPress={() =>
                 void updateSetting('monthStartDay', Math.max(1, settings.monthStartDay - 1))
@@ -278,7 +302,7 @@ export default function SettingsScreen() {
             <Button
               title="+"
               variant="secondary"
-              accessibilityLabel="Increase month start day"
+              accessibilityLabel={t('settings.increaseMonthStart')}
               disabled={settings.monthStartDay >= 28}
               onPress={() =>
                 void updateSetting('monthStartDay', Math.min(28, settings.monthStartDay + 1))
@@ -306,7 +330,7 @@ export default function SettingsScreen() {
 
       <SectionHeader title={t('settings.sectionReminders')} />
       <Card style={{ gap: theme.spacing.md }}>
-        <View style={[styles.toggleRow, { minHeight: theme.touch.min }]}>
+        <View style={[styles.toggleRow, { minHeight: theme.touch.min, gap: theme.spacing.md }]}>
           <View style={styles.toggleText}>
             <AppText variant="heading">{t('settings.reminderToggle')}</AppText>
             <AppText variant="caption" color="textMuted">
@@ -570,7 +594,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 12,
   },
   toggleText: {
     flex: 1,

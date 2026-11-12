@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { CurrencyCode } from '@/domain/types';
+import { t } from '@/i18n';
 import type { ColorPalette } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
@@ -33,14 +34,14 @@ export function MetricCard({
 
   return (
     <Card style={[styles.card, { gap: theme.spacing.sm }]}>
-      <View style={styles.topRow}>
+      <View style={[styles.topRow, { gap: theme.spacing.xs }]}>
         <AppText variant="label" color="textMuted" style={styles.label} numberOfLines={2}>
           {label}
         </AppText>
         <Pressable
           testID={testID ? `${testID}-info` : undefined}
           accessibilityRole="button"
-          accessibilityLabel={infoAccessibilityLabel ?? `About ${label}`}
+          accessibilityLabel={infoAccessibilityLabel ?? t('metricCard.about', { label })}
           onPress={onInfoPress}
           hitSlop={8}
           style={({ pressed }) => [
@@ -84,7 +85,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 4,
   },
   label: {
     flex: 1,

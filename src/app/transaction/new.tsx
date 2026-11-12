@@ -9,6 +9,7 @@ import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from '@/ui/AppText';
+import { ErrorState } from '@/ui/ErrorState';
 import { Screen } from '@/ui/Screen';
 import { TransactionForm, type TransactionFormValues } from '@/ui/TransactionForm';
 
@@ -20,6 +21,8 @@ export default function NewTransactionScreen() {
   const txIdRef = useRef<string>(Crypto.randomUUID());
   const [categories, setCategories] = useState<Category[]>([]);
   const [recentDescriptions, setRecentDescriptions] = useState<string[]>([]);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -29,14 +32,17 @@ export default function NewTransactionScreen() {
     ])
       .then(([cats, recents]) => {
         if (!active) return;
+        setLoadError(false);
         setCategories(cats);
         setRecentDescriptions(recents);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setLoadError(true);
+      });
     return () => {
       active = false;
     };
-  }, [repo]);
+  }, [repo, reloadTick]);
 
   const handleSubmit = async (values: TransactionFormValues) => {
     await repo.insertTransaction({
@@ -108,6 +114,14 @@ export default function NewTransactionScreen() {
         recentDescriptions={recentDescriptions}
         onSubmit={handleSubmit}
       />
+      {loadError ? (
+        <ErrorState
+          title={t('error.genericTitle')}
+          body={t('categories.loadError')}
+          retryLabel={t('common.retry')}
+          onRetry={() => setReloadTick((v) => v + 1)}
+        />
+      ) : null}
     </Screen>
   );
 }

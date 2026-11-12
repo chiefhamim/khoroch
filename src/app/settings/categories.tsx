@@ -13,6 +13,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { CategoryIcon, resolveIoniconName } from '@/ui/CategoryIcon';
 import { ConfirmModal } from '@/ui/ConfirmModal';
+import { ErrorState } from '@/ui/ErrorState';
 import { ListRow } from '@/ui/ListRow';
 import { Screen } from '@/ui/Screen';
 import { SegmentedControl } from '@/ui/SegmentedControl';
@@ -56,6 +57,8 @@ export default function CategoriesScreen() {
 
   const [kind, setKind] = useState<TransactionType>('expense');
   const [categories, setCategories] = useState<Category[]>([]);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   // Add/Edit modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -74,13 +77,17 @@ export default function CategoriesScreen() {
     repo
       .listCategories({ includeArchived: true })
       .then((list) => {
-        if (active) setCategories(list);
+        if (!active) return;
+        setLoadError(false);
+        setCategories(list);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setLoadError(true);
+      });
     return () => {
       active = false;
     };
-  }, [repo, dataVersion]);
+  }, [repo, dataVersion, reloadTick]);
 
   const filtered = useMemo(() => {
     return categories
@@ -138,6 +145,8 @@ export default function CategoriesScreen() {
       });
       setModalOpen(false);
       bumpDataVersion();
+    } catch {
+      setFormError(t('categories.errorSaveFailed'));
     } finally {
       setSaving(false);
     }
@@ -151,6 +160,9 @@ export default function CategoriesScreen() {
       setArchiveTarget(null);
       setModalOpen(false);
       bumpDataVersion();
+    } catch {
+      setArchiveTarget(null);
+      setFormError(t('categories.errorSaveFailed'));
     } finally {
       setSaving(false);
     }
@@ -199,34 +211,43 @@ export default function CategoriesScreen() {
         />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}>
-        <Card style={{ paddingVertical: theme.spacing.xs }}>
-          {filtered.map((cat, idx) => (
-            <View key={cat.id}>
-              {idx > 0 ? <View style={{ height: 1, backgroundColor: theme.colors.border }} /> : null}
-              <ListRow
-                testID={`cat-row-${cat.id}`}
-                title={cat.name}
-                subtitle={
-                  cat.archivedAt !== null
-                    ? t('categories.archivedBadge')
-                    : cat.isSelected
-                      ? t('categories.quickChipToggle')
-                      : undefined
-                }
-                left={
-                  <CategoryIcon
-                    icon={cat.icon}
-                    tone={cat.archivedAt ? 'neutral' : cat.kind === 'income' ? 'income' : 'primary'}
-                  />
-                }
-                showChevron
-                onPress={() => openEdit(cat)}
-              />
-            </View>
-          ))}
-        </Card>
-      </ScrollView>
+      {loadError ? (
+        <ErrorState
+          title={t('error.genericTitle')}
+          body={t('categories.loadError')}
+          retryLabel={t('common.retry')}
+          onRetry={() => setReloadTick((v) => v + 1)}
+        />
+      ) : (
+        <ScrollView contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}>
+          <Card style={{ paddingVertical: theme.spacing.xs }}>
+            {filtered.map((cat, idx) => (
+              <View key={cat.id}>
+                {idx > 0 ? <View style={{ height: 1, backgroundColor: theme.colors.border }} /> : null}
+                <ListRow
+                  testID={`cat-row-${cat.id}`}
+                  title={cat.name}
+                  subtitle={
+                    cat.archivedAt !== null
+                      ? t('categories.archivedBadge')
+                      : cat.isSelected
+                        ? t('categories.quickChipToggle')
+                        : undefined
+                  }
+                  left={
+                    <CategoryIcon
+                      icon={cat.icon}
+                      tone={cat.archivedAt ? 'neutral' : cat.kind === 'income' ? 'income' : 'primary'}
+                    />
+                  }
+                  showChevron
+                  onPress={() => openEdit(cat)}
+                />
+              </View>
+            ))}
+          </Card>
+        </ScrollView>
+      )}
 
       {modalOpen ? (
         <Modal

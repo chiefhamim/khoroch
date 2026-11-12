@@ -229,7 +229,7 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
               testID="insights-custom-from"
               value={fromDraft}
               onChangeText={setFromDraft}
-              placeholder="YYYY-MM-DD"
+              placeholder={t('common.dateFormatHint')}
               placeholderTextColor={theme.colors.textMuted}
               style={[
                 styles.dateInput,
@@ -249,7 +249,7 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
               testID="insights-custom-to"
               value={toDraft}
               onChangeText={setToDraft}
-              placeholder="YYYY-MM-DD"
+              placeholder={t('common.dateFormatHint')}
               placeholderTextColor={theme.colors.textMuted}
               style={[
                 styles.dateInput,
@@ -442,7 +442,7 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
                 accessibilityRole="button"
                 accessibilityLabel={t('insights.avgPerDay')}
                 onPress={() => openActivityWithQuery(windowQuery)}
-                style={{ gap: 4 }}
+                style={{ gap: theme.spacing.xs, minHeight: theme.touch.min }}
               >
                 <AppText variant="caption" color="textMuted">
                   {t('insights.avgPerDay')}
@@ -462,7 +462,7 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
                 accessibilityRole="button"
                 accessibilityLabel={t('insights.avgPerTx')}
                 onPress={() => openActivityWithQuery(windowQuery)}
-                style={{ gap: 4 }}
+                style={{ gap: theme.spacing.xs, minHeight: theme.touch.min }}
               >
                 <AppText variant="caption" color="textMuted">
                   {t('insights.avgPerTx')}
@@ -485,7 +485,7 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
                 accessibilityRole="button"
                 accessibilityLabel={t('insights.avgPerWeek')}
                 onPress={() => openActivityWithQuery(windowQuery)}
-                style={{ gap: 4 }}
+                style={{ gap: theme.spacing.xs, minHeight: theme.touch.min }}
               >
                 <AppText variant="caption" color="textMuted">
                   {t('insights.avgPerWeek')}
@@ -513,7 +513,7 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
                     toExcl: report.fullPeriodComparison.currentPeriod.endExcl,
                   })
                 }
-                style={{ gap: 4 }}
+                style={{ gap: theme.spacing.xs, minHeight: theme.touch.min }}
               >
                 <AppText variant="caption" color="textMuted">
                   {t('insights.avgMonthly', {

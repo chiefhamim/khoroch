@@ -14,6 +14,7 @@ import { AppText } from '@/ui/AppText';
 import { Card } from '@/ui/Card';
 import { CategoryIcon } from '@/ui/CategoryIcon';
 import { EmptyState } from '@/ui/EmptyState';
+import { ErrorState } from '@/ui/ErrorState';
 import { ListRow } from '@/ui/ListRow';
 import { Money } from '@/ui/Money';
 import { Screen } from '@/ui/Screen';
@@ -48,6 +49,8 @@ export default function CategoryPeriodScreen() {
   const [category, setCategory] = useState<Category | null>(null);
   const [rangeTxs, setRangeTxs] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -58,8 +61,12 @@ export default function CategoryPeriodScreen() {
           repo.listTransactionsInRange(rangeStart, rangeEndExcl),
         ]);
         if (!active) return;
+        setLoadError(false);
         setCategory(cats.find((c) => c.id === categoryId) ?? null);
         setRangeTxs(txs);
+      } catch {
+        if (!active) return;
+        setLoadError(true);
       } finally {
         if (active) setLoading(false);
       }
@@ -67,7 +74,7 @@ export default function CategoryPeriodScreen() {
     return () => {
       active = false;
     };
-  }, [repo, categoryId, rangeStart, rangeEndExcl, dataVersion]);
+  }, [repo, categoryId, rangeStart, rangeEndExcl, dataVersion, reloadTick]);
 
   const result = useMemo(
     () =>
@@ -126,7 +133,14 @@ export default function CategoryPeriodScreen() {
         </AppText>
       </Card>
 
-      {!loading && result.transactions.length === 0 ? (
+      {loadError ? (
+        <ErrorState
+          title={t('error.genericTitle')}
+          body={t('categoryDetail.loadError')}
+          retryLabel={t('common.retry')}
+          onRetry={() => setReloadTick((v) => v + 1)}
+        />
+      ) : !loading && result.transactions.length === 0 ? (
         <EmptyState
           icon="receipt-outline"
           title={titleName}

@@ -1,4 +1,4 @@
-import { formatMoney, normalizeDigits, parseMoneyInput } from './money';
+import { formatMinorToDraft, formatMoney, normalizeDigits, parseMoneyInput } from './money';
 
 describe('money parsing (TEST-CASES §1)', () => {
   it('parses valid integer and decimal inputs into minor units', () => {
@@ -39,5 +39,12 @@ describe('money formatting (TEST-CASES §1)', () => {
     expect(formatMoney(-20000000, 'BDT')).toBe('-৳ 200,000');
     expect(formatMoney(123456789, 'USD')).toBe('$1,234,567.89');
     expect(formatMoney(500000, 'EUR')).toBe('€5,000');
+  });
+
+  it('formats minor units cleanly for draft inputs without floats', () => {
+    expect(formatMinorToDraft(125000)).toBe('1250');
+    expect(formatMinorToDraft(1250)).toBe('12.5');
+    expect(formatMinorToDraft(1205)).toBe('12.05');
+    expect(formatMinorToDraft(0)).toBe('0');
   });
 });
