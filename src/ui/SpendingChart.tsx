@@ -84,6 +84,24 @@ export function SpendingChart({ currency, daily, weekly, monthly }: SpendingChar
       ? bars[selectedIndex]
       : null;
 
+  const chartSummaryLabel = useMemo(() => {
+    const totalMinor = bars.reduce((acc, b) => acc + b.spentMinor, 0);
+    if (totalMinor === 0) {
+      return t('overview.chartNoData');
+    }
+    let peak = bars[0];
+    for (const b of bars) {
+      if (b.spentMinor > peak.spentMinor) peak = b;
+    }
+    return t('overview.chartA11ySummary', {
+      mode: granularity,
+      count: bars.length,
+      total: formatMoney(totalMinor, currency),
+      peakLabel: peak.label,
+      peakAmount: formatMoney(peak.spentMinor, currency),
+    });
+  }, [bars, currency, granularity]);
+
   const handleLayout = (e: LayoutChangeEvent) => {
     const w = Math.floor(e.nativeEvent.layout.width);
     if (w > 40 && w !== plotWidth) {
@@ -144,7 +162,12 @@ export function SpendingChart({ currency, daily, weekly, monthly }: SpendingChar
       </View>
 
       <View onLayout={handleLayout} style={styles.svgContainer}>
-        <Svg width={plotWidth} height={CHART_HEIGHT}>
+        <Svg
+          width={plotWidth}
+          height={CHART_HEIGHT}
+          accessibilityRole="image"
+          accessibilityLabel={chartSummaryLabel}
+        >
           <Line
             x1={0}
             y1={TOP_PAD + PLOT_HEIGHT}

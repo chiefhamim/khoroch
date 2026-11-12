@@ -104,14 +104,14 @@ Re-read: SPEC **DECISIONS** (voice section!), §8 (skip §8.2 except digit norma
 
 ---
 
-## Phase 5 — Activity search/filters & Insights  [ ]
+## Phase 5 — Activity search/filters & Insights  [x]
 Re-read: SPEC **DECISIONS**, §11, §13, §21 · TEST-CASES §3 (comparison), §5
 
-- [ ] Activity: search by description (debounced ~250ms) · filters: type, category, date range (presets + custom), amount min/max · active-filter chips with clear · FlatList virtualization + pagination · daily totals respect filters · empty-result state
-- [ ] `src/domain/insights.ts` + tests for TEST-CASES §5 and the comparison rows of §3
-- [ ] Insights tab: period selector (this week, this month, last month, last 3 months, last 6 months, this year, custom) · MTD comparison card (with "compared to the same N days last month" label) · full-period comparison · averages (per day, per transaction, per week, monthly average over complete months) · biggest (top category, largest expense, most frequent category, most expensive day, biggest month-on-month change) · category change list · pattern sentences (only with enough data) · history chart
-- [ ] Every insight is tappable → Activity pre-filtered to the transactions behind it
-- [ ] Chart `accessibilityLabel` summarises the data in words
+- [x] Activity: search by description (debounced ~250ms) · filters: type, category, date range (presets + custom), amount min/max · active-filter chips with clear · FlatList virtualization + pagination · daily totals respect filters · empty-result state
+- [x] `src/domain/insights.ts` + tests for TEST-CASES §5 and the comparison rows of §3
+- [x] Insights tab: period selector (this week, this month, last month, last 3 months, last 6 months, this year, custom) · MTD comparison card (with "compared to the same N days last month" label) · full-period comparison · averages (per day, per transaction, per week, monthly average over complete months) · biggest (top category, largest expense, most frequent category, most expensive day, biggest month-on-month change) · category change list · pattern sentences (only with enough data) · history chart
+- [x] Every insight is tappable → Activity pre-filtered to the transactions behind it
+- [x] Chart `accessibilityLabel` summarises the data in words
 
 **Done when:**
 - CHECKS pass; §5 tests pass
@@ -189,6 +189,13 @@ Do **not** start v2 items. Instead: re-run all CHECKS, hunt for bugs (edge cases
 - Visual check: Playwright Chromium verification (`docs/screenshots/phase-4/`): 360dp Overview shortcut bar, zero-spend Daily check-in review (`Done for today` with 0 transactions), 2-tap FAB `+` → `Say or type it`, `hello` empty guidance, `lunch` → amount prompt, `spent 300 on blah` → category prompt, `Spent 500 on Uber and 200 on coffee` → 2 drafts → Confirm updates Overview (`৳ 39,300` remaining, `৳ 700` spent) & Activity & Check-in, Settings Reminders toggle/Weekdays/20:00 + Dark Quick Entry; fixed `check-in.tsx` header title wrapping beside Reviewed badge; 0 console errors/warnings/page errors.
 - Problems / BLOCKED: none
 - Decisions logged: D-005
+
+### 2026-11-13 02:01 — Phase 5 — done
+- Built: Pure Insights domain engine `src/domain/insights.ts` (`resolveInsightsWindow` with Monday week start + 7 presets, `computeMonthlyAverageOverCompleteMonths` excluding partial month, `computeCategoryMtdChanges`, gated `buildPatternSentences` requiring >=7 elapsed days and >=5 expenses in both comparison windows, `buildInsightsReport` with §5 tie-breakers) + tests (`src/domain/insights.test.ts`); `SpendingChart.tsx` interactive SVG `accessibilityRole="image"` & `accessibilityLabel`; Zustand Activity filter bridge (`src/state/activityFilterStore.ts`) + reactive `useInsights.ts`; upgraded Activity tab (`src/app/(tabs)/activity.tsx`) with 250ms debounced search bar outside `FlatList` to keep focus, `Filters` modal (type, category, date presets + custom, min/max amount), active filter chips, empty-filter state, and `LIMIT 30` keyset pagination (`src/data/sqliteRepo.ts` executes `SELECT * FROM transactions WHERE ... ORDER BY occurred_on DESC, created_at DESC, id DESC LIMIT ?` with `limit + 1`, verified over 550 seeded items in `src/data/memoryRepo.test.ts`); complete Insights tab (`src/app/(tabs)/insights.tsx`) + RNTL integration test (`src/state/insights.test.tsx`).
+- CHECKS: typecheck ✔ · lint ✔ · tests 66 passed / 66 total (13 suites) · web export ✔
+- Visual check: Playwright Chromium verification (`docs/screenshots/phase-5/`): empty DB → Insights `"Not enough data yet"` (no fake zeros); sample dataset → Activity `Load more` pagination, `Uber` search, Filters modal + chips, empty-filter clear, Insights across all 7 presets + 360/390/430dp × Light/Dark, `insight-top-category` drilldown to pre-filtered Activity, descriptive `<svg aria-label>`; added `titleNumberOfLines={3}` on `ListRow` so Spending pattern sentences wrap cleanly without truncation at 360dp; 0 console errors/warnings/page errors.
+- Problems / BLOCKED: none
+- Decisions logged: none
 
 ## Needs phone test
 - Local notifications scheduling & firing at scheduled time (everyday vs weekdays, timezone change re-sync on app start, deny permission flow → "Enable in system settings")

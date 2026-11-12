@@ -7,6 +7,7 @@ import { AppText } from './AppText';
 export interface ListRowProps {
   title: string;
   subtitle?: string;
+  titleNumberOfLines?: number;
   left?: React.ReactNode;
   right?: React.ReactNode;
   onPress?: () => void;
@@ -18,6 +19,7 @@ export interface ListRowProps {
 export function ListRow({
   title,
   subtitle,
+  titleNumberOfLines = 1,
   left,
   right,
   onPress,
@@ -40,7 +42,7 @@ export function ListRow({
     >
       {left ? <View style={styles.left}>{left}</View> : null}
       <View style={styles.center}>
-        <AppText variant="body" numberOfLines={1}>
+        <AppText variant="body" numberOfLines={titleNumberOfLines > 0 ? titleNumberOfLines : undefined}>
           {title}
         </AppText>
         {subtitle ? (

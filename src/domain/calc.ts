@@ -26,7 +26,7 @@ export function computeBudgetStatus(
   return 'ok';
 }
 
-function isInPeriodRange(occurredOn: LocalDate, start: LocalDate, endExcl: LocalDate): boolean {
+export function isInPeriodRange(occurredOn: LocalDate, start: LocalDate, endExcl: LocalDate): boolean {
   return occurredOn >= start && occurredOn < endExcl;
 }
 

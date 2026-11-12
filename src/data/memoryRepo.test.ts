@@ -169,4 +169,46 @@ describe('MemoryRepo (TEST-CASES §6)', () => {
     expect(page3.rows.map((r) => r.id)).toEqual(['tx-1']);
     expect(page3.next).toBeUndefined();
   });
+
+  it('paginates 550+ transactions strictly using LIMIT and filtered queries', async () => {
+    const repo = new MemoryRepo();
+    const txs = Array.from({ length: 550 }, (_, i) => {
+      const day = String((i % 28) + 1).padStart(2, '0');
+      const month = i < 275 ? '10' : '11';
+      return {
+        id: `bulk-${i}`,
+        type: (i % 10 === 0 ? 'income' : 'expense') as 'income' | 'expense',
+        amountMinor: (i + 1) * 100,
+        currency: 'BDT' as const,
+        categoryId: i % 2 === 0 ? 'food_dining' : 'transportation',
+        description: i % 5 === 0 ? `Uber ride ${i}` : `Coffee shop ${i}`,
+        occurredOn: `2026-${month}-${day}`,
+        createdAt: 10_000 + i,
+      };
+    });
+    await repo.insertTransactionsBatch(txs);
+
+    // Filtered search by description + type uses LIMIT 30 per page
+    const page1 = await repo.searchTransactions(
+      { search: 'uber', type: 'expense' },
+      { limit: 30 }
+    );
+    expect(page1.rows).toHaveLength(30);
+    expect(page1.next).toBeDefined();
+
+    // Unfiltered walk across pages covers all 550 without loading everything in 1 query
+    let cursor: string | undefined;
+    let totalFetched = 0;
+    let pageCount = 0;
+    do {
+      const page = await repo.searchTransactions({}, { limit: 30, cursor });
+      expect(page.rows.length).toBeLessThanOrEqual(30);
+      totalFetched += page.rows.length;
+      cursor = page.next;
+      pageCount += 1;
+    } while (cursor);
+
+    expect(totalFetched).toBe(550);
+    expect(pageCount).toBe(Math.ceil(550 / 30));
+  });
 });
