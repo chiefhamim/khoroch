@@ -150,6 +150,57 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         </Pressable>
       </View>
 
+      {/* 1-tap shortcuts: Quick Entry & Daily Check-in */}
+      <View style={[styles.quickBar, { gap: theme.spacing.sm }]}>
+        <Pressable
+          testID="overview-quick-entry-btn"
+          accessibilityRole="button"
+          accessibilityLabel={t('quickEntry.overviewQuickCta')}
+          onPress={() => router.push('/quick-entry')}
+          style={({ pressed }) => [
+            styles.quickPill,
+            {
+              minHeight: theme.touch.min,
+              borderRadius: theme.radius.md,
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              paddingHorizontal: theme.spacing.md,
+              gap: theme.spacing.xs,
+              opacity: pressed && !reducedMotion ? 0.75 : 1,
+            },
+          ]}
+        >
+          <Ionicons name="sparkles-outline" size={18} color={theme.colors.primary} />
+          <AppText variant="label" color="text" numberOfLines={1}>
+            {t('quickEntry.overviewQuickCta')}
+          </AppText>
+        </Pressable>
+
+        <Pressable
+          testID="overview-check-in-btn"
+          accessibilityRole="button"
+          accessibilityLabel={t('quickEntry.overviewCheckInCta')}
+          onPress={() => router.push('/check-in')}
+          style={({ pressed }) => [
+            styles.quickPill,
+            {
+              minHeight: theme.touch.min,
+              borderRadius: theme.radius.md,
+              backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.border,
+              paddingHorizontal: theme.spacing.md,
+              gap: theme.spacing.xs,
+              opacity: pressed && !reducedMotion ? 0.75 : 1,
+            },
+          ]}
+        >
+          <Ionicons name="checkmark-done-outline" size={18} color={theme.colors.primary} />
+          <AppText variant="label" color="text" numberOfLines={1}>
+            {t('quickEntry.overviewCheckInCta')}
+          </AppText>
+        </Pressable>
+      </View>
+
       {summary.ignoredOtherCurrencyCount > 0 ? (
         <Card tone="alt">
           <AppText variant="caption" color="textMuted">
@@ -554,5 +605,17 @@ const styles = StyleSheet.create({
   highlightValRight: {
     flexShrink: 1,
     textAlign: 'right',
+  },
+  quickBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  quickPill: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
   },
 });

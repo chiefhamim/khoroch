@@ -84,16 +84,16 @@ Re-read: SPEC **DECISIONS**, §6, §10, §17 · ARCHITECTURE §5, §6 · TEST-CA
 
 ---
 
-## Phase 4 — Quick Entry, Voice, Reminders, Check-in  [ ]
+## Phase 4 — Quick Entry, Voice, Reminders, Check-in  [x]
 Re-read: SPEC **DECISIONS** (voice section!), §8 (skip §8.2 except digit normalisation), §12, §22 · TEST-CASES §4
 
-- [ ] `src/voice/parser.ts` + tests for **every** row in TEST-CASES §4
-- [ ] `quick-entry` screen: text box with example placeholder · Parse → review list of drafts (each editable: type, amount, category, description, date; remove item) · missing amount / category clearly requested · **Confirm** saves all (source `quick` or `voice`) · nothing saved without Confirm
-- [ ] Reachable in ≤ 2 taps from Overview (e.g. Add → "Say or type it")
-- [ ] `src/voice/speech.ts`: try `npx expo install expo-speech-recognition` + config plugin. Expose `isAvailable()`. Mic button only rendered when available; explains permission before asking; transcript shown live; on error → falls back to text. 3-strike rule → BLOCKED, text entry ships alone.
-- [ ] Reminders: `expo-notifications`; Settings → Reminders (on/off, time, every day / weekdays); explain-before-permission screen; if denied, don't ask again (store flag; show "Enable in system settings"); content has **no amounts**; tap opens `check-in`; reschedule on app start (covers timezone change); guarded on web
-- [ ] Pure scheduling logic in `src/notifications/reminders.ts` with tests (everyday vs weekdays → which triggers; time parsing; disabled → cancel all)
-- [ ] `check-in` screen: today's expenses, income, count · quick Add · "Done for today" → `day_reviews` (works with zero spending, never creates fake transactions)
+- [x] `src/voice/parser.ts` + tests for **every** row in TEST-CASES §4
+- [x] `quick-entry` screen: text box with example placeholder · Parse → review list of drafts (each editable: type, amount, category, description, date; remove item) · missing amount / category clearly requested · **Confirm** saves all (source `quick` or `voice`) · nothing saved without Confirm
+- [x] Reachable in ≤ 2 taps from Overview (e.g. Add → "Say or type it")
+- [x] `src/voice/speech.ts`: try `npx expo install expo-speech-recognition` + config plugin. Expose `isAvailable()`. Mic button only rendered when available; explains permission before asking; transcript shown live; on error → falls back to text. 3-strike rule → BLOCKED, text entry ships alone.
+- [x] Reminders: `expo-notifications`; Settings → Reminders (on/off, time, every day / weekdays); explain-before-permission screen; if denied, don't ask again (store flag; show "Enable in system settings"); content has **no amounts**; tap opens `check-in`; reschedule on app start (covers timezone change); guarded on web
+- [x] Pure scheduling logic in `src/notifications/reminders.ts` with tests (everyday vs weekdays → which triggers; time parsing; disabled → cancel all)
+- [x] `check-in` screen: today's expenses, income, count · quick Add · "Done for today" → `day_reviews` (works with zero spending, never creates fake transactions)
 
 **Done when:**
 - CHECKS pass; all TEST-CASES §4 rows pass
@@ -182,6 +182,18 @@ Do **not** start v2 items. Instead: re-run all CHECKS, hunt for bugs (edge cases
 - Visual check: Playwright Chromium verification across 360, 390, and 430px × light/dark with sample data (`docs/screenshots/phase-3/`), interactive Daily/Weekly/Monthly chart bar taps, metric ⓘ formula modal, category drilldown, per-category budget creation, and over-budget (`৳ 100`) test; fixed React Native Web `<Modal>` stale overlay issue on rapid open/close by conditionally mounting modals only when visible; 0 console errors/warnings/page errors.
 - Problems / BLOCKED: none
 - Decisions logged: D-004
+
+### 2026-11-13 01:48 — Phase 4 — done
+- Built: Local natural-language parser `src/voice/parser.ts` (Bangla digit normalization via `normalizeDigits`, number words `zero–nineteen` + tens + `hundred`/`thousand`/`k`/`lakh`/`lac`, English/Bangla currency words, multi-clause splitting, `yesterday`/`today`/ISO dates, income verbs, keyword map, explicit `needsAmount`/`needsCategory` without guessing) + tests covering every row in TEST-CASES §4 (`parser.test.ts`); `src/voice/speech.ts` (installed `expo-speech-recognition` + config plugin, guarded lazy native loader skipping Expo Go `StoreClient`, `isAvailable()`, explain-before-permission, live transcript + error fallback); `src/notifications/reminders.ts` (installed `expo-notifications` + plugin, pure trigger builder `buildReminderTriggerSpecs` + `parseReminderTime`, non-amount content, Android/iOS guarded scheduler, app-start rescheduling & tap → `/check-in` deep link in `_layout.tsx`) + unit tests (`reminders.test.ts`); `src/app/quick-entry.tsx` (1-tap from Overview + 2-tap via `+` → `Say or type it`); `src/app/check-in.tsx` + `summarizeDayActivity` in `calc.ts`; Settings → Reminders controls + explain modal + denied-permission system-settings notice in `settings.tsx`.
+- CHECKS: typecheck ✔ · lint ✔ · tests 59 passed / 59 total (11 suites) · web export ✔
+- Visual check: Playwright Chromium verification (`docs/screenshots/phase-4/`): 360dp Overview shortcut bar, zero-spend Daily check-in review (`Done for today` with 0 transactions), 2-tap FAB `+` → `Say or type it`, `hello` empty guidance, `lunch` → amount prompt, `spent 300 on blah` → category prompt, `Spent 500 on Uber and 200 on coffee` → 2 drafts → Confirm updates Overview (`৳ 39,300` remaining, `৳ 700` spent) & Activity & Check-in, Settings Reminders toggle/Weekdays/20:00 + Dark Quick Entry; fixed `check-in.tsx` header title wrapping beside Reviewed badge; 0 console errors/warnings/page errors.
+- Problems / BLOCKED: none
+- Decisions logged: D-005
+
+## Needs phone test
+- Local notifications scheduling & firing at scheduled time (everyday vs weekdays, timezone change re-sync on app start, deny permission flow → "Enable in system settings")
+- Microphone voice entry (`expo-speech-recognition` requires an Android/iOS development build; hidden automatically in Expo Go without crashing)
+- Tapping a delivered daily reminder notification deep-links straight to `/check-in`
 
 ## Morning summary
 <!-- Agent writes this at the very end:

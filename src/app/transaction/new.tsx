@@ -78,6 +78,30 @@ export default function NewTransactionScreen() {
         </Pressable>
       </View>
 
+      <Pressable
+        testID="new-tx-quick-entry"
+        accessibilityRole="button"
+        accessibilityLabel={t('quickEntry.shortcutBtn')}
+        onPress={() => router.replace('/quick-entry')}
+        style={[
+          styles.quickBanner,
+          {
+            minHeight: theme.touch.min,
+            borderRadius: theme.radius.md,
+            backgroundColor: theme.colors.primarySoft,
+            borderColor: theme.colors.border,
+            paddingHorizontal: theme.spacing.md,
+            gap: theme.spacing.sm,
+          },
+        ]}
+      >
+        <Ionicons name="sparkles-outline" size={18} color={theme.colors.primary} />
+        <AppText variant="label" color="primary" style={{ flex: 1 }}>
+          {t('quickEntry.shortcutBtn')}
+        </AppText>
+        <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
+      </Pressable>
+
       <TransactionForm
         currency={settings.currency}
         categories={categories}
@@ -97,5 +121,10 @@ const styles = StyleSheet.create({
   closeBtn: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  quickBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
   },
 });

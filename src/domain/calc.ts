@@ -599,3 +599,44 @@ export function summarizeCategoryExpenses(
   };
 }
 
+export interface DayActivitySummary {
+  expenseMinor: number;
+  incomeMinor: number;
+  count: number;
+  transactions: Transaction[];
+}
+
+export function summarizeDayActivity(
+  transactions: readonly Transaction[],
+  date: LocalDate,
+  currency: CurrencyCode
+): DayActivitySummary {
+  let expenseMinor = 0;
+  let incomeMinor = 0;
+  const matching: Transaction[] = [];
+
+  for (const tx of transactions) {
+    if (tx.deletedAt != null) continue;
+    if (tx.occurredOn !== date) continue;
+    matching.push(tx);
+    if (tx.currency !== currency) continue;
+    if (tx.type === 'expense') {
+      expenseMinor += tx.amountMinor;
+    } else {
+      incomeMinor += tx.amountMinor;
+    }
+  }
+
+  matching.sort((a, b) => {
+    if (b.createdAt !== a.createdAt) return b.createdAt - a.createdAt;
+    return a.id.localeCompare(b.id);
+  });
+
+  return {
+    expenseMinor,
+    incomeMinor,
+    count: matching.length,
+    transactions: matching,
+  };
+}
+

@@ -15,6 +15,11 @@ import { initRepo } from '@/data/db';
 import { DEFAULT_SETTINGS, type Repo } from '@/data/repo';
 import type { Settings } from '@/domain/types';
 import { t } from '@/i18n';
+import {
+  configureNotificationHandler,
+  subscribeToCheckInResponses,
+  syncReminderSchedule,
+} from '@/notifications/reminders';
 import { AppContext, useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { ThemeProvider } from '@/theme/ThemeProvider';
@@ -23,6 +28,7 @@ import { ErrorState } from '@/ui/ErrorState';
 import { Screen } from '@/ui/Screen';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+configureNotificationHandler();
 
 function AppNavigator() {
   const { colorScheme, theme } = useTheme();
@@ -40,6 +46,13 @@ function AppNavigator() {
       router.replace('/(tabs)');
     }
   }, [navigationState?.key, settings.onboardingDone, segments, router]);
+
+  useEffect(() => {
+    if (!navigationState?.key || !settings.onboardingDone) return;
+    return subscribeToCheckInResponses(() => {
+      router.push('/check-in');
+    });
+  }, [navigationState?.key, settings.onboardingDone, router]);
 
   return (
     <>
@@ -60,6 +73,14 @@ function AppNavigator() {
           }}
         />
         <Stack.Screen name="transaction/[id]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="quick-entry"
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen name="check-in" options={{ headerShown: false }} />
         <Stack.Screen name="settings/categories" options={{ headerShown: false }} />
         <Stack.Screen name="category/[id]" options={{ headerShown: false }} />
       </Stack>
@@ -91,6 +112,10 @@ export default function RootLayout() {
         const settings = await repo.getSettings();
         if (!cancelled) {
           setRepoState({ repo, backend, settings });
+          if (settings.onboardingDone && settings.reminder.enabled && !settings.notificationPermissionDenied) {
+            // Re-sync on app start so timezone changes take effect without duplicate triggers.
+            syncReminderSchedule(settings.reminder).catch(() => {});
+          }
         }
       } catch {
         if (!cancelled) {

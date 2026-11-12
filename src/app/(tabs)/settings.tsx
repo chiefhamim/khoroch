@@ -1,12 +1,24 @@
 import React, { useState } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { Linking, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { buildSampleTransactions } from '@/data/sampleData';
 import { todayLocalDate } from '@/domain/dates';
 import { getPeriod } from '@/domain/period';
-import { CURRENCIES, type CurrencyCode, type ThemePreference } from '@/domain/types';
+import {
+  CURRENCIES,
+  type CurrencyCode,
+  type ReminderDays,
+  type ThemePreference,
+} from '@/domain/types';
 import { t } from '@/i18n';
+import {
+  getNotificationPermissionStatus,
+  isNotificationsSupported,
+  parseReminderTime,
+  requestNotificationPermission,
+  syncReminderSchedule,
+} from '@/notifications/reminders';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useSettings } from '@/state/useSettings';
 import { useTheme } from '@/theme/useTheme';
@@ -36,6 +48,69 @@ export default function SettingsScreen() {
   const [savedFlag, setSavedFlag] = useState(false);
   const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
   const [busy, setBusy] = useState(false);
+  const [reminderTimeOverride, setReminderTimeOverride] = useState<string | null>(null);
+  const [reminderTimeError, setReminderTimeError] = useState<string | null>(null);
+  const [reminderExplainOpen, setReminderExplainOpen] = useState(false);
+
+  const reminderTimeDraft = reminderTimeOverride ?? settings.reminder.time;
+
+  const applyReminderUpdate = async (nextReminder: typeof settings.reminder) => {
+    await updateSetting('reminder', nextReminder);
+    await syncReminderSchedule(nextReminder);
+  };
+
+  const handleToggleReminder = async (nextEnabled: boolean) => {
+    if (!nextEnabled) {
+      await applyReminderUpdate({ ...settings.reminder, enabled: false });
+      return;
+    }
+
+    if (!isNotificationsSupported()) {
+      await applyReminderUpdate({ ...settings.reminder, enabled: true });
+      return;
+    }
+
+    if (settings.notificationPermissionDenied) {
+      return;
+    }
+
+    const status = await getNotificationPermissionStatus();
+    if (status === 'granted') {
+      await applyReminderUpdate({ ...settings.reminder, enabled: true });
+      return;
+    }
+
+    if (status === 'denied') {
+      await updateSetting('notificationPermissionDenied', true);
+      await applyReminderUpdate({ ...settings.reminder, enabled: false });
+      return;
+    }
+
+    setReminderExplainOpen(true);
+  };
+
+  const handleConfirmReminderPermission = async () => {
+    setReminderExplainOpen(false);
+    const result = await requestNotificationPermission();
+    if (result === 'granted') {
+      await updateSetting('notificationPermissionDenied', false);
+      await applyReminderUpdate({ ...settings.reminder, enabled: true });
+    } else {
+      await updateSetting('notificationPermissionDenied', true);
+      await applyReminderUpdate({ ...settings.reminder, enabled: false });
+    }
+  };
+
+  const handleSaveReminderTime = async (candidate: string) => {
+    const trimmed = candidate.trim();
+    if (!parseReminderTime(trimmed)) {
+      setReminderTimeError(t('settings.reminderInvalidTime'));
+      return;
+    }
+    setReminderTimeError(null);
+    setReminderTimeOverride(null);
+    await applyReminderUpdate({ ...settings.reminder, time: trimmed });
+  };
 
   const handleSaveName = async () => {
     const trimmed = nameDraft.trim();
@@ -229,6 +304,145 @@ export default function SettingsScreen() {
         </View>
       </Card>
 
+      <SectionHeader title={t('settings.sectionReminders')} />
+      <Card style={{ gap: theme.spacing.md }}>
+        <View style={[styles.toggleRow, { minHeight: theme.touch.min }]}>
+          <View style={styles.toggleText}>
+            <AppText variant="heading">{t('settings.reminderToggle')}</AppText>
+            <AppText variant="caption" color="textMuted">
+              {settings.reminder.enabled ? t('common.on') : t('common.off')}
+            </AppText>
+          </View>
+          <Switch
+            testID="settings-reminder-switch"
+            accessibilityLabel={t('settings.reminderToggle')}
+            value={settings.reminder.enabled && !settings.notificationPermissionDenied}
+            onValueChange={(val) => void handleToggleReminder(val)}
+            trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+            thumbColor={theme.colors.surface}
+          />
+        </View>
+
+        {settings.notificationPermissionDenied ? (
+          <View
+            testID="settings-reminder-denied-box"
+            style={{
+              backgroundColor: theme.colors.surfaceAlt,
+              borderRadius: theme.radius.md,
+              padding: theme.spacing.md,
+              gap: theme.spacing.sm,
+            }}
+          >
+            <AppText variant="caption" color="danger">
+              {t('settings.reminderBlockedNotice')}
+            </AppText>
+            <Button
+              testID="settings-open-system-settings"
+              title={t('settings.openSystemSettings')}
+              variant="secondary"
+              onPress={() => {
+                Linking.openSettings().catch(() => {});
+              }}
+            />
+          </View>
+        ) : null}
+
+        {settings.reminder.enabled && !settings.notificationPermissionDenied ? (
+          <View style={{ gap: theme.spacing.md }}>
+            <View style={{ gap: theme.spacing.xs }}>
+              <AppText variant="label" color="textMuted">
+                {t('settings.reminderDaysLabel')}
+              </AppText>
+              <SegmentedControl<ReminderDays>
+                value={settings.reminder.days}
+                onChange={(days) =>
+                  void applyReminderUpdate({ ...settings.reminder, days })
+                }
+                options={[
+                  { value: 'everyday', label: t('onboarding.reminderEveryDay') },
+                  { value: 'weekdays', label: t('onboarding.reminderWeekdays') },
+                ]}
+              />
+            </View>
+
+            <View style={{ gap: theme.spacing.xs }}>
+              <AppText variant="label" color="textMuted">
+                {t('settings.reminderTimeLabel')}
+              </AppText>
+              <View style={[styles.rowWrap, { gap: theme.spacing.sm }]}>
+                {(['20:00', '21:00', '22:00'] as const).map((preset) => (
+                  <Chip
+                    key={preset}
+                    testID={`settings-reminder-time-${preset}`}
+                    label={preset}
+                    selected={settings.reminder.time === preset}
+                    onPress={() => void handleSaveReminderTime(preset)}
+                  />
+                ))}
+              </View>
+              <View style={[styles.nameRow, { gap: theme.spacing.sm }]}>
+                <TextInput
+                  testID="settings-reminder-time-input"
+                  value={reminderTimeDraft}
+                  onChangeText={(txt) => {
+                    setReminderTimeOverride(txt);
+                    if (reminderTimeError) setReminderTimeError(null);
+                  }}
+                  onEndEditing={() => void handleSaveReminderTime(reminderTimeDraft)}
+                  placeholder="21:00"
+                  placeholderTextColor={theme.colors.textMuted}
+                  maxLength={5}
+                  style={[
+                    styles.input,
+                    {
+                      flex: 1,
+                      minWidth: 0,
+                      minHeight: theme.touch.min,
+                      borderColor: reminderTimeError ? theme.colors.danger : theme.colors.border,
+                      backgroundColor: theme.colors.surfaceAlt,
+                      borderRadius: theme.radius.md,
+                      paddingHorizontal: theme.spacing.md,
+                      color: theme.colors.text,
+                      fontFamily: theme.typography.body.fontFamily,
+                      fontSize: theme.typography.body.fontSize,
+                    },
+                  ]}
+                />
+                {reminderTimeDraft.trim() !== settings.reminder.time ? (
+                  <Button
+                    testID="settings-reminder-time-save"
+                    title={t('settings.reminderTimeSave')}
+                    variant="secondary"
+                    onPress={() => void handleSaveReminderTime(reminderTimeDraft)}
+                  />
+                ) : null}
+              </View>
+              {reminderTimeError ? (
+                <AppText variant="caption" color="danger">
+                  {reminderTimeError}
+                </AppText>
+              ) : null}
+            </View>
+
+            {!isNotificationsSupported() ? (
+              <AppText variant="caption" color="textMuted">
+                {t('settings.reminderWebNote')}
+              </AppText>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View style={{ height: 1, backgroundColor: theme.colors.border }} />
+        <ListRow
+          testID="settings-checkin-row"
+          title={t('settings.checkInRow')}
+          subtitle={t('settings.checkInSubtitle')}
+          left={<Ionicons name="checkmark-done-outline" size={20} color={theme.colors.primary} />}
+          showChevron
+          onPress={() => router.push('/check-in')}
+        />
+      </Card>
+
       <SectionHeader title={t('settings.sectionData')} />
       <Card style={{ gap: theme.spacing.md }}>
         <ListRow
@@ -313,6 +527,16 @@ export default function SettingsScreen() {
           if (!busy) setDeleteStep(0);
         }}
       />
+
+      <ConfirmModal
+        visible={reminderExplainOpen}
+        title={t('settings.reminderExplainTitle')}
+        body={t('settings.reminderExplainBody')}
+        confirmLabel={t('settings.reminderExplainContinue')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={() => void handleConfirmReminderPermission()}
+        onCancel={() => setReminderExplainOpen(false)}
+      />
     </Screen>
   );
 }
@@ -341,5 +565,15 @@ const styles = StyleSheet.create({
   dayValue: {
     flex: 1,
     alignItems: 'center',
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  toggleText: {
+    flex: 1,
+    gap: 2,
   },
 });

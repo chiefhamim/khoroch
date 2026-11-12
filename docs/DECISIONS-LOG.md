@@ -51,3 +51,11 @@ Format:
 - Options considered: Integer rounding (`41%`) / 1 decimal place rounded when non-integer (`41.1%`, omitting `.0` so `40%` stays `40%`).
 - Chose: 1 decimal place rounded half-up when non-integer (`41.1%` for Scenario A `41.125%`, stripping `.0` for exact integers like `40%` and `100%`), because integer rounding can visually show `"70%"` at `69.6%` while status is still `'ok'`, creating threshold confusion.
 - Easy to reverse? Yes — single `formatUtilizationPct` helper in `src/domain/calc.ts`.
+
+## D-005 — Weekdays reminder definition & lazy speech module guard  (Phase 4, 2026-11-13 01:48)
+- Question: Which days should `"Weekdays"` schedule for local check-in reminders, and how should `expo-speech-recognition` load so Expo Go doesn't crash when the native module isn't compiled in?
+- Options considered: Monday–Friday (`[2..6]`) vs Sunday–Thursday (Bangladesh workweek) / Lazy `require` guarded by `ExecutionEnvironment.StoreClient` check vs static top-level import.
+- Chose:
+  1. Monday–Friday (`WEEKDAY_NUMBERS = [2, 3, 4, 5, 6]` in Expo Notifications convention where Sunday = 1) as standard `weekdays` repeat option alongside `everyday`.
+  2. Lazy guarded `require('expo-speech-recognition')` inside `src/voice/speech.ts` skipping `StoreClient` (Expo Go), because static top-level import throws `Cannot find native module 'ExpoSpeechRecognition'` at bundle eval time in Expo Go even before `isAvailable()` is called.
+- Easy to reverse? Yes — `WEEKDAY_NUMBERS` in `src/notifications/reminders.ts` and `loadSpeechModule()` in `src/voice/speech.ts`.

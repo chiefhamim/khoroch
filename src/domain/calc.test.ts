@@ -10,6 +10,7 @@ import {
   summarize,
   summarizeBudgetAllocation,
   summarizeCategoryExpenses,
+  summarizeDayActivity,
 } from './calc';
 import { buildRecentPeriodWindows, getPeriod } from './period';
 import type { Budget, Transaction } from './types';
@@ -368,5 +369,19 @@ describe('month comparisons (TEST-CASES §3)', () => {
     expect(windows).toHaveLength(6);
     expect(windows[0].start).toBe('2026-06-01');
     expect(windows[5].start).toBe('2026-11-01');
+
+    const daySummary = summarizeDayActivity(
+      [
+        makeTx({ id: 'd1', amountMinor: 50000, occurredOn: '2026-11-13' }),
+        makeTx({ id: 'd2', type: 'income', amountMinor: 100000, occurredOn: '2026-11-13' }),
+        makeTx({ id: 'd3', amountMinor: 20000, occurredOn: '2026-11-12' }),
+        makeTx({ id: 'd4', amountMinor: 90000, occurredOn: '2026-11-13', deletedAt: 1000 }),
+      ],
+      '2026-11-13',
+      'BDT'
+    );
+    expect(daySummary.expenseMinor).toBe(50000);
+    expect(daySummary.incomeMinor).toBe(100000);
+    expect(daySummary.count).toBe(2);
   });
 });
