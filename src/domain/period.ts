@@ -62,3 +62,22 @@ export function remainingDays(period: Period, today: LocalDate): number {
   if (today >= period.endExcl) return 0;
   return diffDays(period.endExcl, today);
 }
+
+/**
+ * Returns `count` consecutive periods ending at `getPeriod(today, monthStartDay)` ordered oldest to newest.
+ */
+export function buildRecentPeriodWindows(
+  today: LocalDate,
+  monthStartDay: number,
+  count: number
+): Period[] {
+  const n = Math.max(1, Math.floor(count));
+  const out: Period[] = [];
+  let cursor = getPeriod(today, monthStartDay);
+  out.push(cursor);
+  for (let i = 1; i < n; i++) {
+    cursor = previousPeriod(cursor, monthStartDay);
+    out.push(cursor);
+  }
+  return out.reverse();
+}

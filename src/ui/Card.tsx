@@ -7,9 +7,10 @@ export interface CardProps {
   tone?: 'surface' | 'alt' | 'soft';
   padded?: boolean;
   style?: StyleProp<ViewStyle>;
+  testID?: string;
 }
 
-export function Card({ children, tone = 'surface', padded = true, style }: CardProps) {
+export function Card({ children, tone = 'surface', padded = true, style, testID }: CardProps) {
   const { theme } = useTheme();
   const backgroundColor =
     tone === 'alt'
@@ -20,6 +21,7 @@ export function Card({ children, tone = 'surface', padded = true, style }: CardP
 
   return (
     <View
+      testID={testID}
       style={[
         styles.card,
         {

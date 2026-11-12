@@ -29,10 +29,11 @@ export function ConfirmModal({
   onCancel,
 }: ConfirmModalProps) {
   const { theme } = useTheme();
+  if (!visible) return null;
 
   return (
     <Modal
-      visible={visible}
+      visible
       transparent
       animationType="fade"
       onRequestClose={onCancel}

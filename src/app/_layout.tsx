@@ -61,6 +61,7 @@ function AppNavigator() {
         />
         <Stack.Screen name="transaction/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="settings/categories" options={{ headerShown: false }} />
+        <Stack.Screen name="category/[id]" options={{ headerShown: false }} />
       </Stack>
     </>
   );

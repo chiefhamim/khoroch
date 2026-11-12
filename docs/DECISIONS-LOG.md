@@ -45,3 +45,9 @@ Format:
 - Options considered: Allow archiving any category (risking zero active categories for new entries or unassigned quick-entry fallbacks) / Keep `other` and `other_income` protected from archiving while letting all other built-in and custom categories be edited or archived.
 - Chose: Protect `other` and `other_income` from archiving in `src/app/settings/categories.tsx`, while still letting them be renamed/re-iconed or toggled as quick chips.
 - Easy to reverse? Yes — single `PROTECTED_CATEGORY_IDS` set in `src/app/settings/categories.tsx`.
+
+## D-004 — Budget utilization percentage precision (`41.1%`)  (Phase 3, 2026-11-13 01:29)
+- Question: Should budget utilization percentages display as rounded integers (`41%`) or with 1 decimal place when fractional (`41.1%`)?
+- Options considered: Integer rounding (`41%`) / 1 decimal place rounded when non-integer (`41.1%`, omitting `.0` so `40%` stays `40%`).
+- Chose: 1 decimal place rounded half-up when non-integer (`41.1%` for Scenario A `41.125%`, stripping `.0` for exact integers like `40%` and `100%`), because integer rounding can visually show `"70%"` at `69.6%` while status is still `'ok'`, creating threshold confusion.
+- Easy to reverse? Yes — single `formatUtilizationPct` helper in `src/domain/calc.ts`.

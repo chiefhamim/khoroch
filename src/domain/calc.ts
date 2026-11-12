@@ -472,3 +472,130 @@ export function groupTransactionsByDate(
   return groups;
 }
 
+/**
+ * Formats utilization percentage to at most 1 decimal place (omitting `.0`).
+ */
+export function formatUtilizationPct(pct: number): string {
+  const roundedTenths = Math.round(pct * 10);
+  if (roundedTenths % 10 === 0) {
+    return `${Math.floor(roundedTenths / 10)}%`;
+  }
+  return `${(roundedTenths / 10).toFixed(1)}%`;
+}
+
+export interface CategoryBreakdownSlice {
+  categoryId: string | null;
+  spentMinor: number;
+  count: number;
+  sharePct: number;
+  isOtherGroup: boolean;
+}
+
+/**
+ * Groups spendByCategory output into at most `maxCategories` top items plus an aggregated
+ * "Other" bucket when more categories exist.
+ */
+export function buildCategoryBreakdown(
+  items: readonly CategorySpend[],
+  totalSpentMinor: number,
+  maxCategories: number = 5
+): CategoryBreakdownSlice[] {
+  if (items.length === 0) return [];
+  const denom = totalSpentMinor > 0 ? totalSpentMinor : 1;
+
+  if (items.length <= maxCategories) {
+    return items.map((item) => ({
+      categoryId: item.categoryId,
+      spentMinor: item.spentMinor,
+      count: item.count,
+      sharePct: (item.spentMinor / denom) * 100,
+      isOtherGroup: false,
+    }));
+  }
+
+  const top: CategoryBreakdownSlice[] = items.slice(0, maxCategories).map((item) => ({
+    categoryId: item.categoryId,
+    spentMinor: item.spentMinor,
+    count: item.count,
+    sharePct: (item.spentMinor / denom) * 100,
+    isOtherGroup: false,
+  }));
+
+  let restSpent = 0;
+  let restCount = 0;
+  for (const item of items.slice(maxCategories)) {
+    restSpent += item.spentMinor;
+    restCount += item.count;
+  }
+
+  if (restSpent > 0) {
+    top.push({
+      categoryId: null,
+      spentMinor: restSpent,
+      count: restCount,
+      sharePct: (restSpent / denom) * 100,
+      isOtherGroup: true,
+    });
+  }
+
+  return top;
+}
+
+export interface BudgetAllocationSummary {
+  overallBudgetMinor: number | null;
+  allocatedMinor: number;
+  unallocatedMinor: number | null; // negative means category budgets exceed overall budget
+}
+
+export function summarizeBudgetAllocation(
+  overallBudgetMinor: number | null,
+  categoryBudgets: readonly CategoryBudgetItem[]
+): BudgetAllocationSummary {
+  let allocatedMinor = 0;
+  for (const b of categoryBudgets) {
+    allocatedMinor += b.budgetMinor;
+  }
+  return {
+    overallBudgetMinor,
+    allocatedMinor,
+    unallocatedMinor: overallBudgetMinor !== null ? overallBudgetMinor - allocatedMinor : null,
+  };
+}
+
+export interface CategoryPeriodExpenses {
+  transactions: Transaction[];
+  spentMinor: number;
+  count: number;
+}
+
+export function summarizeCategoryExpenses(
+  transactions: readonly Transaction[],
+  period: Pick<Period, 'start' | 'endExcl'>,
+  categoryId: string,
+  currency: CurrencyCode
+): CategoryPeriodExpenses {
+  let spentMinor = 0;
+  const filtered: Transaction[] = [];
+
+  for (const tx of transactions) {
+    if (tx.deletedAt != null) continue;
+    if (tx.currency !== currency || tx.type !== 'expense') continue;
+    if (!isInPeriodRange(tx.occurredOn, period.start, period.endExcl)) continue;
+    if ((tx.categoryId ?? 'other') !== categoryId) continue;
+    filtered.push(tx);
+    spentMinor += tx.amountMinor;
+  }
+
+  filtered.sort((a, b) => {
+    if (b.occurredOn !== a.occurredOn) return b.occurredOn.localeCompare(a.occurredOn);
+    if (b.createdAt !== a.createdAt) return b.createdAt - a.createdAt;
+    return a.id.localeCompare(b.id);
+  });
+
+  return {
+    transactions: filtered,
+    spentMinor,
+    count: filtered.length,
+  };
+}
+

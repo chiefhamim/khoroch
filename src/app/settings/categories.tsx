@@ -228,129 +228,131 @@ export default function CategoriesScreen() {
         </Card>
       </ScrollView>
 
-      <Modal
-        visible={modalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setModalOpen(false)}
-      >
-        <View style={[styles.backdrop, { padding: theme.spacing.xl }]}>
-          <Card style={[styles.dialog, { gap: theme.spacing.md }]}>
-            <AppText variant="title">
-              {editingCat ? t('categories.editTitle') : t('categories.newTitle')}
-            </AppText>
-
-            <View style={{ gap: theme.spacing.xs }}>
-              <AppText variant="label" color="textMuted">
-                {t('categories.nameLabel')}
+      {modalOpen ? (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setModalOpen(false)}
+        >
+          <View style={[styles.backdrop, { padding: theme.spacing.xl }]}>
+            <Card style={[styles.dialog, { gap: theme.spacing.md }]}>
+              <AppText variant="title">
+                {editingCat ? t('categories.editTitle') : t('categories.newTitle')}
               </AppText>
-              <TextInput
-                testID="category-name-input"
-                value={nameInput}
-                onChangeText={setNameInput}
-                placeholder={t('categories.namePlaceholder')}
-                placeholderTextColor={theme.colors.textMuted}
-                maxLength={40}
-                style={[
-                  styles.input,
-                  {
-                    minHeight: theme.touch.min,
-                    borderColor: theme.colors.border,
-                    backgroundColor: theme.colors.surfaceAlt,
-                    borderRadius: theme.radius.md,
-                    paddingHorizontal: theme.spacing.md,
-                    color: theme.colors.text,
-                    fontFamily: theme.typography.body.fontFamily,
-                    fontSize: theme.typography.body.fontSize,
-                  },
-                ]}
-              />
-            </View>
 
-            <View style={{ gap: theme.spacing.xs }}>
-              <AppText variant="label" color="textMuted">
-                {t('categories.iconLabel')}
-              </AppText>
-              <View style={[styles.iconGrid, { gap: theme.spacing.sm }]}>
-                {ICON_OPTIONS.map((ic) => {
-                  const active = iconInput === ic;
-                  return (
-                    <Pressable
-                      key={ic}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Icon ${ic}`}
-                      onPress={() => setIconInput(ic)}
-                      style={[
-                        styles.iconChoice,
-                        {
-                          width: theme.touch.min,
-                          height: theme.touch.min,
-                          borderRadius: theme.radius.md,
-                          borderColor: active ? theme.colors.primary : theme.colors.border,
-                          backgroundColor: active
-                            ? theme.colors.primarySoft
-                            : theme.colors.surfaceAlt,
-                        },
-                      ]}
-                    >
-                      <Ionicons
-                        name={resolveIoniconName(ic)}
-                        size={20}
-                        color={active ? theme.colors.primary : theme.colors.text}
-                      />
-                    </Pressable>
-                  );
-                })}
+              <View style={{ gap: theme.spacing.xs }}>
+                <AppText variant="label" color="textMuted">
+                  {t('categories.nameLabel')}
+                </AppText>
+                <TextInput
+                  testID="category-name-input"
+                  value={nameInput}
+                  onChangeText={setNameInput}
+                  placeholder={t('categories.namePlaceholder')}
+                  placeholderTextColor={theme.colors.textMuted}
+                  maxLength={40}
+                  style={[
+                    styles.input,
+                    {
+                      minHeight: theme.touch.min,
+                      borderColor: theme.colors.border,
+                      backgroundColor: theme.colors.surfaceAlt,
+                      borderRadius: theme.radius.md,
+                      paddingHorizontal: theme.spacing.md,
+                      color: theme.colors.text,
+                      fontFamily: theme.typography.body.fontFamily,
+                      fontSize: theme.typography.body.fontSize,
+                    },
+                  ]}
+                />
               </View>
-            </View>
 
-            <View style={[styles.toggleRow, { minHeight: theme.touch.min }]}>
-              <AppText variant="body">{t('categories.quickChipToggle')}</AppText>
-              <Switch
-                value={isSelectedInput}
-                onValueChange={setIsSelectedInput}
-                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                thumbColor={theme.colors.surface}
-              />
-            </View>
+              <View style={{ gap: theme.spacing.xs }}>
+                <AppText variant="label" color="textMuted">
+                  {t('categories.iconLabel')}
+                </AppText>
+                <View style={[styles.iconGrid, { gap: theme.spacing.sm }]}>
+                  {ICON_OPTIONS.map((ic) => {
+                    const active = iconInput === ic;
+                    return (
+                      <Pressable
+                        key={ic}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Icon ${ic}`}
+                        onPress={() => setIconInput(ic)}
+                        style={[
+                          styles.iconChoice,
+                          {
+                            width: theme.touch.min,
+                            height: theme.touch.min,
+                            borderRadius: theme.radius.md,
+                            borderColor: active ? theme.colors.primary : theme.colors.border,
+                            backgroundColor: active
+                              ? theme.colors.primarySoft
+                              : theme.colors.surfaceAlt,
+                          },
+                        ]}
+                      >
+                        <Ionicons
+                          name={resolveIoniconName(ic)}
+                          size={20}
+                          color={active ? theme.colors.primary : theme.colors.text}
+                        />
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
 
-            {formError ? (
-              <AppText variant="caption" color="danger">
-                {formError}
-              </AppText>
-            ) : null}
+              <View style={[styles.toggleRow, { minHeight: theme.touch.min }]}>
+                <AppText variant="body">{t('categories.quickChipToggle')}</AppText>
+                <Switch
+                  value={isSelectedInput}
+                  onValueChange={setIsSelectedInput}
+                  trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                  thumbColor={theme.colors.surface}
+                />
+              </View>
 
-            <View style={[styles.modalActions, { gap: theme.spacing.sm }]}>
-              <Button
-                title={t('common.cancel')}
-                variant="secondary"
-                disabled={saving}
-                onPress={() => setModalOpen(false)}
-                style={styles.modalBtn}
-              />
-              <Button
-                testID="category-save-button"
-                title={t('common.save')}
-                loading={saving}
-                disabled={saving}
-                onPress={() => void handleSaveCategory()}
-                style={styles.modalBtn}
-              />
-            </View>
+              {formError ? (
+                <AppText variant="caption" color="danger">
+                  {formError}
+                </AppText>
+              ) : null}
 
-            {editingCat &&
-            editingCat.archivedAt === null &&
-            !PROTECTED_CATEGORY_IDS.has(editingCat.id) ? (
-              <Button
-                testID="category-archive-button"
-                title={t('categories.archiveButton')}
-                variant="danger"
-                onPress={() => setArchiveTarget(editingCat)}
-              />
-            ) : null}
-          </Card>
-        </View>
-      </Modal>
+              <View style={[styles.modalActions, { gap: theme.spacing.sm }]}>
+                <Button
+                  title={t('common.cancel')}
+                  variant="secondary"
+                  disabled={saving}
+                  onPress={() => setModalOpen(false)}
+                  style={styles.modalBtn}
+                />
+                <Button
+                  testID="category-save-button"
+                  title={t('common.save')}
+                  loading={saving}
+                  disabled={saving}
+                  onPress={() => void handleSaveCategory()}
+                  style={styles.modalBtn}
+                />
+              </View>
+
+              {editingCat &&
+              editingCat.archivedAt === null &&
+              !PROTECTED_CATEGORY_IDS.has(editingCat.id) ? (
+                <Button
+                  testID="category-archive-button"
+                  title={t('categories.archiveButton')}
+                  variant="danger"
+                  onPress={() => setArchiveTarget(editingCat)}
+                />
+              ) : null}
+            </Card>
+          </View>
+        </Modal>
+      ) : null}
 
       <ConfirmModal
         visible={archiveTarget !== null}

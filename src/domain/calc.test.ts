@@ -1,13 +1,17 @@
 import {
+  buildCategoryBreakdown,
   categoryBudgetStatus,
   compareFullPeriods,
   compareMonthToDate,
   computeBudgetStatus,
   dailySeries,
+  formatUtilizationPct,
   spendByCategory,
   summarize,
+  summarizeBudgetAllocation,
+  summarizeCategoryExpenses,
 } from './calc';
-import { getPeriod } from './period';
+import { buildRecentPeriodWindows, getPeriod } from './period';
 import type { Budget, Transaction } from './types';
 
 function makeTx(overrides: Partial<Transaction> & { id: string; amountMinor: number; occurredOn: string }): Transaction {
@@ -317,5 +321,52 @@ describe('month comparisons (TEST-CASES §3)', () => {
     expect(res.previousMinor).toBe(400000);
     expect(res.diffMinor).toBe(100000);
     expect(res.pctChange).toBe(25);
+  });
+
+  it('formats utilization percentages and builds category breakdown & allocation summaries', () => {
+    expect(formatUtilizationPct(41.125)).toBe('41.1%');
+    expect(formatUtilizationPct(40)).toBe('40%');
+    expect(formatUtilizationPct(100)).toBe('100%');
+
+    const spend = [
+      { categoryId: 'c1', spentMinor: 500, count: 1 },
+      { categoryId: 'c2', spentMinor: 400, count: 1 },
+      { categoryId: 'c3', spentMinor: 300, count: 1 },
+      { categoryId: 'c4', spentMinor: 200, count: 1 },
+      { categoryId: 'c5', spentMinor: 100, count: 1 },
+      { categoryId: 'c6', spentMinor: 60, count: 1 },
+      { categoryId: 'c7', spentMinor: 40, count: 1 },
+    ];
+    const breakdown = buildCategoryBreakdown(spend, 1600, 5);
+    expect(breakdown).toHaveLength(6);
+    expect(breakdown[5]).toMatchObject({
+      categoryId: null,
+      spentMinor: 100,
+      count: 2,
+      isOtherGroup: true,
+    });
+
+    const period = getPeriod('2026-11-13', 1);
+    const catSummary = summarizeCategoryExpenses(SCENARIO_A_TXS, period, 'food_dining', 'BDT');
+    expect(catSummary.spentMinor).toBe(650000);
+    expect(catSummary.count).toBe(1);
+
+    const alloc = summarizeBudgetAllocation(4000000, [
+      {
+        categoryId: 'food_dining',
+        budgetMinor: 1500000,
+        spentMinor: 650000,
+        remainingMinor: 850000,
+        utilizationPct: 43.33,
+        status: 'ok',
+      },
+    ]);
+    expect(alloc.allocatedMinor).toBe(1500000);
+    expect(alloc.unallocatedMinor).toBe(2500000);
+
+    const windows = buildRecentPeriodWindows('2026-11-13', 1, 6);
+    expect(windows).toHaveLength(6);
+    expect(windows[0].start).toBe('2026-06-01');
+    expect(windows[5].start).toBe('2026-11-01');
   });
 });

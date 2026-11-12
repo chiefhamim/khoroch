@@ -64,18 +64,18 @@ Re-read: SPEC **DECISIONS**, §5, §7, §13 (list part only), §16, §22 · ARCH
 
 ---
 
-## Phase 3 — Dashboard & Budget  [ ]
+## Phase 3 — Dashboard & Budget  [x]
 Re-read: SPEC **DECISIONS**, §6, §10, §17 · ARCHITECTURE §5, §6 · TEST-CASES §3
 
-- [ ] Overview: greeting by time of day + name + date · **budget card** (budget, spent, remaining — remaining is the hero number; negative shown explicitly; % used; progress bar; status colour **+ icon + label**; period dates; "Edit budget" shortcut; one line "Budget is a spending plan, not your wallet balance")
-- [ ] 4 metric cards: Average daily spending · Safe to spend per day · Income this month · Expense this month — each with an ⓘ that explains the formula in plain words
-- [ ] Spending chart (react-native-svg): Daily / Weekly / Monthly switch, tap a bar → value + date tooltip, readable at 360dp
-- [ ] Category breakdown (horizontal bars, top 5 + "Other"), tap → `category/[id]` list for that period
-- [ ] Recent activity (latest 5) + "View all" → Activity
-- [ ] Highlights: top category · largest expense · # transactions · vs same point last month (MTD rule)
-- [ ] All numbers come from `calc.ts` via `state/useDashboard.ts` — no sums inside components
-- [ ] Budget tab: overall budget edit · per-category budgets (add/edit/remove) · per-category spent/remaining/% + status · "unallocated" amount · remaining days · previous periods (read-only list) · copy-forward on new period
-- [ ] Dashboard re-queries after any write (dataVersion) — adding an expense updates every number without restart
+- [x] Overview: greeting by time of day + name + date · **budget card** (budget, spent, remaining — remaining is the hero number; negative shown explicitly; % used; progress bar; status colour **+ icon + label**; period dates; "Edit budget" shortcut; one line "Budget is a spending plan, not your wallet balance")
+- [x] 4 metric cards: Average daily spending · Safe to spend per day · Income this month · Expense this month — each with an ⓘ that explains the formula in plain words
+- [x] Spending chart (react-native-svg): Daily / Weekly / Monthly switch, tap a bar → value + date tooltip, readable at 360dp
+- [x] Category breakdown (horizontal bars, top 5 + "Other"), tap → `category/[id]` list for that period
+- [x] Recent activity (latest 5) + "View all" → Activity
+- [x] Highlights: top category · largest expense · # transactions · vs same point last month (MTD rule)
+- [x] All numbers come from `calc.ts` via `state/useDashboard.ts` — no sums inside components
+- [x] Budget tab: overall budget edit · per-category budgets (add/edit/remove) · per-category spent/remaining/% + status · "unallocated" amount · remaining days · previous periods (read-only list) · copy-forward on new period
+- [x] Dashboard re-queries after any write (dataVersion) — adding an expense updates every number without restart
 
 **Done when:**
 - CHECKS pass
@@ -175,6 +175,13 @@ Do **not** start v2 items. Instead: re-run all CHECKS, hunt for bugs (edge cases
 - Visual check: End-to-end Playwright Chromium check at 390×844 (`docs/screenshots/phase-2/`): fresh start → Onboarding 1–6 → Add expense + Add income → Activity daily totals → `page.reload()` persistence confirmed (`expo-sqlite` WASM persisted across reload!) → Edit → Delete → Currency lock + Dark mode Settings + Categories; caught & fixed web `AmountPad` `TextInput` flex `minWidth: 0` overflow and added bottom padding to tab labels; 0 console errors/warnings/page errors.
 - Problems / BLOCKED: none
 - Decisions logged: D-003
+
+### 2026-11-13 01:36 — Phase 3 — done
+- Built: Pure domain date/period/breakdown/allocation helpers (`dates.ts`, `period.ts`, `calc.ts`) and full Overview/Budget/Category strings (`en.ts`); reactive data-version hooks (`useDashboard.ts`, `useBudgets.ts`) triggering copy-forward via `ensureBudgetsForPeriod`; UI components (`BudgetStatusBadge`, `InfoModal`, `MetricCard`, `ProgressBar`, interactive SVG `SpendingChart`); full Overview dashboard (`index.tsx` exporting `OverviewContent`), Budget tab (`budget.tsx` with overall edit, per-category budgets add/edit/remove, unallocated summary, remaining days, previous periods), and Category detail drilldown (`category/[id].tsx`); unit tests in `calc.test.ts` + RNTL integration test `overview.test.tsx` (Scenario A fixture assertions + live `bumpDataVersion()` re-query).
+- CHECKS: typecheck ✔ · lint ✔ · tests 53 passed / 53 total (9 suites) · web export ✔
+- Visual check: Playwright Chromium verification across 360, 390, and 430px × light/dark with sample data (`docs/screenshots/phase-3/`), interactive Daily/Weekly/Monthly chart bar taps, metric ⓘ formula modal, category drilldown, per-category budget creation, and over-budget (`৳ 100`) test; fixed React Native Web `<Modal>` stale overlay issue on rapid open/close by conditionally mounting modals only when visible; 0 console errors/warnings/page errors.
+- Problems / BLOCKED: none
+- Decisions logged: D-004
 
 ## Morning summary
 <!-- Agent writes this at the very end:

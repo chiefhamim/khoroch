@@ -102,3 +102,41 @@ export function minLocalDate(a: LocalDate, b: LocalDate): LocalDate {
 export function maxLocalDate(a: LocalDate, b: LocalDate): LocalDate {
   return a >= b ? a : b;
 }
+
+const SHORT_WEEKDAYS = ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'] as const;
+const SHORT_MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+export function formatShortDate(date: LocalDate): string {
+  const { month, day } = parseLocalDate(date);
+  return `${day} ${SHORT_MONTHS[month - 1]}`;
+}
+
+export function formatShortMonthYear(date: LocalDate): string {
+  const { year, month } = parseLocalDate(date);
+  return `${SHORT_MONTHS[month - 1]} ${year}`;
+}
+
+export function formatWeekdayShortDate(date: LocalDate): string {
+  const { year, month, day } = parseLocalDate(date);
+  const epochDay = toEpochDay(date);
+  const weekdayIdx = ((epochDay % 7) + 7) % 7;
+  return `${SHORT_WEEKDAYS[weekdayIdx]}, ${day} ${SHORT_MONTHS[month - 1]} ${year}`;
+}
+
+export function formatPeriodRange(start: LocalDate, endExcl: LocalDate): string {
+  const endIncl = addDays(endExcl, -1);
+  return `${formatShortDate(start)} – ${formatShortDate(endIncl)}`;
+}

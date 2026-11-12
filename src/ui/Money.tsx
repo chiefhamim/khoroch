@@ -14,6 +14,7 @@ export interface MoneyProps {
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
   accessibilityLabel?: string;
+  testID?: string;
 }
 
 export function Money({
@@ -25,10 +26,12 @@ export function Money({
   style,
   numberOfLines,
   accessibilityLabel,
+  testID,
 }: MoneyProps) {
   const formatted = formatMoney(amountMinor, currency);
   return (
     <AppText
+      testID={testID}
       variant={variant}
       color={color}
       tabularNums
