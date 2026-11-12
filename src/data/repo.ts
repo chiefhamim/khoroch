@@ -14,6 +14,8 @@ import type {
 export interface Repo {
   // Transactions
   insertTransaction(t: NewTransaction): Promise<void>;
+  insertTransactionsBatch(txs: NewTransaction[]): Promise<void>;
+  clearSampleTransactions(): Promise<void>;
   updateTransaction(id: string, patch: TransactionPatch): Promise<void>;
   softDeleteTransaction(id: string): Promise<void>;
   getTransaction(id: string): Promise<Transaction | null>;

@@ -1,5 +1,7 @@
 export type CurrencyCode = 'BDT' | 'USD' | 'EUR';
 
+export const CURRENCIES: readonly CurrencyCode[] = ['BDT', 'USD', 'EUR'];
+
 export type TransactionType = 'expense' | 'income';
 
 export type TransactionSource = 'manual' | 'quick' | 'voice' | 'sample';

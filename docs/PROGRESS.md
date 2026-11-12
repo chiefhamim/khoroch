@@ -43,19 +43,19 @@ Re-read: SPEC **DECISIONS**, §2, §3, §4, §17, §20 · ARCHITECTURE (all) · 
 
 ---
 
-## Phase 2 — Onboarding & Transactions  [ ]
+## Phase 2 — Onboarding & Transactions  [x]
 Re-read: SPEC **DECISIONS**, §5, §7, §13 (list part only), §16, §22 · ARCHITECTURE §2, §3, §7
 
-- [ ] Onboarding steps 1–6 (welcome · preferences: name, currency BDT/USD/EUR, month start day 1–28 · budget (skippable, copy explains budget ≠ balance) · categories pick · reminder choice (just store the preference now; scheduling is Phase 4) · done) → writes settings → `onboarding_done`
-- [ ] Root gate: not onboarded → onboarding; onboarded → tabs
-- [ ] Default categories seeded (15 expense + 4 income) with icons
-- [ ] Add transaction sheet: Expense/Income switch (default Expense) · big amount with on-screen `AmountPad` · category chips (selected ones first, horizontal scroll) · description with recent suggestions · date (Today / Yesterday / pick date) · optional time + note collapsed under "More"
-- [ ] Validation + friendly errors; input preserved on failure; id generated on open; Save disabled while saving; success feedback; sheet closes
-- [ ] `transaction/[id]`: view, edit every field, delete with confirm (soft delete)
-- [ ] Activity tab (basic): list grouped by date with daily totals, paginated (no "load everything"), tap → detail, empty state
-- [ ] Settings: name · currency (locked with explanation once any transaction exists) · month start day · theme · categories screen (add, rename, change icon, archive) · delete all data (two-step confirm → back to onboarding) · about
-- [ ] `__DEV__`-only "Load sample data" / "Clear sample data" in Settings (≈ 3 months, ~150 realistic BDT transactions, source='sample')
-- [ ] Component tests (RNTL): add form double-tap saves once; invalid amount shows error and keeps input; delete asks for confirmation
+- [x] Onboarding steps 1–6 (welcome · preferences: name, currency BDT/USD/EUR, month start day 1–28 · budget (skippable, copy explains budget ≠ balance) · categories pick · reminder choice (just store the preference now; scheduling is Phase 4) · done) → writes settings → `onboarding_done`
+- [x] Root gate: not onboarded → onboarding; onboarded → tabs
+- [x] Default categories seeded (15 expense + 4 income) with icons
+- [x] Add transaction sheet: Expense/Income switch (default Expense) · big amount with on-screen `AmountPad` · category chips (selected ones first, horizontal scroll) · description with recent suggestions · date (Today / Yesterday / pick date) · optional time + note collapsed under "More"
+- [x] Validation + friendly errors; input preserved on failure; id generated on open; Save disabled while saving; success feedback; sheet closes
+- [x] `transaction/[id]`: view, edit every field, delete with confirm (soft delete)
+- [x] Activity tab (basic): list grouped by date with daily totals, paginated (no "load everything"), tap → detail, empty state
+- [x] Settings: name · currency (locked with explanation once any transaction exists) · month start day · theme · categories screen (add, rename, change icon, archive) · delete all data (two-step confirm → back to onboarding) · about
+- [x] `__DEV__`-only "Load sample data" / "Clear sample data" in Settings (≈ 3 months, ~150 realistic BDT transactions, source='sample')
+- [x] Component tests (RNTL): add form double-tap saves once; invalid amount shows error and keeps input; delete asks for confirmation
 
 **Done when:**
 - CHECKS pass
@@ -168,6 +168,13 @@ Do **not** start v2 items. Instead: re-run all CHECKS, hunt for bugs (edge cases
 - Visual check: Web preview at 390×844 light & dark (`docs/screenshots/phase-1/overview-390-light.png`, `overview-390-dark.png`, `add-390-light.png`); caught and fixed bottom tab label clipping (`height: tabBarHeight` + `tabBarItemStyle`) and faux-bold fontWeight on Inter faces; 0 console errors/warnings (`expo-sqlite` WASM booted cleanly on web).
 - Problems / BLOCKED: Playwright MCP server unavailable because Chrome binary is absent at Google Chrome's default path; verified via existing `playwright-core` + `ms-playwright/chromium-1254`.
 - Decisions logged: D-001, D-002
+
+### 2026-11-13 01:27 — Phase 2 — done
+- Built: 6-step Onboarding flow (`src/app/onboarding/*`, `onboardingStore.ts`) + root onboarding gate in `_layout.tsx`; reusable UI components (`AmountPad`, `CategoryIcon`, `Chip`, `ConfirmModal`, `ListRow`, `SectionHeader`, `SegmentedControl`, `TransactionForm`); full `transaction/new.tsx` & `transaction/[id].tsx` (view/edit/soft-delete with confirm); paginated date-grouped Activity tab (`useTransactions.ts`, `groupTransactionsByDate` in `calc.ts`, `activity.tsx`); Settings tab (`useSettings.ts`, `settings.tsx` with locked currency when transactions exist, theme toggle, two-step Delete All confirmation, `__DEV__` ~154-item sample data loader/clearer in `sampleData.ts`); Categories management (`settings/categories.tsx`); RNTL tests (`TransactionForm.test.tsx`).
+- CHECKS: typecheck ✔ · lint ✔ · tests 51 passed / 51 total (8 suites) · web export ✔
+- Visual check: End-to-end Playwright Chromium check at 390×844 (`docs/screenshots/phase-2/`): fresh start → Onboarding 1–6 → Add expense + Add income → Activity daily totals → `page.reload()` persistence confirmed (`expo-sqlite` WASM persisted across reload!) → Edit → Delete → Currency lock + Dark mode Settings + Categories; caught & fixed web `AmountPad` `TextInput` flex `minWidth: 0` overflow and added bottom padding to tab labels; 0 console errors/warnings/page errors.
+- Problems / BLOCKED: none
+- Decisions logged: D-003
 
 ## Morning summary
 <!-- Agent writes this at the very end:

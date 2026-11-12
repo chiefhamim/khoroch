@@ -101,6 +101,20 @@ export class MemoryRepo implements Repo {
     this.transactions.set(record.id, record);
   }
 
+  async insertTransactionsBatch(txs: NewTransaction[]): Promise<void> {
+    for (const tx of txs) {
+      await this.insertTransaction(tx);
+    }
+  }
+
+  async clearSampleTransactions(): Promise<void> {
+    for (const [id, tx] of this.transactions.entries()) {
+      if (tx.source === 'sample') {
+        this.transactions.delete(id);
+      }
+    }
+  }
+
   async updateTransaction(id: string, patch: TransactionPatch): Promise<void> {
     const existing = this.transactions.get(id);
     if (!existing) return;

@@ -430,3 +430,45 @@ export function daysBetweenInclusive(start: LocalDate, endIncl: LocalDate): numb
   if (endIncl < start) return 0;
   return diffDays(endIncl, start) + 1;
 }
+
+export interface DailyTransactionGroup {
+  date: LocalDate;
+  expenseMinor: number;
+  incomeMinor: number;
+  transactions: Transaction[];
+}
+
+/**
+ * Groups already-sorted transactions by local calendar date and computes daily
+ * expense and income totals in minor units (active currency only, excluding deleted).
+ */
+export function groupTransactionsByDate(
+  transactions: readonly Transaction[],
+  currency: CurrencyCode
+): DailyTransactionGroup[] {
+  const groups: DailyTransactionGroup[] = [];
+  const byDate = new Map<LocalDate, DailyTransactionGroup>();
+
+  for (const tx of transactions) {
+    if (tx.deletedAt != null) continue;
+    let group = byDate.get(tx.occurredOn);
+    if (!group) {
+      group = {
+        date: tx.occurredOn,
+        expenseMinor: 0,
+        incomeMinor: 0,
+        transactions: [],
+      };
+      byDate.set(tx.occurredOn, group);
+      groups.push(group);
+    }
+    group.transactions.push(tx);
+    if (tx.currency === currency) {
+      if (tx.type === 'expense') group.expenseMinor += tx.amountMinor;
+      else if (tx.type === 'income') group.incomeMinor += tx.amountMinor;
+    }
+  }
+
+  return groups;
+}
+

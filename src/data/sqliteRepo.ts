@@ -148,6 +148,39 @@ export class SqliteRepo implements Repo {
     );
   }
 
+  async insertTransactionsBatch(txs: NewTransaction[]): Promise<void> {
+    if (txs.length === 0) return;
+    await this.db.withTransactionAsync(async () => {
+      const now = Date.now();
+      for (const t of txs) {
+        assertValidNewTransaction(t);
+        await this.db.runAsync(
+          `INSERT OR IGNORE INTO transactions
+           (id, type, amount_minor, currency, category_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+          [
+            t.id,
+            t.type,
+            t.amountMinor,
+            t.currency,
+            t.categoryId ?? null,
+            t.description ?? '',
+            t.note ?? '',
+            t.occurredOn,
+            t.occurredTime ?? null,
+            t.source ?? 'manual',
+            t.createdAt ?? now,
+            t.updatedAt ?? now,
+          ]
+        );
+      }
+    });
+  }
+
+  async clearSampleTransactions(): Promise<void> {
+    await this.db.runAsync(`DELETE FROM transactions WHERE source = 'sample'`);
+  }
+
   async updateTransaction(id: string, patch: TransactionPatch): Promise<void> {
     const existing = await this.getTransaction(id);
     if (!existing) return;

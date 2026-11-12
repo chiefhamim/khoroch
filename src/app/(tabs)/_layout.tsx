@@ -12,7 +12,7 @@ export default function TabsLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const tabBarHeight = theme.touch.min + theme.spacing.xl + insets.bottom;
+  const tabBarHeight = theme.touch.min + theme.spacing.xxl + insets.bottom;
   const fabSize = theme.touch.min + theme.spacing.sm;
 
   return (
@@ -28,7 +28,7 @@ export default function TabsLayout() {
             borderTopWidth: 1,
             height: tabBarHeight,
             paddingTop: theme.spacing.xs,
-            paddingBottom: Math.max(insets.bottom, theme.spacing.xs),
+            paddingBottom: Math.max(insets.bottom, theme.spacing.sm),
           },
           tabBarItemStyle: {
             justifyContent: 'center',

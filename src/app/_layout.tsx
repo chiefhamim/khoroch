@@ -6,7 +6,7 @@ import {
   Inter_700Bold,
   useFonts,
 } from '@expo-google-fonts/inter';
-import { Stack } from 'expo-router';
+import { Stack, useRootNavigationState, useRouter, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -15,7 +15,7 @@ import { initRepo } from '@/data/db';
 import { DEFAULT_SETTINGS, type Repo } from '@/data/repo';
 import type { Settings } from '@/domain/types';
 import { t } from '@/i18n';
-import { AppContext } from '@/state/AppContext';
+import { AppContext, useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { useTheme } from '@/theme/useTheme';
@@ -26,6 +26,20 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function AppNavigator() {
   const { colorScheme, theme } = useTheme();
+  const { settings } = useAppContext();
+  const segments = useSegments();
+  const router = useRouter();
+  const navigationState = useRootNavigationState();
+
+  useEffect(() => {
+    if (!navigationState?.key) return;
+    const inOnboarding = segments[0] === 'onboarding';
+    if (!settings.onboardingDone && !inOnboarding) {
+      router.replace('/onboarding');
+    } else if (settings.onboardingDone && inOnboarding) {
+      router.replace('/(tabs)');
+    }
+  }, [navigationState?.key, settings.onboardingDone, segments, router]);
 
   return (
     <>
@@ -37,6 +51,7 @@ function AppNavigator() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen
           name="transaction/new"
           options={{
@@ -44,6 +59,8 @@ function AppNavigator() {
             headerShown: false,
           }}
         />
+        <Stack.Screen name="transaction/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="settings/categories" options={{ headerShown: false }} />
       </Stack>
     </>
   );
