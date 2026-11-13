@@ -6,7 +6,11 @@ import {
   ACCENT_THEMES,
   CATEGORY_COLOR_KEYS,
   normalizeAccentTheme,
+  normalizeAvatarColorKey,
+  normalizeHomeSections,
   normalizeReminderDays,
+  normalizeWeekStartDay,
+  WEEK_START_DAYS,
   type AccentTheme,
   type Account,
   type Budget,
@@ -46,6 +50,7 @@ const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Se
 const VALID_COLOR_KEY_SET: ReadonlySet<string> = new Set<string>(CATEGORY_COLOR_KEYS);
 const VALID_THEMES: ReadonlySet<string> = new Set<ThemePreference>(['system', 'light', 'dark', 'black']);
 const VALID_ACCENTS: ReadonlySet<string> = new Set<AccentTheme>(ACCENT_THEMES);
+const VALID_WEEK_STARTS: ReadonlySet<string> = new Set<string>(WEEK_START_DAYS);
 const VALID_SOURCES: ReadonlySet<string> = new Set<TransactionSource>(['manual', 'quick', 'voice', 'sample']);
 const DEFAULT_CAT_MAP = new Map(DEFAULT_CATEGORIES.map((d) => [d.id, d]));
 
@@ -101,6 +106,7 @@ function sanitizeSettingsForExport(s: Settings): Settings {
   return {
     onboardingDone: Boolean(s.onboardingDone),
     name: s.name,
+    avatarColorKey: normalizeAvatarColorKey(s.avatarColorKey),
     currency: s.currency,
     monthStartDay: s.monthStartDay,
     theme: s.theme,
@@ -110,6 +116,18 @@ function sanitizeSettingsForExport(s: Settings): Settings {
       time: s.reminder.time,
       days: normalizeReminderDays(s.reminder.days),
     },
+    hideAmountsOnOpen: Boolean(s.hideAmountsOnOpen),
+    showPoisha: Boolean(s.showPoisha),
+    compactNumbers: Boolean(s.compactNumbers),
+    weekStartsOn: normalizeWeekStartDay(s.weekStartsOn),
+    homeSections: normalizeHomeSections(s.homeSections),
+    appLockEnabled: Boolean(s.appLockEnabled),
+    appLockTimeoutSec:
+      typeof s.appLockTimeoutSec === 'number' &&
+      Number.isInteger(s.appLockTimeoutSec) &&
+      s.appLockTimeoutSec >= 0
+        ? s.appLockTimeoutSec
+        : 0,
     sampleDataLoaded: Boolean(s.sampleDataLoaded),
     notificationPermissionDenied: Boolean(s.notificationPermissionDenied),
     lastBackupAt: s.lastBackupAt ?? null,
@@ -715,10 +733,35 @@ function validateSettingsObject(raw: unknown): Settings {
   if (obj.accent !== undefined && (typeof obj.accent !== 'string' || !VALID_ACCENTS.has(obj.accent))) {
     throw new Error('Settings: invalid accent.');
   }
+  if (
+    obj.weekStartsOn !== undefined &&
+    (typeof obj.weekStartsOn !== 'string' || !VALID_WEEK_STARTS.has(obj.weekStartsOn))
+  ) {
+    throw new Error('Settings: invalid weekStartsOn.');
+  }
+  if (
+    obj.avatarColorKey !== undefined &&
+    (typeof obj.avatarColorKey !== 'string' ||
+      (obj.avatarColorKey !== 'accent' && !VALID_COLOR_KEY_SET.has(obj.avatarColorKey)))
+  ) {
+    throw new Error('Settings: invalid avatarColorKey.');
+  }
+  if (obj.homeSections !== undefined && !Array.isArray(obj.homeSections)) {
+    throw new Error('Settings: invalid homeSections.');
+  }
+  if (
+    obj.appLockTimeoutSec !== undefined &&
+    (typeof obj.appLockTimeoutSec !== 'number' ||
+      !Number.isInteger(obj.appLockTimeoutSec) ||
+      obj.appLockTimeoutSec < 0)
+  ) {
+    throw new Error('Settings: invalid appLockTimeoutSec.');
+  }
 
   return {
     onboardingDone: obj.onboardingDone,
     name: obj.name,
+    avatarColorKey: normalizeAvatarColorKey(obj.avatarColorKey),
     currency: obj.currency,
     monthStartDay: obj.monthStartDay,
     theme: obj.theme as ThemePreference,
@@ -728,6 +771,14 @@ function validateSettingsObject(raw: unknown): Settings {
       time: reminderObj.time,
       days: normalizeReminderDays(reminderObj.days),
     },
+    hideAmountsOnOpen: Boolean(obj.hideAmountsOnOpen),
+    showPoisha: Boolean(obj.showPoisha),
+    compactNumbers: Boolean(obj.compactNumbers),
+    weekStartsOn: normalizeWeekStartDay(obj.weekStartsOn),
+    homeSections: normalizeHomeSections(obj.homeSections),
+    appLockEnabled: Boolean(obj.appLockEnabled),
+    appLockTimeoutSec:
+      typeof obj.appLockTimeoutSec === 'number' ? obj.appLockTimeoutSec : 0,
     sampleDataLoaded: Boolean(obj.sampleDataLoaded),
     notificationPermissionDenied: Boolean(obj.notificationPermissionDenied),
     lastBackupAt: (obj.lastBackupAt ?? null) as number | null,

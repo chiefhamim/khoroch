@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { DEFAULT_EXPENSE_CATEGORIES } from '@/domain/categories';
 import { t } from '@/i18n';
@@ -11,6 +11,7 @@ import { hapticSelection } from '@/ui/haptics';
 import { IconTile } from '@/ui/IconTile';
 import { OnboardingHeader } from '@/ui/OnboardingHeader';
 import { Screen } from '@/ui/Screen';
+import { PressableScale } from '@/ui/PressableScale';
 
 export default function OnboardingCategoriesScreen() {
   const { theme, reducedMotion } = useTheme();
@@ -34,7 +35,7 @@ export default function OnboardingCategoriesScreen() {
           {DEFAULT_EXPENSE_CATEGORIES.map((cat) => {
             const selected = selectedCategoryIds.includes(cat.id);
             return (
-              <Pressable
+              <PressableScale pressScale={0.98}
                 key={cat.id}
                 testID={`onboarding-cat-${cat.id}`}
                 accessibilityRole="button"
@@ -72,7 +73,7 @@ export default function OnboardingCategoriesScreen() {
                 >
                   {cat.name}
                 </AppText>
-              </Pressable>
+              </PressableScale>
             );
           })}
         </View>

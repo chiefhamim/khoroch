@@ -272,11 +272,25 @@ async function seedComplexState(repo: MemoryRepo | SqliteRepo) {
   await repo.markDayReviewed('2026-11-11');
 
   await repo.setSetting('name', 'Hamim');
+  await repo.setSetting('avatarColorKey', 'violet');
   await repo.setSetting('currency', 'BDT');
   await repo.setSetting('monthStartDay', 15);
   await repo.setSetting('onboardingDone', true);
   await repo.setSetting('theme', 'dark');
   await repo.setSetting('accent', 'ocean');
+  await repo.setSetting('hideAmountsOnOpen', true);
+  await repo.setSetting('showPoisha', true);
+  await repo.setSetting('compactNumbers', true);
+  await repo.setSetting('weekStartsOn', 'monday');
+  await repo.setSetting('homeSections', [
+    { id: 'recent', visible: true },
+    { id: 'wallets', visible: false },
+    { id: 'dues', visible: true },
+    { id: 'spending_chart', visible: true },
+    { id: 'top_categories', visible: false },
+  ]);
+  await repo.setSetting('appLockEnabled', true);
+  await repo.setSetting('appLockTimeoutSec', 60);
   await repo.setSetting('reminder', {
     enabled: true,
     time: '20:45',
@@ -450,6 +464,14 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     delete v1Raw.data.settings.lastBackupAt;
     delete v1Raw.data.settings.speechDisclosureAccepted;
     delete v1Raw.data.settings.lastUsedAccountId;
+    delete v1Raw.data.settings.avatarColorKey;
+    delete v1Raw.data.settings.hideAmountsOnOpen;
+    delete v1Raw.data.settings.showPoisha;
+    delete v1Raw.data.settings.compactNumbers;
+    delete v1Raw.data.settings.weekStartsOn;
+    delete v1Raw.data.settings.homeSections;
+    delete v1Raw.data.settings.appLockEnabled;
+    delete v1Raw.data.settings.appLockTimeoutSec;
     v1Raw.data.categories = v1Raw.data.categories
       .filter((c) => c.id !== 'fees')
       .map((c) => {
@@ -470,6 +492,14 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     expect(migratedV1.data.settings.lastBackupAt).toBeNull();
     expect(migratedV1.data.settings.speechDisclosureAccepted).toBe(false);
     expect(migratedV1.data.settings.lastUsedAccountId).toBeNull();
+    expect(migratedV1.data.settings.avatarColorKey).toBe('accent');
+    expect(migratedV1.data.settings.hideAmountsOnOpen).toBe(false);
+    expect(migratedV1.data.settings.showPoisha).toBe(false);
+    expect(migratedV1.data.settings.compactNumbers).toBe(false);
+    expect(migratedV1.data.settings.weekStartsOn).toBe('saturday');
+    expect(migratedV1.data.settings.homeSections).toHaveLength(5);
+    expect(migratedV1.data.settings.appLockEnabled).toBe(false);
+    expect(migratedV1.data.settings.appLockTimeoutSec).toBe(0);
     const foodCat = migratedV1.data.categories.find((c) => c.id === 'food_dining');
     expect(foodCat?.icon).toBe('utensils');
     expect(foodCat?.colorKey).toBe(DEFAULT_CATEGORIES.find((c) => c.id === 'food_dining')?.colorKey);

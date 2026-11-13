@@ -3,7 +3,9 @@ import type { AccentTheme } from '@/domain/types';
 
 export type ResolvedColorMode = 'light' | 'dark' | 'black';
 
-export const TAKA_FONT_FAMILY = 'HindSiliguri_600SemiBold';
+/** ৳ lives inside the patched Plus Jakarta Sans files (assets/fonts); Hind Siliguri is for Bangla text. */
+export const TAKA_FONT_FAMILY = 'PlusJakartaSans_600SemiBold';
+export const BANGLA_FONT_FAMILY = 'HindSiliguri_600SemiBold';
 
 export const spacing = {
   xs: 4,
@@ -158,7 +160,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       accent: '#4CCB97',
       onAccent: '#04231A',
       accentSoft: '#10291F',
-      hero: '#13241D',
+      hero: '#173A2C',
       heroText: '#F3F6F4',
       heroTextSecondary: '#B8C7C0',
       heroLine: 'rgba(243, 246, 244, 0.12)',
@@ -183,7 +185,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       accent: '#7FB2F0',
       onAccent: '#0B1B33',
       accentSoft: '#132036',
-      hero: '#15203B',
+      hero: '#1A2D57',
       heroText: '#F3F6F4',
       heroTextSecondary: '#B9C5D9',
       heroLine: 'rgba(243, 246, 244, 0.12)',
@@ -208,7 +210,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       accent: '#C59DF5',
       onAccent: '#1F0F30',
       accentSoft: '#231732',
-      hero: '#251734',
+      hero: '#34204D',
       heroText: '#F3F6F4',
       heroTextSecondary: '#C6BAD6',
       heroLine: 'rgba(243, 246, 244, 0.12)',
@@ -233,7 +235,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       accent: '#F0A35E',
       onAccent: '#2A1205',
       accentSoft: '#2D1B12',
-      hero: '#2E1810',
+      hero: '#4A2414',
       heroText: '#F3F6F4',
       heroTextSecondary: '#D2BEB3',
       heroLine: 'rgba(243, 246, 244, 0.14)',
@@ -258,7 +260,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       accent: '#C4C4CC',
       onAccent: '#121214',
       accentSoft: '#222226',
-      hero: '#1C1C20',
+      hero: '#232327',
       heroText: '#F3F6F4',
       heroTextSecondary: '#C1C1C7',
       heroLine: 'rgba(243, 246, 244, 0.12)',

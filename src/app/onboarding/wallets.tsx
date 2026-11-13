@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { WALLET_PRESETS, type WalletPresetKey } from '@/domain/accounts';
 import { CURRENCIES as CURRENCY_META, parseMoneyInput } from '@/domain/money';
@@ -16,6 +16,7 @@ import { Screen } from '@/ui/Screen';
 import { Surface } from '@/ui/Surface';
 import { WalletAvatar } from '@/ui/WalletAvatar';
 import { hapticSelection } from '@/ui/haptics';
+import { PressableScale } from '@/ui/PressableScale';
 
 const PRESET_MAP = new Map(WALLET_PRESETS.map((p) => [p.key, p]));
 
@@ -94,7 +95,7 @@ export default function OnboardingWalletsScreen() {
             const preset = PRESET_MAP.get(draft.presetKey);
             if (!preset) return null;
             return (
-              <Pressable
+              <PressableScale pressScale={0.98}
                 key={draft.presetKey}
                 testID={`onboarding-wallet-preset-${draft.presetKey}`}
                 accessibilityRole="button"
@@ -129,7 +130,7 @@ export default function OnboardingWalletsScreen() {
                 {draft.enabled ? (
                   <AppIcon name="check" size={14} color={theme.colors.accent} />
                 ) : null}
-              </Pressable>
+              </PressableScale>
             );
           })}
         </View>
@@ -152,14 +153,14 @@ export default function OnboardingWalletsScreen() {
                       <AppText variant="bodyStrong" style={styles.flex1}>
                         {preset.name}
                       </AppText>
-                      <Pressable
+                      <PressableScale pressScale={0.98}
                         accessibilityRole="button"
                         accessibilityLabel={t('common.close')}
                         hitSlop={8}
                         onPress={() => handleToggle(draft.presetKey)}
                       >
                         <AppIcon name="x" size={18} color={theme.colors.textTertiary} />
-                      </Pressable>
+                      </PressableScale>
                     </View>
 
                     <View style={[styles.twoCol, { gap: theme.spacing.sm }]}>

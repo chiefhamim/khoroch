@@ -529,7 +529,8 @@ export const en = {
 
   'overview.setupWalletsTitle': 'Set up your wallets',
   'overview.setupWalletsBody': 'Track Cash, bKash, Nagad, Bank, or Card balances from today.',
-  'overview.acrossWallets': 'Across {count} wallet(s)',
+  'overview.acrossWallets': 'Across {count} wallets',
+  'overview.acrossOneWallet': 'In 1 wallet',
   'overview.walletsExcludedNote': '{count} excluded from total',
   'overview.inThisCycle': 'In this month',
   'overview.outThisCycle': 'Out this month',

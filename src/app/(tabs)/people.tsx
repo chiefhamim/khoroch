@@ -159,6 +159,7 @@ export default function PeopleTabScreen() {
             amountMinor={overview.youWillGetMinor}
             currency={currency}
             color={overview.youWillGetMinor > 0 ? 'accent' : 'text'}
+            allowCompact
           />
           {overview.openReceivableCount > 0 ? (
             <AppText variant="caption" color="textSecondary">
@@ -182,6 +183,7 @@ export default function PeopleTabScreen() {
             amountMinor={overview.youOweMinor}
             currency={currency}
             color={overview.youOweMinor > 0 ? 'danger' : 'text'}
+            allowCompact
           />
           {overview.openPayableCount > 0 ? (
             <AppText variant="caption" color="textSecondary">

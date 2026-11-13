@@ -1,5 +1,6 @@
 import {
   ALL_REMINDER_DAYS,
+  cloneDefaultHomeSections,
   type Account,
   type AccountPatch,
   type Budget,
@@ -123,6 +124,7 @@ export interface Repo {
 export const DEFAULT_SETTINGS: Settings = {
   onboardingDone: false,
   name: '',
+  avatarColorKey: 'accent',
   currency: 'BDT',
   monthStartDay: 1,
   theme: 'system',
@@ -132,6 +134,13 @@ export const DEFAULT_SETTINGS: Settings = {
     time: '21:00',
     days: [...ALL_REMINDER_DAYS],
   },
+  hideAmountsOnOpen: false,
+  showPoisha: false,
+  compactNumbers: false,
+  weekStartsOn: 'saturday',
+  homeSections: cloneDefaultHomeSections(),
+  appLockEnabled: false,
+  appLockTimeoutSec: 0,
   sampleDataLoaded: false,
   notificationPermissionDenied: false,
   lastBackupAt: null,

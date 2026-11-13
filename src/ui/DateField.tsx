@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import {
   formatFriendlyDate,
   formatLocalDate,
@@ -13,6 +13,7 @@ import { AppIcon } from './AppIcon';
 import { AppText } from './AppText';
 import { Button } from './Button';
 import { Sheet } from './Sheet';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface DateFieldProps {
   value: LocalDate;
@@ -137,7 +138,7 @@ export function DateField({
         </AppText>
       ) : null}
       <View style={styles.wrap}>
-        <Pressable
+        <PressableScale pressScale={0.985}
           testID={testID}
           accessibilityRole="button"
           accessibilityLabel={accessibilityLabel ?? (label ? `${label}: ${display}` : display)}
@@ -160,7 +161,7 @@ export function DateField({
             {display}
           </AppText>
           <AppIcon name="chevron-down" size={15} color={theme.colors.textTertiary} />
-        </Pressable>
+        </PressableScale>
 
         {Platform.OS === 'web'
           ? React.createElement('input', {

@@ -362,7 +362,7 @@ describe('Overview Scenario A integration', () => {
     });
 
     expect(view.getByLabelText('৳ 6,531.50')).toBeTruthy();
-    expect(view.getByText('Across 3 wallet(s)')).toBeTruthy();
+    expect(view.getByText('Across 3 wallets')).toBeTruthy();
     expect(view.getByText(t('wallets.excludedBadge'))).toBeTruthy();
     expect(view.getByTestId('overview-wallets-list')).toBeTruthy();
     expect(view.getByTestId('overview-wallet-row-acc_bkash')).toBeTruthy();
@@ -377,7 +377,7 @@ describe('Overview Scenario A integration', () => {
     // Tap again to restore visibility
     await fireEvent.press(view.getByTestId('overview-budget-card'));
     await waitFor(() => {
-      expect(view.getByText('Across 3 wallet(s)')).toBeTruthy();
+      expect(view.getByText('Across 3 wallets')).toBeTruthy();
       expect(view.getByLabelText('৳ 6,531.50')).toBeTruthy();
     });
   });

@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
 import { hapticSelection } from './haptics';
+import { PressableScale } from '@/ui/PressableScale';
 
 const DAYS_1_TO_28 = Array.from({ length: 28 }, (_, i) => i + 1);
 
@@ -21,7 +22,7 @@ export function DayOfMonthGrid({ value, onChange, testID }: DayOfMonthGridProps)
         const active = day === value;
         return (
           <View key={day} style={styles.cellWrap}>
-            <Pressable
+            <PressableScale pressScale={0.92}
               testID={testID ? `${testID}-day-${day}` : undefined}
               accessibilityRole="button"
               accessibilityLabel={`Day ${day}`}
@@ -48,7 +49,7 @@ export function DayOfMonthGrid({ value, onChange, testID }: DayOfMonthGridProps)
               >
                 {String(day)}
               </AppText>
-            </Pressable>
+            </PressableScale>
           </View>
         );
       })}

@@ -1,36 +1,43 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { useFonts } from 'expo-font';
-import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
-import { PlusJakartaSans_500Medium } from '@expo-google-fonts/plus-jakarta-sans/500Medium';
-import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans/600SemiBold';
-import { PlusJakartaSans_700Bold } from '@expo-google-fonts/plus-jakarta-sans/700Bold';
-import { PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sans/800ExtraBold';
-import { HindSiliguri_500Medium } from '@expo-google-fonts/hind-siliguri/500Medium';
-import { HindSiliguri_600SemiBold } from '@expo-google-fonts/hind-siliguri/600SemiBold';
-import { HindSiliguri_700Bold } from '@expo-google-fonts/hind-siliguri/700Bold';
-import { Stack, useRootNavigationState, useRouter, useSegments } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import React, { useCallback, useEffect, useState } from "react";
+import { useFonts } from "expo-font";
+import { HindSiliguri_500Medium } from "@expo-google-fonts/hind-siliguri/500Medium";
+import { HindSiliguri_600SemiBold } from "@expo-google-fonts/hind-siliguri/600SemiBold";
+import { HindSiliguri_700Bold } from "@expo-google-fonts/hind-siliguri/700Bold";
+import {
+  Stack,
+  useRootNavigationState,
+  useRouter,
+  useSegments,
+} from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-import { isDevVariant } from '@/config/appVariant';
+import { isDevVariant } from "@/config/appVariant";
 
-import { initRepo } from '@/data/db';
-import { DEFAULT_SETTINGS, type Repo } from '@/data/repo';
-import type { Settings } from '@/domain/types';
-import { t } from '@/i18n';
+import { initRepo } from "@/data/db";
+import { DEFAULT_SETTINGS, type Repo } from "@/data/repo";
+import type { Settings } from "@/domain/types";
+import { t } from "@/i18n";
 import {
   configureNotificationHandler,
   subscribeToCheckInResponses,
   syncReminderSchedule,
-} from '@/notifications/reminders';
-import { AppContext, useAppContext } from '@/state/AppContext';
-import { bumpDataVersion } from '@/state/dataVersion';
-import { ThemeProvider } from '@/theme/ThemeProvider';
-import { useTheme } from '@/theme/useTheme';
-import { ErrorState } from '@/ui/ErrorState';
-import { Screen } from '@/ui/Screen';
-import { ToastProvider } from '@/ui/Toast';
+} from "@/notifications/reminders";
+import { AppContext, useAppContext } from "@/state/AppContext";
+import { bumpDataVersion } from "@/state/dataVersion";
+import { ThemeProvider } from "@/theme/ThemeProvider";
+import { useTheme } from "@/theme/useTheme";
+import { ErrorState } from "@/ui/ErrorState";
+import { Screen } from "@/ui/Screen";
+import { ToastProvider } from "@/ui/Toast";
+
+// Plus Jakarta Sans with a real ৳ (U+09F3) added; regenerate with scripts/patch-taka-font.py
+const PlusJakartaSans_400Regular = require("../../assets/fonts/PlusJakartaSans_400Regular.ttf");
+const PlusJakartaSans_500Medium = require("../../assets/fonts/PlusJakartaSans_500Medium.ttf");
+const PlusJakartaSans_600SemiBold = require("../../assets/fonts/PlusJakartaSans_600SemiBold.ttf");
+const PlusJakartaSans_700Bold = require("../../assets/fonts/PlusJakartaSans_700Bold.ttf");
+const PlusJakartaSans_800ExtraBold = require("../../assets/fonts/PlusJakartaSans_800ExtraBold.ttf");
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 configureNotificationHandler();
@@ -44,29 +51,33 @@ function AppNavigator() {
 
   useEffect(() => {
     if (!navigationState?.key) return;
-    const inOnboarding = segments[0] === 'onboarding';
-    const inDev = isDevVariant() && (segments[0] as string) === 'dev';
+    const inOnboarding = segments[0] === "onboarding";
+    const inDev = isDevVariant() && (segments[0] as string) === "dev";
     if (!settings.onboardingDone && !inOnboarding && !inDev) {
-      router.replace('/onboarding');
+      router.replace("/onboarding");
     } else if (settings.onboardingDone && inOnboarding) {
-      router.replace('/(tabs)');
+      router.replace("/(tabs)");
     }
   }, [navigationState?.key, settings.onboardingDone, segments, router]);
 
   useEffect(() => {
     if (!navigationState?.key || !settings.onboardingDone) return;
     return subscribeToCheckInResponses(() => {
-      router.push('/check-in');
+      router.push("/check-in");
     });
   }, [navigationState?.key, settings.onboardingDone, router]);
 
   return (
     <>
-      <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: theme.colors.bg },
+          // Native-thread transitions: iOS-style parallax slide on Android, swipe back.
+          animation: "ios_from_right",
+          gestureEnabled: true,
+          fullScreenGestureEnabled: true,
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -74,11 +85,15 @@ function AppNavigator() {
         <Stack.Screen
           name="transaction/new"
           options={{
-            presentation: 'modal',
+            presentation: "modal",
+            animation: "slide_from_bottom",
             headerShown: false,
           }}
         />
-        <Stack.Screen name="transaction/[id]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="transaction/[id]"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="transfer/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="wallets/index" options={{ headerShown: false }} />
         <Stack.Screen name="wallets/[id]" options={{ headerShown: false }} />
@@ -86,13 +101,17 @@ function AppNavigator() {
         <Stack.Screen
           name="quick-entry"
           options={{
-            presentation: 'modal',
+            presentation: "modal",
+            animation: "slide_from_bottom",
             headerShown: false,
           }}
         />
         <Stack.Screen name="check-in" options={{ headerShown: false }} />
         <Stack.Screen name="settings/index" options={{ headerShown: false }} />
-        <Stack.Screen name="settings/categories" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="settings/categories"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="category/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="plan/insights" options={{ headerShown: false }} />
         <Stack.Screen name="dev/gallery" options={{ headerShown: false }} />
@@ -115,7 +134,7 @@ export default function RootLayout() {
 
   const [repoState, setRepoState] = useState<{
     repo: Repo;
-    backend: 'sqlite' | 'memory';
+    backend: "sqlite" | "memory";
     settings: Settings;
   } | null>(null);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -129,14 +148,18 @@ export default function RootLayout() {
         const settings = await repo.getSettings();
         if (!cancelled) {
           setRepoState({ repo, backend, settings });
-          if (settings.onboardingDone && settings.reminder.enabled && !settings.notificationPermissionDenied) {
+          if (
+            settings.onboardingDone &&
+            settings.reminder.enabled &&
+            !settings.notificationPermissionDenied
+          ) {
             // Re-sync on app start so timezone changes take effect without duplicate triggers.
             syncReminderSchedule(settings.reminder).catch(() => {});
           }
         }
       } catch {
         if (!cancelled) {
-          setDbError(t('error.dbInitBody'));
+          setDbError(t("error.dbInitBody"));
         }
       }
     })();
@@ -150,7 +173,9 @@ export default function RootLayout() {
     setBootAttempt((n) => n + 1);
   }, []);
 
-  const ready = (fontsLoaded || Boolean(fontError)) && (repoState !== null || dbError !== null);
+  const ready =
+    (fontsLoaded || Boolean(fontError)) &&
+    (repoState !== null || dbError !== null);
 
   useEffect(() => {
     if (ready) {
@@ -172,7 +197,7 @@ export default function RootLayout() {
       setRepoState((prev) => (prev ? { ...prev, settings: latest } : null));
       bumpDataVersion();
     },
-    [repoState]
+    [repoState],
   );
 
   if (!ready) {
@@ -182,12 +207,15 @@ export default function RootLayout() {
   if (dbError || !repoState) {
     return (
       <SafeAreaProvider>
-        <ThemeProvider preference={DEFAULT_SETTINGS.theme} accent={DEFAULT_SETTINGS.accent}>
+        <ThemeProvider
+          preference={DEFAULT_SETTINGS.theme}
+          accent={DEFAULT_SETTINGS.accent}
+        >
           <Screen>
             <ErrorState
-              title={t('error.dbInitTitle')}
-              body={dbError ?? t('error.dbInitBody')}
-              retryLabel={t('common.retry')}
+              title={t("error.dbInitTitle")}
+              body={dbError ?? t("error.dbInitBody")}
+              retryLabel={t("common.retry")}
               onRetry={handleRetryBoot}
             />
           </Screen>
@@ -207,7 +235,10 @@ export default function RootLayout() {
           refreshSettings,
         }}
       >
-        <ThemeProvider preference={repoState.settings.theme} accent={repoState.settings.accent}>
+        <ThemeProvider
+          preference={repoState.settings.theme}
+          accent={repoState.settings.accent}
+        >
           <ToastProvider>
             <AppNavigator />
           </ToastProvider>

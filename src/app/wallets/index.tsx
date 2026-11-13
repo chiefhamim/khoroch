@@ -1,16 +1,17 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import {
   formatAccountBalance,
   formatAccountsTotal,
 } from '@/domain/accounts';
 import { formatFriendlyDate, todayLocalDate } from '@/domain/dates';
-import { formatMoney } from '@/domain/money';
+import { formatMoney, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
 import type { Account, Transaction } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
@@ -26,10 +27,13 @@ import { useToast } from '@/ui/Toast';
 import { WalletAvatar } from '@/ui/WalletAvatar';
 import { WalletEditorSheet } from '@/ui/WalletEditorSheet';
 import { hapticLight, hapticSelection, hapticSuccess } from '@/ui/haptics';
+import { PressableScale } from '@/ui/PressableScale';
 
 export default function ManageWalletsScreen() {
   const { setup, edit } = useLocalSearchParams<{ setup?: string; edit?: string }>();
   const { repo, settings } = useAppContext();
+  const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
   const { theme } = useTheme();
   const { showToast } = useToast();
   const today = todayLocalDate();
@@ -175,7 +179,9 @@ export default function ManageWalletsScreen() {
               {t('wallets.totalHeader')}
             </AppText>
             <AppText variant="headline" tabularNums>
-              {formatAccountsTotal(overview.totalMinor, settings.currency)}
+              {hideAmounts
+                ? HIDDEN_AMOUNT_TEXT
+                : formatAccountsTotal(overview.totalMinor, settings.currency)}
             </AppText>
           </View>
           {overview.excludedCount > 0 ? (
@@ -211,7 +217,7 @@ export default function ManageWalletsScreen() {
             return (
               <View key={acc.id}>
                 <View style={styles.walletRow}>
-                  <Pressable
+                  <PressableScale pressScale={0.98}
                     testID={`manage-wallet-row-${acc.id}`}
                     accessibilityRole="button"
                     accessibilityLabel={acc.name}
@@ -237,9 +243,9 @@ export default function ManageWalletsScreen() {
                       color={bal?.isDue ? 'danger' : 'text'}
                       tabularNums
                     >
-                      {formattedBal}
+                      {hideAmounts ? HIDDEN_AMOUNT_TEXT : formattedBal}
                     </AppText>
-                  </Pressable>
+                  </PressableScale>
 
                   <View style={styles.rowControls}>
                     <IconButton
@@ -392,7 +398,7 @@ export default function ManageWalletsScreen() {
                 {accounts.map((acc) => {
                   const selected = tagTargetAccountId === acc.id;
                   return (
-                    <Pressable
+                    <PressableScale pressScale={0.98}
                       key={acc.id}
                       testID={`tag-target-wallet-${acc.id}`}
                       accessibilityRole="button"
@@ -416,7 +422,7 @@ export default function ManageWalletsScreen() {
                       <AppText variant="label" color={selected ? 'accent' : 'text'}>
                         {acc.name}
                       </AppText>
-                    </Pressable>
+                    </PressableScale>
                   );
                 })}
               </View>
@@ -461,7 +467,9 @@ export default function ManageWalletsScreen() {
                     }
                     right={
                       <AppText variant="bodyStrong" tabularNums>
-                        {`${prefix}${formatMoney(tx.amountMinor, tx.currency)}`}
+                        {hideAmounts
+                          ? HIDDEN_AMOUNT_TEXT
+                          : `${prefix}${formatMoney(tx.amountMinor, tx.currency, { showPoisha })}`}
                       </AppText>
                     }
                     showDivider={idx < untaggedTransactions.length - 1}

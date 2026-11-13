@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { currentLocalTime, isValidLocalDate, todayLocalDate } from '@/domain/dates';
 import {
   checkDueOverpayment,
@@ -34,6 +34,7 @@ import { useToast } from './Toast';
 import { WalletAvatar } from './WalletAvatar';
 import { WalletPickerSheet } from './WalletPickerSheet';
 import { hapticSelection, hapticSuccess } from './haptics';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface DueEntrySheetProps {
   visible: boolean;
@@ -285,7 +286,7 @@ function DueEntryBody({
         {DUE_KIND_OPTIONS.map((opt) => {
           const active = kind === opt.kind;
           return (
-            <Pressable
+            <PressableScale pressScale={0.98}
               key={opt.kind}
               testID={`due-kind-${opt.kind}`}
               accessibilityRole="button"
@@ -306,7 +307,7 @@ function DueEntryBody({
               <AppText variant="label" color={active ? 'accent' : 'textSecondary'}>
                 {t(opt.labelKey)}
               </AppText>
-            </Pressable>
+            </PressableScale>
           );
         })}
       </View>
@@ -323,7 +324,7 @@ function DueEntryBody({
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ gap: theme.spacing.sm, paddingVertical: 2 }}
           >
-            <Pressable
+            <PressableScale pressScale={0.98}
               testID="due-person-new-chip"
               accessibilityRole="button"
               accessibilityState={{ selected: creatingNewPerson || (people.length === 0 && !selectedPersonId) }}
@@ -367,12 +368,12 @@ function DueEntryBody({
               >
                 {t('due.newPersonCta')}
               </AppText>
-            </Pressable>
+            </PressableScale>
 
             {people.map((person) => {
               const selected = !creatingNewPerson && selectedPersonId === person.id;
               return (
-                <Pressable
+                <PressableScale pressScale={0.98}
                   key={person.id}
                   testID={`due-person-chip-${person.id}`}
                   accessibilityRole="button"
@@ -396,7 +397,7 @@ function DueEntryBody({
                   <AppText variant="label" color={selected ? 'accent' : 'text'} numberOfLines={1}>
                     {person.name}
                   </AppText>
-                </Pressable>
+                </PressableScale>
               );
             })}
           </ScrollView>
@@ -441,7 +442,7 @@ function DueEntryBody({
 
       {/* Optional Wallet + Date & Time */}
       <Surface variant="sunken" padded={false}>
-        <Pressable
+        <PressableScale pressScale={0.98}
           testID="due-wallet-row"
           accessibilityRole="button"
           accessibilityLabel={t('due.walletLabel')}
@@ -464,7 +465,7 @@ function DueEntryBody({
             {selectedAccount?.name ?? t('due.noWallet')}
           </AppText>
           <AppIcon name="chevron-right" size={16} color={theme.colors.textTertiary} />
-        </Pressable>
+        </PressableScale>
 
         <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />
 

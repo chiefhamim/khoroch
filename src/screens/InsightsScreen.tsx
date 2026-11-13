@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Pressable,
   StyleSheet,
   View,
   type LayoutChangeEvent,
@@ -22,6 +21,7 @@ import type { LocalDate, TxQuery } from '@/domain/types';
 import { t } from '@/i18n';
 import { useActivityFilterStore } from '@/state/activityFilterStore';
 import { useAppContext } from '@/state/AppContext';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { useInsights } from '@/state/useInsights';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
@@ -38,6 +38,7 @@ import { Money } from '@/ui/Money';
 import { Screen } from '@/ui/Screen';
 import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
+import { PressableScale } from '@/ui/PressableScale';
 
 const CHART_HEIGHT = 152;
 const TOP_PAD = 12;
@@ -65,6 +66,9 @@ export interface InsightsContentProps {
 
 export function InsightsContent({ todayOverride, showBack = false }: InsightsContentProps) {
   const { settings } = useAppContext();
+  const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
+  const compactNumbers = usePrivacyStore((s) => s.compactNumbers);
   const { theme, reducedMotion } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ preset?: string }>();
@@ -135,13 +139,16 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
     }
     return t('insights.historyChartA11y', {
       count: historyBars.length,
-      total: formatMoney(total, settings.currency),
+      total: formatMoney(total, settings.currency, { hidden: hideAmounts, showPoisha }),
       peakLabel: formatCycleLabel(peak.period, settings.monthStartDay, {
         includeYear: true,
       }),
-      peakAmount: formatMoney(peak.spentMinor, settings.currency),
+      peakAmount: formatMoney(peak.spentMinor, settings.currency, {
+        hidden: hideAmounts,
+        showPoisha,
+      }),
     });
-  }, [historyBars, settings.currency, settings.monthStartDay]);
+  }, [historyBars, settings.currency, settings.monthStartDay, hideAmounts, showPoisha]);
 
   const handleApplyCustom = () => {
     if (fromDraft > toDraft) {
@@ -213,13 +220,16 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
     if (daysCompared !== undefined) {
       if (diffMinor > 0) {
         return `${t('insights.mtdDiffMore', {
-          diff: formatMoney(diffMinor, settings.currency),
+          diff: formatMoney(diffMinor, settings.currency, { hidden: hideAmounts, showPoisha }),
           days: daysCompared,
         })} ↑`;
       }
       if (diffMinor < 0) {
         return `${t('insights.mtdDiffLess', {
-          diff: formatMoney(Math.abs(diffMinor), settings.currency),
+          diff: formatMoney(Math.abs(diffMinor), settings.currency, {
+            hidden: hideAmounts,
+            showPoisha,
+          }),
           days: daysCompared,
         })} ↓`;
       }
@@ -229,13 +239,16 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
     if (diffMinor > 0) {
       return `${t('overview.vsLastMonthUp', {
         pct: pctStr,
-        diff: formatMoney(diffMinor, settings.currency),
+        diff: formatMoney(diffMinor, settings.currency, { hidden: hideAmounts, showPoisha }),
       })} ↑`;
     }
     if (diffMinor < 0) {
       return `${t('overview.vsLastMonthDown', {
         pct: pctStr,
-        diff: formatMoney(Math.abs(diffMinor), settings.currency),
+        diff: formatMoney(Math.abs(diffMinor), settings.currency, {
+          hidden: hideAmounts,
+          showPoisha,
+        }),
       })} ↓`;
     }
     return t('overview.vsLastMonthSame');
@@ -297,7 +310,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
           ) : null}
           <AppText variant="title">{t('insights.title')}</AppText>
         </View>
-        <Pressable
+        <PressableScale pressScale={0.98}
           testID="insights-period-dropdown"
           accessibilityRole="button"
           accessibilityLabel={`${t('insights.periodTitle')}: ${activePresetLabel}`}
@@ -320,7 +333,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
             {activePresetLabel}
           </AppText>
           <AppIcon name="chevron-down" size={14} color={theme.colors.textSecondary} />
-        </Pressable>
+        </PressableScale>
       </View>
 
       <AppText variant="caption" color="textSecondary" style={{ marginTop: -theme.spacing.sm }}>
@@ -337,7 +350,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
             {t('insights.notEnoughBody')}
           </AppText>
         ) : (
-          <Pressable
+          <PressableScale pressScale={0.98}
             testID="insight-mtd-card"
             accessibilityRole="button"
             accessibilityLabel={t('insights.mtdTitle')}
@@ -354,12 +367,21 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
               <AppText variant="display" tabularNums style={{ fontSize: 25, lineHeight: 31 }}>
                 {preset === 'this_month'
                   ? t('insights.spentSoFarHeadline', {
-                      amount: formatMoney(currCompMinor, settings.currency),
+                      amount: formatMoney(currCompMinor, settings.currency, {
+                        hidden: hideAmounts,
+                        showPoisha,
+                        compact: compactNumbers,
+                      }),
                     })
                   : t('insights.spentWindowHeadline', {
                       amount: formatMoney(
                         report.averages.totalExpenseMinor,
-                        settings.currency
+                        settings.currency,
+                        {
+                          hidden: hideAmounts,
+                          showPoisha,
+                          compact: compactNumbers,
+                        }
                       ),
                     })}
               </AppText>
@@ -435,13 +457,13 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                 </View>
               </View>
             </View>
-          </Pressable>
+          </PressableScale>
         )}
       </Surface>
 
       {/* Last complete cycle comparison */}
       <Surface testID="insight-full-period-card" style={{ gap: theme.spacing.sm }}>
-        <Pressable
+        <PressableScale pressScale={0.98}
           accessibilityRole="button"
           accessibilityLabel={t('insights.fullPeriodTitle')}
           onPress={() =>
@@ -476,6 +498,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                 amountMinor={report.fullPeriodComparison.currentMinor}
                 currency={settings.currency}
                 variant="headline"
+                allowCompact
               />
             </View>
             <View style={[styles.flexOne, { gap: 2 }]}>
@@ -487,10 +510,11 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                 currency={settings.currency}
                 variant="headline"
                 color="textSecondary"
+                allowCompact
               />
             </View>
           </View>
-        </Pressable>
+        </PressableScale>
       </Surface>
 
       {/* Pattern observations (strictly gated on >=7 days & >=5 txs) */}
@@ -526,7 +550,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
       <View style={{ gap: theme.spacing.sm }}>
         <View style={styles.rowBetween}>
           <AppText variant="headline">{t('insights.averagesSection')}</AppText>
-          <Pressable
+          <PressableScale pressScale={0.98}
             accessibilityRole="button"
             hitSlop={8}
             onPress={() => openActivityWithQuery(windowQuery)}
@@ -534,7 +558,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
             <AppText variant="label" color="accent">
               {t('insights.viewInActivity')}
             </AppText>
-          </Pressable>
+          </PressableScale>
         </View>
 
         {!report.hasWindowExpenses ? (
@@ -559,6 +583,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                   currency={settings.currency}
                   variant="headline"
                   roundToWhole
+                  allowCompact
                 />
               </Surface>
 
@@ -575,6 +600,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                   currency={settings.currency}
                   variant="headline"
                   roundToWhole
+                  allowCompact
                 />
               </Surface>
             </View>
@@ -593,6 +619,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                   currency={settings.currency}
                   variant="headline"
                   roundToWhole
+                  allowCompact
                 />
               </Surface>
 
@@ -615,6 +642,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                   currency={settings.currency}
                   variant="headline"
                   roundToWhole
+                  allowCompact
                 />
               </Surface>
             </View>
@@ -815,9 +843,10 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                     />
                   }
                   title={cat?.name ?? t('common.uncategorized')}
-                  subtitle={`${formatMoney(item.currentMinor, settings.currency)} vs ${formatMoney(
+                  subtitle={`${formatMoney(item.currentMinor, settings.currency, { hidden: hideAmounts, showPoisha })} vs ${formatMoney(
                     item.previousMinor,
-                    settings.currency
+                    settings.currency,
+                    { hidden: hideAmounts, showPoisha }
                   )}`}
                   right={
                     <AppText
@@ -862,7 +891,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
         <AppText variant="headline">{t('insights.historyChartSection')}</AppText>
         <Surface style={{ gap: theme.spacing.sm }}>
           {selectedBar ? (
-            <Pressable
+            <PressableScale pressScale={0.98}
               accessibilityRole="button"
               accessibilityLabel={`${formatCycleLabel(selectedBar.period, settings.monthStartDay)} ${t('insights.viewInActivity')}`}
               onPress={() =>
@@ -889,10 +918,13 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                   })}
                 </AppText>
                 <AppText variant="bodyStrong" color="accent" tabularNums>
-                  {`${formatMoney(selectedBar.spentMinor, settings.currency)} →`}
+                  {`${formatMoney(selectedBar.spentMinor, settings.currency, {
+                    hidden: hideAmounts,
+                    showPoisha,
+                  })} →`}
                 </AppText>
               </View>
-            </Pressable>
+            </PressableScale>
           ) : (
             <AppText variant="caption" color="textSecondary">
               {t('insights.historyChartHint')}
@@ -972,12 +1004,13 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
             </Svg>
             <View style={styles.hitOverlay}>
               {historyBars.map((bar, idx) => (
-                <Pressable
+                <PressableScale pressScale={0.98}
                   key={bar.period.start}
                   accessibilityRole="button"
                   accessibilityLabel={`${formatCycleLabel(bar.period, settings.monthStartDay)}: ${formatMoney(
                     bar.spentMinor,
-                    settings.currency
+                    settings.currency,
+                    { hidden: hideAmounts, showPoisha }
                   )}`}
                   onPress={() =>
                     setSelectedHistoryIdx(idx === selectedHistoryIdx ? null : idx)

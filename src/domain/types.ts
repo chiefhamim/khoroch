@@ -18,6 +18,19 @@ export type ThemePreference = 'system' | 'light' | 'dark' | 'black';
 
 export type AccentTheme = 'forest' | 'ocean' | 'plum' | 'saffron' | 'graphite';
 
+export type WeekStartDay = 'saturday' | 'sunday' | 'monday';
+
+export const WEEK_START_DAYS: readonly WeekStartDay[] = ['saturday', 'sunday', 'monday'];
+
+const WEEK_START_DAY_SET = new Set<string>(WEEK_START_DAYS);
+
+export function normalizeWeekStartDay(
+  raw: unknown,
+  fallback: WeekStartDay = 'saturday'
+): WeekStartDay {
+  return typeof raw === 'string' && WEEK_START_DAY_SET.has(raw) ? (raw as WeekStartDay) : fallback;
+}
+
 export const ACCENT_THEMES: readonly AccentTheme[] = [
   'forest',
   'ocean',
@@ -94,6 +107,32 @@ export const CATEGORY_COLOR_KEYS = [
 ] as const;
 
 export type CategoryColorKey = (typeof CATEGORY_COLOR_KEYS)[number];
+
+export type AvatarColorKey = 'accent' | CategoryColorKey;
+
+export const AVATAR_COLOR_KEYS: readonly AvatarColorKey[] = [
+  'accent',
+  'teal',
+  'violet',
+  'orange',
+  'blue',
+  'amber',
+  'pink',
+  'red',
+  'indigo',
+];
+
+const CATEGORY_COLOR_KEY_SET = new Set<string>(CATEGORY_COLOR_KEYS);
+
+export function normalizeAvatarColorKey(
+  raw: unknown,
+  fallback: AvatarColorKey = 'accent'
+): AvatarColorKey {
+  if (raw === 'accent') return 'accent';
+  return typeof raw === 'string' && CATEGORY_COLOR_KEY_SET.has(raw)
+    ? (raw as CategoryColorKey)
+    : fallback;
+}
 
 export interface Category {
   id: string;
@@ -276,14 +315,71 @@ export interface DayReviewRecord {
   reviewedAt: number;
 }
 
+export const HOME_SECTION_IDS = [
+  'wallets',
+  'dues',
+  'spending_chart',
+  'top_categories',
+  'recent',
+] as const;
+
+export type HomeSectionId = (typeof HOME_SECTION_IDS)[number];
+
+export interface HomeSectionConfig {
+  id: HomeSectionId;
+  visible: boolean;
+}
+
+export const DEFAULT_HOME_SECTIONS: readonly HomeSectionConfig[] = HOME_SECTION_IDS.map(
+  (id) => ({ id, visible: true })
+);
+
+const HOME_SECTION_ID_SET = new Set<string>(HOME_SECTION_IDS);
+
+export function cloneDefaultHomeSections(): HomeSectionConfig[] {
+  return DEFAULT_HOME_SECTIONS.map((s) => ({ ...s }));
+}
+
+export function normalizeHomeSections(raw: unknown): HomeSectionConfig[] {
+  if (!Array.isArray(raw)) return cloneDefaultHomeSections();
+  const seen = new Set<HomeSectionId>();
+  const result: HomeSectionConfig[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const rec = item as { id?: unknown; visible?: unknown };
+    if (typeof rec.id !== 'string' || !HOME_SECTION_ID_SET.has(rec.id)) continue;
+    const id = rec.id as HomeSectionId;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    result.push({
+      id,
+      visible: typeof rec.visible === 'boolean' ? rec.visible : true,
+    });
+  }
+  for (const def of DEFAULT_HOME_SECTIONS) {
+    if (!seen.has(def.id)) {
+      result.push({ ...def });
+    }
+  }
+  return result;
+}
+
 export interface Settings {
   onboardingDone: boolean;
   name: string;
+  avatarColorKey: AvatarColorKey;
   currency: CurrencyCode;
   monthStartDay: number;
   theme: ThemePreference;
   accent: AccentTheme;
   reminder: ReminderSettings;
+  hideAmountsOnOpen: boolean;
+  showPoisha: boolean;
+  compactNumbers: boolean;
+  weekStartsOn: WeekStartDay;
+  homeSections: HomeSectionConfig[];
+  appLockEnabled: boolean;
+  appLockTimeoutSec: number;
   sampleDataLoaded: boolean;
   notificationPermissionDenied: boolean;
   lastBackupAt: number | null;

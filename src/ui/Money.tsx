@@ -9,6 +9,7 @@ import {
   roundMinorToWhole,
 } from '@/domain/money';
 import type { CurrencyCode } from '@/domain/types';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { TAKA_FONT_FAMILY, type ColorPalette, type TypographyVariant } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
@@ -21,6 +22,8 @@ export interface MoneyProps {
   prefix?: string;
   showSign?: 'auto' | 'none';
   compact?: boolean;
+  /** Enables Settings -> Appearance -> Short numbers (`৳48.4k`) on card/KPI surfaces only. */
+  allowCompact?: boolean;
   roundToWhole?: boolean;
   showDecimals?: boolean;
   hidden?: boolean;
@@ -43,25 +46,14 @@ export interface TakaSignMetrics {
  * (12 / 15 / 17 / 28 / 40) so ৳ sits cleanly on the figure baseline.
  */
 export function getTakaSignMetrics(numberFontSize: number): TakaSignMetrics {
-  const fontSize = Math.max(9, Math.round(numberFontSize * 0.72));
-  let baselineNudge: number;
-  if (numberFontSize <= 13) {
-    baselineNudge = -0.5;
-  } else if (numberFontSize <= 16) {
-    baselineNudge = -0.8;
-  } else if (numberFontSize <= 22) {
-    baselineNudge = -1;
-  } else if (numberFontSize <= 32) {
-    baselineNudge = -1.5;
-  } else {
-    baselineNudge = -2.5;
-  }
-
+  // The app font (patched Plus Jakarta Sans) now carries its own ৳ drawn at 80% of digit
+  // height on the baseline, so the sign inherits the number's family, size and weight.
+  // Plain-text ৳ elsewhere in the app renders identically.
   return {
     fontFamily: TAKA_FONT_FAMILY,
-    fontSize,
-    opacity: 0.8,
-    baselineNudge,
+    fontSize: numberFontSize,
+    opacity: numberFontSize >= 28 ? 0.82 : 1,
+    baselineNudge: 0,
     spacerWidth: Math.max(1, Math.round(numberFontSize * 0.04)),
   };
 }
@@ -74,7 +66,6 @@ interface TakaSignProps {
 }
 
 function TakaSign({ numberFontSize, symbol, color, testID }: TakaSignProps) {
-  const isTaka = symbol === '৳';
   const metrics = getTakaSignMetrics(numberFontSize);
 
   return (
@@ -82,7 +73,7 @@ function TakaSign({ numberFontSize, symbol, color, testID }: TakaSignProps) {
       testID={testID}
       style={{
         fontSize: metrics.fontSize,
-        fontFamily: isTaka ? metrics.fontFamily : undefined,
+        
         opacity: metrics.opacity,
         color,
         position: 'relative',
@@ -108,16 +99,26 @@ export function Money({
   symbolColor,
   prefix = '',
   showSign = 'auto',
-  compact = false,
+  compact,
+  allowCompact = false,
   roundToWhole = false,
-  showDecimals = false,
-  hidden = false,
+  showDecimals,
+  hidden,
   style,
   numberOfLines,
   accessibilityLabel,
   testID,
 }: MoneyProps) {
   const { theme } = useTheme();
+  const storeHideAmounts = usePrivacyStore((s) => s.hideAmounts);
+  const storeShowPoisha = usePrivacyStore((s) => s.showPoisha);
+  const storeCompactNumbers = usePrivacyStore((s) => s.compactNumbers);
+
+  const resolvedHidden = hidden ?? storeHideAmounts;
+  const resolvedCompact = compact ?? (allowCompact ? storeCompactNumbers : false);
+  const resolvedShowDecimals =
+    showDecimals ?? (roundToWhole ? false : storeShowPoisha);
+
   const typeStyle = theme.typography[variant];
   const flattened = Array.isArray(style)
     ? Object.assign({}, ...style.filter(Boolean))
@@ -128,7 +129,7 @@ export function Money({
   const resolvedSymbolColor =
     symbolColor !== undefined ? theme.colors[symbolColor] : resolvedMainColor;
 
-  if (hidden) {
+  if (resolvedHidden) {
     return (
       <Text
         testID={testID}
@@ -156,13 +157,13 @@ export function Money({
   const absMinor = Math.abs(normalizedMinor);
 
   let numberPart: string;
-  if (compact) {
+  if (resolvedCompact) {
     numberPart = getCompactNumberPart(normalizedMinor).numberPart;
   } else {
     const frac = absMinor % 100;
     const whole = (absMinor - frac) / 100;
     const wholeStr = groupThousands(String(whole));
-    const includeDecimals = frac !== 0 || showDecimals;
+    const includeDecimals = frac !== 0 || resolvedShowDecimals;
     numberPart = includeDecimals
       ? `${wholeStr}.${String(frac).padStart(2, '0')}`
       : wholeStr;

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { epochMsToLocalDate, isBackupDue } from '@/data/backup';
 import { formatUtilizationPct } from '@/domain/calc';
@@ -44,6 +44,7 @@ import { Sheet } from '@/ui/Sheet';
 import { SpendingChart, type ChartGranularity } from '@/ui/SpendingChart';
 import { Surface } from '@/ui/Surface';
 import { WalletAvatar } from '@/ui/WalletAvatar';
+import { PressableScale } from '@/ui/PressableScale';
 
 function buildGreeting(hour: number): string {
   if (hour < 12) return t('overview.goodMorning');
@@ -132,7 +133,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             {subtitleLine}
           </AppText>
         </View>
-        <Pressable
+        <PressableScale pressScale={0.98}
           testID="overview-settings-shortcut"
           accessibilityRole="button"
           accessibilityLabel={t('tabs.settings')}
@@ -153,7 +154,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           >
             {avatarInitial}
           </AppText>
-        </Pressable>
+        </PressableScale>
       </View>
 
       {summary.ignoredOtherCurrencyCount > 0 ? (
@@ -180,7 +181,9 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               <AppText variant="label" color="heroTextSecondary">
                 {hideAmounts
                   ? t('overview.tapToShowHint')
-                  : t('overview.acrossWallets', { count: accountsOverview.includedCount })}
+                  : accountsOverview.includedCount === 1
+                    ? t('overview.acrossOneWallet')
+                    : t('overview.acrossWallets', { count: accountsOverview.includedCount })}
               </AppText>
               <View style={[styles.heroTopRight, { gap: theme.spacing.xs }]}>
                 {overallBudgetMinor !== null ? (
@@ -394,7 +397,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
 
             <View style={[styles.divider, { backgroundColor: theme.colors.heroLine }]} />
 
-            <Pressable
+            <PressableScale pressScale={0.98}
               testID="overview-set-budget-inline"
               accessibilityRole="button"
               accessibilityLabel={t('overview.setBudgetCta')}
@@ -414,7 +417,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 {t('overview.setBudgetCta')}
               </AppText>
               <AppIcon name="chevron-right" size={16} color={theme.colors.heroBar} />
-            </Pressable>
+            </PressableScale>
           </>
         )}
       </HeroCard>
@@ -488,7 +491,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         <View style={{ gap: theme.spacing.sm }}>
           <View style={styles.sectionRow}>
             <AppText variant="headline">{t('overview.walletsHeading')}</AppText>
-            <Pressable
+            <PressableScale pressScale={0.98}
               testID="overview-manage-wallets"
               accessibilityRole="button"
               hitSlop={8}
@@ -497,7 +500,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               <AppText variant="label" color="accent" style={styles.semiBold}>
                 {t('overview.manageWallets')}
               </AppText>
-            </Pressable>
+            </PressableScale>
           </View>
 
           <Surface testID="overview-wallets-list" padded={false}>
@@ -620,7 +623,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         <View style={{ gap: theme.spacing.sm }}>
           <View style={styles.sectionRow}>
             <AppText variant="headline">{t('overview.topCategoriesTitle')}</AppText>
-            <Pressable
+            <PressableScale pressScale={0.98}
               accessibilityRole="button"
               hitSlop={8}
               onPress={() => router.push('/plan/insights' as never)}
@@ -628,7 +631,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               <AppText variant="label" color="accent">
                 {t('overview.seeAll')}
               </AppText>
-            </Pressable>
+            </PressableScale>
           </View>
 
           <Surface padded={false}>
@@ -652,7 +655,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
 
               return (
                 <View key={slice.isOtherGroup || !sliceCatId ? '__other__' : sliceCatId}>
-                  <Pressable
+                  <PressableScale pressScale={0.98}
                     accessibilityRole="button"
                     accessibilityLabel={`${catName}: ${formatMoney(slice.spentMinor, settings.currency)}`}
                     onPress={() => {
@@ -712,7 +715,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                         />
                       </View>
                     </View>
-                  </Pressable>
+                  </PressableScale>
                   {idx < topSlices.length - 1 ? (
                     <View
                       style={[
@@ -736,7 +739,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
       <View style={{ gap: theme.spacing.sm }}>
         <View style={styles.sectionRow}>
           <AppText variant="headline">{t('overview.recentTitle')}</AppText>
-          <Pressable
+          <PressableScale pressScale={0.98}
             accessibilityRole="button"
             hitSlop={8}
             onPress={() => router.push('/(tabs)/ledger' as never)}
@@ -744,7 +747,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             <AppText variant="label" color="accent">
               {t('overview.seeAll')}
             </AppText>
-          </Pressable>
+          </PressableScale>
         </View>
 
         {recentTransactions.length === 0 ? (

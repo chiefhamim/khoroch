@@ -117,11 +117,27 @@ export function groupThousands(digits: string): string {
 export const MISSING_METRIC_DASH = '—';
 export const HIDDEN_AMOUNT_TEXT = 'Hidden';
 
+export interface FormatMoneyOptions {
+  showPoisha?: boolean;
+  hidden?: boolean;
+  compact?: boolean;
+}
+
 /**
  * Formats integer minor units for display without float division.
- * Whole units omit decimals; fractional units always show 2 decimal places.
+ * Whole units omit decimals unless `options.showPoisha` is true; fractional units show 2 decimal places.
  */
-export function formatMoney(amountMinor: number, currency: CurrencyCode): string {
+export function formatMoney(
+  amountMinor: number,
+  currency: CurrencyCode,
+  options?: FormatMoneyOptions
+): string {
+  if (options?.hidden) {
+    return HIDDEN_AMOUNT_TEXT;
+  }
+  if (options?.compact) {
+    return compactMoney(amountMinor, currency);
+  }
   const safeMinor = Math.trunc(amountMinor);
   const isNegative = safeMinor < 0;
   const absMinor = Math.abs(safeMinor);
@@ -130,8 +146,10 @@ export function formatMoney(amountMinor: number, currency: CurrencyCode): string
   const whole = (absMinor - frac) / 100;
 
   const wholeFormatted = groupThousands(String(whole));
-  const numberPart =
-    frac === 0 ? wholeFormatted : `${wholeFormatted}.${String(frac).padStart(2, '0')}`;
+  const includeDecimals = frac !== 0 || Boolean(options?.showPoisha);
+  const numberPart = includeDecimals
+    ? `${wholeFormatted}.${String(frac).padStart(2, '0')}`
+    : wholeFormatted;
 
   const meta = CURRENCIES[currency] ?? CURRENCIES.BDT;
   const prefix = meta.spaceAfterSymbol ? `${meta.symbol} ` : meta.symbol;

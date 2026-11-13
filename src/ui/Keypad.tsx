@@ -1,10 +1,11 @@
 import React from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { t } from '@/i18n';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
 import { AppText } from './AppText';
 import { hapticSelection } from './haptics';
+import { PressableScale } from '@/ui/PressableScale';
 
 const ROWS: readonly (readonly string[])[] = [
   ['1', '2', '3'],
@@ -66,7 +67,7 @@ export function Keypad({ value, onChange, keyHeight = 52, style, testID }: Keypa
                 : t('tx.padDigit', { digit: key });
 
             return (
-              <Pressable
+              <PressableScale pressScale={0.9}
                 key={key}
                 testID={testID ? `${testID}-key-${key === '.' ? 'dot' : key}` : undefined}
                 accessibilityRole="button"
@@ -89,7 +90,7 @@ export function Keypad({ value, onChange, keyHeight = 52, style, testID }: Keypa
                     {key}
                   </AppText>
                 )}
-              </Pressable>
+              </PressableScale>
             );
           })}
         </View>

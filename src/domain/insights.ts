@@ -10,12 +10,20 @@ import {
   addDays,
   diffDays,
   formatLocalDate,
+  getWeekRange,
   minLocalDate,
   parseLocalDate,
-  toEpochDay,
 } from './dates';
 import { buildRecentPeriodWindows, getPeriod, previousPeriod } from './period';
-import type { Category, CurrencyCode, LocalDate, Period, Transaction, TxQuery } from './types';
+import type {
+  Category,
+  CurrencyCode,
+  LocalDate,
+  Period,
+  Transaction,
+  TxQuery,
+  WeekStartDay,
+} from './types';
 
 export type InsightsPeriodPreset =
   | 'this_week'
@@ -106,31 +114,24 @@ export interface InsightsReport {
   monthlyHistory: MonthlySeriesPoint[];
 }
 
-function getMondayOfWeek(date: LocalDate): LocalDate {
-  // 1970-01-01 was Thursday -> epochDay 0 maps to Thu (3 when Mon=0..Sun=6).
-  const epochDay = toEpochDay(date);
-  const dowMon0 = (((epochDay + 3) % 7) + 7) % 7;
-  return addDays(date, -dowMon0);
-}
-
 export function resolveInsightsWindow(
   preset: InsightsPeriodPreset,
   today: LocalDate,
   monthStartDay: number,
-  customRange?: CustomDateRange
+  customRange?: CustomDateRange,
+  weekStartsOn: WeekStartDay = 'saturday'
 ): InsightsWindow {
   const currentPeriod = getPeriod(today, monthStartDay);
   const tomorrow = addDays(today, 1);
 
   switch (preset) {
     case 'this_week': {
-      const monday = getMondayOfWeek(today);
-      const weekEndExcl = addDays(monday, 7);
-      const elapsedDays = Math.max(1, diffDays(minLocalDate(tomorrow, weekEndExcl), monday));
+      const { start, endExcl } = getWeekRange(today, weekStartsOn);
+      const elapsedDays = Math.max(1, diffDays(minLocalDate(tomorrow, endExcl), start));
       return {
         preset,
-        fromIncl: monday,
-        toExcl: weekEndExcl,
+        fromIncl: start,
+        toExcl: endExcl,
         elapsedDays,
         completeMonthsCount: null,
       };
@@ -431,9 +432,16 @@ export function buildInsightsReport(
   currency: CurrencyCode,
   preset: InsightsPeriodPreset,
   categoriesById: ReadonlyMap<string, Pick<Category, 'name'>>,
-  customRange?: CustomDateRange
+  customRange?: CustomDateRange,
+  weekStartsOn: WeekStartDay = 'saturday'
 ): InsightsReport {
-  const window = resolveInsightsWindow(preset, today, monthStartDay, customRange);
+  const window = resolveInsightsWindow(
+    preset,
+    today,
+    monthStartDay,
+    customRange,
+    weekStartsOn
+  );
   const hasAnyHistory = transactions.some((tx) => tx.deletedAt == null);
 
   let totalExpenseMinor = 0;

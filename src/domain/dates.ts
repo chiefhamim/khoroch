@@ -1,4 +1,4 @@
-import type { LocalDate } from './types';
+import type { LocalDate, WeekStartDay } from './types';
 
 export interface DateParts {
   year: number;
@@ -159,6 +159,39 @@ export function formatFriendlyDate(
   return year === todayYear ? base : `${base} ${year}`;
 }
 
+const WEEK_START_OFFSET_THU0: Record<WeekStartDay, number> = {
+  saturday: 2,
+  sunday: 3,
+  monday: 4,
+};
+
+/**
+ * Returns the local start date of the 7-day calendar week containing `date`,
+ * honoring the user's configured first day of week (Saturday default per PLAN §3).
+ */
+export function getStartOfWeek(
+  date: LocalDate,
+  weekStartsOn: WeekStartDay = 'saturday'
+): LocalDate {
+  // 1970-01-01 (epochDay 0) was Thursday -> Thu=0, Fri=1, Sat=2, Sun=3, Mon=4, Tue=5, Wed=6.
+  const epochDay = toEpochDay(date);
+  const dowThu0 = ((epochDay % 7) + 7) % 7;
+  const target = WEEK_START_OFFSET_THU0[weekStartsOn] ?? WEEK_START_OFFSET_THU0.saturday;
+  const offsetDays = (((dowThu0 - target) % 7) + 7) % 7;
+  return addDays(date, -offsetDays);
+}
+
+/**
+ * Returns `[start, endExcl)` for the 7-day calendar week containing `date`.
+ */
+export function getWeekRange(
+  date: LocalDate,
+  weekStartsOn: WeekStartDay = 'saturday'
+): { start: LocalDate; endExcl: LocalDate } {
+  const start = getStartOfWeek(date, weekStartsOn);
+  return { start, endExcl: addDays(start, 7) };
+}
+
 export function currentLocalTime(now: Date = new Date()): string {
   const h = String(now.getHours()).padStart(2, '0');
   const m = String(now.getMinutes()).padStart(2, '0');
@@ -195,5 +228,6 @@ export function formatFriendlyTime(
   }
   const period = hour >= 12 ? 'PM' : 'AM';
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-  return `${hour12}:${minStr} ${period}`;
+  // No-break space keeps "6:37 PM" together when a row's subtitle wraps.
+  return `${hour12}:${minStr} ${period}`;
 }

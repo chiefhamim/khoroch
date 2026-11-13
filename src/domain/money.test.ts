@@ -51,6 +51,9 @@ describe('money formatting (TEST-CASES §1)', () => {
     expect(formatMoney(-20000000, 'BDT')).toBe('-৳ 200,000');
     expect(formatMoney(123456789, 'USD')).toBe('$1,234,567.89');
     expect(formatMoney(500000, 'EUR')).toBe('€5,000');
+    expect(formatMoney(125000, 'BDT', { showPoisha: true })).toBe('৳ 1,250.00');
+    expect(formatMoney(125000, 'BDT', { hidden: true })).toBe('Hidden');
+    expect(formatMoney(4_835_000, 'BDT', { compact: true })).toBe('৳48.4k');
   });
 
   it('formats minor units cleanly for draft inputs without floats', () => {

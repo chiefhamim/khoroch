@@ -109,7 +109,8 @@ export function useInsights(
       settings.currency,
       preset,
       categoriesById,
-      customRange
+      customRange,
+      settings.weekStartsOn
     );
     return {
       ...built,
@@ -123,6 +124,7 @@ export function useInsights(
     preset,
     categoriesById,
     customRange,
+    settings.weekStartsOn,
     hasAnyHistoryDb,
   ]);
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { useRouter } from 'expo-router';
 import {
@@ -27,6 +27,7 @@ import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
 import { useToast } from '@/ui/Toast';
+import { PressableScale } from '@/ui/PressableScale';
 
 const PROTECTED_CATEGORY_IDS = new Set(['other', 'other_income', 'fees']);
 
@@ -174,7 +175,7 @@ export default function CategoriesScreen() {
   const canRestore = editingCat !== null && editingCat.archivedAt !== null;
 
   const renderTileCard = (cat: Category, dimmed: boolean) => (
-    <Pressable
+    <PressableScale pressScale={0.98}
       key={cat.id}
       testID={`cat-tile-${cat.id}`}
       accessibilityRole="button"
@@ -210,7 +211,7 @@ export default function CategoriesScreen() {
           {cat.name}
         </AppText>
       </Surface>
-    </Pressable>
+    </PressableScale>
   );
 
   return (
@@ -378,7 +379,7 @@ export default function CategoriesScreen() {
               const hex = theme.scheme === 'dark' ? spec.dark : spec.light;
               const selected = colorKeyInput === key;
               return (
-                <Pressable
+                <PressableScale pressScale={0.98}
                   key={key}
                   testID={`cat-color-${key}`}
                   accessibilityRole="button"
@@ -403,7 +404,7 @@ export default function CategoriesScreen() {
                       color={theme.scheme === 'dark' ? '#0A0A0C' : '#FFFFFF'}
                     />
                   ) : null}
-                </Pressable>
+                </PressableScale>
               );
             })}
           </View>
@@ -418,7 +419,7 @@ export default function CategoriesScreen() {
             {CATEGORY_ICON_CHOICES.map((ic) => {
               const active = iconInput === ic;
               return (
-                <Pressable
+                <PressableScale pressScale={0.98}
                   key={ic}
                   testID={`cat-icon-${ic}`}
                   accessibilityRole="button"
@@ -444,7 +445,7 @@ export default function CategoriesScreen() {
                     size={20}
                     color={active ? theme.colors.accent : theme.colors.text}
                   />
-                </Pressable>
+                </PressableScale>
               );
             })}
           </View>

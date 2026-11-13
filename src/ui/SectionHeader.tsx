@@ -1,7 +1,8 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface SectionHeaderProps {
   title: string;
@@ -25,7 +26,7 @@ export function SectionHeader({
       </AppText>
       {right}
       {actionLabel && onActionPress ? (
-        <Pressable
+        <PressableScale pressScale={0.97}
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
           onPress={onActionPress}
@@ -34,7 +35,7 @@ export function SectionHeader({
           <AppText variant="label" color="accent">
             {actionLabel}
           </AppText>
-        </Pressable>
+        </PressableScale>
       ) : null}
     </View>
   );

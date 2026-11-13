@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { formatFriendlyTime, isDevice24HourClock } from '@/domain/dates';
 import type { LocalTime } from '@/domain/types';
 import { useTheme } from '@/theme/useTheme';
@@ -8,6 +8,7 @@ import { AppText } from './AppText';
 import { Button } from './Button';
 import { SettingsRow } from './SettingsRow';
 import { Sheet } from './Sheet';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface TimeFieldProps {
   value: LocalTime;
@@ -140,7 +141,7 @@ export function TimeField({
             onPress={handleOpenPicker}
           />
         ) : (
-          <Pressable
+          <PressableScale pressScale={0.985}
             testID={testID}
             accessibilityRole="button"
             accessibilityLabel={accessibilityLabel ?? (label ? `${label}: ${display}` : display)}
@@ -163,7 +164,7 @@ export function TimeField({
               {display}
             </AppText>
             <AppIcon name="chevron-down" size={15} color={theme.colors.textTertiary} />
-          </Pressable>
+          </PressableScale>
         )}
 
         {Platform.OS === 'web'

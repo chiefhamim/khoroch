@@ -48,6 +48,9 @@ function checkTextValue(text: string): string | null {
   if (BANNED_ICON_NAMES.has(normalized)) {
     return `contains banned icon name "${normalized}"`;
   }
+  if (normalized === 'dashed' || normalized === 'dotted') {
+    return `uses a ${normalized} border (separators are solid hairlines)`;
+  }
   if (normalized === '•••') {
     return 'contains three-dot menu glyph (•••)';
   }

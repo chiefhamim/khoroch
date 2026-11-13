@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface BannerProps {
   message: string;
@@ -81,7 +82,7 @@ export function Banner({
   }
 
   return (
-    <Pressable
+    <PressableScale pressScale={0.985}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? message}
@@ -91,7 +92,7 @@ export function Banner({
       })}
     >
       {inner}
-    </Pressable>
+    </PressableScale>
   );
 }
 

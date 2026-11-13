@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   View,
@@ -54,6 +53,7 @@ import {
   supportsOnDeviceRecognition,
   type SpeechSessionHandle,
 } from '@/voice/speech';
+import { PressableScale } from '@/ui/PressableScale';
 
 interface EditableDraft {
   id: string;
@@ -658,7 +658,7 @@ export default function QuickEntryScreen() {
                             {catsForType.map((cat) => {
                               const selected = draft.categoryId === cat.id;
                               return (
-                                <Pressable
+                                <PressableScale pressScale={0.98}
                                   key={cat.id}
                                   testID={`quick-draft-${idx}-cat-${cat.id}`}
                                   accessibilityRole="button"
@@ -699,7 +699,7 @@ export default function QuickEntryScreen() {
                                   >
                                     {cat.name}
                                   </AppText>
-                                </Pressable>
+                                </PressableScale>
                               );
                             })}
                           </ScrollView>
@@ -734,7 +734,7 @@ export default function QuickEntryScreen() {
                                 }
                               />
                               {accounts.map((acc) => (
-                                <Pressable
+                                <PressableScale pressScale={0.98}
                                   key={acc.id}
                                   testID={`quick-draft-${idx}-wallet-${acc.id}`}
                                   accessibilityRole="button"
@@ -768,7 +768,7 @@ export default function QuickEntryScreen() {
                                   >
                                     {acc.name}
                                   </AppText>
-                                </Pressable>
+                                </PressableScale>
                               ))}
                             </ScrollView>
                           </View>
@@ -792,7 +792,7 @@ export default function QuickEntryScreen() {
                             {accounts.map((acc) => {
                               const selected = draft.fromAccountId === acc.id;
                               return (
-                                <Pressable
+                                <PressableScale pressScale={0.98}
                                   key={acc.id}
                                   accessibilityRole="button"
                                   onPress={() =>
@@ -816,7 +816,7 @@ export default function QuickEntryScreen() {
                                   <AppText variant="caption" color={selected ? 'accent' : 'text'}>
                                     {acc.name}
                                   </AppText>
-                                </Pressable>
+                                </PressableScale>
                               );
                             })}
                           </ScrollView>
@@ -835,7 +835,7 @@ export default function QuickEntryScreen() {
                             {accounts.map((acc) => {
                               const selected = draft.toAccountId === acc.id;
                               return (
-                                <Pressable
+                                <PressableScale pressScale={0.98}
                                   key={acc.id}
                                   accessibilityRole="button"
                                   onPress={() =>
@@ -859,7 +859,7 @@ export default function QuickEntryScreen() {
                                   <AppText variant="caption" color={selected ? 'accent' : 'text'}>
                                     {acc.name}
                                   </AppText>
-                                </Pressable>
+                                </PressableScale>
                               );
                             })}
                           </ScrollView>
@@ -949,7 +949,7 @@ export default function QuickEntryScreen() {
                                 }
                               />
                               {accounts.map((acc) => (
-                                <Pressable
+                                <PressableScale pressScale={0.98}
                                   key={acc.id}
                                   accessibilityRole="button"
                                   onPress={() =>
@@ -980,7 +980,7 @@ export default function QuickEntryScreen() {
                                   >
                                     {acc.name}
                                   </AppText>
-                                </Pressable>
+                                </PressableScale>
                               ))}
                             </ScrollView>
                           </View>

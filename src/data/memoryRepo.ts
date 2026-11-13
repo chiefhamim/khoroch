@@ -10,7 +10,10 @@ import {
   isValidBudgetAmount,
 } from '@/domain/validation';
 import {
+  normalizeAvatarColorKey,
+  normalizeHomeSections,
   normalizeReminderSettings,
+  normalizeWeekStartDay,
   type Account,
   type AccountPatch,
   type Budget,
@@ -80,6 +83,9 @@ function isAfterCursor(tx: Transaction, c: CursorKey): boolean {
 function cloneSettings(s: Settings): Settings {
   return {
     ...s,
+    avatarColorKey: normalizeAvatarColorKey(s.avatarColorKey, DEFAULT_SETTINGS.avatarColorKey),
+    weekStartsOn: normalizeWeekStartDay(s.weekStartsOn, DEFAULT_SETTINGS.weekStartsOn),
+    homeSections: normalizeHomeSections(s.homeSections),
     reminder: normalizeReminderSettings(s.reminder, DEFAULT_SETTINGS.reminder),
   };
 }
@@ -849,7 +855,9 @@ export class MemoryRepo implements Repo {
       [k]:
         k === 'reminder'
           ? normalizeReminderSettings(v, DEFAULT_SETTINGS.reminder)
-          : v,
+          : k === 'homeSections'
+            ? normalizeHomeSections(v)
+            : v,
     };
   }
 

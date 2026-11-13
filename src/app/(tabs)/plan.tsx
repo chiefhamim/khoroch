@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { formatUtilizationPct } from '@/domain/calc';
 import {
@@ -13,6 +13,7 @@ import { formatCycleLabel } from '@/domain/period';
 import { isValidBudgetAmount } from '@/domain/validation';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { useBudgets } from '@/state/useBudgets';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
@@ -33,6 +34,7 @@ import { Screen } from '@/ui/Screen';
 import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
 import { useToast } from '@/ui/Toast';
+import { PressableScale } from '@/ui/PressableScale';
 
 type SheetMode =
   | { kind: 'overall' }
@@ -42,6 +44,8 @@ type SheetMode =
 export default function PlanScreen() {
   const router = useRouter();
   const { settings } = useAppContext();
+  const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
   const { theme, reducedMotion } = useTheme();
   const { showToast } = useToast();
   const {
@@ -202,14 +206,20 @@ export default function PlanScreen() {
     if (allocation.unallocatedMinor < 0) {
       return {
         text: t('budget.overAllocatedInline', {
-          amount: formatMoney(Math.abs(allocation.unallocatedMinor), settings.currency),
+          amount: formatMoney(Math.abs(allocation.unallocatedMinor), settings.currency, {
+            hidden: hideAmounts,
+            showPoisha,
+          }),
         }),
         tone: 'warning' as const,
       };
     }
     return {
       text: t('budget.unallocatedInline', {
-        amount: formatMoney(allocation.unallocatedMinor, settings.currency),
+        amount: formatMoney(allocation.unallocatedMinor, settings.currency, {
+          hidden: hideAmounts,
+          showPoisha,
+        }),
       }),
       tone: 'textSecondary' as const,
     };
@@ -242,6 +252,7 @@ export default function PlanScreen() {
                 amountMinor={Math.abs(overallSummary.remainingMinor)}
                 currency={settings.currency}
                 color={isNegativeRemaining ? 'danger' : 'text'}
+                allowCompact
               />
               <AppText
                 variant="caption"
@@ -259,12 +270,13 @@ export default function PlanScreen() {
                       days: remainingDaysCount,
                       amount: formatMoney(
                         overallSummary.safeToSpendPerDayMinor,
-                        settings.currency
+                        settings.currency,
+                        { hidden: hideAmounts, showPoisha }
                       ),
                     })
                   : t('budget.remainingDays', { days: remainingDaysCount })}
               </AppText>
-              <Pressable
+              <PressableScale pressScale={0.98}
                 testID="budget-edit-overall-btn"
                 accessibilityRole="button"
                 accessibilityLabel={t('budget.editOverallTitle')}
@@ -282,7 +294,7 @@ export default function PlanScreen() {
                 <AppText variant="label" color="accent" style={styles.semiBold}>
                   {t('budget.editShort')}
                 </AppText>
-              </Pressable>
+              </PressableScale>
             </View>
           </>
         ) : (
@@ -327,10 +339,10 @@ export default function PlanScreen() {
 
               return (
                 <View key={item.categoryId}>
-                  <Pressable
+                  <PressableScale pressScale={0.98}
                     testID={`budget-cat-row-${item.categoryId}`}
                     accessibilityRole="button"
-                    accessibilityLabel={`${catName}: ${formatMoney(item.spentMinor, settings.currency)} of ${formatMoney(item.budgetMinor, settings.currency)}`}
+                    accessibilityLabel={`${catName}: ${formatMoney(item.spentMinor, settings.currency, { hidden: hideAmounts, showPoisha })} of ${formatMoney(item.budgetMinor, settings.currency, { hidden: hideAmounts, showPoisha })}`}
                     onPress={() => openEditCategory(item.categoryId, item.budgetMinor)}
                     style={({ pressed }) => [
                       styles.catRow,
@@ -362,21 +374,29 @@ export default function PlanScreen() {
                             ? t('budget.overAmount', {
                                 amount: formatMoney(
                                   Math.abs(item.remainingMinor),
-                                  settings.currency
+                                  settings.currency,
+                                  { hidden: hideAmounts, showPoisha }
                                 ),
                               })
                             : t('budget.leftAmount', {
                                 amount: formatMoney(
                                   item.remainingMinor,
-                                  settings.currency
+                                  settings.currency,
+                                  { hidden: hideAmounts, showPoisha }
                                 ),
                               })}
                         </AppText>
                       </View>
                       <AppText variant="caption" color="textSecondary" tabularNums>
                         {t('budget.ofLimitLabel', {
-                          spent: formatMoney(item.spentMinor, settings.currency),
-                          limit: formatMoney(item.budgetMinor, settings.currency),
+                          spent: formatMoney(item.spentMinor, settings.currency, {
+                            hidden: hideAmounts,
+                            showPoisha,
+                          }),
+                          limit: formatMoney(item.budgetMinor, settings.currency, {
+                            hidden: hideAmounts,
+                            showPoisha,
+                          }),
                         })}
                       </AppText>
                       <ProgressBar
@@ -385,7 +405,7 @@ export default function PlanScreen() {
                         height={4}
                       />
                     </View>
-                  </Pressable>
+                  </PressableScale>
                   {idx < categoryBudgets.length - 1 ? (
                     <View
                       style={[
@@ -405,17 +425,18 @@ export default function PlanScreen() {
         ) : null}
 
         {availableCategoriesForAdd.length > 0 ? (
-          <Pressable
+          <PressableScale pressScale={0.98}
             testID="budget-add-category-row"
             accessibilityRole="button"
             accessibilityLabel={t('budget.addCategoryRow')}
             onPress={openAddCategory}
             style={({ pressed }) => [
-              styles.dashedAddRow,
+              styles.addRow,
               {
                 minHeight: theme.geometry.buttonHeight,
                 borderRadius: theme.radius.card,
                 borderColor: theme.colors.separator,
+                backgroundColor: theme.colors.surface,
                 gap: theme.spacing.sm,
                 opacity: pressed && !reducedMotion ? 0.68 : 1,
               },
@@ -425,13 +446,13 @@ export default function PlanScreen() {
             <AppText variant="bodyStrong" color="accent">
               {t('budget.addCategoryRow')}
             </AppText>
-          </Pressable>
+          </PressableScale>
         ) : null}
       </View>
 
       {/* Collapsible Past cycles card */}
       <Surface padded={false}>
-        <Pressable
+        <PressableScale pressScale={0.98}
           testID="budget-past-cycles-toggle"
           accessibilityRole="button"
           accessibilityLabel={t('budget.pastCyclesTitle')}
@@ -462,7 +483,7 @@ export default function PlanScreen() {
             size={18}
             color={theme.colors.textTertiary}
           />
-        </Pressable>
+        </PressableScale>
 
         {pastExpanded ? (
           <View>
@@ -482,10 +503,19 @@ export default function PlanScreen() {
                   subtitle={
                     item.overallBudgetMinor !== null
                       ? t('budget.ofLimitLabel', {
-                          spent: formatMoney(item.spentMinor, settings.currency),
-                          limit: formatMoney(item.overallBudgetMinor, settings.currency),
+                          spent: formatMoney(item.spentMinor, settings.currency, {
+                            hidden: hideAmounts,
+                            showPoisha,
+                          }),
+                          limit: formatMoney(item.overallBudgetMinor, settings.currency, {
+                            hidden: hideAmounts,
+                            showPoisha,
+                          }),
                         })
-                      : formatMoney(item.spentMinor, settings.currency)
+                      : formatMoney(item.spentMinor, settings.currency, {
+                          hidden: hideAmounts,
+                          showPoisha,
+                        })
                   }
                   right={<BudgetStatusBadge status={item.status} />}
                   showDivider={idx < history.length - 1}
@@ -614,12 +644,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  dashedAddRow: {
+  addRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   pastHeader: {
     flexDirection: 'row',

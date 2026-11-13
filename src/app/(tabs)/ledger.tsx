@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Platform,
-  Pressable,
   ScrollView,
   SectionList,
   StyleSheet,
@@ -20,13 +19,21 @@ import {
 } from '@/domain/dates';
 import { resolveInsightsWindow } from '@/domain/insights';
 import { formatMoney, parseMoneyInput } from '@/domain/money';
-import type { LocalDate, Transaction, TransactionType, Transfer, TxQuery } from '@/domain/types';
+import type {
+  LocalDate,
+  Transaction,
+  TransactionType,
+  Transfer,
+  TxQuery,
+  WeekStartDay,
+} from '@/domain/types';
 import { t } from '@/i18n';
 import {
   type ActivityDatePreset,
   useActivityFilterStore,
 } from '@/state/activityFilterStore';
 import { useAppContext } from '@/state/AppContext';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { useTransactions } from '@/state/useTransactions';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
@@ -47,13 +54,15 @@ import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
 import { WalletAvatar } from '@/ui/WalletAvatar';
+import { PressableScale } from '@/ui/PressableScale';
 
 function resolveDateRange(
   preset: ActivityDatePreset,
   customFrom: string,
   customTo: string,
   today: LocalDate,
-  monthStartDay: number
+  monthStartDay: number,
+  weekStartsOn: WeekStartDay
 ): { fromIncl?: LocalDate; toExcl?: LocalDate } {
   switch (preset) {
     case 'all':
@@ -61,7 +70,7 @@ function resolveDateRange(
     case 'today':
       return { fromIncl: today, toExcl: addDays(today, 1) };
     case 'this_week': {
-      const w = resolveInsightsWindow('this_week', today, monthStartDay);
+      const w = resolveInsightsWindow('this_week', today, monthStartDay, undefined, weekStartsOn);
       return { fromIncl: w.fromIncl, toExcl: w.toExcl };
     }
     case 'this_month': {
@@ -95,6 +104,7 @@ function buildTxQueryFromState(params: {
   maxAmountText: string;
   today: LocalDate;
   monthStartDay: number;
+  weekStartsOn: WeekStartDay;
 }): TxQuery {
   const query: TxQuery = {};
   const s = params.search.trim();
@@ -114,7 +124,8 @@ function buildTxQueryFromState(params: {
     params.customFromIncl,
     params.customToIncl,
     params.today,
-    params.monthStartDay
+    params.monthStartDay,
+    params.weekStartsOn
   );
   if (bounds.fromIncl) query.fromIncl = bounds.fromIncl;
   if (bounds.toExcl) query.toExcl = bounds.toExcl;
@@ -151,6 +162,8 @@ interface ActivitySection {
 
 export default function ActivityScreen() {
   const { repo, settings } = useAppContext();
+  const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
   const { theme, reducedMotion } = useTheme();
   const router = useRouter();
   const tabScrollPadding = useTabScrollPadding();
@@ -225,6 +238,7 @@ export default function ActivityScreen() {
         maxAmountText,
         today,
         monthStartDay: settings.monthStartDay,
+        weekStartsOn: settings.weekStartsOn,
       }),
     [
       debouncedSearch,
@@ -238,6 +252,7 @@ export default function ActivityScreen() {
       maxAmountText,
       today,
       settings.monthStartDay,
+      settings.weekStartsOn,
     ]
   );
 
@@ -272,6 +287,7 @@ export default function ActivityScreen() {
       maxAmountText: draftMax,
       today,
       monthStartDay: settings.monthStartDay,
+      weekStartsOn: settings.weekStartsOn,
     });
     repo
       .summarizeTransactions(draftQuery, settings.currency)
@@ -289,6 +305,7 @@ export default function ActivityScreen() {
     repo,
     settings.currency,
     settings.monthStartDay,
+    settings.weekStartsOn,
     today,
     search,
     draftType,
@@ -526,7 +543,7 @@ export default function ActivityScreen() {
             ]}
           />
           {search.length > 0 ? (
-            <Pressable
+            <PressableScale pressScale={0.98}
               testID="activity-search-clear"
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}
@@ -534,7 +551,7 @@ export default function ActivityScreen() {
               onPress={() => setSearch('')}
             >
               <AppIcon name="x" size={16} color={theme.colors.textTertiary} />
-            </Pressable>
+            </PressableScale>
           ) : null}
         </View>
 
@@ -567,7 +584,7 @@ export default function ActivityScreen() {
             { gap: theme.spacing.md },
           ]}
         >
-          <Pressable
+          <PressableScale pressScale={0.98}
             testID="ledger-wallet-tab-all"
             accessibilityRole="tab"
             accessibilityState={{ selected: accountId === undefined }}
@@ -591,12 +608,12 @@ export default function ActivityScreen() {
             >
               {t('activity.allWalletsTab')}
             </AppText>
-          </Pressable>
+          </PressableScale>
 
           {activeWallets.map((w) => {
             const selected = accountId === w.id;
             return (
-              <Pressable
+              <PressableScale pressScale={0.98}
                 key={w.id}
                 testID={`ledger-wallet-tab-${w.id}`}
                 accessibilityRole="tab"
@@ -620,7 +637,7 @@ export default function ActivityScreen() {
                 >
                   {w.name}
                 </AppText>
-              </Pressable>
+              </PressableScale>
             );
           })}
         </ScrollView>
@@ -628,7 +645,7 @@ export default function ActivityScreen() {
 
       {/* Period selector chip + live summary */}
       <View style={[styles.summaryBar, { gap: theme.spacing.sm, marginBottom: theme.spacing.sm }]}>
-        <Pressable
+        <PressableScale pressScale={0.98}
           testID="activity-period-chip"
           accessibilityRole="button"
           accessibilityLabel={periodLabel}
@@ -662,7 +679,7 @@ export default function ActivityScreen() {
             size={14}
             color={datePreset !== 'all' ? theme.colors.accent : theme.colors.textSecondary}
           />
-        </Pressable>
+        </PressableScale>
 
         <AppText
           testID="activity-summary-line"
@@ -672,8 +689,14 @@ export default function ActivityScreen() {
           style={styles.summaryRight}
         >
           {t('activity.summaryLine', {
-            spent: formatMoney(summary.expenseMinor, settings.currency),
-            income: formatMoney(summary.incomeMinor, settings.currency),
+            spent: formatMoney(summary.expenseMinor, settings.currency, {
+              hidden: hideAmounts,
+              showPoisha,
+            }),
+            income: formatMoney(summary.incomeMinor, settings.currency, {
+              hidden: hideAmounts,
+              showPoisha,
+            }),
           })}
         </AppText>
       </View>
@@ -837,7 +860,10 @@ export default function ActivityScreen() {
 
               const subParts: string[] = [];
               if (tr.feeMinor > 0) {
-                const feeStr = formatMoney(tr.feeMinor, settings.currency);
+                const feeStr = formatMoney(tr.feeMinor, settings.currency, {
+                  hidden: hideAmounts,
+                  showPoisha,
+                });
                 subParts.push(
                   isCashOut
                     ? t('activity.cashOutWithFeeSub', { fee: feeStr })
@@ -1073,7 +1099,7 @@ export default function ActivityScreen() {
               {activeWallets.map((w) => {
                 const selected = draftAccountId === w.id;
                 return (
-                  <Pressable
+                  <PressableScale pressScale={0.98}
                     key={w.id}
                     testID={`filter-wallet-${w.id}`}
                     accessibilityRole="button"
@@ -1107,7 +1133,7 @@ export default function ActivityScreen() {
                     >
                       {w.name}
                     </AppText>
-                  </Pressable>
+                  </PressableScale>
                 );
               })}
             </View>
@@ -1123,7 +1149,7 @@ export default function ActivityScreen() {
             {allCategories.map((c) => {
               const selected = draftCategoryIds.includes(c.id);
               return (
-                <Pressable
+                <PressableScale pressScale={0.98}
                   key={c.id}
                   testID={`filter-cat-${c.id}`}
                   accessibilityRole="button"
@@ -1158,7 +1184,7 @@ export default function ActivityScreen() {
                   >
                     {c.name}
                   </AppText>
-                </Pressable>
+                </PressableScale>
               );
             })}
           </View>

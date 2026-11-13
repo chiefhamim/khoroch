@@ -11,7 +11,10 @@ import {
 } from '@/domain/validation';
 import {
   normalizeAccentTheme,
+  normalizeAvatarColorKey,
+  normalizeHomeSections,
   normalizeReminderSettings,
+  normalizeWeekStartDay,
   type Account,
   type AccountKind,
   type AccountPatch,
@@ -142,11 +145,19 @@ interface BudgetRow {
 const SETTING_DB_KEYS: Record<keyof Settings, string> = {
   onboardingDone: 'onboarding_done',
   name: 'name',
+  avatarColorKey: 'avatar_color_key',
   currency: 'currency',
   monthStartDay: 'month_start_day',
   theme: 'theme',
   accent: 'theme_accent',
   reminder: 'reminder',
+  hideAmountsOnOpen: 'hide_amounts_on_open',
+  showPoisha: 'show_poisha',
+  compactNumbers: 'compact_numbers',
+  weekStartsOn: 'week_starts_on',
+  homeSections: 'home_sections',
+  appLockEnabled: 'app_lock_enabled',
+  appLockTimeoutSec: 'app_lock_timeout_sec',
   sampleDataLoaded: 'sample_data_loaded',
   notificationPermissionDenied: 'notification_permission_denied',
   lastBackupAt: 'last_backup_at',
@@ -1267,6 +1278,10 @@ export class SqliteRepo implements Repo {
     return {
       onboardingDone: parseJson(SETTING_DB_KEYS.onboardingDone, DEFAULT_SETTINGS.onboardingDone),
       name: parseJson(SETTING_DB_KEYS.name, DEFAULT_SETTINGS.name),
+      avatarColorKey: normalizeAvatarColorKey(
+        parseJson<unknown>(SETTING_DB_KEYS.avatarColorKey, DEFAULT_SETTINGS.avatarColorKey),
+        DEFAULT_SETTINGS.avatarColorKey
+      ),
       currency: parseJson(SETTING_DB_KEYS.currency, DEFAULT_SETTINGS.currency),
       monthStartDay: parseJson(SETTING_DB_KEYS.monthStartDay, DEFAULT_SETTINGS.monthStartDay),
       theme: parseJson(SETTING_DB_KEYS.theme, DEFAULT_SETTINGS.theme),
@@ -1278,6 +1293,32 @@ export class SqliteRepo implements Repo {
         parseJson<unknown>(SETTING_DB_KEYS.reminder, DEFAULT_SETTINGS.reminder),
         DEFAULT_SETTINGS.reminder
       ),
+      hideAmountsOnOpen: Boolean(
+        parseJson(SETTING_DB_KEYS.hideAmountsOnOpen, DEFAULT_SETTINGS.hideAmountsOnOpen)
+      ),
+      showPoisha: Boolean(parseJson(SETTING_DB_KEYS.showPoisha, DEFAULT_SETTINGS.showPoisha)),
+      compactNumbers: Boolean(
+        parseJson(SETTING_DB_KEYS.compactNumbers, DEFAULT_SETTINGS.compactNumbers)
+      ),
+      weekStartsOn: normalizeWeekStartDay(
+        parseJson<unknown>(SETTING_DB_KEYS.weekStartsOn, DEFAULT_SETTINGS.weekStartsOn),
+        DEFAULT_SETTINGS.weekStartsOn
+      ),
+      homeSections: normalizeHomeSections(
+        parseJson<unknown>(SETTING_DB_KEYS.homeSections, DEFAULT_SETTINGS.homeSections)
+      ),
+      appLockEnabled: Boolean(
+        parseJson(SETTING_DB_KEYS.appLockEnabled, DEFAULT_SETTINGS.appLockEnabled)
+      ),
+      appLockTimeoutSec: (() => {
+        const parsed = parseJson<unknown>(
+          SETTING_DB_KEYS.appLockTimeoutSec,
+          DEFAULT_SETTINGS.appLockTimeoutSec
+        );
+        return typeof parsed === 'number' && Number.isInteger(parsed) && parsed >= 0
+          ? parsed
+          : DEFAULT_SETTINGS.appLockTimeoutSec;
+      })(),
       sampleDataLoaded: parseJson(SETTING_DB_KEYS.sampleDataLoaded, DEFAULT_SETTINGS.sampleDataLoaded),
       notificationPermissionDenied: parseJson(
         SETTING_DB_KEYS.notificationPermissionDenied,

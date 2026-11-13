@@ -136,9 +136,25 @@ describe('insights domain (TEST-CASES §3 & §5)', () => {
     });
   });
 
-  it('resolves all insights period presets including Monday week start and custom range', () => {
-    // 2026-11-13 is Friday -> week started Monday 2026-11-09, elapsed = 5 days
+  it('resolves all insights period presets including Saturday default week start and custom range', () => {
+    // 2026-11-13 is Friday -> default Saturday week started 2026-11-07, elapsed = 7 days
     expect(resolveInsightsWindow('this_week', '2026-11-13', 1)).toEqual({
+      preset: 'this_week',
+      fromIncl: '2026-11-07',
+      toExcl: '2026-11-14',
+      elapsedDays: 7,
+      completeMonthsCount: null,
+    });
+
+    expect(resolveInsightsWindow('this_week', '2026-11-13', 1, undefined, 'sunday')).toEqual({
+      preset: 'this_week',
+      fromIncl: '2026-11-08',
+      toExcl: '2026-11-15',
+      elapsedDays: 6,
+      completeMonthsCount: null,
+    });
+
+    expect(resolveInsightsWindow('this_week', '2026-11-13', 1, undefined, 'monday')).toEqual({
       preset: 'this_week',
       fromIncl: '2026-11-09',
       toExcl: '2026-11-16',

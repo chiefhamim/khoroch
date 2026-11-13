@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
+import { PressableScale } from '@/ui/PressableScale';
 
 export type SurfaceVariant = 'card' | 'raised' | 'sunken' | 'soft' | 'dangerSoft';
 
@@ -59,7 +60,7 @@ export function Surface({
 
   if (onPress) {
     return (
-      <Pressable
+      <PressableScale pressScale={0.985}
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
@@ -70,7 +71,7 @@ export function Surface({
         ]}
       >
         {children}
-      </Pressable>
+      </PressableScale>
     );
   }
 

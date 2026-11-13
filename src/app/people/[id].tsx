@@ -1,7 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
-import { Linking, Pressable, Share, StyleSheet, TextInput, View } from 'react-native';
+import { Linking, Share, StyleSheet, TextInput, View } from 'react-native';
 import { formatFriendlyDate, formatFriendlyTime, todayLocalDate } from '@/domain/dates';
 import {
   buildReminderMessage,
@@ -34,6 +34,7 @@ import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
 import { useToast } from '@/ui/Toast';
 import { hapticSelection, hapticSuccess } from '@/ui/haptics';
+import { PressableScale } from '@/ui/PressableScale';
 
 function isIncomingDueKind(kind: DueKind): boolean {
   return kind === 'received_back' || kind === 'borrowed';
@@ -275,6 +276,7 @@ export default function PersonDetailScreen() {
               amountMinor={absNet}
               currency={currency}
               color={netMinor > 0 ? 'accent' : netMinor < 0 ? 'danger' : 'textSecondary'}
+              allowCompact
             />
           </View>
         </View>
@@ -340,7 +342,7 @@ export default function PersonDetailScreen() {
             ).map((opt) => {
               const active = person.honorific === opt.key;
               return (
-                <Pressable
+                <PressableScale pressScale={0.98}
                   key={opt.key}
                   testID={`person-honorific-pill-${opt.key}`}
                   accessibilityRole="button"
@@ -362,7 +364,7 @@ export default function PersonDetailScreen() {
                   <AppText variant="caption" color={active ? 'accent' : 'textSecondary'}>
                     {t(opt.labelKey)}
                   </AppText>
-                </Pressable>
+                </PressableScale>
               );
             })}
           </View>
@@ -442,7 +444,7 @@ export default function PersonDetailScreen() {
       <View style={{ gap: theme.spacing.sm }}>
         <View style={styles.sectionHeader}>
           <AppText variant="headline">{t('people.entriesTitle')}</AppText>
-          <Pressable
+          <PressableScale pressScale={0.98}
             accessibilityRole="button"
             hitSlop={8}
             onPress={() => setDueSheetState({ mode: 'add' })}
@@ -450,7 +452,7 @@ export default function PersonDetailScreen() {
             <AppText variant="label" color="accent">
               {t('people.recordAnotherCta')}
             </AppText>
-          </Pressable>
+          </PressableScale>
         </View>
 
         {personEntries.length === 0 ? (

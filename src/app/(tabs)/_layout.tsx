@@ -1,30 +1,38 @@
-import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Tabs, useRouter } from 'expo-router';
+import React, { useEffect } from "react";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
+import { StyleSheet, View } from "react-native";
+import { Tabs, useRouter } from "expo-router";
 
-import { t } from '@/i18n';
-import { useTheme } from '@/theme/useTheme';
-import { AppIcon, type AppIconName } from '@/ui/AppIcon';
-import { AppText } from '@/ui/AppText';
-import { hapticLight, hapticMedium } from '@/ui/haptics';
-import { TAB_BAR_CONTENT_HEIGHT, useTabBarHeight } from '@/ui/Screen';
+import { t } from "@/i18n";
+import { useTheme } from "@/theme/useTheme";
+import { AppIcon, type AppIconName } from "@/ui/AppIcon";
+import { AppText } from "@/ui/AppText";
+import { hapticLight, hapticMedium, hapticSelection } from "@/ui/haptics";
+import { TAB_BAR_CONTENT_HEIGHT, useTabBarHeight } from "@/ui/Screen";
+import { PressableScale } from "@/ui/PressableScale";
 
-export type V2TabBarProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
+export type V2TabBarProps = Parameters<
+  NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>
+>[0];
 
 interface TabItemConfig {
-  routeName: 'index' | 'ledger' | 'plan' | 'people';
-  labelKey: 'tabs.overview' | 'tabs.ledger' | 'tabs.plan' | 'tabs.people';
+  routeName: "index" | "ledger" | "plan" | "people";
+  labelKey: "tabs.overview" | "tabs.ledger" | "tabs.plan" | "tabs.people";
   icon: AppIconName;
 }
 
 const LEFT_TABS: TabItemConfig[] = [
-  { routeName: 'index', labelKey: 'tabs.overview', icon: 'house' },
-  { routeName: 'ledger', labelKey: 'tabs.ledger', icon: 'scroll-text' },
+  { routeName: "index", labelKey: "tabs.overview", icon: "house" },
+  { routeName: "ledger", labelKey: "tabs.ledger", icon: "scroll-text" },
 ];
 
 const RIGHT_TABS: TabItemConfig[] = [
-  { routeName: 'plan', labelKey: 'tabs.plan', icon: 'target' },
-  { routeName: 'people', labelKey: 'tabs.people', icon: 'users' },
+  { routeName: "plan", labelKey: "tabs.plan", icon: "target" },
+  { routeName: "people", labelKey: "tabs.people", icon: "users" },
 ];
 
 export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
@@ -43,11 +51,12 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
     const handlePress = () => {
       if (!route) return;
       const event = emitter.emit({
-        type: 'tabPress',
+        type: "tabPress",
         target: route.key,
         canPreventDefault: true,
       });
       if (!isFocused && !event.defaultPrevented) {
+        hapticSelection();
         navigateToTab(route.key);
       }
     };
@@ -55,13 +64,14 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
     const handleLongPress = () => {
       if (!route) return;
       emitter.emit({
-        type: 'tabLongPress',
+        type: "tabLongPress",
         target: route.key,
       });
     };
 
     return (
-      <Pressable
+      <PressableScale
+        pressScale={0.98}
         key={tab.routeName}
         testID={`tab-item-${tab.routeName}`}
         accessibilityRole="tab"
@@ -76,20 +86,16 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
           },
         ]}
       >
-        <AppIcon
-          name={tab.icon}
-          size={20}
-          strokeWidth={isFocused ? 2.1 : 1.75}
+        <TabIcon
+          icon={tab.icon}
+          focused={isFocused}
           color={color}
+          reducedMotion={reducedMotion}
         />
-        <AppText
-          variant="tab"
-          numberOfLines={1}
-          style={{ color }}
-        >
+        <AppText variant="tab" numberOfLines={1} style={{ color }}>
           {t(tab.labelKey)}
         </AppText>
-      </Pressable>
+      </PressableScale>
     );
   };
 
@@ -109,24 +115,24 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
       {LEFT_TABS.map(renderTab)}
 
       <View style={styles.addSlot}>
-        <Pressable
+        <PressableScale
+          pressScale={0.9}
           testID="tab-add-button"
           accessibilityRole="button"
-          accessibilityLabel={t('tabs.addAccessibility')}
-          accessibilityHint={t('tabs.addHint')}
+          accessibilityLabel={t("tabs.addAccessibility")}
+          accessibilityHint={t("tabs.addHint")}
           onPress={() => {
             hapticLight();
-            router.push('/transaction/new');
+            router.push("/transaction/new");
           }}
           onLongPress={() => {
             hapticMedium();
-            router.push('/quick-entry');
+            router.push("/quick-entry");
           }}
           style={({ pressed }) => [
             styles.addSquircle,
             {
               backgroundColor: theme.colors.ink,
-              transform: [{ scale: pressed && !reducedMotion ? 0.97 : 1 }],
               opacity: pressed ? 0.9 : 1,
             },
           ]}
@@ -137,11 +143,55 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
             strokeWidth={2.25}
             color={theme.colors.onInk}
           />
-        </Pressable>
+        </PressableScale>
       </View>
 
       {RIGHT_TABS.map(renderTab)}
     </View>
+  );
+}
+
+/** Selected tab icon lifts slightly with a spring; unselected settles back. */
+function TabIcon({
+  icon,
+  focused,
+  color,
+  reducedMotion,
+}: {
+  icon: AppIconName;
+  focused: boolean;
+  color: string;
+  reducedMotion: boolean;
+}) {
+  const lift = useSharedValue(focused ? 1 : 0);
+  useEffect(() => {
+    lift.set(
+      reducedMotion
+        ? focused
+          ? 1
+          : 0
+        : withSpring(focused ? 1 : 0, {
+            damping: 14,
+            stiffness: 260,
+            mass: 0.7,
+          }),
+    );
+  }, [focused, lift, reducedMotion]);
+  const style = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: -1.5 * lift.get() },
+      { scale: 1 + 0.08 * lift.get() },
+    ],
+  }));
+  return (
+    <Animated.View style={style}>
+      <AppIcon
+        name={icon}
+        size={20}
+        strokeWidth={focused ? 2.1 : 1.75}
+        color={color}
+      />
+    </Animated.View>
   );
 }
 
@@ -150,13 +200,15 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Short horizontal shift between tabs, run with the native driver.
+        animation: "shift",
       }}
       tabBar={(props) => <V2TabBar {...props} />}
     >
-      <Tabs.Screen name="index" options={{ title: t('tabs.overview') }} />
-      <Tabs.Screen name="ledger" options={{ title: t('tabs.ledger') }} />
-      <Tabs.Screen name="plan" options={{ title: t('tabs.plan') }} />
-      <Tabs.Screen name="people" options={{ title: t('tabs.people') }} />
+      <Tabs.Screen name="index" options={{ title: t("tabs.overview") }} />
+      <Tabs.Screen name="ledger" options={{ title: t("tabs.ledger") }} />
+      <Tabs.Screen name="plan" options={{ title: t("tabs.plan") }} />
+      <Tabs.Screen name="people" options={{ title: t("tabs.people") }} />
       <Tabs.Screen name="activity" options={{ href: null }} />
       <Tabs.Screen name="budget" options={{ href: null }} />
       <Tabs.Screen name="insights" options={{ href: null }} />
@@ -166,28 +218,28 @@ export default function TabsLayout() {
 
 const styles = StyleSheet.create({
   bar: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderTopWidth: 1,
     paddingTop: 6,
   },
   tabSlot: {
     flex: 1,
     minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 3,
   },
   addSlot: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   addSquircle: {
     width: 46,
     height: 46,
     borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

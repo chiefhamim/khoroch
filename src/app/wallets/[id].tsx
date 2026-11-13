@@ -8,10 +8,11 @@ import {
   resolveWalletColorHex,
 } from '@/domain/accounts';
 import { addDays, formatFriendlyDate, formatFriendlyTime, isDevice24HourClock, todayLocalDate } from '@/domain/dates';
-import { formatMoney } from '@/domain/money';
+import { formatMoney, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
 import type { Category, Transfer } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
 import { usePeople } from '@/state/usePeople';
 import { useTheme } from '@/theme/useTheme';
@@ -76,6 +77,8 @@ export default function WalletDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const walletId = Array.isArray(id) ? id[0] : id;
   const { repo, settings } = useAppContext();
+  const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
   const currency = settings.currency;
   const { theme } = useTheme();
   const today = todayLocalDate();
@@ -189,7 +192,7 @@ export default function WalletDetailScreen() {
       const feeText =
         isOutgoing && tr.feeMinor > 0
           ? t('activity.transferWithFeeSub', {
-              fee: formatMoney(tr.feeMinor, currency),
+              fee: formatMoney(tr.feeMinor, currency, { hidden: hideAmounts, showPoisha }),
             })
           : t('activity.transferSub');
 
@@ -278,9 +281,10 @@ export default function WalletDetailScreen() {
   }
 
   const balMinor = balanceEntry?.balanceMinor ?? account.openingBalanceMinor;
-  const formattedBal =
-    balanceEntry?.formattedBalance ??
-    formatAccountBalance(account.kind, balMinor, settings.currency);
+  const formattedBal = hideAmounts
+    ? HIDDEN_AMOUNT_TEXT
+    : (balanceEntry?.formattedBalance ??
+      formatAccountBalance(account.kind, balMinor, settings.currency));
   const isDue = account.kind === 'credit_card' && balMinor < 0;
 
   return (
@@ -397,7 +401,9 @@ export default function WalletDetailScreen() {
                     color={item.isIncome ? 'accent' : 'text'}
                     tabularNums
                   >
-                    {`${item.prefix}${formatMoney(item.amountMinor, settings.currency)}`}
+                    {hideAmounts
+                      ? HIDDEN_AMOUNT_TEXT
+                      : `${item.prefix}${formatMoney(item.amountMinor, settings.currency, { showPoisha })}`}
                   </AppText>
                 }
                 showDivider={idx < feedItems.length - 1}

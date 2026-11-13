@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AppState, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { AppState, Linking, Platform, StyleSheet, Switch, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { isDevVariant } from '@/config/appVariant';
 import {
@@ -61,6 +61,7 @@ import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
 import { TimeField } from '@/ui/TimeField';
 import { useToast } from '@/ui/Toast';
+import { PressableScale } from '@/ui/PressableScale';
 
 const CURRENCY_SHORT: Record<CurrencyCode, string> = {
   BDT: 'BDT ৳',
@@ -859,7 +860,7 @@ export default function SettingsScreen() {
                 const selected = settings.accent === accentId;
                 const label = t(ACCENT_LABEL_KEYS[accentId]);
                 return (
-                  <Pressable
+                  <PressableScale pressScale={0.98}
                     key={accentId}
                     testID={`settings-accent-${accentId}`}
                     accessibilityRole="button"
@@ -898,7 +899,7 @@ export default function SettingsScreen() {
                     >
                       {label}
                     </AppText>
-                  </Pressable>
+                  </PressableScale>
                 );
               })}
             </View>
@@ -942,7 +943,7 @@ export default function SettingsScreen() {
                     : activeAccentDef.dark.accent;
 
                 return (
-                  <Pressable
+                  <PressableScale pressScale={0.98}
                     key={pref}
                     testID={`settings-theme-${pref}`}
                     accessibilityRole="button"
@@ -1019,7 +1020,7 @@ export default function SettingsScreen() {
                         <AppIcon name="check" size={14} color={theme.colors.text} />
                       ) : null}
                     </View>
-                  </Pressable>
+                  </PressableScale>
                 );
               })}
             </View>

@@ -1,9 +1,10 @@
 import React from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
 import { hapticLight } from './haptics';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface ButtonProps {
   title: string;
@@ -71,7 +72,7 @@ export function Button({
   };
 
   return (
-    <Pressable
+    <PressableScale pressScale={0.97}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
@@ -118,7 +119,7 @@ export function Button({
           ) : null}
         </>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 

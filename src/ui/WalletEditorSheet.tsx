@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Switch, View } from 'react-native';
+import { StyleSheet, Switch, View } from 'react-native';
 import {
   WALLET_COLOR_PALETTE,
   WALLET_PRESETS,
@@ -21,6 +21,7 @@ import { Field } from './Field';
 import { Sheet } from './Sheet';
 import { WalletAvatar } from './WalletAvatar';
 import { hapticLight, hapticSelection, hapticSuccess } from './haptics';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface WalletEditorSheetProps {
   visible: boolean;
@@ -233,7 +234,7 @@ function WalletEditorDialog({
             {WALLET_PRESETS.map((preset) => {
               const selected = selectedPreset === preset.key;
               return (
-                <Pressable
+                <PressableScale pressScale={0.98}
                   key={preset.key}
                   testID={`wallet-preset-${preset.key}`}
                   accessibilityRole="button"
@@ -258,7 +259,7 @@ function WalletEditorDialog({
                   >
                     {preset.name}
                   </AppText>
-                </Pressable>
+                </PressableScale>
               );
             })}
           </View>
@@ -294,7 +295,7 @@ function WalletEditorDialog({
             {ACCOUNT_KIND_OPTIONS.map((opt) => {
               const active = kind === opt.kind;
               return (
-                <Pressable
+                <PressableScale pressScale={0.98}
                   key={opt.kind}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
@@ -316,7 +317,7 @@ function WalletEditorDialog({
                   <AppText variant="label" color={active ? 'accent' : 'text'}>
                     {opt.label}
                   </AppText>
-                </Pressable>
+                </PressableScale>
               );
             })}
           </View>
@@ -331,7 +332,7 @@ function WalletEditorDialog({
           {WALLET_COLOR_PALETTE.map((hex) => {
             const active = colorKey.toLowerCase() === hex.toLowerCase();
             return (
-              <Pressable
+              <PressableScale pressScale={0.98}
                 key={hex}
                 testID={`wallet-color-${hex.slice(1)}`}
                 accessibilityRole="button"
@@ -351,7 +352,7 @@ function WalletEditorDialog({
                 ]}
               >
                 {active ? <AppIcon name="check" size={14} color="#FFFFFF" /> : null}
-              </Pressable>
+              </PressableScale>
             );
           })}
         </View>
@@ -370,7 +371,7 @@ function WalletEditorDialog({
             placeholder="0"
             keyboardType="decimal-pad"
           />
-          <Pressable
+          <PressableScale pressScale={0.98}
             testID="wallet-negative-toggle"
             accessibilityRole="button"
             accessibilityState={{ selected: isNegativeBalance }}
@@ -401,7 +402,7 @@ function WalletEditorDialog({
                   ? 'Negative balance (−)'
                   : 'Tap for negative (−)'}
             </AppText>
-          </Pressable>
+          </PressableScale>
         </View>
 
         <View style={[styles.flex1, { gap: theme.spacing.xs }]}>

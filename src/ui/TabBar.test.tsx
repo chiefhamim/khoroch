@@ -22,6 +22,7 @@ jest.mock('expo-router', () => ({
 jest.mock('./haptics', () => ({
   hapticLight: () => mockHapticLight(),
   hapticMedium: () => mockHapticMedium(),
+  hapticSelection: () => {},
 }));
 
 describe('v1.2 navigation shell (V2TabBar)', () => {

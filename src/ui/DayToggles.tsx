@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
 import { hapticSelection } from './haptics';
+import { PressableScale } from '@/ui/PressableScale';
 
 /** Expo Notifications convention: 1 = Sunday .. 7 = Saturday */
 const DAY_ITEMS: readonly { weekday: number; short: string; full: string }[] = [
@@ -47,7 +48,7 @@ export function DayToggles({
       {DAY_ITEMS.map((item) => {
         const active = activeSet.has(item.weekday);
         return (
-          <Pressable
+          <PressableScale pressScale={0.92}
             key={item.weekday}
             testID={testID ? `${testID}-day-${item.weekday}` : undefined}
             disabled={disabled}
@@ -70,7 +71,7 @@ export function DayToggles({
             <AppText variant="label" color={active ? 'onAccent' : 'textSecondary'}>
               {item.short}
             </AppText>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>

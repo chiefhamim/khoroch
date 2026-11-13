@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface ChipProps {
   label: string;
@@ -46,7 +47,7 @@ export function Chip({
   const fgColor = selected ? theme.colors.accent : theme.colors.text;
 
   return (
-    <Pressable
+    <PressableScale pressScale={0.94}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
@@ -86,7 +87,7 @@ export function Chip({
           color={selected ? theme.colors.accent : theme.colors.textSecondary}
         />
       ) : null}
-    </Pressable>
+    </PressableScale>
   );
 }
 

@@ -11,6 +11,7 @@ import {
 import { formatMoney } from '@/domain/money';
 import type { CurrencyCode, LocalDate } from '@/domain/types';
 import { t } from '@/i18n';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
 import { SegmentedControl } from './SegmentedControl';
@@ -128,6 +129,8 @@ export function SpendingChart({
   showHeader = true,
 }: SpendingChartProps) {
   const { theme } = useTheme();
+  const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
   const [internalGranularity, setInternalGranularity] = useState<ChartGranularity>('daily');
   const granularity = controlledGranularity ?? internalGranularity;
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -217,11 +220,11 @@ export function SpendingChart({
     return t('overview.chartA11ySummary', {
       mode: granularity,
       count: bars.length,
-      total: formatMoney(totalMinor, currency),
+      total: formatMoney(totalMinor, currency, { hidden: hideAmounts, showPoisha }),
       peakLabel: peak.label,
-      peakAmount: formatMoney(peak.spentMinor, currency),
+      peakAmount: formatMoney(peak.spentMinor, currency, { hidden: hideAmounts, showPoisha }),
     });
-  }, [bars, currency, granularity]);
+  }, [bars, currency, granularity, hideAmounts, showPoisha]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const w = Math.floor(e.nativeEvent.layout.width);
@@ -270,7 +273,10 @@ export function SpendingChart({
               {activeBar.label}
             </AppText>
             <AppText variant="bodyStrong" color="accent" tabularNums>
-              {formatMoney(activeBar.spentMinor, currency)}
+              {formatMoney(activeBar.spentMinor, currency, {
+                hidden: hideAmounts,
+                showPoisha,
+              })}
             </AppText>
           </View>
         </View>

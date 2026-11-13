@@ -6,6 +6,8 @@ import {
   formatFriendlyDate,
   formatFriendlyTime,
   fromEpochDay,
+  getStartOfWeek,
+  getWeekRange,
   isLeapYear,
   isValidLocalDate,
   toEpochDay,
@@ -40,11 +42,11 @@ describe('dates', () => {
   });
 
   it('formats 12-hour and 24-hour times cleanly', () => {
-    expect(formatFriendlyTime('00:05', false)).toBe('12:05 AM');
-    expect(formatFriendlyTime('09:02', false)).toBe('9:02 AM');
-    expect(formatFriendlyTime('12:00', false)).toBe('12:00 PM');
-    expect(formatFriendlyTime('13:20', false)).toBe('1:20 PM');
-    expect(formatFriendlyTime('21:00', false)).toBe('9:00 PM');
+    expect(formatFriendlyTime('00:05', false)).toBe('12:05 AM');
+    expect(formatFriendlyTime('09:02', false)).toBe('9:02 AM');
+    expect(formatFriendlyTime('12:00', false)).toBe('12:00 PM');
+    expect(formatFriendlyTime('13:20', false)).toBe('1:20 PM');
+    expect(formatFriendlyTime('21:00', false)).toBe('9:00 PM');
 
     expect(formatFriendlyTime('00:05', true)).toBe('00:05');
     expect(formatFriendlyTime('9:02', true)).toBe('09:02');
@@ -56,5 +58,21 @@ describe('dates', () => {
   it('formats currentLocalTime from local wall clock', () => {
     const d = new Date(2026, 10, 13, 8, 5);
     expect(currentLocalTime(d)).toBe('08:05');
+  });
+
+  it('resolves start of week and 7-day range for Saturday, Sunday, and Monday', () => {
+    const friday = '2026-11-13';
+    expect(getStartOfWeek(friday)).toBe('2026-11-07');
+    expect(getWeekRange(friday)).toEqual({ start: '2026-11-07', endExcl: '2026-11-14' });
+
+    expect(getStartOfWeek(friday, 'sunday')).toBe('2026-11-08');
+    expect(getWeekRange(friday, 'sunday')).toEqual({ start: '2026-11-08', endExcl: '2026-11-15' });
+
+    expect(getStartOfWeek(friday, 'monday')).toBe('2026-11-09');
+    expect(getWeekRange(friday, 'monday')).toEqual({ start: '2026-11-09', endExcl: '2026-11-16' });
+
+    const saturday = '2026-11-14';
+    expect(getStartOfWeek(saturday, 'saturday')).toBe('2026-11-14');
+    expect(getStartOfWeek(saturday, 'sunday')).toBe('2026-11-08');
   });
 });

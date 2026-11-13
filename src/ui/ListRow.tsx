@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
 import { AppText } from './AppText';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface ListRowProps {
   title: string;
@@ -85,7 +86,7 @@ export function ListRow({
   if (!onPress) return rowInner;
 
   return (
-    <Pressable
+    <PressableScale pressScale={0.985}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
@@ -95,7 +96,7 @@ export function ListRow({
       })}
     >
       {rowInner}
-    </Pressable>
+    </PressableScale>
   );
 }
 

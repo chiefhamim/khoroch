@@ -1,6 +1,7 @@
 import React from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface HeroCardProps {
   children: React.ReactNode;
@@ -36,7 +37,7 @@ export function HeroCard({
 
   if (onPress) {
     return (
-      <Pressable
+      <PressableScale pressScale={0.985}
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
@@ -48,7 +49,7 @@ export function HeroCard({
         ]}
       >
         {children}
-      </Pressable>
+      </PressableScale>
     );
   }
 

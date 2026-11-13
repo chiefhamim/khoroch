@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { PERSON_AVATAR_COLOR_KEYS, pickPersonColorKey } from '@/domain/dues';
 import type { CategoryColorKey, Person, PersonHonorific } from '@/domain/types';
 import { MAX_PERSON_NAME_LENGTH } from '@/domain/validation';
@@ -16,6 +16,7 @@ import { SegmentedControl } from './SegmentedControl';
 import { Sheet } from './Sheet';
 import { useToast } from './Toast';
 import { hapticSelection, hapticSuccess } from './haptics';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface PersonEditorSheetProps {
   visible: boolean;
@@ -117,7 +118,7 @@ function PersonEditorBody({
             const swatch = CATEGORY_COLORS[key];
             const selected = colorKey === key;
             return (
-              <Pressable
+              <PressableScale pressScale={0.98}
                 key={key}
                 testID={`person-color-${key}`}
                 accessibilityRole="button"

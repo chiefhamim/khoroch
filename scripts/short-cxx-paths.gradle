@@ -1,0 +1,19 @@
+// Scratch init script: short CMake staging dirs so Windows MAX_PATH doesn't break native builds.
+allprojects {
+  afterEvaluate { p ->
+    def android = p.extensions.findByName('android')
+    if (android == null) return
+    try {
+      def cm = android.externalNativeBuild.cmake
+      if (cm.path != null || p.path == ':app') {
+        def slug = p.path.replaceAll('[^A-Za-z0-9]', '').take(10) + Math.abs(p.path.hashCode() % 1000)
+        cm.buildStagingDirectory = new File("C:/b/" + slug)
+      }
+    } catch (ignored) {}
+    try {
+      android.defaultConfig.externalNativeBuild.cmake.arguments "-DCMAKE_OBJECT_PATH_MAX=240"
+    } catch (ignored) {}
+  }
+}
+
+

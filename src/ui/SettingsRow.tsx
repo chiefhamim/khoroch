@@ -1,8 +1,9 @@
 import React from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
+import { PressableScale } from '@/ui/PressableScale';
 
 export interface SettingsRowProps {
   label: string;
@@ -98,7 +99,7 @@ export function SettingsRow({
   }
 
   return (
-    <Pressable
+    <PressableScale pressScale={0.985}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? (value ? `${label}, ${value}` : label)}
@@ -108,7 +109,7 @@ export function SettingsRow({
       })}
     >
       {rowBody}
-    </Pressable>
+    </PressableScale>
   );
 }
 

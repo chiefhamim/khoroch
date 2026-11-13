@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isDevVariant } from '@/config/appVariant';
@@ -36,6 +36,7 @@ import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
 import { TimeField } from '@/ui/TimeField';
 import { ToastProvider, ToastView, useToast } from '@/ui/Toast';
+import { PressableScale } from '@/ui/PressableScale';
 
 type GalleryMode = 'light' | 'dark' | 'black';
 
@@ -129,7 +130,7 @@ function GalleryBody({
                 const def = ACCENT_DEFINITIONS[accentId];
                 const selected = accentPref === accentId;
                 return (
-                  <Pressable
+                  <PressableScale pressScale={0.98}
                     key={accentId}
                     testID={`gallery-accent-${accentId}`}
                     accessibilityRole="button"
@@ -157,7 +158,7 @@ function GalleryBody({
                     >
                       {def.label}
                     </AppText>
-                  </Pressable>
+                  </PressableScale>
                 );
               })}
             </View>

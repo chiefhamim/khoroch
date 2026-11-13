@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
-  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -55,6 +54,7 @@ import { Surface } from './Surface';
 import { TimeField } from './TimeField';
 import { WalletAvatar } from './WalletAvatar';
 import { WalletPickerSheet } from './WalletPickerSheet';
+import { PressableScale } from '@/ui/PressableScale';
 
 export type TransactionEntryMode = TransactionType | 'transfer';
 
@@ -363,7 +363,7 @@ function AllCategoriesSheet({
                 const swatch = CATEGORY_COLORS[colorKey];
                 const isSelected = newColor === colorKey;
                 return (
-                  <Pressable
+                  <PressableScale pressScale={0.98}
                     key={colorKey}
                     testID={`new-category-color-${colorKey}`}
                     accessibilityRole="button"
@@ -395,7 +395,7 @@ function AllCategoriesSheet({
               {CATEGORY_ICON_CHOICES.map((iconName) => {
                 const isSelected = newIcon === iconName;
                 return (
-                  <Pressable
+                  <PressableScale pressScale={0.98}
                     key={iconName}
                     testID={`new-category-icon-${iconName}`}
                     accessibilityRole="button"
@@ -407,7 +407,7 @@ function AllCategoriesSheet({
                     }}
                   >
                     <IconTile icon={iconName} colorKey={newColor} selected={isSelected} size="md" />
-                  </Pressable>
+                  </PressableScale>
                 );
               })}
             </View>
@@ -438,7 +438,7 @@ function AllCategoriesSheet({
           {categories.map((cat) => {
             const active = cat.id === selectedCategoryId;
             return (
-              <Pressable
+              <PressableScale pressScale={0.98}
                 key={cat.id}
                 testID={`cat-sheet-item-${cat.id}`}
                 accessibilityRole="button"
@@ -471,7 +471,7 @@ function AllCategoriesSheet({
                   {cat.name}
                 </AppText>
                 {active ? <AppIcon name="check" size={18} color={theme.colors.accent} /> : null}
-              </Pressable>
+              </PressableScale>
             );
           })}
 
@@ -906,7 +906,7 @@ export function TransactionForm({
       >
         {/* Hero Amount + Optional Note CTA */}
         <View style={{ alignItems: 'center', gap: theme.spacing.xs }}>
-          <Pressable
+          <PressableScale pressScale={0.98}
             testID="tx-hero-amount"
             accessibilityRole="button"
             accessibilityLabel={`${t('tx.editHeroLabel')}: ${symbol} ${heroFormatted}`}
@@ -919,7 +919,7 @@ export function TransactionForm({
                 style={{
                   fontSize: symbolFontSize,
                   lineHeight: Math.round(amountLineHeight * 0.72),
-                  fontFamily: symbol === '৳' ? TAKA_FONT_FAMILY : 'PlusJakartaSans_600SemiBold',
+                  fontFamily: TAKA_FONT_FAMILY,
                   opacity: symbol === '৳' ? 0.8 : 1,
                   marginRight: 4,
                 }}
@@ -939,7 +939,7 @@ export function TransactionForm({
                 {heroFormatted}
               </AppText>
             </View>
-          </Pressable>
+          </PressableScale>
 
           {noteOpen ? (
             <View style={styles.noteInputWrap}>
@@ -966,7 +966,7 @@ export function TransactionForm({
               />
             </View>
           ) : (
-            <Pressable
+            <PressableScale pressScale={0.98}
               testID="tx-add-note-toggle"
               accessibilityRole="button"
               onPress={() => {
@@ -979,7 +979,7 @@ export function TransactionForm({
               <AppText variant="label" color="accent">
                 {t('tx.addNoteCta')}
               </AppText>
-            </Pressable>
+            </PressableScale>
           )}
         </View>
 
@@ -1015,7 +1015,7 @@ export function TransactionForm({
           </Surface>
         ) : isTransferMode ? (
           <Surface padded={false}>
-            <Pressable
+            <PressableScale pressScale={0.98}
               testID="transfer-from-row"
               accessibilityRole="button"
               accessibilityLabel={`${t('transfer.fromLabel')}: ${fromAccount?.name ?? ''}`}
@@ -1034,11 +1034,11 @@ export function TransactionForm({
                 {fromAccount?.name ?? t('tx.noWallet')}
               </AppText>
               <AppIcon name="chevron-right" size={16} color={theme.colors.textTertiary} />
-            </Pressable>
+            </PressableScale>
 
             <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />
 
-            <Pressable
+            <PressableScale pressScale={0.98}
               testID="transfer-to-row"
               accessibilityRole="button"
               accessibilityLabel={`${t('transfer.toLabel')}: ${toAccount?.name ?? ''}`}
@@ -1057,7 +1057,7 @@ export function TransactionForm({
                 {toAccount?.name ?? t('tx.noWallet')}
               </AppText>
               <AppIcon name="chevron-right" size={16} color={theme.colors.textTertiary} />
-            </Pressable>
+            </PressableScale>
 
             <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />
 
@@ -1142,7 +1142,7 @@ export function TransactionForm({
         ) : (
           <>
             <Surface padded={false}>
-              <Pressable
+              <PressableScale pressScale={0.98}
                 testID="tx-wallet-row"
                 accessibilityRole="button"
                 accessibilityLabel={`${
@@ -1168,7 +1168,7 @@ export function TransactionForm({
                   {selectedAccount?.name ?? t('tx.noWallet')}
                 </AppText>
                 <AppIcon name="chevron-right" size={16} color={theme.colors.textTertiary} />
-              </Pressable>
+              </PressableScale>
 
               <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />
 
@@ -1201,7 +1201,7 @@ export function TransactionForm({
               {gridCategories.map((cat) => {
                 const selected = categoryId === cat.id;
                 return (
-                  <Pressable
+                  <PressableScale pressScale={0.98}
                     key={cat.id}
                     testID={`cat-chip-${cat.id}`}
                     accessibilityRole="button"
@@ -1225,12 +1225,12 @@ export function TransactionForm({
                     >
                       {cat.name}
                     </AppText>
-                  </Pressable>
+                  </PressableScale>
                 );
               })}
 
               {showLendBorrowTile && onPressLendBorrow ? (
-                <Pressable
+                <PressableScale pressScale={0.98}
                   testID="cat-lend-borrow-button"
                   accessibilityRole="button"
                   accessibilityLabel={t('tx.lendBorrowTile')}
@@ -1249,10 +1249,10 @@ export function TransactionForm({
                   <AppText variant="caption" color="textSecondary" numberOfLines={1} style={styles.catLabel}>
                     {t('tx.lendBorrowTile')}
                   </AppText>
-                </Pressable>
+                </PressableScale>
               ) : null}
 
-              <Pressable
+              <PressableScale pressScale={0.98}
                 testID="cat-all-button"
                 accessibilityRole="button"
                 accessibilityLabel={t('tx.allCategories')}
@@ -1267,7 +1267,7 @@ export function TransactionForm({
                 <AppText variant="caption" color="textSecondary" numberOfLines={1} style={styles.catLabel}>
                   {t('tx.allCategories')}
                 </AppText>
-              </Pressable>
+              </PressableScale>
             </View>
 
             {/* Description Input + Strict Contextual Suggestions */}

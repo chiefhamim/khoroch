@@ -1,5 +1,11 @@
 import { parseLocalDate } from './dates';
-import { CURRENCIES, groupThousands } from './money';
+import {
+  compactMoney,
+  CURRENCIES,
+  groupThousands,
+  HIDDEN_AMOUNT_TEXT,
+  type FormatMoneyOptions,
+} from './money';
 import type {
   CategoryColorKey,
   CurrencyCode,
@@ -85,14 +91,26 @@ export function toBanglaDigits(input: string): string {
  * Compact inline money formatter without space after symbol (e.g. `৳1,500`, `৳500.50`)
  * for natural inline sentences, badges, and reminder messages.
  */
-export function formatInlineMoney(amountMinor: number, currency: CurrencyCode = 'BDT'): string {
+export function formatInlineMoney(
+  amountMinor: number,
+  currency: CurrencyCode = 'BDT',
+  options?: FormatMoneyOptions
+): string {
+  if (options?.hidden) {
+    return HIDDEN_AMOUNT_TEXT;
+  }
+  if (options?.compact) {
+    return compactMoney(amountMinor, currency);
+  }
   const safe = Math.trunc(amountMinor);
   const abs = Math.abs(safe);
   const frac = abs % 100;
   const whole = (abs - frac) / 100;
   const wholeFormatted = groupThousands(String(whole));
-  const numPart =
-    frac === 0 ? wholeFormatted : `${wholeFormatted}.${String(frac).padStart(2, '0')}`;
+  const includeDecimals = frac !== 0 || Boolean(options?.showPoisha);
+  const numPart = includeDecimals
+    ? `${wholeFormatted}.${String(frac).padStart(2, '0')}`
+    : wholeFormatted;
   const symbol = (CURRENCIES[currency] ?? CURRENCIES.BDT).symbol;
   return `${safe < 0 ? '-' : ''}${symbol}${numPart}`;
 }
@@ -377,13 +395,15 @@ export function buildReminderMessage(params: {
 
 export function formatHomeDuesSummaryLine(
   overview: DuesOverview,
-  currency: CurrencyCode
+  currency: CurrencyCode,
+  options?: FormatMoneyOptions
 ): string | null {
   if (overview.openPeople.length === 0) return null;
+  if (options?.hidden) return HIDDEN_AMOUNT_TEXT;
 
   if (overview.openPeople.length === 1) {
     const only = overview.openPeople[0];
-    const amt = formatInlineMoney(Math.abs(only.netMinor), currency);
+    const amt = formatInlineMoney(Math.abs(only.netMinor), currency, options);
     return only.netMinor > 0
       ? `${only.person.name} owes you ${amt}`
       : `You owe ${only.person.name} ${amt}`;
@@ -393,16 +413,16 @@ export function formatHomeDuesSummaryLine(
     const rec = overview.openPeople.find((p) => p.netMinor > 0);
     const pay = overview.openPeople.find((p) => p.netMinor < 0);
     if (rec && pay) {
-      return `${rec.person.name} owes you ${formatInlineMoney(rec.netMinor, currency)} · You owe ${pay.person.name} ${formatInlineMoney(-pay.netMinor, currency)}`;
+      return `${rec.person.name} owes you ${formatInlineMoney(rec.netMinor, currency, options)} · You owe ${pay.person.name} ${formatInlineMoney(-pay.netMinor, currency, options)}`;
     }
   }
 
   const parts: string[] = [];
   if (overview.youWillGetMinor > 0) {
-    parts.push(`You'll get ${formatInlineMoney(overview.youWillGetMinor, currency)}`);
+    parts.push(`You'll get ${formatInlineMoney(overview.youWillGetMinor, currency, options)}`);
   }
   if (overview.youOweMinor > 0) {
-    parts.push(`You owe ${formatInlineMoney(overview.youOweMinor, currency)}`);
+    parts.push(`You owe ${formatInlineMoney(overview.youOweMinor, currency, options)}`);
   }
   return parts.join(' · ');
 }

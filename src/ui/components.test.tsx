@@ -1,7 +1,8 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { fireEvent, render } from '@testing-library/react-native';
+import { fireEvent, render, act } from '@testing-library/react-native';
 import { addDays, diffDays } from '@/domain/dates';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { Banner } from './Banner';
 import { Button } from './Button';
@@ -51,13 +52,15 @@ describe('v2 design system components', () => {
     expect(StyleSheet.flatten(neg.props.style).fontVariant).toEqual(['tabular-nums']);
 
     const negTaka = view.getByTestId('m-neg-taka');
-    expect(StyleSheet.flatten(negTaka.props.style).fontFamily).toBe('HindSiliguri_600SemiBold');
-    expect(StyleSheet.flatten(negTaka.props.style).fontSize).toBe(11); // round(15 * 0.72)
-    expect(StyleSheet.flatten(negTaka.props.style).opacity).toBe(0.8);
+    // ৳ is drawn by the patched app font, so it inherits the number's family and size.
+    expect(StyleSheet.flatten(negTaka.props.style).fontFamily).toBeUndefined();
+    expect(StyleSheet.flatten(negTaka.props.style).fontSize).toBe(15);
+    expect(StyleSheet.flatten(negTaka.props.style).opacity).toBe(1);
 
     const heroTaka = view.getByTestId('m-hero-taka');
-    expect(StyleSheet.flatten(heroTaka.props.style).fontFamily).toBe('HindSiliguri_600SemiBold');
-    expect(StyleSheet.flatten(heroTaka.props.style).fontSize).toBe(29); // round(40 * 0.72)
+    expect(StyleSheet.flatten(heroTaka.props.style).fontFamily).toBeUndefined();
+    expect(StyleSheet.flatten(heroTaka.props.style).fontSize).toBe(40);
+    expect(StyleSheet.flatten(heroTaka.props.style).opacity).toBe(0.82);
 
     const dec = view.getByTestId('m-dec');
     expect(dec.props.accessibilityLabel).toBe('$1,250.50');
@@ -66,6 +69,40 @@ describe('v2 design system components', () => {
     expect(view.getByTestId('m-compact').props.accessibilityLabel).toBe('৳ 48,350');
     expect(view.getByText(/৳\s2,488/)).toBeTruthy();
     expect(view.getByText('Hidden')).toBeTruthy();
+  });
+
+  it('applies privacyStore showPoisha, compactNumbers (cards only), and hideAmounts dynamically', async () => {
+    usePrivacyStore.setState({ hideAmounts: false, showPoisha: false, compactNumbers: false });
+
+    const view = await render(
+      <ThemeProvider preference="light" accent="forest">
+        <Money testID="card-money" amountMinor={4_835_000} currency="BDT" allowCompact />
+        <Money testID="ledger-money" amountMinor={4_835_000} currency="BDT" />
+      </ThemeProvider>
+    );
+
+    expect(view.getByTestId('card-money').props.accessibilityLabel).toBe('৳ 48,350');
+    expect(view.getByTestId('ledger-money').props.accessibilityLabel).toBe('৳ 48,350');
+
+    await act(async () => {
+      usePrivacyStore.getState().setCompactNumbers(true);
+    });
+    expect(view.getByText(/48\.4k/)).toBeTruthy();
+    expect(view.getByText(/৳\s48,350$/)).toBeTruthy();
+
+    await act(async () => {
+      usePrivacyStore.getState().syncFromSettings({ showPoisha: true, compactNumbers: false });
+    });
+    expect(view.getAllByText(/৳\s48,350\.00$/)).toHaveLength(2);
+
+    await act(async () => {
+      usePrivacyStore.getState().resetForOpen(true);
+    });
+    expect(view.getAllByText('Hidden')).toHaveLength(2);
+
+    await act(async () => {
+      usePrivacyStore.setState({ hideAmounts: false, showPoisha: false, compactNumbers: false });
+    });
   });
 
   it('applies keypad keys respecting 2 decimal precision and max length', () => {
@@ -115,7 +152,7 @@ describe('v2 design system components', () => {
 
     expect(view.getByText('Today')).toBeTruthy();
     expect(view.getByText('Wed, 11 Nov')).toBeTruthy();
-    expect(view.getByText('1:20 PM')).toBeTruthy();
+    expect(view.getByText('1:20 PM')).toBeTruthy();
     expect(view.getByText('21:00')).toBeTruthy();
   });
 
