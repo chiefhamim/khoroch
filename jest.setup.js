@@ -63,3 +63,12 @@ jest.mock('react-native-reanimated', () => {
 
 // Gesture Handler ships its own Jest mocks for the native module.
 require('react-native-gesture-handler/jestSetup');
+
+jest.mock('react-native-keyboard-controller', () => {
+  const React = require('react');
+  const { ScrollView, View } = require('react-native');
+  return {
+    KeyboardProvider: ({ children }) => React.createElement(View, null, children),
+    KeyboardAwareScrollView: ScrollView,
+  };
+});

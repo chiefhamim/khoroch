@@ -2,6 +2,7 @@ import {
   buildReminderMessage,
   checkDueOverpayment,
   computeDuesOverview,
+  dueKindForAction,
   computePersonNetMinor,
   findOpenCycleStartDate,
   formatHomeDuesSummaryLine,
@@ -12,6 +13,14 @@ import {
 } from './dues';
 import type { DueEntry, Person } from './types';
 
+describe('dueKindForAction', () => {
+  it('maps gave and got based on the current balance direction', () => {
+    expect(dueKindForAction('gave', 0)).toBe('lent');
+    expect(dueKindForAction('got', 0)).toBe('borrowed');
+    expect(dueKindForAction('got', 1000)).toBe('received_back');
+    expect(dueKindForAction('gave', -1000)).toBe('paid_back');
+  });
+});
 function makePerson(partial: Partial<Person> & { id: string; name: string }): Person {
   return {
     colorKey: 'blue',

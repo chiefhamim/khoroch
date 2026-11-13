@@ -126,6 +126,19 @@ export function signedDeltaForDueKind(kind: DueKind, amountMinor: number): numbe
   return -amt;
 }
 
+export type DueAction = 'gave' | 'got';
+
+/**
+ * Maps the simple People actions to the existing ledger kinds. A positive net
+ * means the person owes you; a negative net means you owe them.
+ */
+export function dueKindForAction(action: DueAction, currentNetMinor: number): DueKind {
+  if (action === 'gave') {
+    return currentNetMinor < 0 ? 'paid_back' : 'lent';
+  }
+  return currentNetMinor > 0 ? 'received_back' : 'borrowed';
+}
+
 function compareDueAsc(a: DueEntry, b: DueEntry): number {
   if (a.occurredOn !== b.occurredOn) return a.occurredOn.localeCompare(b.occurredOn);
   if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;

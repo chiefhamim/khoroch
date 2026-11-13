@@ -9,12 +9,12 @@ import {
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   View,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import Animated, {
   Easing,
   runOnJS,
@@ -139,7 +139,7 @@ export function Sheet({
     : Math.max(insets.bottom, theme.spacing.lg) + theme.spacing.sm;
 
   const content = scroll ? (
-    <ScrollView
+    <KeyboardAwareScrollView
       keyboardShouldPersistTaps="handled"
       bounces={false}
       contentContainerStyle={{
@@ -149,7 +149,7 @@ export function Sheet({
       }}
     >
       {children}
-    </ScrollView>
+    </KeyboardAwareScrollView>
   ) : (
     <View
       style={{

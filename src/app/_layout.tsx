@@ -3,6 +3,10 @@ import { useFonts } from "expo-font";
 import { HindSiliguri_500Medium } from "@expo-google-fonts/hind-siliguri/500Medium";
 import { HindSiliguri_600SemiBold } from "@expo-google-fonts/hind-siliguri/600SemiBold";
 import { HindSiliguri_700Bold } from "@expo-google-fonts/hind-siliguri/700Bold";
+import { Manrope_400Regular } from "@expo-google-fonts/manrope/400Regular";
+import { Manrope_500Medium } from "@expo-google-fonts/manrope/500Medium";
+import { Manrope_600SemiBold } from "@expo-google-fonts/manrope/600SemiBold";
+import { Manrope_700Bold } from "@expo-google-fonts/manrope/700Bold";
 import {
   Stack,
   useRootNavigationState,
@@ -12,6 +16,7 @@ import {
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { isDevVariant } from "@/config/appVariant";
 
@@ -31,13 +36,6 @@ import { useTheme } from "@/theme/useTheme";
 import { ErrorState } from "@/ui/ErrorState";
 import { Screen } from "@/ui/Screen";
 import { ToastProvider } from "@/ui/Toast";
-
-// Plus Jakarta Sans with a real ৳ (U+09F3) added; regenerate with scripts/patch-taka-font.py
-const PlusJakartaSans_400Regular = require("../../assets/fonts/PlusJakartaSans_400Regular.ttf");
-const PlusJakartaSans_500Medium = require("../../assets/fonts/PlusJakartaSans_500Medium.ttf");
-const PlusJakartaSans_600SemiBold = require("../../assets/fonts/PlusJakartaSans_600SemiBold.ttf");
-const PlusJakartaSans_700Bold = require("../../assets/fonts/PlusJakartaSans_700Bold.ttf");
-const PlusJakartaSans_800ExtraBold = require("../../assets/fonts/PlusJakartaSans_800ExtraBold.ttf");
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 configureNotificationHandler();
@@ -122,11 +120,10 @@ function AppNavigator() {
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
-    PlusJakartaSans_400Regular,
-    PlusJakartaSans_500Medium,
-    PlusJakartaSans_600SemiBold,
-    PlusJakartaSans_700Bold,
-    PlusJakartaSans_800ExtraBold,
+    Manrope_400Regular,
+    Manrope_500Medium,
+    Manrope_600SemiBold,
+    Manrope_700Bold,
     HindSiliguri_500Medium,
     HindSiliguri_600SemiBold,
     HindSiliguri_700Bold,
@@ -239,9 +236,11 @@ export default function RootLayout() {
           preference={repoState.settings.theme}
           accent={repoState.settings.accent}
         >
-          <ToastProvider>
-            <AppNavigator />
-          </ToastProvider>
+          <KeyboardProvider>
+            <ToastProvider>
+              <AppNavigator />
+            </ToastProvider>
+          </KeyboardProvider>
         </ThemeProvider>
       </AppContext.Provider>
     </SafeAreaProvider>

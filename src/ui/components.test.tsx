@@ -48,26 +48,24 @@ describe('v2 design system components', () => {
     );
 
     const neg = view.getByTestId('m-neg');
-    expect(neg.props.accessibilityLabel).toBe('−৳ 600');
+    expect(neg.props.accessibilityLabel).toBe('−৳600');
     expect(StyleSheet.flatten(neg.props.style).fontVariant).toEqual(['tabular-nums']);
 
     const negTaka = view.getByTestId('m-neg-taka');
-    // ৳ is drawn by the patched app font, so it inherits the number's family and size.
-    expect(StyleSheet.flatten(negTaka.props.style).fontFamily).toBeUndefined();
-    expect(StyleSheet.flatten(negTaka.props.style).fontSize).toBe(15);
+    expect(StyleSheet.flatten(negTaka.props.style).fontFamily).toBe('HindSiliguri_600SemiBold');
+    expect(StyleSheet.flatten(negTaka.props.style).fontSize).toBe(8);
     expect(StyleSheet.flatten(negTaka.props.style).opacity).toBe(1);
 
     const heroTaka = view.getByTestId('m-hero-taka');
-    expect(StyleSheet.flatten(heroTaka.props.style).fontFamily).toBeUndefined();
-    expect(StyleSheet.flatten(heroTaka.props.style).fontSize).toBe(40);
-    expect(StyleSheet.flatten(heroTaka.props.style).opacity).toBe(0.82);
+    expect(StyleSheet.flatten(heroTaka.props.style).fontFamily).toBe('HindSiliguri_600SemiBold');
+    expect(StyleSheet.flatten(heroTaka.props.style).fontSize).toBe(21);
+    expect(StyleSheet.flatten(heroTaka.props.style).opacity).toBe(1);
 
     const dec = view.getByTestId('m-dec');
     expect(dec.props.accessibilityLabel).toBe('$1,250.50');
 
-    expect(view.getByText(/৳\s48\.4k/)).toBeTruthy();
-    expect(view.getByTestId('m-compact').props.accessibilityLabel).toBe('৳ 48,350');
-    expect(view.getByText(/৳\s2,488/)).toBeTruthy();
+    expect(view.getByTestId('m-compact').props.accessibilityLabel).toBe('৳48.4k');
+    expect(view.getByTestId('m-whole').props.accessibilityLabel).toBe('৳2,488');
     expect(view.getByText('Hidden')).toBeTruthy();
   });
 
@@ -81,19 +79,20 @@ describe('v2 design system components', () => {
       </ThemeProvider>
     );
 
-    expect(view.getByTestId('card-money').props.accessibilityLabel).toBe('৳ 48,350');
-    expect(view.getByTestId('ledger-money').props.accessibilityLabel).toBe('৳ 48,350');
+    expect(view.getByTestId('card-money').props.accessibilityLabel).toBe('৳48,350');
+    expect(view.getByTestId('ledger-money').props.accessibilityLabel).toBe('৳48,350');
 
     await act(async () => {
       usePrivacyStore.getState().setCompactNumbers(true);
     });
     expect(view.getByText(/48\.4k/)).toBeTruthy();
-    expect(view.getByText(/৳\s48,350$/)).toBeTruthy();
+    expect(view.getByTestId('ledger-money').props.accessibilityLabel).toBe('৳48,350');
 
     await act(async () => {
       usePrivacyStore.getState().syncFromSettings({ showPoisha: true, compactNumbers: false });
     });
-    expect(view.getAllByText(/৳\s48,350\.00$/)).toHaveLength(2);
+    expect(view.getByTestId('card-money').props.accessibilityLabel).toBe('৳48,350.00');
+    expect(view.getByTestId('ledger-money').props.accessibilityLabel).toBe('৳48,350.00');
 
     await act(async () => {
       usePrivacyStore.getState().resetForOpen(true);

@@ -1,5 +1,4 @@
 import React from 'react';
-import { Platform } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import EditTransactionScreen from '@/app/transaction/[id]';
 import { MemoryRepo } from '@/data/memoryRepo';
@@ -28,13 +27,6 @@ jest.mock('expo-router', () => ({
     back: () => mockBack(),
     canGoBack: () => mockCanGoBack(),
     replace: (...args: unknown[]) => mockReplace(...args),
-  },
-}));
-
-const mockAndroidOpen = jest.fn();
-jest.mock('@react-native-community/datetimepicker', () => ({
-  DateTimePickerAndroid: {
-    open: (opts: unknown) => mockAndroidOpen(opts),
   },
 }));
 
@@ -72,7 +64,6 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
   const categories = buildDefaultCategories(1700000000000);
 
   beforeEach(() => {
-    mockAndroidOpen.mockReset();
     mockBack.mockReset();
     mockCanGoBack.mockReturnValue(true);
     mockReplace.mockReset();
@@ -254,67 +245,49 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
     );
   });
 
-  it('wires native Android DateTimePickerAndroid callbacks on DateField and TimeField', async () => {
-    const originalOS = Platform.OS;
-    Object.defineProperty(Platform, 'OS', { get: () => 'android', configurable: true });
+  it('uses the in-app date and time sheets', async () => {
     const onSubmit = jest.fn(async () => {});
 
-    try {
-      const view = await render(
-        <ThemeProvider preference="light">
-          <TransactionForm
-            mode="edit"
-            currency="BDT"
-            categories={categories}
-            initialValues={{
-              type: 'expense',
-              amountMinor: 50_000,
-              categoryId: 'utilities',
-              occurredOn: '2026-11-10',
-              occurredTime: null,
-            }}
-            onClose={jest.fn()}
-            onSubmit={onSubmit}
-          />
-        </ThemeProvider>
-      );
+    const view = await render(
+      <ThemeProvider preference="light">
+        <TransactionForm
+          mode="edit"
+          currency="BDT"
+          categories={categories}
+          initialValues={{
+            type: 'expense',
+            amountMinor: 50_000,
+            categoryId: 'utilities',
+            occurredOn: '2026-11-10',
+            occurredTime: null,
+          }}
+          onClose={jest.fn()}
+          onSubmit={onSubmit}
+        />
+      </ThemeProvider>
+    );
 
-      // Edit mode preserves null occurredTime and displays 'Add time'
-      expect(view.getByText('Add time')).toBeTruthy();
+    // Edit mode preserves null occurredTime and displays 'Add time'
+    expect(view.getByText('Add time')).toBeTruthy();
 
-      await fireEvent.press(view.getByTestId('tx-date-field'));
-      expect(mockAndroidOpen).toHaveBeenCalledTimes(1);
-      const dateOpts = mockAndroidOpen.mock.calls[0][0] as {
-        onChange: (e: { type?: string }, d?: Date) => void;
-      };
-      await act(async () => {
-        dateOpts.onChange({ type: 'set' }, new Date(2026, 10, 9, 12, 0, 0));
-      });
+    await fireEvent.press(view.getByTestId('tx-date-field'));
+    expect(view.getByText('Done')).toBeTruthy();
+    await fireEvent.press(view.getByText('Done'));
 
-      await fireEvent.press(view.getByTestId('tx-time-field'));
-      expect(mockAndroidOpen).toHaveBeenCalledTimes(2);
-      const timeOpts = mockAndroidOpen.mock.calls[1][0] as {
-        onChange: (e: { type?: string }, d?: Date) => void;
-      };
-      const pickedTime = new Date(2026, 10, 9, 18, 45, 0);
-      await act(async () => {
-        timeOpts.onChange({ type: 'set' }, pickedTime);
-      });
+    await fireEvent.press(view.getByTestId('tx-time-field'));
+    await fireEvent.press(view.getByText('Evening'));
 
-      await fireEvent.press(view.getByTestId('save-tx-button'));
-      await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
-      expect(onSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          occurredOn: '2026-11-09',
-          occurredTime: '18:45',
-        })
-      );
-    } finally {
-      Object.defineProperty(Platform, 'OS', { get: () => originalOS, configurable: true });
-    }
+    await fireEvent.press(view.getByTestId('save-tx-button'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        occurredOn: '2026-11-10',
+        occurredTime: '18:00',
+      })
+    );
   });
 
-  it('EditTransactionScreen deletes via ⋯ action sheet and confirmation sheet', async () => {
+  it('EditTransactionScreen deletes via labelled actions and confirmation sheet', async () => {
     const repo = new MemoryRepo();
     await repo.insertTransaction({
       id: 'tx-edit-1',

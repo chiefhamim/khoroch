@@ -3,8 +3,8 @@ import type { AccentTheme } from '@/domain/types';
 
 export type ResolvedColorMode = 'light' | 'dark' | 'black';
 
-/** ৳ lives inside the patched Plus Jakarta Sans files (assets/fonts); Hind Siliguri is for Bangla text. */
-export const TAKA_FONT_FAMILY = 'PlusJakartaSans_600SemiBold';
+/** The taka glyph is kept in Hind Siliguri so it remains stable beside every app font. */
+export const TAKA_FONT_FAMILY = 'HindSiliguri_600SemiBold';
 export const BANGLA_FONT_FAMILY = 'HindSiliguri_600SemiBold';
 
 export const spacing = {
@@ -65,58 +65,58 @@ export const typography = {
     fontSize: 40,
     lineHeight: 44,
     letterSpacing: -1.4,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   display: {
     fontSize: 28,
     lineHeight: 34,
     letterSpacing: -0.7,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   title: {
     fontSize: 24,
     lineHeight: 30,
     letterSpacing: -0.6,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   headline: {
     fontSize: 17,
     lineHeight: 23,
     letterSpacing: -0.2,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   body: {
     fontSize: 15,
     lineHeight: 22,
-    fontFamily: 'PlusJakartaSans_400Regular',
+    fontFamily: 'Manrope_400Regular',
   },
   bodyStrong: {
     fontSize: 15,
     lineHeight: 20,
     letterSpacing: -0.1,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Manrope_600SemiBold',
   },
   label: {
     fontSize: 13,
     lineHeight: 18,
-    fontFamily: 'PlusJakartaSans_500Medium',
+    fontFamily: 'Manrope_500Medium',
   },
   caption: {
     fontSize: 12,
     lineHeight: 16,
     letterSpacing: 0.2,
-    fontFamily: 'PlusJakartaSans_500Medium',
+    fontFamily: 'Manrope_500Medium',
   },
   overline: {
     fontSize: 11.5,
     lineHeight: 15,
     letterSpacing: 0.6,
-    fontFamily: 'PlusJakartaSans_700Bold',
+    fontFamily: 'Manrope_700Bold',
   },
   tab: {
     fontSize: 11,
     lineHeight: 14,
-    fontFamily: 'PlusJakartaSans_600SemiBold',
+    fontFamily: 'Manrope_600SemiBold',
   },
 } as const;
 

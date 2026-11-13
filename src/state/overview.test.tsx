@@ -143,17 +143,17 @@ describe('Overview Scenario A integration', () => {
     );
 
     await waitFor(() => {
-      expect(view.getByText(/৳\s23,550/)).toBeTruthy();
+      expect(view.getByText(/৳ ?23,550/)).toBeTruthy();
     });
 
     expect(view.getByText('Good evening')).toBeTruthy();
     expect(view.getByText('Hamim · Fri, 13 Nov 2026')).toBeTruthy();
     expect(view.getByTestId('overview-settings-shortcut')).toBeTruthy();
     expect(view.getByText('H')).toBeTruthy();
-    expect(view.getAllByText(/৳\s16,450/).length).toBeGreaterThanOrEqual(1);
+    expect(view.getAllByText(/৳ ?16,450/).length).toBeGreaterThanOrEqual(1);
     expect(view.getByText('41.1% used')).toBeTruthy();
-    expect(view.getByText(/৳\s1,308\.33/)).toBeTruthy();
-    expect(view.getByText(/৳\s50,000/)).toBeTruthy();
+    expect(view.getByText(/৳ ?1,308\.33/)).toBeTruthy();
+    expect(view.getByText(/৳ ?50,000/)).toBeTruthy();
     expect(view.getByText(t('status.ok'))).toBeTruthy();
     expect(view.queryByTestId('overview-new-cycle-banner')).toBeNull();
     expect(
@@ -175,9 +175,9 @@ describe('Overview Scenario A integration', () => {
     });
 
     await waitFor(() => {
-      expect(view.getByText(/৳\s23,200/)).toBeTruthy();
+      expect(view.getByText(/৳ ?23,200/)).toBeTruthy();
     });
-    expect(view.getAllByText(/৳\s16,800/).length).toBeGreaterThanOrEqual(1);
+    expect(view.getAllByText(/৳ ?16,800/).length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows new-cycle hint banner within first 7 days and inline no-budget invite when unset', async () => {
@@ -234,7 +234,7 @@ describe('Overview Scenario A integration', () => {
     expect(view.getByTestId('overview-set-budget-inline')).toBeTruthy();
     expect(view.getByTestId('overview-new-cycle-banner')).toBeTruthy();
     expect(
-      view.getByText('New cycle started 10 Nov · Last cycle ৳ 4,600')
+      view.getByText(/New cycle started 10 Nov · Last cycle ৳ ?4,600/)
     ).toBeTruthy();
   });
 
@@ -361,7 +361,7 @@ describe('Overview Scenario A integration', () => {
       expect(view.getByTestId('hero-wallets-total')).toBeTruthy();
     });
 
-    expect(view.getByLabelText('৳ 6,531.50')).toBeTruthy();
+    expect(view.getByLabelText('৳6,531.50')).toBeTruthy();
     expect(view.getByText('Across 3 wallets')).toBeTruthy();
     expect(view.getByText(t('wallets.excludedBadge'))).toBeTruthy();
     expect(view.getByTestId('overview-wallets-list')).toBeTruthy();
@@ -378,7 +378,7 @@ describe('Overview Scenario A integration', () => {
     await fireEvent.press(view.getByTestId('overview-budget-card'));
     await waitFor(() => {
       expect(view.getByText('Across 3 wallets')).toBeTruthy();
-      expect(view.getByLabelText('৳ 6,531.50')).toBeTruthy();
+      expect(view.getByLabelText('৳6,531.50')).toBeTruthy();
     });
   });
 });

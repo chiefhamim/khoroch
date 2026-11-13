@@ -109,6 +109,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   keyText: {
-    fontFamily: 'PlusJakartaSans_500Medium',
+    fontFamily: 'Manrope_500Medium',
   },
 });

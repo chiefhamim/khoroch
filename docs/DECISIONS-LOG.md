@@ -22,6 +22,12 @@ Format:
 
 <!-- Agent: append D-001 onward below this line -->
 
+## D-011 — Manrope and custom date/time entry  (UI overhaul, 2026-11-13 23:47)
+- Question: Which professional font and date/time interaction should replace the existing Plus Jakarta Sans and native picker dialogs?
+- Options considered: Keep Plus Jakarta Sans / use Manrope; keep native dialogs / build a shared in-app sheet.
+- Chose: Manrope 400–700 for application text, Hind Siliguri 600 for the raised taka glyph, and a shared `DateTimeSheet` with recent dates, month grid, part-of-day chips, and exact time columns. This keeps the visual system consistent and avoids old Android wheel/clock dialogs.
+- Easy to reverse? yes — font registrations and token family names are centralized in `src/app/_layout.tsx` and `src/theme/tokens.ts`; picker behavior is isolated in `src/ui/DateTimeSheet.tsx`.
+
 ## D-001 — Light & dark color contrast adjustments  (Phase 1, 2026-11-13 01:04)
 - Question: Several starting tokens in `ARCHITECTURE.md` §6 failed WCAG AA 4.5:1 contrast against `surface`/`bg`/`surfaceAlt` (`light.textMuted` #6B7570 was 4.44 on bg / 4.25 on surfaceAlt; `light.income` #2E8B57 was 4.25 on surface; `light.expense` #D2604F was 3.80 on surface; `light.warning` #C98A1B was 2.94 on surface; `dark.danger` #F07167 was 4.26 on primarySoft; white text on dark `primary` #5CC49A was 2.14).
 - Options considered: Keep exact hexes and violate ≥4.5:1 accessibility / Darken light foregrounds slightly while keeping exact hue & set `onPrimary`/`onDanger` to `#0F1412` in dark mode.

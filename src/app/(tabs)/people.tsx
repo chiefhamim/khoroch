@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { formatFriendlyDate, todayLocalDate } from '@/domain/dates';
 import { type PersonSummary } from '@/domain/dues';
@@ -18,28 +18,21 @@ import { Money } from '@/ui/Money';
 import { PersonAvatar } from '@/ui/PersonAvatar';
 import { PersonEditorSheet } from '@/ui/PersonEditorSheet';
 import { Screen } from '@/ui/Screen';
-import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Surface } from '@/ui/Surface';
 import { hapticSelection } from '@/ui/haptics';
-
-type PeopleTabFilter = 'open' | 'settled';
 
 export default function PeopleTabScreen() {
   const { settings } = useAppContext();
   const { theme } = useTheme();
   const { allPeople, overview, loading, error, reload } = usePeople();
 
-  const [tab, setTab] = useState<PeopleTabFilter>('open');
   const [dueSheetOpen, setDueSheetOpen] = useState(false);
   const [personSheetOpen, setPersonSheetOpen] = useState(false);
 
   const today = todayLocalDate();
   const currency = settings.currency;
 
-  const visibleList: PersonSummary[] = useMemo(
-    () => (tab === 'open' ? overview.openPeople : overview.settledPeople),
-    [tab, overview.openPeople, overview.settledPeople]
-  );
+  const visibleList = overview.openPeople;
 
   const renderPersonRow = (summary: PersonSummary, idx: number, total: number) => {
     const countLabel =
@@ -219,36 +212,12 @@ export default function PeopleTabScreen() {
         </Surface>
       ) : (
         <>
-          <SegmentedControl<PeopleTabFilter>
-            testID="people-tab-segment"
-            value={tab}
-            onChange={setTab}
-            options={[
-              {
-                value: 'open',
-                label: `${t('people.openTab')} (${overview.openPeople.length})`,
-              },
-              {
-                value: 'settled',
-                label: `${t('people.settledTab')} (${overview.settledPeople.length})`,
-              },
-            ]}
-          />
-
           {visibleList.length === 0 ? (
-            <Surface testID={`people-empty-${tab}`}>
+            <Surface testID="people-empty-open">
               <EmptyState
-                icon={tab === 'open' ? 'circle-check' : 'users'}
-                title={
-                  tab === 'open'
-                    ? t('people.openEmptyTitle')
-                    : t('people.settledEmptyTitle')
-                }
-                body={
-                  tab === 'open'
-                    ? t('people.openEmptyBody')
-                    : t('people.settledEmptyBody')
-                }
+                icon="circle-check"
+                title={t('people.openEmptyTitle')}
+                body={t('people.openEmptyBody')}
               />
             </Surface>
           ) : (
@@ -258,6 +227,19 @@ export default function PeopleTabScreen() {
               )}
             </Surface>
           )}
+
+          {overview.settledPeople.length > 0 ? (
+            <>
+              <AppText variant="label" color="textSecondary">
+                {t('people.settledTab')}
+              </AppText>
+              <Surface testID="people-settled-list-card" padded={false}>
+                {overview.settledPeople.map((summary, idx) =>
+                  renderPersonRow(summary, idx, overview.settledPeople.length)
+                )}
+              </Surface>
+            </>
+          ) : null}
         </>
       )}
 

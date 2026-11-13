@@ -74,7 +74,7 @@ export function WalletAvatar({
         <AppText
           style={{
             color: '#FFFFFF',
-            fontFamily: 'PlusJakartaSans_700Bold',
+            fontFamily: 'Manrope_700Bold',
             fontSize: metrics.font,
             lineHeight: metrics.font + 2,
             letterSpacing: -0.2,

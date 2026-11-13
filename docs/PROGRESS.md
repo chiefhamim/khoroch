@@ -562,3 +562,9 @@ Re-read: AGENTS §6 · PLAN §6
 
 ## v1.2 summary
 <!-- written at the end -->
+
+## Copilot UI overhaul log — 2026-11-13
+- Built Manrope typography, raised taka presentation, custom date/time sheet, keyboard-aware forms and sheets, simplified People actions/list, and gave/got due-kind mapping.
+- Checks: `npm run typecheck` passed; `npm test -- --runInBand` passed with 24 suites and 146 tests; `npx expo lint` had 0 errors and one pre-existing warning in `src/app/wallets/[id].tsx`; web export passed.
+- Android: generated and built `com.hamim.budgetapp.dev`, installed with `adb install -r`, and left `com.hamim.budgetapp` untouched.
+- Phone check: skipped visual review because the connected device was locked and sleeping. Full screenshot matrix and timed walkthrough remain not verified.

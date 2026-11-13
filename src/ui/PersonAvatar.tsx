@@ -42,7 +42,7 @@ export function PersonAvatar({ name, colorKey, size = 'md' }: PersonAvatarProps)
         style={{
           color: tint,
           fontSize: metrics.font,
-          fontFamily: 'PlusJakartaSans_600SemiBold',
+          fontFamily: 'Manrope_600SemiBold',
         }}
       >
         {initials}

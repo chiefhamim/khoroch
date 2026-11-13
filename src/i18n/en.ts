@@ -43,6 +43,8 @@ export const en = {
   'common.uncategorized': 'Other',
   'common.on': 'On',
   'common.off': 'Off',
+  'dateTime.earlier': 'Earlier',
+  'dateTime.exactTime': 'Exact time',
 
   // Onboarding
   'onboarding.stepLabel': 'Step {step} of {total}',
@@ -630,6 +632,8 @@ export const en = {
   'people.newEntry': 'Lend or borrow',
   'people.openTab': 'Open',
   'people.settledTab': 'Settled',
+  'people.gave': 'I gave',
+  'people.got': 'I got',
   'people.youWillGet': "You'll get",
   'people.youOwe': 'You owe',
   'people.owesYouAmt': 'Owes you {amount}',

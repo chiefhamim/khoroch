@@ -1,7 +1,6 @@
 import React from 'react';
 import { Text, type StyleProp, type TextStyle } from 'react-native';
 import {
-  formatMoney,
   getCompactNumberPart,
   getCurrencySymbol,
   groupThousands,
@@ -42,19 +41,15 @@ export interface TakaSignMetrics {
 }
 
 /**
- * Computes Hind Siliguri 600 metrics for the ৳ glyph tuned by size bucket
- * (12 / 15 / 17 / 28 / 40) so ৳ sits cleanly on the figure baseline.
+ * Computes the raised currency mark beside the amount.
  */
 export function getTakaSignMetrics(numberFontSize: number): TakaSignMetrics {
-  // The app font (patched Plus Jakarta Sans) now carries its own ৳ drawn at 80% of digit
-  // height on the baseline, so the sign inherits the number's family, size and weight.
-  // Plain-text ৳ elsewhere in the app renders identically.
   return {
     fontFamily: TAKA_FONT_FAMILY,
-    fontSize: numberFontSize,
-    opacity: numberFontSize >= 28 ? 0.82 : 1,
-    baselineNudge: 0,
-    spacerWidth: Math.max(1, Math.round(numberFontSize * 0.04)),
+    fontSize: Math.max(8, Math.round(numberFontSize * 0.52)),
+    opacity: 1,
+    baselineNudge: -Math.round(numberFontSize * 0.18),
+    spacerWidth: 0,
   };
 }
 
@@ -72,8 +67,8 @@ function TakaSign({ numberFontSize, symbol, color, testID }: TakaSignProps) {
     <Text
       testID={testID}
       style={{
+        fontFamily: metrics.fontFamily,
         fontSize: metrics.fontSize,
-        
         opacity: metrics.opacity,
         color,
         position: 'relative',
@@ -179,14 +174,12 @@ export function Money({
           ? '−'
           : '';
 
-  const formattedPlain = formatMoney(normalizedMinor, currency).replace('-', '−');
+  const formattedPlain = `${resolvedSign}${symbol}${numberPart}`;
   const computedA11y =
     accessibilityLabel ??
     (resolvedSign && !formattedPlain.startsWith(resolvedSign)
       ? `${resolvedSign}${formattedPlain}`
       : formattedPlain);
-
-  const metrics = getTakaSignMetrics(mainFontSize);
 
   return (
     <Text
@@ -210,7 +203,6 @@ export function Money({
         symbol={symbol}
         color={resolvedSymbolColor}
       />
-      <Text style={{ fontSize: metrics.spacerWidth }}>{'\u00A0'}</Text>
       {numberPart}
     </Text>
   );

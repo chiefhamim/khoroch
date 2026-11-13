@@ -6,6 +6,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import {
   addDays,
   currentLocalTime,
@@ -893,7 +894,7 @@ export function TransactionForm({
       </View>
 
       {/* Scrollable Middle Controls */}
-      <ScrollView
+      <KeyboardAwareScrollView
         style={styles.flex1}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -932,7 +933,7 @@ export function TransactionForm({
                   fontSize: amountFontSize,
                   lineHeight: amountLineHeight,
                   letterSpacing: -1.1,
-                  fontFamily: 'PlusJakartaSans_600SemiBold',
+                  fontFamily: 'Manrope_600SemiBold',
                   color: heroColor,
                 }}
               >
@@ -1220,7 +1221,7 @@ export function TransactionForm({
                       numberOfLines={1}
                       style={[
                         styles.catLabel,
-                        selected ? { fontFamily: 'PlusJakartaSans_600SemiBold' } : null,
+                        selected ? { fontFamily: 'Manrope_600SemiBold' } : null,
                       ]}
                     >
                       {cat.name}
@@ -1313,7 +1314,7 @@ export function TransactionForm({
             </View>
           </>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Pinned Bottom Dock: Keypad (hidden while typing in text inputs) + Primary CTA */}
       <View

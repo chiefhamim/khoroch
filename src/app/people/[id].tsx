@@ -6,6 +6,7 @@ import { formatFriendlyDate, formatFriendlyTime, todayLocalDate } from '@/domain
 import {
   buildReminderMessage,
   computePersonNetMinor,
+  dueKindForAction,
   findOpenCycleStartDate,
   suggestSettleKindAndAmount,
   type ReminderLanguage,
@@ -93,7 +94,7 @@ export default function PersonDetailScreen() {
   );
   const [dueSheetState, setDueSheetState] = useState<
     | { mode: 'closed' }
-    | { mode: 'add' }
+    | { mode: 'add'; action: 'gave' | 'got' }
     | { mode: 'settle' }
     | { mode: 'edit'; entry: DueEntry }
   >({ mode: 'closed' });
@@ -282,27 +283,25 @@ export default function PersonDetailScreen() {
         </View>
 
         <View style={[styles.actionsRow, { gap: theme.spacing.sm }]}>
-          {netMinor !== 0 ? (
-            <Button
-              testID="person-settle-up-btn"
-              title={t('people.settleUpCta')}
-              variant="primary"
-              leftIcon="check"
-              onPress={() => {
-                hapticSelection();
-                setDueSheetState({ mode: 'settle' });
-              }}
-              style={styles.flex1}
-            />
-          ) : null}
           <Button
-            testID="person-add-entry-btn"
-            title={t('people.recordAnotherCta')}
-            variant={netMinor !== 0 ? 'secondary' : 'primary'}
-            leftIcon="plus"
+            testID="person-gave-btn"
+            title={t('people.gave')}
+            variant="primary"
+            leftIcon="arrow-up-right"
             onPress={() => {
               hapticSelection();
-              setDueSheetState({ mode: 'add' });
+              setDueSheetState({ mode: 'add', action: 'gave' });
+            }}
+            style={styles.flex1}
+          />
+          <Button
+            testID="person-got-btn"
+            title={t('people.got')}
+            variant="secondary"
+            leftIcon="arrow-down-left"
+            onPress={() => {
+              hapticSelection();
+              setDueSheetState({ mode: 'add', action: 'got' });
             }}
             style={styles.flex1}
           />
@@ -447,7 +446,7 @@ export default function PersonDetailScreen() {
           <PressableScale pressScale={0.98}
             accessibilityRole="button"
             hitSlop={8}
-            onPress={() => setDueSheetState({ mode: 'add' })}
+            onPress={() => setDueSheetState({ mode: 'add', action: 'gave' })}
           >
             <AppText variant="label" color="accent">
               {t('people.recordAnotherCta')}
@@ -462,7 +461,7 @@ export default function PersonDetailScreen() {
               title={t('people.entriesTitle')}
               body={t('people.entriesEmpty', { name: person.name })}
               ctaLabel={t('people.recordAnotherCta')}
-              onCtaPress={() => setDueSheetState({ mode: 'add' })}
+              onCtaPress={() => setDueSheetState({ mode: 'add', action: 'gave' })}
             />
           </Surface>
         ) : (
@@ -517,9 +516,17 @@ export default function PersonDetailScreen() {
         visible={dueSheetState.mode !== 'closed'}
         onClose={() => setDueSheetState({ mode: 'closed' })}
         initialPersonId={person.id}
-        initialKind={dueSheetState.mode === 'settle' ? settlePreset.kind : 'lent'}
+        initialKind={
+          dueSheetState.mode === 'settle'
+            ? settlePreset.kind
+            : dueSheetState.mode === 'add'
+              ? dueKindForAction(dueSheetState.action, netMinor)
+              : 'lent'
+        }
         initialAmountMinor={
-          dueSheetState.mode === 'settle' ? settlePreset.amountMinor : null
+          dueSheetState.mode === 'settle'
+            ? settlePreset.amountMinor
+            : null
         }
         editingEntry={dueSheetState.mode === 'edit' ? dueSheetState.entry : null}
         titleOverride={
