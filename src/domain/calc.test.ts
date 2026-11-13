@@ -20,6 +20,8 @@ function makeTx(overrides: Partial<Transaction> & { id: string; amountMinor: num
     type: 'expense',
     currency: 'BDT',
     categoryId: 'food_dining',
+    accountId: null,
+    transferId: null,
     description: '',
     note: '',
     occurredTime: null,

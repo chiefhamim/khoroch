@@ -208,20 +208,21 @@ export function compactMoney(amountMinor: number, currency: CurrencyCode = 'BDT'
 export const compact = compactMoney;
 
 /**
- * Formats a credit card or wallet balance where negative balances display as `"৳5,600 due"`.
+ * Formats a credit card or wallet balance where negative balances display as `"৳5,600 due"`
+ * and positive balances preserve exact minor decimals without rounding.
  */
 export function formatBalanceWithDue(amountMinor: number, currency: CurrencyCode = 'BDT'): string {
   const safeMinor = Math.trunc(amountMinor);
+  const absMinor = Math.abs(safeMinor);
+  const frac = absMinor % 100;
+  const whole = (absMinor - frac) / 100;
+  const wholeStr = groupThousands(String(whole));
+  const numberPart = frac === 0 ? wholeStr : `${wholeStr}.${String(frac).padStart(2, '0')}`;
+  const meta = CURRENCIES[currency] ?? CURRENCIES.BDT;
   if (safeMinor < 0) {
-    const absMinor = Math.abs(safeMinor);
-    const frac = absMinor % 100;
-    const whole = (absMinor - frac) / 100;
-    const wholeStr = groupThousands(String(whole));
-    const numberPart = frac === 0 ? wholeStr : `${wholeStr}.${String(frac).padStart(2, '0')}`;
-    const meta = CURRENCIES[currency] ?? CURRENCIES.BDT;
     return `${meta.symbol}${numberPart} due`;
   }
-  return formatWholeMoney(safeMinor, currency);
+  return `${meta.symbol}${numberPart}`;
 }
 
 /**

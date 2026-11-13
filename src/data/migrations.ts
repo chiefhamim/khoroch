@@ -1,7 +1,11 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { buildDefaultCategories, DEFAULT_CATEGORIES } from '@/domain/categories';
+import {
+  buildDefaultCategories,
+  DEFAULT_CATEGORIES,
+  DEFAULT_CATEGORY_BY_ID,
+} from '@/domain/categories';
 
-export const LATEST_SCHEMA_VERSION = 2;
+export const LATEST_SCHEMA_VERSION = 3;
 
 export const SCHEMA_V1_SQL = `
 CREATE TABLE IF NOT EXISTS categories (
@@ -126,5 +130,78 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       await db.execAsync('PRAGMA user_version = 2;');
     });
     version = 2;
+  }
+
+  if (version < 3) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS accounts (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          kind TEXT NOT NULL CHECK (kind IN ('cash','mobile_wallet','bank','credit_card','other')),
+          provider TEXT,
+          color_key TEXT NOT NULL,
+          monogram TEXT,
+          last4 TEXT,
+          opening_balance_minor INTEGER NOT NULL DEFAULT 0,
+          opening_date TEXT NOT NULL,
+          include_in_total INTEGER NOT NULL DEFAULT 1,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          archived_at INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS transfers (
+          id TEXT PRIMARY KEY,
+          from_account_id TEXT NOT NULL REFERENCES accounts(id),
+          to_account_id TEXT NOT NULL REFERENCES accounts(id),
+          amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+          fee_minor INTEGER NOT NULL DEFAULT 0 CHECK (fee_minor >= 0),
+          occurred_on TEXT NOT NULL,
+          occurred_time TEXT,
+          note TEXT NOT NULL DEFAULT '',
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          deleted_at INTEGER,
+          CHECK (from_account_id <> to_account_id)
+        );
+      `);
+
+      const txCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(transactions)');
+      if (!txCols.some((c) => c.name === 'account_id')) {
+        await db.execAsync('ALTER TABLE transactions ADD COLUMN account_id TEXT REFERENCES accounts(id);');
+      }
+      if (!txCols.some((c) => c.name === 'transfer_id')) {
+        await db.execAsync('ALTER TABLE transactions ADD COLUMN transfer_id TEXT;');
+      }
+
+      await db.execAsync(`
+        CREATE INDEX IF NOT EXISTS idx_tx_account ON transactions (account_id, occurred_on);
+        CREATE INDEX IF NOT EXISTS idx_tr_date ON transfers (deleted_at, occurred_on);
+      `);
+
+      const feesDef = DEFAULT_CATEGORY_BY_ID.fees;
+      if (feesDef) {
+        await db.runAsync(
+          `INSERT OR IGNORE INTO categories (id, name, icon, color_key, kind, sort_order, is_selected, archived_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            feesDef.id,
+            feesDef.name,
+            feesDef.icon,
+            feesDef.colorKey,
+            feesDef.kind,
+            feesDef.sortOrder,
+            1,
+            null,
+            Date.now(),
+          ]
+        );
+      }
+
+      await db.execAsync('PRAGMA user_version = 3;');
+    });
+    version = 3;
   }
 }

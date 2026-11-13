@@ -201,13 +201,13 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
 
       await db.execAsync('PRAGMA user_version = 1;');
 
-      // 2. Run migration v1 -> v2 (and re-run to verify idempotency)
+      // 2. Run migration v1 -> v3 (and re-run to verify idempotency)
       await runMigrations(db);
       await runMigrations(db);
 
       const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
       expect(ver?.user_version).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(2);
+      expect(LATEST_SCHEMA_VERSION).toBe(3);
 
       const colsAfter = await db.getAllAsync<{ name: string }>('PRAGMA table_info(categories)');
       expect(colsAfter.some((c) => c.name === 'color_key')).toBe(true);
@@ -257,7 +257,7 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
     }
   });
 
-  it('creates a fresh v2 database from scratch cleanly', async () => {
+  it('creates a fresh v3 database from scratch cleanly', async () => {
     const { db, close } = createNodeSqliteAdapter();
     try {
       await runMigrations(db);
@@ -266,6 +266,173 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
       expect(cats).toHaveLength(DEFAULT_CATEGORIES.length);
       expect(cats.find((c) => c.id === 'rent_income')?.colorKey).toBe('violet');
       expect(cats.find((c) => c.id === 'food_dining')?.icon).toBe('utensils');
+      expect(cats.find((c) => c.id === 'fees')).toEqual(
+        expect.objectContaining({ name: 'Fees & charges', icon: 'receipt', colorKey: 'gray' })
+      );
+    } finally {
+      close();
+    }
+  });
+
+  it('migrates a populated v2 database to v3 (additive only) with every existing row intact', async () => {
+    const { db, close } = createNodeSqliteAdapter();
+    try {
+      // Seed a realistic v2 schema BEFORE v3 exists
+      await db.execAsync('PRAGMA foreign_keys = ON;');
+      await db.execAsync(SCHEMA_V1_SQL);
+      await db.execAsync('ALTER TABLE categories ADD COLUMN color_key TEXT;');
+
+      const v2Cats = DEFAULT_CATEGORIES.filter((c) => c.id !== 'fees');
+      for (const def of v2Cats) {
+        const customName = def.id === 'groceries' ? 'Bazar' : def.name;
+        await db.runAsync(
+          `INSERT INTO categories (id, name, icon, color_key, kind, sort_order, is_selected, archived_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [def.id, customName, def.icon, def.colorKey, def.kind, def.sortOrder, 1, null, 1730000000000]
+        );
+      }
+
+      await db.runAsync(
+        `INSERT INTO categories (id, name, icon, color_key, kind, sort_order, is_selected, archived_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['custom_chai', 'Tong Tea', 'coffee', 'amber', 'expense', 80, 1, null, 1730000001000]
+      );
+
+      await db.runAsync(
+        `INSERT INTO transactions (id, type, amount_minor, currency, category_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'v2-tx-1',
+          'expense',
+          35_000,
+          'BDT',
+          'food_dining',
+          'Lunch',
+          'Office canteen',
+          '2026-11-10',
+          '13:15',
+          'manual',
+          1730000010000,
+          1730000010000,
+          null,
+        ]
+      );
+      await db.runAsync(
+        `INSERT INTO transactions (id, type, amount_minor, currency, category_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          'v2-tx-deleted',
+          'expense',
+          12_000,
+          'BDT',
+          'custom_chai',
+          'Deleted snack',
+          '',
+          '2026-11-08',
+          null,
+          'quick',
+          1730000020000,
+          1730000025000,
+          1730000025000,
+        ]
+      );
+      await db.runAsync(
+        `INSERT INTO budgets (period_start, category_id, amount_minor, updated_at) VALUES (?, ?, ?, ?)`,
+        ['2026-11-01', '', 5_000_000, 1730000030000]
+      );
+      await db.runAsync(`INSERT INTO day_reviews (day, reviewed_at) VALUES (?, ?)`, [
+        '2026-11-10',
+        1730000040000,
+      ]);
+      await db.runAsync(`INSERT INTO settings (key, value) VALUES (?, ?)`, ['name', '"Hamim"']);
+      await db.runAsync(`INSERT INTO settings (key, value) VALUES (?, ?)`, ['theme_accent', '"ocean"']);
+      await db.execAsync('PRAGMA user_version = 2;');
+
+      // Run v2 -> v3 migration twice (verify idempotency)
+      await runMigrations(db);
+      await runMigrations(db);
+
+      const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+      expect(ver?.user_version).toBe(3);
+
+      const txCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(transactions)');
+      expect(txCols.some((c) => c.name === 'account_id')).toBe(true);
+      expect(txCols.some((c) => c.name === 'transfer_id')).toBe(true);
+
+      const tables = await db.getAllAsync<{ name: string }>(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('accounts', 'transfers')`
+      );
+      expect(tables.map((t) => t.name).sort()).toEqual(['accounts', 'transfers']);
+
+      const indexes = await db.getAllAsync<{ name: string }>(
+        `SELECT name FROM sqlite_master WHERE type = 'index' AND name IN ('idx_tx_account', 'idx_tr_date')`
+      );
+      expect(indexes.map((idx) => idx.name).sort()).toEqual(['idx_tr_date', 'idx_tx_account']);
+
+      const repo = new SqliteRepo(db);
+
+      // Existing rows are intact and transactions have NULL account_id / transfer_id
+      const activeTxs = await repo.listAllActiveTransactions();
+      expect(activeTxs).toHaveLength(1);
+      expect(activeTxs[0]).toEqual(
+        expect.objectContaining({
+          id: 'v2-tx-1',
+          amountMinor: 35_000,
+          categoryId: 'food_dining',
+          accountId: null,
+          transferId: null,
+          note: 'Office canteen',
+        })
+      );
+
+      const allBackupTxs = await repo.listAllTransactionsForBackup();
+      expect(allBackupTxs).toHaveLength(2);
+      expect(allBackupTxs.find((t) => t.id === 'v2-tx-deleted')?.deletedAt).toBe(1730000025000);
+
+      const cats = await repo.listCategories({ includeArchived: true });
+      expect(cats).toHaveLength(DEFAULT_CATEGORIES.length + 1);
+      expect(cats.find((c) => c.id === 'groceries')?.name).toBe('Bazar'); // customized name preserved
+      expect(cats.find((c) => c.id === 'fees')).toEqual(
+        expect.objectContaining({ name: 'Fees & charges', icon: 'receipt', colorKey: 'gray' })
+      );
+
+      expect(await repo.getBudgets('2026-11-01')).toHaveLength(1);
+      expect(await repo.isDayReviewed('2026-11-10')).toBe(true);
+      const settings = await repo.getSettings();
+      expect(settings.name).toBe('Hamim');
+      expect(settings.accent).toBe('ocean');
+
+      // New v3 tables accept writes cleanly immediately after migration
+      await repo.insertAccount({
+        id: 'cash',
+        name: 'Cash',
+        kind: 'cash',
+        colorKey: 'cash',
+        openingBalanceMinor: 50_000,
+        openingDate: '2026-11-13',
+      });
+      await repo.insertAccount({
+        id: 'bkash',
+        name: 'bKash',
+        kind: 'mobile_wallet',
+        provider: 'bkash',
+        colorKey: 'bkash',
+        monogram: 'bK',
+        openingBalanceMinor: 100_000,
+        openingDate: '2026-11-13',
+      });
+      await repo.createTransfer({
+        id: 'tr-post-mig',
+        fromAccountId: 'bkash',
+        toAccountId: 'cash',
+        amountMinor: 20_000,
+        feeMinor: 500,
+        occurredOn: '2026-11-13',
+      });
+      expect(await repo.listTransfers()).toHaveLength(1);
+      expect((await repo.listTransactionsByAccount('bkash')).map((t) => t.id)).toEqual([
+        'tr-post-mig:fee',
+      ]);
     } finally {
       close();
     }

@@ -1,23 +1,33 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import {
+  assertValidAccountInput,
   assertValidCategoryInput,
   assertValidNewTransaction,
+  assertValidNewTransfer,
   isValidBudgetAmount,
+  isValidCurrency,
 } from '@/domain/validation';
 import {
   normalizeAccentTheme,
   normalizeReminderSettings,
+  type Account,
+  type AccountKind,
+  type AccountPatch,
   type Budget,
   type Category,
   type CurrencyCode,
   type DayReviewRecord,
   type LocalDate,
+  type NewAccount,
   type NewTransaction,
+  type NewTransfer,
   type Settings,
   type Transaction,
   type TransactionPatch,
   type TransactionSource,
   type TransactionType,
+  type Transfer,
+  type TransferPatch,
   type TxPage,
   type TxQuery,
   type TxQuerySummary,
@@ -33,11 +43,44 @@ interface TransactionRow {
   amount_minor: number;
   currency: CurrencyCode;
   category_id: string | null;
+  account_id: string | null;
+  transfer_id: string | null;
   description: string;
   note: string;
   occurred_on: string;
   occurred_time: string | null;
   source: TransactionSource;
+  created_at: number;
+  updated_at: number;
+  deleted_at: number | null;
+}
+
+interface AccountRow {
+  id: string;
+  name: string;
+  kind: AccountKind;
+  provider: string | null;
+  color_key: string;
+  monogram: string | null;
+  last4: string | null;
+  opening_balance_minor: number;
+  opening_date: string;
+  include_in_total: number;
+  sort_order: number;
+  archived_at: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+interface TransferRow {
+  id: string;
+  from_account_id: string;
+  to_account_id: string;
+  amount_minor: number;
+  fee_minor: number;
+  occurred_on: string;
+  occurred_time: string | null;
+  note: string;
   created_at: number;
   updated_at: number;
   deleted_at: number | null;
@@ -85,11 +128,48 @@ function mapTransactionRow(row: TransactionRow): Transaction {
     amountMinor: row.amount_minor,
     currency: row.currency,
     categoryId: row.category_id,
+    accountId: row.account_id ?? null,
+    transferId: row.transfer_id ?? null,
     description: row.description,
     note: row.note,
     occurredOn: row.occurred_on,
     occurredTime: row.occurred_time,
     source: row.source,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+  };
+}
+
+function mapAccountRow(row: AccountRow): Account {
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    provider: row.provider,
+    colorKey: row.color_key,
+    monogram: row.monogram,
+    last4: row.last4,
+    openingBalanceMinor: row.opening_balance_minor,
+    openingDate: row.opening_date,
+    includeInTotal: row.include_in_total === 1,
+    sortOrder: row.sort_order,
+    archivedAt: row.archived_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapTransferRow(row: TransferRow): Transfer {
+  return {
+    id: row.id,
+    fromAccountId: row.from_account_id,
+    toAccountId: row.to_account_id,
+    amountMinor: row.amount_minor,
+    feeMinor: row.fee_minor,
+    occurredOn: row.occurred_on,
+    occurredTime: row.occurred_time,
+    note: row.note,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -143,14 +223,16 @@ export class SqliteRepo implements Repo {
     const now = Date.now();
     await this.db.runAsync(
       `INSERT OR IGNORE INTO transactions
-       (id, type, amount_minor, currency, category_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+       (id, type, amount_minor, currency, category_id, account_id, transfer_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       [
         t.id,
         t.type,
         t.amountMinor,
         t.currency,
         t.categoryId ?? null,
+        t.accountId ?? null,
+        t.transferId ?? null,
         t.description ?? '',
         t.note ?? '',
         t.occurredOn,
@@ -170,14 +252,16 @@ export class SqliteRepo implements Repo {
         assertValidNewTransaction(t);
         await this.db.runAsync(
           `INSERT OR IGNORE INTO transactions
-           (id, type, amount_minor, currency, category_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+           (id, type, amount_minor, currency, category_id, account_id, transfer_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
           [
             t.id,
             t.type,
             t.amountMinor,
             t.currency,
             t.categoryId ?? null,
+            t.accountId ?? null,
+            t.transferId ?? null,
             t.description ?? '',
             t.note ?? '',
             t.occurredOn,
@@ -201,17 +285,19 @@ export class SqliteRepo implements Repo {
     const merged: Transaction = {
       ...existing,
       ...patch,
+      accountId: patch.accountId !== undefined ? patch.accountId : existing.accountId,
       updatedAt: Date.now(),
     };
     assertValidNewTransaction(merged);
     await this.db.runAsync(
       `UPDATE transactions
-       SET type = ?, amount_minor = ?, category_id = ?, description = ?, note = ?, occurred_on = ?, occurred_time = ?, updated_at = ?
+       SET type = ?, amount_minor = ?, category_id = ?, account_id = ?, description = ?, note = ?, occurred_on = ?, occurred_time = ?, updated_at = ?
        WHERE id = ?`,
       [
         merged.type,
         merged.amountMinor,
         merged.categoryId ?? null,
+        merged.accountId ?? null,
         merged.description,
         merged.note,
         merged.occurredOn,
@@ -255,6 +341,44 @@ export class SqliteRepo implements Repo {
     return rows.map(mapTransactionRow);
   }
 
+  async listAllActiveTransactions(): Promise<Transaction[]> {
+    const rows = await this.db.getAllAsync<TransactionRow>(
+      `SELECT * FROM transactions
+       WHERE deleted_at IS NULL
+       ORDER BY occurred_on DESC, created_at DESC, id DESC`
+    );
+    return rows.map(mapTransactionRow);
+  }
+
+  async listTransactionsByAccount(
+    accountId: string | null,
+    opts?: { fromIncl?: LocalDate; toExcl?: LocalDate }
+  ): Promise<Transaction[]> {
+    const clauses: string[] = ['deleted_at IS NULL'];
+    const params: (string | number)[] = [];
+    if (accountId === null) {
+      clauses.push('account_id IS NULL');
+    } else {
+      clauses.push('account_id = ?');
+      params.push(accountId);
+    }
+    if (opts?.fromIncl) {
+      clauses.push('occurred_on >= ?');
+      params.push(opts.fromIncl);
+    }
+    if (opts?.toExcl) {
+      clauses.push('occurred_on < ?');
+      params.push(opts.toExcl);
+    }
+    const rows = await this.db.getAllAsync<TransactionRow>(
+      `SELECT * FROM transactions
+       WHERE ${clauses.join(' AND ')}
+       ORDER BY occurred_on DESC, created_at DESC, id DESC`,
+      params
+    );
+    return rows.map(mapTransactionRow);
+  }
+
   private buildSearchFilter(q: TxQuery): { clauses: string[]; params: (string | number)[] } {
     const clauses: string[] = ['deleted_at IS NULL'];
     const params: (string | number)[] = [];
@@ -270,6 +394,16 @@ export class SqliteRepo implements Repo {
     } else if (q.categoryId !== undefined) {
       clauses.push('category_id = ?');
       params.push(q.categoryId);
+    }
+    if (q.accountIds && q.accountIds.length > 0) {
+      const placeholders = q.accountIds.map(() => '?').join(', ');
+      clauses.push(`account_id IN (${placeholders})`);
+      params.push(...q.accountIds);
+    } else if (q.accountId === null) {
+      clauses.push('account_id IS NULL');
+    } else if (q.accountId !== undefined) {
+      clauses.push('account_id = ?');
+      params.push(q.accountId);
     }
     if (q.fromIncl) {
       clauses.push('occurred_on >= ?');
@@ -379,6 +513,359 @@ export class SqliteRepo implements Repo {
       if (out.length >= limit) break;
     }
     return out;
+  }
+
+  private async readCurrencySetting(): Promise<CurrencyCode> {
+    const row = await this.db.getFirstAsync<{ value: string }>(
+      `SELECT value FROM settings WHERE key = ?`,
+      [SETTING_DB_KEYS.currency]
+    );
+    if (!row) return DEFAULT_SETTINGS.currency;
+    try {
+      const parsed: unknown = JSON.parse(row.value);
+      return isValidCurrency(parsed) ? parsed : DEFAULT_SETTINGS.currency;
+    } catch {
+      return DEFAULT_SETTINGS.currency;
+    }
+  }
+
+  async listAccounts(opts?: { includeArchived?: boolean }): Promise<Account[]> {
+    const includeArchived = opts?.includeArchived ?? false;
+    const sql = includeArchived
+      ? `SELECT * FROM accounts ORDER BY sort_order ASC, created_at ASC, name ASC`
+      : `SELECT * FROM accounts WHERE archived_at IS NULL ORDER BY sort_order ASC, created_at ASC, name ASC`;
+    const rows = await this.db.getAllAsync<AccountRow>(sql);
+    return rows.map(mapAccountRow);
+  }
+
+  async getAccount(id: string): Promise<Account | null> {
+    const row = await this.db.getFirstAsync<AccountRow>(
+      `SELECT * FROM accounts WHERE id = ?`,
+      [id]
+    );
+    return row ? mapAccountRow(row) : null;
+  }
+
+  async insertAccount(a: NewAccount): Promise<void> {
+    assertValidAccountInput(a);
+    const now = Date.now();
+    await this.db.runAsync(
+      `INSERT OR IGNORE INTO accounts
+       (id, name, kind, provider, color_key, monogram, last4, opening_balance_minor, opening_date, include_in_total, sort_order, archived_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        a.id,
+        a.name.trim(),
+        a.kind,
+        a.provider ?? null,
+        a.colorKey.trim(),
+        a.monogram !== undefined && a.monogram !== null ? a.monogram.trim() || null : null,
+        a.last4 ?? null,
+        a.openingBalanceMinor ?? 0,
+        a.openingDate,
+        (a.includeInTotal ?? true) ? 1 : 0,
+        a.sortOrder ?? 0,
+        a.archivedAt ?? null,
+        a.createdAt ?? now,
+        a.updatedAt ?? now,
+      ]
+    );
+  }
+
+  async updateAccount(id: string, patch: AccountPatch): Promise<void> {
+    const existing = await this.getAccount(id);
+    if (!existing) return;
+    const merged: Account = {
+      ...existing,
+      ...patch,
+      name: (patch.name ?? existing.name).trim(),
+      colorKey: (patch.colorKey ?? existing.colorKey).trim(),
+      monogram:
+        patch.monogram !== undefined
+          ? patch.monogram !== null
+            ? patch.monogram.trim() || null
+            : null
+          : existing.monogram,
+      updatedAt: Date.now(),
+    };
+    assertValidAccountInput(merged);
+    await this.db.runAsync(
+      `UPDATE accounts
+       SET name = ?, kind = ?, provider = ?, color_key = ?, monogram = ?, last4 = ?, opening_balance_minor = ?, opening_date = ?, include_in_total = ?, sort_order = ?, archived_at = ?, updated_at = ?
+       WHERE id = ?`,
+      [
+        merged.name,
+        merged.kind,
+        merged.provider,
+        merged.colorKey,
+        merged.monogram,
+        merged.last4,
+        merged.openingBalanceMinor,
+        merged.openingDate,
+        merged.includeInTotal ? 1 : 0,
+        merged.sortOrder,
+        merged.archivedAt,
+        merged.updatedAt,
+        id,
+      ]
+    );
+  }
+
+  async archiveAccount(id: string): Promise<void> {
+    const now = Date.now();
+    await this.db.runAsync(
+      `UPDATE accounts SET archived_at = COALESCE(archived_at, ?), updated_at = ? WHERE id = ?`,
+      [now, now, id]
+    );
+  }
+
+  async unarchiveAccount(id: string): Promise<void> {
+    const now = Date.now();
+    await this.db.runAsync(
+      `UPDATE accounts SET archived_at = NULL, updated_at = ? WHERE id = ?`,
+      [now, id]
+    );
+  }
+
+  async createTransfer(t: NewTransfer): Promise<void> {
+    assertValidNewTransfer(t);
+    const existing = await this.getTransfer(t.id);
+    if (existing) return;
+
+    const feeMinor = t.feeMinor ?? 0;
+    const feeCurrency = feeMinor > 0 ? (t.currency ?? (await this.readCurrencySetting())) : DEFAULT_SETTINGS.currency;
+    const now = Date.now();
+    const createdAt = t.createdAt ?? now;
+    const updatedAt = t.updatedAt ?? now;
+    const occurredTime = t.occurredTime ?? null;
+    const note = t.note ?? '';
+
+    await this.db.withTransactionAsync(async () => {
+      await this.db.runAsync(
+        `INSERT INTO transfers
+         (id, from_account_id, to_account_id, amount_minor, fee_minor, occurred_on, occurred_time, note, created_at, updated_at, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+        [
+          t.id,
+          t.fromAccountId,
+          t.toAccountId,
+          t.amountMinor,
+          feeMinor,
+          t.occurredOn,
+          occurredTime,
+          note,
+          createdAt,
+          updatedAt,
+        ]
+      );
+
+      if (feeMinor > 0) {
+        const feeTxId = `${t.id}:fee`;
+        assertValidNewTransaction({
+          id: feeTxId,
+          type: 'expense',
+          amountMinor: feeMinor,
+          currency: feeCurrency,
+          categoryId: 'fees',
+          accountId: t.fromAccountId,
+          transferId: t.id,
+          description: 'Transfer fee',
+          note: '',
+          occurredOn: t.occurredOn,
+          occurredTime,
+          source: 'manual',
+          createdAt,
+          updatedAt,
+        });
+        await this.db.runAsync(
+          `INSERT INTO transactions
+           (id, type, amount_minor, currency, category_id, account_id, transfer_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
+           VALUES (?, 'expense', ?, ?, 'fees', ?, ?, 'Transfer fee', '', ?, ?, 'manual', ?, ?, NULL)`,
+          [
+            feeTxId,
+            feeMinor,
+            feeCurrency,
+            t.fromAccountId,
+            t.id,
+            t.occurredOn,
+            occurredTime,
+            createdAt,
+            updatedAt,
+          ]
+        );
+      }
+    });
+  }
+
+  async updateTransfer(id: string, patch: TransferPatch): Promise<void> {
+    const existing = await this.getTransfer(id);
+    if (!existing || existing.deletedAt != null) return;
+
+    const now = Date.now();
+    const merged: Transfer = {
+      ...existing,
+      ...patch,
+      feeMinor: patch.feeMinor ?? existing.feeMinor,
+      occurredTime: patch.occurredTime !== undefined ? patch.occurredTime : existing.occurredTime,
+      note: patch.note !== undefined ? patch.note : existing.note,
+      updatedAt: now,
+    };
+    assertValidNewTransfer(merged);
+
+    const fallbackCurrency = merged.feeMinor > 0 ? await this.readCurrencySetting() : DEFAULT_SETTINGS.currency;
+
+    await this.db.withTransactionAsync(async () => {
+      await this.db.runAsync(
+        `UPDATE transfers
+         SET from_account_id = ?, to_account_id = ?, amount_minor = ?, fee_minor = ?, occurred_on = ?, occurred_time = ?, note = ?, updated_at = ?
+         WHERE id = ?`,
+        [
+          merged.fromAccountId,
+          merged.toAccountId,
+          merged.amountMinor,
+          merged.feeMinor,
+          merged.occurredOn,
+          merged.occurredTime,
+          merged.note,
+          now,
+          id,
+        ]
+      );
+
+      const linkedFees = await this.db.getAllAsync<TransactionRow>(
+        `SELECT * FROM transactions
+         WHERE transfer_id = ?
+         ORDER BY CASE WHEN deleted_at IS NULL THEN 0 ELSE 1 END ASC, created_at ASC`,
+        [id]
+      );
+
+      if (merged.feeMinor === 0) {
+        await this.db.runAsync(
+          `UPDATE transactions SET deleted_at = ?, updated_at = ? WHERE transfer_id = ? AND deleted_at IS NULL`,
+          [now, now, id]
+        );
+      } else if (linkedFees.length > 0) {
+        const primary = linkedFees[0];
+        await this.db.runAsync(
+          `UPDATE transactions
+           SET type = 'expense', amount_minor = ?, category_id = 'fees', account_id = ?, occurred_on = ?, occurred_time = ?, deleted_at = NULL, updated_at = ?
+           WHERE id = ?`,
+          [
+            merged.feeMinor,
+            merged.fromAccountId,
+            merged.occurredOn,
+            merged.occurredTime,
+            now,
+            primary.id,
+          ]
+        );
+      } else {
+        const feeTxId = `${id}:fee`;
+        assertValidNewTransaction({
+          id: feeTxId,
+          type: 'expense',
+          amountMinor: merged.feeMinor,
+          currency: fallbackCurrency,
+          categoryId: 'fees',
+          accountId: merged.fromAccountId,
+          transferId: id,
+          description: 'Transfer fee',
+          note: '',
+          occurredOn: merged.occurredOn,
+          occurredTime: merged.occurredTime,
+          source: 'manual',
+          createdAt: now,
+          updatedAt: now,
+        });
+        await this.db.runAsync(
+          `INSERT INTO transactions
+           (id, type, amount_minor, currency, category_id, account_id, transfer_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
+           VALUES (?, 'expense', ?, ?, 'fees', ?, ?, 'Transfer fee', '', ?, ?, 'manual', ?, ?, NULL)
+           ON CONFLICT(id) DO UPDATE SET
+             type = 'expense',
+             amount_minor = excluded.amount_minor,
+             currency = excluded.currency,
+             category_id = 'fees',
+             account_id = excluded.account_id,
+             transfer_id = excluded.transfer_id,
+             occurred_on = excluded.occurred_on,
+             occurred_time = excluded.occurred_time,
+             deleted_at = NULL,
+             updated_at = excluded.updated_at`,
+          [
+            feeTxId,
+            merged.feeMinor,
+            fallbackCurrency,
+            merged.fromAccountId,
+            id,
+            merged.occurredOn,
+            merged.occurredTime,
+            now,
+            now,
+          ]
+        );
+      }
+    });
+  }
+
+  async softDeleteTransfer(id: string): Promise<void> {
+    const now = Date.now();
+    await this.db.withTransactionAsync(async () => {
+      await this.db.runAsync(
+        `UPDATE transfers SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+        [now, now, id]
+      );
+      await this.db.runAsync(
+        `UPDATE transactions SET deleted_at = ?, updated_at = ? WHERE transfer_id = ? AND deleted_at IS NULL`,
+        [now, now, id]
+      );
+    });
+  }
+
+  async getTransfer(id: string): Promise<Transfer | null> {
+    const row = await this.db.getFirstAsync<TransferRow>(
+      `SELECT * FROM transfers WHERE id = ?`,
+      [id]
+    );
+    return row ? mapTransferRow(row) : null;
+  }
+
+  async listTransfers(opts?: {
+    accountId?: string;
+    fromIncl?: LocalDate;
+    toExcl?: LocalDate;
+    includeDeleted?: boolean;
+  }): Promise<Transfer[]> {
+    const clauses: string[] = [];
+    const params: (string | number)[] = [];
+    if (!opts?.includeDeleted) {
+      clauses.push('deleted_at IS NULL');
+    }
+    if (opts?.accountId) {
+      clauses.push('(from_account_id = ? OR to_account_id = ?)');
+      params.push(opts.accountId, opts.accountId);
+    }
+    if (opts?.fromIncl) {
+      clauses.push('occurred_on >= ?');
+      params.push(opts.fromIncl);
+    }
+    if (opts?.toExcl) {
+      clauses.push('occurred_on < ?');
+      params.push(opts.toExcl);
+    }
+    const whereSql = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+    const rows = await this.db.getAllAsync<TransferRow>(
+      `SELECT * FROM transfers ${whereSql} ORDER BY occurred_on DESC, created_at DESC, id DESC`,
+      params
+    );
+    return rows.map(mapTransferRow);
+  }
+
+  async listAllTransfersForBackup(): Promise<Transfer[]> {
+    const rows = await this.db.getAllAsync<TransferRow>(
+      `SELECT * FROM transfers ORDER BY created_at ASC, id ASC`
+    );
+    return rows.map(mapTransferRow);
   }
 
   async listCategories(opts?: { includeArchived?: boolean }): Promise<Category[]> {
@@ -595,6 +1082,8 @@ export class SqliteRepo implements Repo {
     await this.db.withTransactionAsync(async () => {
       await this.db.execAsync(`
         DELETE FROM transactions;
+        DELETE FROM transfers;
+        DELETE FROM accounts;
         DELETE FROM budgets;
         DELETE FROM day_reviews;
         DELETE FROM settings;
@@ -616,6 +1105,8 @@ export class SqliteRepo implements Repo {
     await this.db.withTransactionAsync(async () => {
       await this.db.execAsync(`
         DELETE FROM transactions;
+        DELETE FROM transfers;
+        DELETE FROM accounts;
         DELETE FROM budgets;
         DELETE FROM day_reviews;
         DELETE FROM settings;
@@ -642,18 +1133,67 @@ export class SqliteRepo implements Repo {
         );
       }
 
+      for (const acc of data.accounts) {
+        assertValidAccountInput(acc);
+        await this.db.runAsync(
+          `INSERT INTO accounts
+           (id, name, kind, provider, color_key, monogram, last4, opening_balance_minor, opening_date, include_in_total, sort_order, archived_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            acc.id,
+            acc.name.trim(),
+            acc.kind,
+            acc.provider ?? null,
+            acc.colorKey.trim(),
+            acc.monogram ?? null,
+            acc.last4 ?? null,
+            acc.openingBalanceMinor,
+            acc.openingDate,
+            acc.includeInTotal ? 1 : 0,
+            acc.sortOrder,
+            acc.archivedAt,
+            acc.createdAt,
+            acc.updatedAt,
+          ]
+        );
+      }
+
+      for (const tr of data.transfers) {
+        assertValidNewTransfer(tr);
+        await this.db.runAsync(
+          `INSERT INTO transfers
+           (id, from_account_id, to_account_id, amount_minor, fee_minor, occurred_on, occurred_time, note, created_at, updated_at, deleted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            tr.id,
+            tr.fromAccountId,
+            tr.toAccountId,
+            tr.amountMinor,
+            tr.feeMinor,
+            tr.occurredOn,
+            tr.occurredTime ?? null,
+            tr.note,
+            tr.createdAt,
+            tr.updatedAt,
+            tr.deletedAt,
+          ]
+        );
+      }
+
       for (const tx of data.transactions) {
         assertValidNewTransaction(tx);
         await this.db.runAsync(
           `INSERT INTO transactions
-           (id, type, amount_minor, currency, category_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, type, amount_minor, currency, category_id, account_id, transfer_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             tx.id,
             tx.type,
             tx.amountMinor,
             tx.currency,
             tx.categoryId ?? null,
+            tx.accountId ?? null,
+            tx.transferId ?? null,
             tx.description,
             tx.note,
             tx.occurredOn,

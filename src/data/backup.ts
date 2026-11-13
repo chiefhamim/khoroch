@@ -1,4 +1,4 @@
-import { DEFAULT_CATEGORIES } from '@/domain/categories';
+import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_BY_ID } from '@/domain/categories';
 import { formatLocalDate, isValidLocalDate } from '@/domain/dates';
 import { MAX_AMOUNT_MINOR } from '@/domain/money';
 import {
@@ -7,6 +7,7 @@ import {
   normalizeAccentTheme,
   normalizeReminderDays,
   type AccentTheme,
+  type Account,
   type Budget,
   type Category,
   type CategoryColorKey,
@@ -17,19 +18,22 @@ import {
   type ThemePreference,
   type Transaction,
   type TransactionSource,
+  type Transfer,
 } from '@/domain/types';
 import {
   isValidCurrency,
   isValidLocalTime,
   isValidMonthStartDay,
   MAX_PROFILE_NAME_LENGTH,
+  validateAccountInput,
   validateCategoryInput,
   validateNewTransaction,
+  validateNewTransfer,
 } from '@/domain/validation';
 import type { BackupDataSnapshot, Repo } from './repo';
 
 export const BACKUP_APP_ID = 'budget-app';
-export const BACKUP_SCHEMA_VERSION = 2;
+export const BACKUP_SCHEMA_VERSION = 3;
 export const MAX_BACKUP_BYTES = 20 * 1024 * 1024; // 20 MB
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
@@ -51,6 +55,8 @@ export interface BackupPreview {
   transactionCount: number;
   deletedTransactionCount: number;
   categoryCount: number;
+  accountCount: number;
+  transferCount: number;
   budgetCount: number;
   reviewCount: number;
   summaryLine: string;
@@ -107,13 +113,16 @@ export async function exportBackupPayload(
   repo: Repo,
   exportedAt: string = new Date().toISOString()
 ): Promise<BackupFilePayload> {
-  const [categories, transactions, budgets, settings, dayReviews] = await Promise.all([
-    repo.listCategories({ includeArchived: true }),
-    repo.listAllTransactionsForBackup(),
-    repo.getAllBudgets(),
-    repo.getSettings(),
-    repo.listAllDayReviews(),
-  ]);
+  const [categories, accounts, transfers, transactions, budgets, settings, dayReviews] =
+    await Promise.all([
+      repo.listCategories({ includeArchived: true }),
+      repo.listAccounts({ includeArchived: true }),
+      repo.listAllTransfersForBackup(),
+      repo.listAllTransactionsForBackup(),
+      repo.getAllBudgets(),
+      repo.getSettings(),
+      repo.listAllDayReviews(),
+    ]);
 
   return {
     app: BACKUP_APP_ID,
@@ -131,12 +140,43 @@ export async function exportBackupPayload(
         archivedAt: c.archivedAt,
         createdAt: c.createdAt,
       })),
+      accounts: accounts.map((a) => ({
+        id: a.id,
+        name: a.name,
+        kind: a.kind,
+        provider: a.provider,
+        colorKey: a.colorKey,
+        monogram: a.monogram,
+        last4: a.last4,
+        openingBalanceMinor: a.openingBalanceMinor,
+        openingDate: a.openingDate,
+        includeInTotal: Boolean(a.includeInTotal),
+        sortOrder: a.sortOrder,
+        archivedAt: a.archivedAt,
+        createdAt: a.createdAt,
+        updatedAt: a.updatedAt,
+      })),
+      transfers: transfers.map((tr) => ({
+        id: tr.id,
+        fromAccountId: tr.fromAccountId,
+        toAccountId: tr.toAccountId,
+        amountMinor: tr.amountMinor,
+        feeMinor: tr.feeMinor,
+        occurredOn: tr.occurredOn,
+        occurredTime: tr.occurredTime,
+        note: tr.note,
+        createdAt: tr.createdAt,
+        updatedAt: tr.updatedAt,
+        deletedAt: tr.deletedAt,
+      })),
       transactions: transactions.map((tx) => ({
         id: tx.id,
         type: tx.type,
         amountMinor: tx.amountMinor,
         currency: tx.currency,
         categoryId: tx.categoryId,
+        accountId: tx.accountId,
+        transferId: tx.transferId,
         description: tx.description,
         note: tx.note,
         occurredOn: tx.occurredOn,
@@ -243,10 +283,121 @@ function validateCategoryRow(raw: unknown, index: number, schema: number): Categ
   };
 }
 
+function validateAccountRow(raw: unknown, index: number): Account {
+  const obj = asPlainObject(raw, `Account row #${index + 1}`);
+  const idLabel = typeof obj.id === 'string' && obj.id.trim() ? obj.id : `index ${index}`;
+  const label = `Account row #${index + 1} (${idLabel})`;
+
+  const check = validateAccountInput({
+    id: obj.id,
+    name: obj.name,
+    kind: obj.kind,
+    provider: obj.provider,
+    colorKey: obj.colorKey,
+    monogram: obj.monogram,
+    last4: obj.last4,
+    openingBalanceMinor: obj.openingBalanceMinor ?? 0,
+    openingDate: obj.openingDate,
+  });
+  if (!check.valid) {
+    throw new Error(`${label}: ${check.errors.join(', ')}`);
+  }
+
+  if (typeof obj.includeInTotal !== 'boolean') {
+    throw new Error(`${label}: includeInTotal must be boolean.`);
+  }
+  const sortOrder =
+    obj.sortOrder === undefined ? 0 : assertFiniteInteger(obj.sortOrder, `${label} sortOrder`);
+  const archivedAt =
+    obj.archivedAt === null || obj.archivedAt === undefined
+      ? null
+      : assertFiniteInteger(obj.archivedAt, `${label} archivedAt`);
+  const createdAt = assertFiniteInteger(obj.createdAt, `${label} createdAt`);
+  const updatedAt = assertFiniteInteger(obj.updatedAt, `${label} updatedAt`);
+
+  return {
+    id: obj.id as string,
+    name: (obj.name as string).trim(),
+    kind: obj.kind as Account['kind'],
+    provider: (obj.provider ?? null) as string | null,
+    colorKey: (obj.colorKey as string).trim(),
+    monogram:
+      obj.monogram !== undefined && obj.monogram !== null
+        ? (obj.monogram as string).trim() || null
+        : null,
+    last4: (obj.last4 ?? null) as string | null,
+    openingBalanceMinor: (obj.openingBalanceMinor ?? 0) as number,
+    openingDate: obj.openingDate as LocalDate,
+    includeInTotal: obj.includeInTotal,
+    sortOrder,
+    archivedAt,
+    createdAt,
+    updatedAt,
+  };
+}
+
+function validateTransferRow(
+  raw: unknown,
+  index: number,
+  accountIds: ReadonlySet<string>
+): Transfer {
+  const obj = asPlainObject(raw, `Transfer row #${index + 1}`);
+  const idLabel = typeof obj.id === 'string' && obj.id.trim() ? obj.id : `index ${index}`;
+  const label = `Transfer row #${index + 1} (${idLabel})`;
+
+  const feeMinor = obj.feeMinor ?? 0;
+  const note = obj.note ?? '';
+  const check = validateNewTransfer({
+    id: obj.id,
+    fromAccountId: obj.fromAccountId,
+    toAccountId: obj.toAccountId,
+    amountMinor: obj.amountMinor,
+    feeMinor,
+    occurredOn: obj.occurredOn,
+    occurredTime: obj.occurredTime,
+    note,
+  });
+  if (!check.valid) {
+    throw new Error(`${label}: ${check.errors.join(', ')}`);
+  }
+
+  const fromId = obj.fromAccountId as string;
+  const toId = obj.toAccountId as string;
+  if (!accountIds.has(fromId)) {
+    throw new Error(`${label}: missing fromAccount "${fromId}".`);
+  }
+  if (!accountIds.has(toId)) {
+    throw new Error(`${label}: missing toAccount "${toId}".`);
+  }
+
+  const createdAt = assertFiniteInteger(obj.createdAt, `${label} createdAt`);
+  const updatedAt = assertFiniteInteger(obj.updatedAt, `${label} updatedAt`);
+  const deletedAt =
+    obj.deletedAt === null || obj.deletedAt === undefined
+      ? null
+      : assertFiniteInteger(obj.deletedAt, `${label} deletedAt`);
+
+  return {
+    id: obj.id as string,
+    fromAccountId: fromId,
+    toAccountId: toId,
+    amountMinor: obj.amountMinor as number,
+    feeMinor: feeMinor as number,
+    occurredOn: obj.occurredOn as LocalDate,
+    occurredTime: (obj.occurredTime ?? null) as string | null,
+    note: note as string,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  };
+}
+
 function validateTransactionRow(
   raw: unknown,
   index: number,
-  categoryIds: ReadonlySet<string>
+  categoryIds: ReadonlySet<string>,
+  accountIds: ReadonlySet<string>,
+  transferIds: ReadonlySet<string>
 ): Transaction {
   const obj = asPlainObject(raw, `Transaction row #${index + 1}`);
   const idLabel = typeof obj.id === 'string' && obj.id.trim() ? obj.id : `index ${index}`;
@@ -258,6 +409,20 @@ function validateTransactionRow(
     (typeof obj.categoryId !== 'string' || !categoryIds.has(obj.categoryId))
   ) {
     throw new Error(`${label}: missing category "${String(obj.categoryId)}".`);
+  }
+  if (
+    obj.accountId !== null &&
+    obj.accountId !== undefined &&
+    (typeof obj.accountId !== 'string' || !accountIds.has(obj.accountId))
+  ) {
+    throw new Error(`${label}: missing account "${String(obj.accountId)}".`);
+  }
+  if (
+    obj.transferId !== null &&
+    obj.transferId !== undefined &&
+    (typeof obj.transferId !== 'string' || !transferIds.has(obj.transferId))
+  ) {
+    throw new Error(`${label}: missing transfer "${String(obj.transferId)}".`);
   }
 
   const description = obj.description ?? '';
@@ -295,6 +460,8 @@ function validateTransactionRow(
     amountMinor: obj.amountMinor as number,
     currency: obj.currency as CurrencyCode,
     categoryId: (obj.categoryId ?? null) as string | null,
+    accountId: (obj.accountId ?? null) as string | null,
+    transferId: (obj.transferId ?? null) as string | null,
     description: description as string,
     note: note as string,
     occurredOn: obj.occurredOn as LocalDate,
@@ -470,6 +637,16 @@ export function parseAndValidateBackup(
   if (!Array.isArray(dataObj.categories)) {
     throw new Error('Backup.data.categories must be an array.');
   }
+  const accountsRaw =
+    dataObj.accounts === undefined && root.schema < 3 ? [] : dataObj.accounts;
+  if (!Array.isArray(accountsRaw)) {
+    throw new Error('Backup.data.accounts must be an array.');
+  }
+  const transfersRaw =
+    dataObj.transfers === undefined && root.schema < 3 ? [] : dataObj.transfers;
+  if (!Array.isArray(transfersRaw)) {
+    throw new Error('Backup.data.transfers must be an array.');
+  }
   if (!Array.isArray(dataObj.transactions)) {
     throw new Error('Backup.data.transactions must be an array.');
   }
@@ -492,11 +669,56 @@ export function parseAndValidateBackup(
     categoryIds.add(cat.id);
     categories.push(cat);
   }
+  if (root.schema < 3 && !categoryIds.has('fees')) {
+    const feesDef = DEFAULT_CATEGORY_BY_ID.fees;
+    if (feesDef) {
+      categoryIds.add(feesDef.id);
+      categories.push({
+        id: feesDef.id,
+        name: feesDef.name,
+        icon: feesDef.icon,
+        colorKey: feesDef.colorKey,
+        kind: feesDef.kind,
+        sortOrder: feesDef.sortOrder,
+        isSelected: true,
+        archivedAt: null,
+        createdAt: 0,
+      });
+    }
+  }
+
+  const accounts: Account[] = [];
+  const accountIds = new Set<string>();
+  for (let i = 0; i < accountsRaw.length; i += 1) {
+    const acc = validateAccountRow(accountsRaw[i], i);
+    if (accountIds.has(acc.id)) {
+      throw new Error(`Account row #${i + 1} (${acc.id}): duplicate account id.`);
+    }
+    accountIds.add(acc.id);
+    accounts.push(acc);
+  }
+
+  const transfers: Transfer[] = [];
+  const transferIds = new Set<string>();
+  for (let i = 0; i < transfersRaw.length; i += 1) {
+    const tr = validateTransferRow(transfersRaw[i], i, accountIds);
+    if (transferIds.has(tr.id)) {
+      throw new Error(`Transfer row #${i + 1} (${tr.id}): duplicate transfer id.`);
+    }
+    transferIds.add(tr.id);
+    transfers.push(tr);
+  }
 
   const transactions: Transaction[] = [];
   const txIds = new Set<string>();
   for (let i = 0; i < dataObj.transactions.length; i += 1) {
-    const tx = validateTransactionRow(dataObj.transactions[i], i, categoryIds);
+    const tx = validateTransactionRow(
+      dataObj.transactions[i],
+      i,
+      categoryIds,
+      accountIds,
+      transferIds
+    );
     if (txIds.has(tx.id)) {
       throw new Error(`Transaction row #${i + 1} (${tx.id}): duplicate transaction id.`);
     }
@@ -537,6 +759,8 @@ export function parseAndValidateBackup(
     exportedAt,
     data: {
       categories,
+      accounts,
+      transfers,
       transactions,
       budgets,
       settings,
@@ -557,6 +781,8 @@ export function buildBackupPreview(payload: BackupFilePayload): BackupPreview {
   const activeTxs = payload.data.transactions.filter((t) => t.deletedAt === null);
   const deletedTransactionCount = payload.data.transactions.length - activeTxs.length;
   const activeCategoryCount = payload.data.categories.filter((c) => c.archivedAt === null).length;
+  const activeAccountCount = payload.data.accounts.filter((a) => a.archivedAt === null).length;
+  const activeTransferCount = payload.data.transfers.filter((tr) => tr.deletedAt === null).length;
 
   let dateRangeLabel = 'No transactions';
   if (activeTxs.length > 0) {
@@ -585,6 +811,8 @@ export function buildBackupPreview(payload: BackupFilePayload): BackupPreview {
     transactionCount: activeTxs.length,
     deletedTransactionCount,
     categoryCount: activeCategoryCount,
+    accountCount: activeAccountCount,
+    transferCount: activeTransferCount,
     budgetCount: payload.data.budgets.length,
     reviewCount: payload.data.day_reviews.length,
     summaryLine,

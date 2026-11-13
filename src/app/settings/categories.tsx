@@ -28,7 +28,7 @@ import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
 import { useToast } from '@/ui/Toast';
 
-const PROTECTED_CATEGORY_IDS = new Set(['other', 'other_income']);
+const PROTECTED_CATEGORY_IDS = new Set(['other', 'other_income', 'fees']);
 
 export default function CategoriesScreen() {
   const { repo } = useAppContext();

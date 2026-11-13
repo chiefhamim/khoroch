@@ -113,6 +113,8 @@ export interface Transaction {
   amountMinor: number;
   currency: CurrencyCode;
   categoryId: string | null;
+  accountId: string | null;
+  transferId: string | null;
   description: string;
   note: string;
   occurredOn: LocalDate;
@@ -129,6 +131,8 @@ export interface NewTransaction {
   amountMinor: number;
   currency: CurrencyCode;
   categoryId: string | null;
+  accountId?: string | null;
+  transferId?: string | null;
   description?: string;
   note?: string;
   occurredOn: LocalDate;
@@ -142,10 +146,116 @@ export interface TransactionPatch {
   type?: TransactionType;
   amountMinor?: number;
   categoryId?: string | null;
+  accountId?: string | null;
   description?: string;
   note?: string;
   occurredOn?: LocalDate;
   occurredTime?: LocalTime | null;
+}
+
+export type AccountKind = 'cash' | 'mobile_wallet' | 'bank' | 'credit_card' | 'other';
+export type AccountProvider = 'bkash' | 'nagad' | 'upay' | 'rocket' | 'cellfin';
+
+export const ACCOUNT_KINDS: readonly AccountKind[] = [
+  'cash',
+  'mobile_wallet',
+  'bank',
+  'credit_card',
+  'other',
+];
+
+export const ACCOUNT_PROVIDERS: readonly AccountProvider[] = [
+  'bkash',
+  'nagad',
+  'upay',
+  'rocket',
+  'cellfin',
+];
+
+export interface Account {
+  id: string;
+  name: string;
+  kind: AccountKind;
+  provider: string | null;
+  colorKey: string;
+  monogram: string | null;
+  last4: string | null;
+  openingBalanceMinor: number;
+  openingDate: LocalDate;
+  includeInTotal: boolean;
+  sortOrder: number;
+  archivedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NewAccount {
+  id: string;
+  name: string;
+  kind: AccountKind;
+  provider?: string | null;
+  colorKey: string;
+  monogram?: string | null;
+  last4?: string | null;
+  openingBalanceMinor?: number;
+  openingDate: LocalDate;
+  includeInTotal?: boolean;
+  sortOrder?: number;
+  archivedAt?: number | null;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface AccountPatch {
+  name?: string;
+  kind?: AccountKind;
+  provider?: string | null;
+  colorKey?: string;
+  monogram?: string | null;
+  last4?: string | null;
+  openingBalanceMinor?: number;
+  openingDate?: LocalDate;
+  includeInTotal?: boolean;
+  sortOrder?: number;
+  archivedAt?: number | null;
+}
+
+export interface Transfer {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amountMinor: number;
+  feeMinor: number;
+  occurredOn: LocalDate;
+  occurredTime: LocalTime | null;
+  note: string;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export interface NewTransfer {
+  id: string;
+  fromAccountId: string;
+  toAccountId: string;
+  amountMinor: number;
+  feeMinor?: number;
+  currency?: CurrencyCode;
+  occurredOn: LocalDate;
+  occurredTime?: LocalTime | null;
+  note?: string;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface TransferPatch {
+  fromAccountId?: string;
+  toAccountId?: string;
+  amountMinor?: number;
+  feeMinor?: number;
+  occurredOn?: LocalDate;
+  occurredTime?: LocalTime | null;
+  note?: string;
 }
 
 export interface Budget {
@@ -199,6 +309,8 @@ export interface TxQuery {
   type?: TransactionType;
   categoryId?: string;
   categoryIds?: string[];
+  accountId?: string | null;
+  accountIds?: string[];
   fromIncl?: LocalDate;
   toExcl?: LocalDate;
   minAmountMinor?: number;

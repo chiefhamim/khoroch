@@ -17,6 +17,8 @@ function makeTx(
     type: 'expense',
     currency: 'BDT',
     categoryId: 'food_dining',
+    accountId: null,
+    transferId: null,
     description: 'Item',
     note: '',
     occurredTime: null,

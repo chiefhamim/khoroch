@@ -1,12 +1,22 @@
 import { isValidLocalDate } from './dates';
 import { MAX_AMOUNT_MINOR } from './money';
-import type { CategoryKind, CurrencyCode, NewTransaction, TransactionType } from './types';
+import {
+  ACCOUNT_KINDS,
+  type AccountKind,
+  type CategoryKind,
+  type CurrencyCode,
+  type NewTransaction,
+  type TransactionType,
+} from './types';
 
 export const MAX_DESCRIPTION_LENGTH = 120;
 export const MAX_NOTE_LENGTH = 500;
 export const MAX_QUICK_ENTRY_LENGTH = 300;
 export const MAX_CATEGORY_NAME_LENGTH = 32;
 export const MAX_PROFILE_NAME_LENGTH = 50;
+export const MAX_ACCOUNT_NAME_LENGTH = 40;
+export const MAX_ACCOUNT_COLOR_KEY_LENGTH = 32;
+export const MAX_MONOGRAM_LENGTH = 4;
 
 export interface ValidationResult {
   valid: boolean;
@@ -15,6 +25,11 @@ export interface ValidationResult {
 
 const VALID_TYPES: ReadonlySet<string> = new Set<TransactionType>(['expense', 'income']);
 const VALID_CURRENCIES: ReadonlySet<string> = new Set<CurrencyCode>(['BDT', 'USD', 'EUR']);
+const VALID_ACCOUNT_KINDS: ReadonlySet<string> = new Set<AccountKind>(ACCOUNT_KINDS);
+
+export function isValidAccountKind(value: unknown): value is AccountKind {
+  return typeof value === 'string' && VALID_ACCOUNT_KINDS.has(value);
+}
 
 export function isValidTransactionType(value: unknown): value is TransactionType {
   return typeof value === 'string' && VALID_TYPES.has(value);
@@ -148,4 +163,148 @@ export function isValidBudgetAmount(amountMinor: unknown): amountMinor is number
     amountMinor >= 0 &&
     amountMinor <= MAX_AMOUNT_MINOR
   );
+}
+
+export function validateAccountInput(acc: {
+  id: unknown;
+  name: unknown;
+  kind: unknown;
+  provider?: unknown;
+  colorKey: unknown;
+  monogram?: unknown;
+  last4?: unknown;
+  openingBalanceMinor?: unknown;
+  openingDate: unknown;
+}): ValidationResult {
+  const errors: string[] = [];
+
+  if (typeof acc.id !== 'string' || acc.id.trim().length === 0) {
+    errors.push('invalid_account_id');
+  }
+  if (typeof acc.name !== 'string' || acc.name.trim().length === 0) {
+    errors.push('invalid_account_name');
+  } else if (acc.name.trim().length > MAX_ACCOUNT_NAME_LENGTH) {
+    errors.push('account_name_too_long');
+  }
+  if (!isValidAccountKind(acc.kind)) {
+    errors.push('invalid_account_kind');
+  }
+  if (
+    acc.provider !== undefined &&
+    acc.provider !== null &&
+    (typeof acc.provider !== 'string' || acc.provider.trim().length === 0)
+  ) {
+    errors.push('invalid_account_provider');
+  }
+  if (
+    typeof acc.colorKey !== 'string' ||
+    acc.colorKey.trim().length === 0 ||
+    acc.colorKey.trim().length > MAX_ACCOUNT_COLOR_KEY_LENGTH
+  ) {
+    errors.push('invalid_account_color');
+  }
+  if (
+    acc.monogram !== undefined &&
+    acc.monogram !== null &&
+    (typeof acc.monogram !== 'string' || acc.monogram.trim().length > MAX_MONOGRAM_LENGTH)
+  ) {
+    errors.push('invalid_monogram');
+  }
+  if (
+    acc.last4 !== undefined &&
+    acc.last4 !== null &&
+    (typeof acc.last4 !== 'string' || !/^\d{4}$/.test(acc.last4))
+  ) {
+    errors.push('invalid_last4');
+  }
+  const openingBal = acc.openingBalanceMinor ?? 0;
+  if (
+    typeof openingBal !== 'number' ||
+    !Number.isInteger(openingBal) ||
+    openingBal < -MAX_AMOUNT_MINOR ||
+    openingBal > MAX_AMOUNT_MINOR
+  ) {
+    errors.push('invalid_opening_balance');
+  }
+  if (typeof acc.openingDate !== 'string' || !isValidLocalDate(acc.openingDate)) {
+    errors.push('invalid_opening_date');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function assertValidAccountInput(acc: Parameters<typeof validateAccountInput>[0]): void {
+  const res = validateAccountInput(acc);
+  if (!res.valid) {
+    throw new Error(`Invalid account: ${res.errors.join(', ')}`);
+  }
+}
+
+export function validateNewTransfer(tr: {
+  id: unknown;
+  fromAccountId: unknown;
+  toAccountId: unknown;
+  amountMinor: unknown;
+  feeMinor?: unknown;
+  occurredOn: unknown;
+  occurredTime?: unknown;
+  note?: unknown;
+}): ValidationResult {
+  const errors: string[] = [];
+
+  if (typeof tr.id !== 'string' || tr.id.trim().length === 0) {
+    errors.push('invalid_transfer_id');
+  }
+  const hasFrom = typeof tr.fromAccountId === 'string' && tr.fromAccountId.trim().length > 0;
+  const hasTo = typeof tr.toAccountId === 'string' && tr.toAccountId.trim().length > 0;
+  if (!hasFrom) {
+    errors.push('invalid_from_account');
+  }
+  if (!hasTo) {
+    errors.push('invalid_to_account');
+  }
+  if (hasFrom && hasTo && tr.fromAccountId === tr.toAccountId) {
+    errors.push('same_account');
+  }
+  if (
+    typeof tr.amountMinor !== 'number' ||
+    !Number.isInteger(tr.amountMinor) ||
+    tr.amountMinor <= 0 ||
+    tr.amountMinor > MAX_AMOUNT_MINOR
+  ) {
+    errors.push('invalid_amount');
+  }
+  const feeMinor = tr.feeMinor ?? 0;
+  if (
+    typeof feeMinor !== 'number' ||
+    !Number.isInteger(feeMinor) ||
+    feeMinor < 0 ||
+    feeMinor > MAX_AMOUNT_MINOR
+  ) {
+    errors.push('invalid_fee');
+  }
+  if (typeof tr.occurredOn !== 'string' || !isValidLocalDate(tr.occurredOn)) {
+    errors.push('invalid_date');
+  }
+  if (
+    tr.occurredTime !== undefined &&
+    tr.occurredTime !== null &&
+    (typeof tr.occurredTime !== 'string' || !isValidLocalTime(tr.occurredTime))
+  ) {
+    errors.push('invalid_time');
+  }
+  if (tr.note !== undefined && tr.note !== null) {
+    if (typeof tr.note !== 'string' || tr.note.length > MAX_NOTE_LENGTH) {
+      errors.push('note_too_long');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function assertValidNewTransfer(tr: Parameters<typeof validateNewTransfer>[0]): void {
+  const res = validateNewTransfer(tr);
+  if (!res.valid) {
+    throw new Error(`Invalid transfer: ${res.errors.join(', ')}`);
+  }
 }

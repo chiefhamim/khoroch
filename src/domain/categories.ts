@@ -25,7 +25,8 @@ export const DEFAULT_EXPENSE_CATEGORIES: readonly DefaultCategoryDef[] = [
   { id: 'personal_care', name: 'Personal Care', icon: 'sparkles', v1Icon: 'sparkles', colorKey: 'pink', kind: 'expense', sortOrder: 12 },
   { id: 'family', name: 'Family', icon: 'users', v1Icon: 'people', colorKey: 'lime', kind: 'expense', sortOrder: 13 },
   { id: 'gifts', name: 'Gifts', icon: 'gift', v1Icon: 'gift', colorKey: 'grape', kind: 'expense', sortOrder: 14 },
-  { id: 'other', name: 'Other', icon: 'shapes', v1Icon: 'shapes', colorKey: 'gray', kind: 'expense', sortOrder: 15 },
+  { id: 'fees', name: 'Fees & charges', icon: 'receipt', v1Icon: 'receipt', colorKey: 'gray', kind: 'expense', sortOrder: 15 },
+  { id: 'other', name: 'Other', icon: 'shapes', v1Icon: 'shapes', colorKey: 'gray', kind: 'expense', sortOrder: 16 },
 ];
 
 export const DEFAULT_INCOME_CATEGORIES: readonly DefaultCategoryDef[] = [

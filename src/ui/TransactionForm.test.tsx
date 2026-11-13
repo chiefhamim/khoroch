@@ -55,6 +55,8 @@ function makeTx(overrides: Partial<Transaction>): Transaction {
     amountMinor: overrides.amountMinor ?? 50_000,
     currency: 'BDT',
     categoryId: overrides.categoryId ?? 'food_dining',
+    accountId: overrides.accountId ?? null,
+    transferId: overrides.transferId ?? null,
     description: overrides.description ?? 'Lunch',
     note: '',
     occurredOn: overrides.occurredOn ?? '2026-11-12',

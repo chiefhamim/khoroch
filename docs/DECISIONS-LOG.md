@@ -98,3 +98,9 @@ Format:
   1. Build standalone `APP_VARIANT=dev` APKs with `assembleRelease` (default debug-key signing, `BUDGET_RELEASE_SIGNING` unset) so `Budget Dev` runs self-contained on the phone side-by-side with production `com.hamim.budgetapp` without blocking on Metro or risking the production keystore/signature.
   2. Keep the native Android SAF directory picker (`StorageAccessFramework.requestDirectoryPermissionsAsync`), guiding/saving cleanly into a user-selected subfolder (tested with `Download/BudgetBackups`), matching Android's platform restriction without adding storage permissions.
 - Easy to reverse? Yes — dev builds can switch back to Metro debug anytime, and SAF logic lives solely in `src/data/backupFiles.ts`.
+
+## D-010 — TEST-CASES-v1.2 §A transfer-delete balance arithmetic (`1,215,000`)  (Phase 16, 2026-11-13 18:01)
+- Question: `docs/v1.2/TEST-CASES-v1.2.md` §A line 34 states `"Delete t1 → its fee row is deleted too → bkash = 1115000, cash = 0, spending = 196900"`, whereas with `t1` (`100000` transfer `bkash -> cash`, `1850` fee) deleted, `bkash` has `opening (1000000) + income e2 (250000) − expense e1 (35000) = 1215000` (and `1115000` on line 35 is the result of editing `t1`'s fee `1850 -> 0` while keeping the `100000` transfer in place).
+- Options considered: Special-case or leave deleted transfers subtracting `amountMinor` (violating conservation of money when `cash = 0`) / Assert exact integer conservation: `1,115,000` when `t1`'s fee is edited to `0`, and `1,215,000` when `t1` itself is soft-deleted (`cash = 0`).
+- Chose: Assert exact `1,215,000` on `Delete t1` (`cash = 0`, `spending = 196900`) and `1,115,000` on `Edit t1 fee 1850 -> 0` (`cash = 100000`) in `src/domain/accounts.test.ts` (note left doc `TEST-CASES-v1.2.md` untouched as reference spec, documented discrepancy here).
+- Easy to reverse? Yes — pure arithmetic check in `src/domain/accounts.test.ts`.

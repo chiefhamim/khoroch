@@ -1,21 +1,29 @@
 import { buildDefaultCategories } from '@/domain/categories';
 import { normalizeCategoryColorKey } from '@/theme/categoryColors';
 import {
+  assertValidAccountInput,
   assertValidCategoryInput,
   assertValidNewTransaction,
+  assertValidNewTransfer,
   isValidBudgetAmount,
 } from '@/domain/validation';
 import {
   normalizeReminderSettings,
+  type Account,
+  type AccountPatch,
   type Budget,
   type Category,
   type CurrencyCode,
   type DayReviewRecord,
   type LocalDate,
+  type NewAccount,
   type NewTransaction,
+  type NewTransfer,
   type Settings,
   type Transaction,
   type TransactionPatch,
+  type Transfer,
+  type TransferPatch,
   type TxPage,
   type TxQuery,
   type TxQuerySummary,
@@ -68,8 +76,26 @@ function cloneSettings(s: Settings): Settings {
   };
 }
 
+function compareTransferDesc(a: Transfer, b: Transfer): number {
+  if (a.occurredOn !== b.occurredOn) {
+    return b.occurredOn.localeCompare(a.occurredOn);
+  }
+  if (a.createdAt !== b.createdAt) {
+    return b.createdAt - a.createdAt;
+  }
+  return b.id.localeCompare(a.id);
+}
+
+function compareAccountAsc(a: Account, b: Account): number {
+  if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+  if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
+  return a.name.localeCompare(b.name);
+}
+
 export class MemoryRepo implements Repo {
   private transactions = new Map<string, Transaction>();
+  private accounts = new Map<string, Account>();
+  private transfers = new Map<string, Transfer>();
   private categories = new Map<string, Category>();
   private budgets = new Map<string, Budget>();
   private seededBudgetPeriods = new Set<LocalDate>();
@@ -91,6 +117,10 @@ export class MemoryRepo implements Repo {
     if (this.transactions.has(t.id)) {
       return; // INSERT OR IGNORE semantics
     }
+    const accountId = t.accountId ?? null;
+    if (accountId !== null && !this.accounts.has(accountId)) {
+      throw new Error(`Unknown accountId "${accountId}" on transaction "${t.id}"`);
+    }
     const now = Date.now();
     const record: Transaction = {
       id: t.id,
@@ -98,6 +128,8 @@ export class MemoryRepo implements Repo {
       amountMinor: t.amountMinor,
       currency: t.currency,
       categoryId: t.categoryId ?? null,
+      accountId,
+      transferId: t.transferId ?? null,
       description: t.description ?? '',
       note: t.note ?? '',
       occurredOn: t.occurredOn,
@@ -127,9 +159,14 @@ export class MemoryRepo implements Repo {
   async updateTransaction(id: string, patch: TransactionPatch): Promise<void> {
     const existing = this.transactions.get(id);
     if (!existing) return;
+    const nextAccountId = patch.accountId !== undefined ? patch.accountId : existing.accountId;
+    if (nextAccountId !== null && !this.accounts.has(nextAccountId)) {
+      throw new Error(`Unknown accountId "${nextAccountId}" on transaction "${id}"`);
+    }
     const updated: Transaction = {
       ...existing,
       ...patch,
+      accountId: nextAccountId,
       updatedAt: Date.now(),
     };
     assertValidNewTransaction(updated);
@@ -170,12 +207,44 @@ export class MemoryRepo implements Repo {
       .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
   }
 
+  async listAllActiveTransactions(): Promise<Transaction[]> {
+    const rows: Transaction[] = [];
+    for (const tx of this.transactions.values()) {
+      if (tx.deletedAt == null) {
+        rows.push({ ...tx });
+      }
+    }
+    rows.sort(compareTxDesc);
+    return rows;
+  }
+
+  async listTransactionsByAccount(
+    accountId: string | null,
+    opts?: { fromIncl?: LocalDate; toExcl?: LocalDate }
+  ): Promise<Transaction[]> {
+    const rows: Transaction[] = [];
+    for (const tx of this.transactions.values()) {
+      if (tx.deletedAt != null) continue;
+      if (tx.accountId !== accountId) continue;
+      if (opts?.fromIncl && tx.occurredOn < opts.fromIncl) continue;
+      if (opts?.toExcl && tx.occurredOn >= opts.toExcl) continue;
+      rows.push({ ...tx });
+    }
+    rows.sort(compareTxDesc);
+    return rows;
+  }
+
   private matchesTxQuery(tx: Transaction, q: TxQuery, searchNorm: string): boolean {
     if (tx.deletedAt != null) return false;
     if (q.type && tx.type !== q.type) return false;
     if (q.categoryIds && q.categoryIds.length > 0) {
       if (!tx.categoryId || !q.categoryIds.includes(tx.categoryId)) return false;
     } else if (q.categoryId !== undefined && tx.categoryId !== q.categoryId) {
+      return false;
+    }
+    if (q.accountIds && q.accountIds.length > 0) {
+      if (!tx.accountId || !q.accountIds.includes(tx.accountId)) return false;
+    } else if (q.accountId !== undefined && tx.accountId !== q.accountId) {
       return false;
     }
     if (q.fromIncl && tx.occurredOn < q.fromIncl) return false;
@@ -250,6 +319,283 @@ export class MemoryRepo implements Repo {
       if (out.length >= limit) break;
     }
     return out;
+  }
+
+  async listAccounts(opts?: { includeArchived?: boolean }): Promise<Account[]> {
+    const includeArchived = opts?.includeArchived ?? false;
+    return Array.from(this.accounts.values())
+      .filter((a) => includeArchived || a.archivedAt == null)
+      .map((a) => ({ ...a }))
+      .sort(compareAccountAsc);
+  }
+
+  async getAccount(id: string): Promise<Account | null> {
+    const acc = this.accounts.get(id);
+    return acc ? { ...acc } : null;
+  }
+
+  async insertAccount(a: NewAccount): Promise<void> {
+    assertValidAccountInput(a);
+    if (this.accounts.has(a.id)) {
+      return;
+    }
+    const now = Date.now();
+    const record: Account = {
+      id: a.id,
+      name: a.name.trim(),
+      kind: a.kind,
+      provider: a.provider ?? null,
+      colorKey: a.colorKey.trim(),
+      monogram: a.monogram !== undefined && a.monogram !== null ? a.monogram.trim() || null : null,
+      last4: a.last4 ?? null,
+      openingBalanceMinor: a.openingBalanceMinor ?? 0,
+      openingDate: a.openingDate,
+      includeInTotal: a.includeInTotal ?? true,
+      sortOrder: a.sortOrder ?? 0,
+      archivedAt: a.archivedAt ?? null,
+      createdAt: a.createdAt ?? now,
+      updatedAt: a.updatedAt ?? now,
+    };
+    this.accounts.set(record.id, record);
+  }
+
+  async updateAccount(id: string, patch: AccountPatch): Promise<void> {
+    const existing = this.accounts.get(id);
+    if (!existing) return;
+    const merged: Account = {
+      ...existing,
+      ...patch,
+      name: (patch.name ?? existing.name).trim(),
+      colorKey: (patch.colorKey ?? existing.colorKey).trim(),
+      monogram:
+        patch.monogram !== undefined
+          ? patch.monogram !== null
+            ? patch.monogram.trim() || null
+            : null
+          : existing.monogram,
+      updatedAt: Date.now(),
+    };
+    assertValidAccountInput(merged);
+    this.accounts.set(id, merged);
+  }
+
+  async archiveAccount(id: string): Promise<void> {
+    const existing = this.accounts.get(id);
+    if (!existing) return;
+    const now = Date.now();
+    this.accounts.set(id, {
+      ...existing,
+      archivedAt: existing.archivedAt ?? now,
+      updatedAt: now,
+    });
+  }
+
+  async unarchiveAccount(id: string): Promise<void> {
+    const existing = this.accounts.get(id);
+    if (!existing) return;
+    this.accounts.set(id, {
+      ...existing,
+      archivedAt: null,
+      updatedAt: Date.now(),
+    });
+  }
+
+  async createTransfer(t: NewTransfer): Promise<void> {
+    assertValidNewTransfer(t);
+    if (this.transfers.has(t.id)) {
+      return;
+    }
+    if (!this.accounts.has(t.fromAccountId)) {
+      throw new Error(`Unknown fromAccountId "${t.fromAccountId}" on transfer "${t.id}"`);
+    }
+    if (!this.accounts.has(t.toAccountId)) {
+      throw new Error(`Unknown toAccountId "${t.toAccountId}" on transfer "${t.id}"`);
+    }
+    const feeMinor = t.feeMinor ?? 0;
+    const now = Date.now();
+    const record: Transfer = {
+      id: t.id,
+      fromAccountId: t.fromAccountId,
+      toAccountId: t.toAccountId,
+      amountMinor: t.amountMinor,
+      feeMinor,
+      occurredOn: t.occurredOn,
+      occurredTime: t.occurredTime ?? null,
+      note: t.note ?? '',
+      createdAt: t.createdAt ?? now,
+      updatedAt: t.updatedAt ?? now,
+      deletedAt: null,
+    };
+
+    const prevTransfers = new Map(
+      Array.from(this.transfers.entries()).map(([k, v]) => [k, { ...v }])
+    );
+    const prevTransactions = new Map(
+      Array.from(this.transactions.entries()).map(([k, v]) => [k, { ...v }])
+    );
+
+    try {
+      this.transfers.set(record.id, record);
+      if (feeMinor > 0) {
+        const feeTx: Transaction = {
+          id: `${record.id}:fee`,
+          type: 'expense',
+          amountMinor: feeMinor,
+          currency: t.currency ?? this.settings.currency,
+          categoryId: 'fees',
+          accountId: record.fromAccountId,
+          transferId: record.id,
+          description: 'Transfer fee',
+          note: '',
+          occurredOn: record.occurredOn,
+          occurredTime: record.occurredTime,
+          source: 'manual',
+          createdAt: record.createdAt,
+          updatedAt: record.updatedAt,
+          deletedAt: null,
+        };
+        assertValidNewTransaction(feeTx);
+        this.transactions.set(feeTx.id, feeTx);
+      }
+    } catch (err) {
+      this.transfers = prevTransfers;
+      this.transactions = prevTransactions;
+      throw err;
+    }
+  }
+
+  async updateTransfer(id: string, patch: TransferPatch): Promise<void> {
+    const existing = this.transfers.get(id);
+    if (!existing || existing.deletedAt != null) return;
+
+    const now = Date.now();
+    const merged: Transfer = {
+      ...existing,
+      ...patch,
+      feeMinor: patch.feeMinor ?? existing.feeMinor,
+      occurredTime: patch.occurredTime !== undefined ? patch.occurredTime : existing.occurredTime,
+      note: patch.note !== undefined ? patch.note : existing.note,
+      updatedAt: now,
+    };
+    assertValidNewTransfer(merged);
+
+    if (!this.accounts.has(merged.fromAccountId)) {
+      throw new Error(`Unknown fromAccountId "${merged.fromAccountId}" on transfer "${id}"`);
+    }
+    if (!this.accounts.has(merged.toAccountId)) {
+      throw new Error(`Unknown toAccountId "${merged.toAccountId}" on transfer "${id}"`);
+    }
+
+    const prevTransfers = new Map(
+      Array.from(this.transfers.entries()).map(([k, v]) => [k, { ...v }])
+    );
+    const prevTransactions = new Map(
+      Array.from(this.transactions.entries()).map(([k, v]) => [k, { ...v }])
+    );
+
+    try {
+      this.transfers.set(id, merged);
+
+      const linkedRows = Array.from(this.transactions.values())
+        .filter((tx) => tx.transferId === id)
+        .sort((a, b) => {
+          const aDel = a.deletedAt == null ? 0 : 1;
+          const bDel = b.deletedAt == null ? 0 : 1;
+          return aDel - bDel || a.createdAt - b.createdAt;
+        });
+
+      if (merged.feeMinor === 0) {
+        for (const tx of linkedRows) {
+          if (tx.deletedAt == null) {
+            this.transactions.set(tx.id, { ...tx, deletedAt: now, updatedAt: now });
+          }
+        }
+      } else if (linkedRows.length > 0) {
+        const primaryFee = linkedRows[0];
+        const updatedFee: Transaction = {
+          ...primaryFee,
+          type: 'expense',
+          amountMinor: merged.feeMinor,
+          categoryId: 'fees',
+          accountId: merged.fromAccountId,
+          occurredOn: merged.occurredOn,
+          occurredTime: merged.occurredTime,
+          deletedAt: null,
+          updatedAt: now,
+        };
+        assertValidNewTransaction(updatedFee);
+        this.transactions.set(primaryFee.id, updatedFee);
+      } else {
+        const newFee: Transaction = {
+          id: `${id}:fee`,
+          type: 'expense',
+          amountMinor: merged.feeMinor,
+          currency: this.settings.currency,
+          categoryId: 'fees',
+          accountId: merged.fromAccountId,
+          transferId: id,
+          description: 'Transfer fee',
+          note: '',
+          occurredOn: merged.occurredOn,
+          occurredTime: merged.occurredTime,
+          source: 'manual',
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: null,
+        };
+        assertValidNewTransaction(newFee);
+        this.transactions.set(newFee.id, newFee);
+      }
+    } catch (err) {
+      this.transfers = prevTransfers;
+      this.transactions = prevTransactions;
+      throw err;
+    }
+  }
+
+  async softDeleteTransfer(id: string): Promise<void> {
+    const existing = this.transfers.get(id);
+    const now = Date.now();
+    if (existing && existing.deletedAt == null) {
+      this.transfers.set(id, { ...existing, deletedAt: now, updatedAt: now });
+    }
+    for (const [txId, tx] of this.transactions.entries()) {
+      if (tx.transferId === id && tx.deletedAt == null) {
+        this.transactions.set(txId, { ...tx, deletedAt: now, updatedAt: now });
+      }
+    }
+  }
+
+  async getTransfer(id: string): Promise<Transfer | null> {
+    const tr = this.transfers.get(id);
+    return tr ? { ...tr } : null;
+  }
+
+  async listTransfers(opts?: {
+    accountId?: string;
+    fromIncl?: LocalDate;
+    toExcl?: LocalDate;
+    includeDeleted?: boolean;
+  }): Promise<Transfer[]> {
+    const includeDeleted = opts?.includeDeleted ?? false;
+    const rows: Transfer[] = [];
+    for (const tr of this.transfers.values()) {
+      if (!includeDeleted && tr.deletedAt != null) continue;
+      if (opts?.accountId && tr.fromAccountId !== opts.accountId && tr.toAccountId !== opts.accountId) {
+        continue;
+      }
+      if (opts?.fromIncl && tr.occurredOn < opts.fromIncl) continue;
+      if (opts?.toExcl && tr.occurredOn >= opts.toExcl) continue;
+      rows.push({ ...tr });
+    }
+    rows.sort(compareTransferDesc);
+    return rows;
+  }
+
+  async listAllTransfersForBackup(): Promise<Transfer[]> {
+    return Array.from(this.transfers.values())
+      .map((tr) => ({ ...tr }))
+      .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
   }
 
   async listCategories(opts?: { includeArchived?: boolean }): Promise<Category[]> {
@@ -363,6 +709,8 @@ export class MemoryRepo implements Repo {
 
   async deleteAllData(): Promise<void> {
     this.transactions.clear();
+    this.transfers.clear();
+    this.accounts.clear();
     this.budgets.clear();
     this.seededBudgetPeriods.clear();
     this.dayReviews.clear();
@@ -377,6 +725,12 @@ export class MemoryRepo implements Repo {
     const prevTransactions = new Map(
       Array.from(this.transactions.entries()).map(([k, v]) => [k, { ...v }])
     );
+    const prevAccounts = new Map(
+      Array.from(this.accounts.entries()).map(([k, v]) => [k, { ...v }])
+    );
+    const prevTransfers = new Map(
+      Array.from(this.transfers.entries()).map(([k, v]) => [k, { ...v }])
+    );
     const prevCategories = new Map(
       Array.from(this.categories.entries()).map(([k, v]) => [k, { ...v }])
     );
@@ -389,6 +743,8 @@ export class MemoryRepo implements Repo {
 
     try {
       this.transactions.clear();
+      this.transfers.clear();
+      this.accounts.clear();
       this.categories.clear();
       this.budgets.clear();
       this.seededBudgetPeriods.clear();
@@ -402,10 +758,32 @@ export class MemoryRepo implements Repo {
         });
       }
 
+      for (const acc of data.accounts) {
+        assertValidAccountInput(acc);
+        this.accounts.set(acc.id, { ...acc });
+      }
+
+      for (const tr of data.transfers) {
+        assertValidNewTransfer(tr);
+        if (!this.accounts.has(tr.fromAccountId)) {
+          throw new Error(`Unknown fromAccountId "${tr.fromAccountId}" on transfer "${tr.id}"`);
+        }
+        if (!this.accounts.has(tr.toAccountId)) {
+          throw new Error(`Unknown toAccountId "${tr.toAccountId}" on transfer "${tr.id}"`);
+        }
+        this.transfers.set(tr.id, { ...tr });
+      }
+
       for (const tx of data.transactions) {
         assertValidNewTransaction(tx);
         if (tx.categoryId !== null && !this.categories.has(tx.categoryId)) {
           throw new Error(`Unknown categoryId "${tx.categoryId}" on transaction "${tx.id}"`);
+        }
+        if (tx.accountId !== null && !this.accounts.has(tx.accountId)) {
+          throw new Error(`Unknown accountId "${tx.accountId}" on transaction "${tx.id}"`);
+        }
+        if (tx.transferId !== null && !this.transfers.has(tx.transferId)) {
+          throw new Error(`Unknown transferId "${tx.transferId}" on transaction "${tx.id}"`);
         }
         this.transactions.set(tx.id, { ...tx });
       }
@@ -427,6 +805,8 @@ export class MemoryRepo implements Repo {
       this.settings = cloneSettings(data.settings);
     } catch (err) {
       this.transactions = prevTransactions;
+      this.accounts = prevAccounts;
+      this.transfers = prevTransfers;
       this.categories = prevCategories;
       this.budgets = prevBudgets;
       this.seededBudgetPeriods = prevSeeded;

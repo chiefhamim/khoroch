@@ -1,14 +1,20 @@
 import {
   ALL_REMINDER_DAYS,
+  type Account,
+  type AccountPatch,
   type Budget,
   type Category,
   type CurrencyCode,
   type DayReviewRecord,
   type LocalDate,
+  type NewAccount,
   type NewTransaction,
+  type NewTransfer,
   type Settings,
   type Transaction,
   type TransactionPatch,
+  type Transfer,
+  type TransferPatch,
   type TxPage,
   type TxQuery,
   type TxQuerySummary,
@@ -17,6 +23,8 @@ import {
 
 export interface BackupDataSnapshot {
   categories: Category[];
+  accounts: Account[];
+  transfers: Transfer[];
   transactions: Transaction[];
   budgets: Budget[];
   settings: Settings;
@@ -32,11 +40,37 @@ export interface Repo {
   softDeleteTransaction(id: string): Promise<void>;
   getTransaction(id: string): Promise<Transaction | null>;
   listTransactionsInRange(fromIncl: LocalDate, toExcl: LocalDate): Promise<Transaction[]>;
+  listAllActiveTransactions(): Promise<Transaction[]>;
+  listTransactionsByAccount(
+    accountId: string | null,
+    opts?: { fromIncl?: LocalDate; toExcl?: LocalDate }
+  ): Promise<Transaction[]>;
   listAllTransactionsForBackup(): Promise<Transaction[]>;
   searchTransactions(q: TxQuery, page: TxPage): Promise<TxSearchResult>;
   summarizeTransactions(q: TxQuery, currency: CurrencyCode): Promise<TxQuerySummary>;
   hasAnyTransactions(): Promise<boolean>;
   listRecentDescriptions(limit?: number): Promise<string[]>;
+
+  // Accounts (wallets)
+  listAccounts(opts?: { includeArchived?: boolean }): Promise<Account[]>;
+  getAccount(id: string): Promise<Account | null>;
+  insertAccount(a: NewAccount): Promise<void>;
+  updateAccount(id: string, patch: AccountPatch): Promise<void>;
+  archiveAccount(id: string): Promise<void>;
+  unarchiveAccount(id: string): Promise<void>;
+
+  // Transfers
+  createTransfer(t: NewTransfer): Promise<void>;
+  updateTransfer(id: string, patch: TransferPatch): Promise<void>;
+  softDeleteTransfer(id: string): Promise<void>;
+  getTransfer(id: string): Promise<Transfer | null>;
+  listTransfers(opts?: {
+    accountId?: string;
+    fromIncl?: LocalDate;
+    toExcl?: LocalDate;
+    includeDeleted?: boolean;
+  }): Promise<Transfer[]>;
+  listAllTransfersForBackup(): Promise<Transfer[]>;
 
   // Categories
   listCategories(opts?: { includeArchived?: boolean }): Promise<Category[]>;

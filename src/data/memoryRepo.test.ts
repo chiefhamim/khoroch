@@ -1,3 +1,4 @@
+import { DEFAULT_CATEGORIES } from '@/domain/categories';
 import { MemoryRepo } from './memoryRepo';
 
 describe('MemoryRepo (TEST-CASES §6)', () => {
@@ -213,15 +214,18 @@ describe('MemoryRepo (TEST-CASES §6)', () => {
     expect(pageCount).toBe(Math.ceil(550 / 30));
   });
 
-  it('seeds v2 categories with colorKey and rent_income', async () => {
+  it('seeds default categories with colorKey, rent_income, and fees', async () => {
     const repo = new MemoryRepo();
     const cats = await repo.listCategories();
-    expect(cats).toHaveLength(20);
+    expect(cats).toHaveLength(DEFAULT_CATEGORIES.length);
     expect(cats.find((c) => c.id === 'food_dining')).toEqual(
       expect.objectContaining({ icon: 'utensils', colorKey: 'orange' })
     );
     expect(cats.find((c) => c.id === 'rent_income')).toEqual(
       expect.objectContaining({ icon: 'building-2', colorKey: 'violet', kind: 'income' })
+    );
+    expect(cats.find((c) => c.id === 'fees')).toEqual(
+      expect.objectContaining({ name: 'Fees & charges', icon: 'receipt', colorKey: 'gray', kind: 'expense' })
     );
   });
 

@@ -171,6 +171,7 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
   sparkle: Sparkle,
   'trending-up': TrendingUp,
   'shield-check': ShieldCheck,
+  'receipt': ReceiptText,
   'receipt-text': ReceiptText,
   palette: Palette,
   eye: Eye,

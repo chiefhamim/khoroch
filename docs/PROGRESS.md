@@ -412,12 +412,12 @@ Re-read: PLAN §3 · mockup.html
 
 **Done when:** CHECKS pass · PHONE CHECK (dev app): ৳ next to numbers at sizes 12/15/17/28/40 in light + dark (screenshot each; the ৳ must look the same weight and size as the digits, sitting on the baseline) · gallery screenshots for Forest + one other accent, light/dark/black.
 
-## Phase 16 — Wallets & transfers: data + maths  [ ]
+## Phase 16 — Wallets & transfers: data + maths  [x]
 Re-read: PLAN §4 · TEST-CASES-v1.2 §A
-- [ ] Migration v3 exactly per PLAN §4 (additive), with a test migrating a v2 DB that holds real-shaped data, every row intact
-- [ ] Repo: accounts CRUD/archive, transfers CRUD with the linked fee expense in one DB transaction, `account_id` on transactions, queries by account
-- [ ] `src/domain/accounts.ts`: balances, total, the credit-card "due" display. Every §A number as a test
-- [ ] Backup schema extended to the new tables (§C round-trip still passes)
+- [x] Migration v3 exactly per PLAN §4 (additive), with a test migrating a v2 DB that holds real-shaped data, every row intact
+- [x] Repo: accounts CRUD/archive, transfers CRUD with the linked fee expense in one DB transaction, `account_id` on transactions, queries by account
+- [x] `src/domain/accounts.ts`: balances, total, the credit-card "due" display. Every §A number as a test
+- [x] Backup schema extended to the new tables (§C round-trip still passes)
 
 **Done when:** CHECKS pass · every §A row is a passing test · migration test passes.
 
@@ -531,6 +531,15 @@ Re-read: AGENTS §6 · PLAN §6
   - **CHECKS:** `npm run typecheck` (0 errors) · `npx expo lint` (0 errors, 0 warnings) · `npm test -- --no-color` (22 passed / 22 suites, 128 passed / 128 tests).
   - **PHONE CHECK (dev app, `SM_S938B` via ADB `192.168.0.154:45643`):** Built & installed `com.hamim.budgetapp.dev` (`assembleRelease`) and visually verified (`docs/v1.2/after/phase-15/`): `01-home.png`, `02-gallery-forest-light.png`, `03-gallery-taka-light.png`, `04-gallery-forest-dark.png`, `05-gallery-taka-dark.png`, `06-gallery-ocean-black.png`, `06-gallery-plum-black.png`, `07-settings.png`, `08-appearance-sheet.png`, `09-ledger.png`, `10-plan.png`, `11-gallery-saffron-dark.png`, `12-plan-insights.png`, `13-people.png`.
   - **BLOCKED:** None · **D-entries:** `D-009`
+- **2026-11-13 · Phase 16 — Wallets & transfers: data + maths**
+  - **Built:**
+    - Schema **v3** (`src/data/migrations.ts`): additive tables `accounts` & `transfers`, `transactions.account_id` & `transactions.transfer_id`, `idx_tx_account` & `idx_tr_date`, and seeded `'fees'` (`"Fees & charges"`, `receipt` mapped in `src/ui/AppIcon.tsx`, `gray`, protected in `src/app/settings/categories.tsx`) via `INSERT OR IGNORE`. Tested v2 -> v3 migration with real-shaped data intact in `src/data/migrations.test.ts`.
+    - Pure domain math & formatting (`src/domain/accounts.ts`, `src/domain/money.ts`, `src/domain/validation.ts`, `src/domain/types.ts`): `computeAccountBalance`, `computeAccountsOverview`, `formatAccountBalance`, `formatAccountsTotal`, `formatBalanceWithDue` decimal preservation, `validateAccountInput` / `validateNewTransfer` (rejecting same-account transfers & negative fees). Covered every §A row in `src/domain/accounts.test.ts` (including pure domain, `MemoryRepo`, and `SqliteRepo` parity).
+    - Repo CRUD & atomic transfers (`src/data/repo.ts`, `src/data/sqliteRepo.ts`, `src/data/memoryRepo.ts`): `insertAccount`/`updateAccount`/`archiveAccount`/`unarchiveAccount`, single-transaction `createTransfer`/`updateTransfer`/`softDeleteTransfer` linking/updating/soft-deleting `'fees'` expense rows without leaving `৳0` rows, `listTransactionsByAccount`, `listAllActiveTransactions`, and `TxQuery.accountId` / `TxQuery.accountIds` filtering.
+    - Backup schema **v3** (`src/data/backup.ts`, `src/data/backup.test.ts`): exports/validates/restores `accounts`, `transfers`, and `transaction.accountId`/`transferId`, migrates v1/v2 payloads forward to v3, and passes §C full round-trip and atomic rollback tests on both `SqliteRepo` and `MemoryRepo`.
+  - **CHECKS:** `npm run typecheck` (0 errors) · `npx expo lint` (0 errors, 0 warnings) · `npm test -- --no-color` (23 passed / 23 suites, 134 passed / 134 tests) · `npx expo export --platform web --output-dir dist-check` (3171 modules, exit 0; removed `dist-check`).
+  - **PHONE CHECK:** Skipped (Phase 16 is schema/repo/domain math only; UI lands in Phase 17).
+  - **BLOCKED:** None · **D-entries:** `D-010`
 
 ## v1.2 summary
 <!-- written at the end -->

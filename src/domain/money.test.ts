@@ -78,6 +78,7 @@ describe('v1.2 number formatting (TEST-CASES-v1.2 §E)', () => {
 
   it('formats due card balances and missing metric placeholders without ellipsis dots', () => {
     expect(formatBalanceWithDue(-560_000, 'BDT')).toBe('৳5,600 due');
+    expect(formatBalanceWithDue(1_113_150, 'BDT')).toBe('৳11,131.50');
     expect(formatMissingMetric('Set a monthly budget')).toEqual({
       value: MISSING_METRIC_DASH,
       reason: 'Set a monthly budget',
