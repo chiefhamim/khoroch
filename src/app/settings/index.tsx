@@ -1,8 +1,24 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AppState, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { AppState, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import {
+  buildBackupPreview,
+  epochMsToLocalDate,
+  exportBackupJson,
+  parseAndValidateBackup,
+  restoreBackupPayload,
+  type BackupFilePayload,
+  type BackupPreview,
+} from '@/data/backup';
+import {
+  makeBackupFilename,
+  pickAndReadBackupFile,
+  saveBackupToDeviceFolder,
+  shareBackupFile,
+} from '@/data/backupFiles';
+import { runDeleteAllData } from '@/data/deleteAll';
 import { buildSampleTransactions } from '@/data/sampleData';
-import { todayLocalDate } from '@/domain/dates';
+import { formatShortDate, todayLocalDate } from '@/domain/dates';
 import { formatCycleLabel, getPeriod } from '@/domain/period';
 import {
   ALL_REMINDER_DAYS,
@@ -11,6 +27,7 @@ import {
   type CurrencyCode,
   type ReminderSettings,
 } from '@/domain/types';
+import { MAX_PROFILE_NAME_LENGTH } from '@/domain/validation';
 import { t } from '@/i18n';
 import {
   getNotificationPermissionStatus,
@@ -76,6 +93,7 @@ function sameDays(a: readonly number[], b: readonly number[]): boolean {
 export default function SettingsScreen() {
   const { theme, reducedMotion } = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{ openBackup?: string }>();
   const { showToast } = useToast();
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
   const { repo, backend, settings, hasTransactions, updateSetting, refreshSettings } =
@@ -100,6 +118,24 @@ export default function SettingsScreen() {
 
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  const [backupSheetOpen, setBackupSheetOpen] = useState(false);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<{
+    payload: BackupFilePayload;
+    preview: BackupPreview;
+  } | null>(null);
+  const [privacySheetOpen, setPrivacySheetOpen] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (params.openBackup === '1') {
+        setBackupError(null);
+        setBackupSheetOpen(true);
+        router.setParams({ openBackup: undefined });
+      }
+    }, [params.openBackup, router])
+  );
 
   useEffect(() => {
     let active = true;
@@ -239,7 +275,7 @@ export default function SettingsScreen() {
     setBusy(true);
     setActionError(null);
     try {
-      await repo.deleteAllData();
+      await runDeleteAllData(repo);
       setDeleteSheetOpen(false);
       setDeleteConfirmText('');
       await refreshSettings();
@@ -247,6 +283,91 @@ export default function SettingsScreen() {
     } catch {
       setDeleteSheetOpen(false);
       setActionError(t('settings.actionError'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleShareBackup = async () => {
+    if (busy) return;
+    setBusy(true);
+    setBackupError(null);
+    setActionError(null);
+    try {
+      const json = await exportBackupJson(repo);
+      await shareBackupFile(json, makeBackupFilename(todayLocalDate()));
+      await updateSetting('lastBackupAt', Date.now());
+      hapticSuccess();
+      showToast({ message: t('settings.backupSavedToast') });
+    } catch (err) {
+      setBackupError(
+        err instanceof Error && err.message ? err.message : t('settings.backupErrorGeneric')
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSaveBackupFolder = async () => {
+    if (busy) return;
+    setBusy(true);
+    setBackupError(null);
+    setActionError(null);
+    try {
+      const json = await exportBackupJson(repo);
+      const saved = await saveBackupToDeviceFolder(json, makeBackupFilename(todayLocalDate()));
+      if (!saved.saved) return;
+      await updateSetting('lastBackupAt', Date.now());
+      hapticSuccess();
+      showToast({ message: t('settings.backupSavedToast') });
+    } catch (err) {
+      setBackupError(
+        err instanceof Error && err.message ? err.message : t('settings.backupErrorGeneric')
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handlePickBackupFile = async () => {
+    if (busy) return;
+    setBusy(true);
+    setBackupError(null);
+    setActionError(null);
+    try {
+      const picked = await pickAndReadBackupFile();
+      if (picked.canceled) return;
+      const payload = parseAndValidateBackup(picked.content);
+      const preview = buildBackupPreview(payload);
+      setBackupSheetOpen(false);
+      setPendingRestore({ payload, preview });
+    } catch (err) {
+      setBackupError(
+        err instanceof Error && err.message ? err.message : t('settings.backupErrorGeneric')
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleConfirmRestore = async () => {
+    if (busy || !pendingRestore) return;
+    setBusy(true);
+    setActionError(null);
+    const { payload } = pendingRestore;
+    try {
+      await restoreBackupPayload(repo, payload);
+      setPendingRestore(null);
+      await refreshSettings();
+      await syncReminderSchedule(payload.data.settings.reminder);
+      bumpDataVersion();
+      hapticSuccess();
+      showToast({ message: t('settings.backupRestoredToast') });
+    } catch (err) {
+      setPendingRestore(null);
+      setActionError(
+        err instanceof Error && err.message ? err.message : t('settings.backupErrorGeneric')
+      );
     } finally {
       setBusy(false);
     }
@@ -539,6 +660,23 @@ export default function SettingsScreen() {
           onPress={() => router.push('/settings/categories')}
         />
         <SettingsRow
+          testID="settings-backup-row"
+          label={t('settings.backupRow')}
+          subtitle={
+            settings.lastBackupAt !== null
+              ? t('settings.backupLastDate', {
+                  date: formatShortDate(epochMsToLocalDate(settings.lastBackupAt)),
+                })
+              : t('settings.backupNever')
+          }
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setBackupError(null);
+            setBackupSheetOpen(true);
+          }}
+        />
+        <SettingsRow
           testID="settings-delete-all-button"
           label={t('settings.deleteAllButton')}
           destructive
@@ -553,6 +691,16 @@ export default function SettingsScreen() {
 
       {/* ABOUT */}
       <SettingsGroup title={t('settings.sectionAbout')}>
+        <SettingsRow
+          testID="settings-privacy-row"
+          label={t('settings.privacyRow')}
+          value={t('settings.privacyValue')}
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setPrivacySheetOpen(true);
+          }}
+        />
         <SettingsRow
           label={t('settings.aboutVersionLine')}
           subtitle={t('settings.aboutDesc', { backend })}
@@ -604,7 +752,7 @@ export default function SettingsScreen() {
           value={nameDraft}
           onChangeText={setNameDraft}
           placeholder={t('settings.namePlaceholder')}
-          maxLength={50}
+          maxLength={MAX_PROFILE_NAME_LENGTH}
           autoFocus
         />
         <Button
@@ -836,6 +984,121 @@ export default function SettingsScreen() {
           loading={busy}
           disabled={!canConfirmDelete}
           onPress={() => void handleDeleteAll()}
+        />
+      </Sheet>
+
+      {/* Backup & Restore Sheet */}
+      <Sheet
+        testID="settings-backup-sheet"
+        visible={backupSheetOpen}
+        onClose={() => {
+          if (!busy) setBackupSheetOpen(false);
+        }}
+        title={t('settings.backupSheetTitle')}
+      >
+        <Banner
+          icon="info"
+          tone="neutral"
+          message={t('settings.backupPlaintextNotice')}
+        />
+        {backupError ? (
+          <Banner
+            testID="settings-backup-error"
+            icon="circle-alert"
+            tone="danger"
+            message={backupError}
+          />
+        ) : null}
+        <Button
+          testID="settings-backup-share-btn"
+          title={t('settings.backupShareButton')}
+          loading={busy}
+          onPress={() => void handleShareBackup()}
+        />
+        {Platform.OS === 'android' ? (
+          <Button
+            testID="settings-backup-folder-btn"
+            title={t('settings.backupSaveFolderButton')}
+            variant="secondary"
+            loading={busy}
+            onPress={() => void handleSaveBackupFolder()}
+          />
+        ) : null}
+        <Button
+          testID="settings-backup-restore-btn"
+          title={t('settings.backupRestoreButton')}
+          variant="secondary"
+          disabled={busy}
+          onPress={() => void handlePickBackupFile()}
+        />
+      </Sheet>
+
+      {/* Restore Confirmation Sheet */}
+      <Sheet
+        testID="settings-restore-confirm-sheet"
+        visible={pendingRestore !== null}
+        onClose={() => {
+          if (!busy) setPendingRestore(null);
+        }}
+        title={t('settings.backupRestoreTitle')}
+      >
+        <Banner
+          icon="triangle-alert"
+          tone="danger"
+          message={t('settings.backupRestoreWarning')}
+        />
+        <View
+          style={{
+            padding: theme.spacing.md,
+            borderRadius: theme.radius.md,
+            backgroundColor: theme.colors.surfaceSunken,
+            borderWidth: 1,
+            borderColor: theme.colors.cardBorder,
+          }}
+        >
+          <AppText testID="settings-restore-preview-summary" variant="bodyStrong">
+            {pendingRestore?.preview.summaryLine ?? ''}
+          </AppText>
+        </View>
+        <View style={[styles.sheetActions, { gap: theme.spacing.sm }]}>
+          <Button
+            title={t('common.cancel')}
+            variant="secondary"
+            disabled={busy}
+            onPress={() => setPendingRestore(null)}
+            style={styles.flexOne}
+          />
+          <Button
+            testID="settings-restore-confirm-btn"
+            title={t('settings.backupRestoreConfirm')}
+            variant="danger"
+            loading={busy}
+            onPress={() => void handleConfirmRestore()}
+            style={styles.flexOne}
+          />
+        </View>
+      </Sheet>
+
+      {/* Privacy & Data Storage Sheet */}
+      <Sheet
+        testID="settings-privacy-sheet"
+        visible={privacySheetOpen}
+        onClose={() => setPrivacySheetOpen(false)}
+        title={t('settings.privacySheetTitle')}
+      >
+        <AppText variant="body" color="textSecondary">
+          {t('settings.privacyLocalBody')}
+        </AppText>
+        <AppText variant="body" color="textSecondary">
+          {t('settings.privacyCloudBody')}
+        </AppText>
+        <AppText variant="body" color="textSecondary">
+          {t('settings.privacyVoiceBody')}
+        </AppText>
+        <Button
+          testID="settings-privacy-done-btn"
+          title={t('settings.privacyDone')}
+          onPress={() => setPrivacySheetOpen(false)}
         />
       </Sheet>
     </Screen>

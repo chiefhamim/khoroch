@@ -1,11 +1,16 @@
 import { buildDefaultCategories } from '@/domain/categories';
 import { normalizeCategoryColorKey } from '@/theme/categoryColors';
-import { assertValidNewTransaction, isValidBudgetAmount } from '@/domain/validation';
+import {
+  assertValidCategoryInput,
+  assertValidNewTransaction,
+  isValidBudgetAmount,
+} from '@/domain/validation';
 import {
   normalizeReminderSettings,
   type Budget,
   type Category,
   type CurrencyCode,
+  type DayReviewRecord,
   type LocalDate,
   type NewTransaction,
   type Settings,
@@ -16,7 +21,7 @@ import {
   type TxQuerySummary,
   type TxSearchResult,
 } from '@/domain/types';
-import { DEFAULT_SETTINGS, type Repo } from './repo';
+import { DEFAULT_SETTINGS, type BackupDataSnapshot, type Repo } from './repo';
 
 function compareTxDesc(a: Transaction, b: Transaction): number {
   if (a.occurredOn !== b.occurredOn) {
@@ -159,6 +164,12 @@ export class MemoryRepo implements Repo {
     return rows;
   }
 
+  async listAllTransactionsForBackup(): Promise<Transaction[]> {
+    return Array.from(this.transactions.values())
+      .map((tx) => ({ ...tx }))
+      .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+  }
+
   private matchesTxQuery(tx: Transaction, q: TxQuery, searchNorm: string): boolean {
     if (tx.deletedAt != null) return false;
     if (q.type && tx.type !== q.type) return false;
@@ -250,6 +261,7 @@ export class MemoryRepo implements Repo {
   }
 
   async upsertCategory(c: Category): Promise<void> {
+    assertValidCategoryInput(c);
     this.categories.set(c.id, {
       ...c,
       colorKey: normalizeCategoryColorKey(c.colorKey),
@@ -343,6 +355,12 @@ export class MemoryRepo implements Repo {
     return this.dayReviews.has(day);
   }
 
+  async listAllDayReviews(): Promise<DayReviewRecord[]> {
+    return Array.from(this.dayReviews.entries())
+      .map(([day, reviewedAt]) => ({ day, reviewedAt }))
+      .sort((a, b) => a.day.localeCompare(b.day));
+  }
+
   async deleteAllData(): Promise<void> {
     this.transactions.clear();
     this.budgets.clear();
@@ -352,6 +370,69 @@ export class MemoryRepo implements Repo {
     this.categories.clear();
     for (const cat of buildDefaultCategories(Date.now())) {
       this.categories.set(cat.id, { ...cat });
+    }
+  }
+
+  async replaceAllDataFromBackup(data: BackupDataSnapshot): Promise<void> {
+    const prevTransactions = new Map(
+      Array.from(this.transactions.entries()).map(([k, v]) => [k, { ...v }])
+    );
+    const prevCategories = new Map(
+      Array.from(this.categories.entries()).map(([k, v]) => [k, { ...v }])
+    );
+    const prevBudgets = new Map(
+      Array.from(this.budgets.entries()).map(([k, v]) => [k, { ...v }])
+    );
+    const prevSeeded = new Set(this.seededBudgetPeriods);
+    const prevDayReviews = new Map(this.dayReviews);
+    const prevSettings = cloneSettings(this.settings);
+
+    try {
+      this.transactions.clear();
+      this.categories.clear();
+      this.budgets.clear();
+      this.seededBudgetPeriods.clear();
+      this.dayReviews.clear();
+
+      for (const cat of data.categories) {
+        assertValidCategoryInput(cat);
+        this.categories.set(cat.id, {
+          ...cat,
+          colorKey: normalizeCategoryColorKey(cat.colorKey),
+        });
+      }
+
+      for (const tx of data.transactions) {
+        assertValidNewTransaction(tx);
+        if (tx.categoryId !== null && !this.categories.has(tx.categoryId)) {
+          throw new Error(`Unknown categoryId "${tx.categoryId}" on transaction "${tx.id}"`);
+        }
+        this.transactions.set(tx.id, { ...tx });
+      }
+
+      for (const b of data.budgets) {
+        if (!isValidBudgetAmount(b.amountMinor)) {
+          throw new Error(`Invalid budget amount: ${b.amountMinor}`);
+        }
+        if (b.categoryId !== '' && !this.categories.has(b.categoryId)) {
+          throw new Error(`Unknown categoryId "${b.categoryId}" on budget "${b.periodStart}"`);
+        }
+        this.budgets.set(this.budgetKey(b.periodStart, b.categoryId), { ...b });
+      }
+
+      for (const dr of data.day_reviews) {
+        this.dayReviews.set(dr.day, dr.reviewedAt);
+      }
+
+      this.settings = cloneSettings(data.settings);
+    } catch (err) {
+      this.transactions = prevTransactions;
+      this.categories = prevCategories;
+      this.budgets = prevBudgets;
+      this.seededBudgetPeriods = prevSeeded;
+      this.dayReviews = prevDayReviews;
+      this.settings = prevSettings;
+      throw err;
     }
   }
 }

@@ -17,7 +17,11 @@ import {
 } from '@/domain/dates';
 import { formatMinorToDraft, getCurrencySymbol, parseMoneyInput } from '@/domain/money';
 import type { Category, LocalDate, TransactionType } from '@/domain/types';
-import { isValidLocalTime } from '@/domain/validation';
+import {
+  MAX_DESCRIPTION_LENGTH,
+  MAX_QUICK_ENTRY_LENGTH,
+  isValidLocalTime,
+} from '@/domain/validation';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
@@ -42,6 +46,7 @@ import {
   isAvailable as isSpeechAvailable,
   requestSpeechPermission,
   startListening,
+  supportsOnDeviceRecognition,
   type SpeechSessionHandle,
 } from '@/voice/speech';
 
@@ -58,7 +63,7 @@ interface EditableDraft {
 }
 
 export default function QuickEntryScreen() {
-  const { repo, settings } = useAppContext();
+  const { repo, settings, updateSetting } = useAppContext();
   const { theme } = useTheme();
   const { showToast } = useToast();
 
@@ -74,6 +79,7 @@ export default function QuickEntryScreen() {
   const [isListening, setIsListening] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState<string | null>(null);
   const [voiceExplainOpen, setVoiceExplainOpen] = useState(false);
+  const [speechDisclosureOpen, setSpeechDisclosureOpen] = useState(false);
   const usedVoiceRef = useRef(false);
   const speechSessionRef = useRef<SpeechSessionHandle | null>(null);
 
@@ -155,14 +161,7 @@ export default function QuickEntryScreen() {
     }
   }, [runParse]);
 
-  const handleMicPress = async () => {
-    if (isListening) {
-      speechSessionRef.current?.stop();
-      setIsListening(false);
-      return;
-    }
-
-    setVoiceMessage(null);
+  const continueMicFlow = async () => {
     const status = await getSpeechPermissionStatus();
     if (status === 'granted') {
       beginListening();
@@ -171,6 +170,27 @@ export default function QuickEntryScreen() {
     } else {
       setVoiceMessage(t('quickEntry.voiceDenied'));
     }
+  };
+
+  const handleMicPress = async () => {
+    if (isListening) {
+      speechSessionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+
+    setVoiceMessage(null);
+    if (!supportsOnDeviceRecognition() && !settings.speechDisclosureAccepted) {
+      setSpeechDisclosureOpen(true);
+      return;
+    }
+    await continueMicFlow();
+  };
+
+  const handleConfirmSpeechDisclosure = async () => {
+    setSpeechDisclosureOpen(false);
+    await updateSetting('speechDisclosureAccepted', true);
+    await continueMicFlow();
   };
 
   const handleConfirmPermissionExplain = async () => {
@@ -308,6 +328,7 @@ export default function QuickEntryScreen() {
               testID="quick-entry-input"
               label={t('quickEntry.inputLabel')}
               placeholder={t('quickEntry.inputPlaceholder')}
+              maxLength={MAX_QUICK_ENTRY_LENGTH}
               value={inputText}
               onChangeText={(txt) => {
                 usedVoiceRef.current = false;
@@ -536,6 +557,7 @@ export default function QuickEntryScreen() {
                       label={t('common.description')}
                       leftIcon="pencil"
                       placeholder={t('tx.descriptionPlaceholder')}
+                      maxLength={MAX_DESCRIPTION_LENGTH}
                       value={draft.description}
                       onChangeText={(txt) =>
                         updateDraft(draft.id, (prev) => ({ ...prev, description: txt }))
@@ -620,6 +642,48 @@ export default function QuickEntryScreen() {
             variant="primary"
             onPress={() => {
               void handleConfirmPermissionExplain();
+            }}
+            style={styles.flex1}
+          />
+        </View>
+      </Sheet>
+
+      {/* One-time Online Speech Disclosure Bottom Sheet */}
+      <Sheet
+        testID="quick-entry-speech-disclosure-sheet"
+        visible={speechDisclosureOpen}
+        onClose={() => setSpeechDisclosureOpen(false)}
+        title={t('quickEntry.speechDisclosureTitle')}
+      >
+        <View style={styles.voiceModalInfo}>
+          <View
+            style={[
+              styles.voiceModalIcon,
+              {
+                backgroundColor: theme.colors.accentSoft,
+                borderRadius: theme.radius.pill,
+              },
+            ]}
+          >
+            <AppIcon name="mic" size={24} color={theme.colors.accent} />
+          </View>
+          <AppText variant="body" color="textSecondary" style={styles.flex1}>
+            {t('quickEntry.speechDisclosureBody')}
+          </AppText>
+        </View>
+        <View style={styles.sheetActionsRow}>
+          <Button
+            title={t('common.cancel')}
+            variant="secondary"
+            onPress={() => setSpeechDisclosureOpen(false)}
+            style={styles.flex1}
+          />
+          <Button
+            testID="quick-entry-speech-disclosure-confirm"
+            title={t('quickEntry.speechDisclosureConfirm')}
+            variant="primary"
+            onPress={() => {
+              void handleConfirmSpeechDisclosure();
             }}
             style={styles.flex1}
           />

@@ -3,6 +3,7 @@ import {
   type Budget,
   type Category,
   type CurrencyCode,
+  type DayReviewRecord,
   type LocalDate,
   type NewTransaction,
   type Settings,
@@ -14,6 +15,14 @@ import {
   type TxSearchResult,
 } from '@/domain/types';
 
+export interface BackupDataSnapshot {
+  categories: Category[];
+  transactions: Transaction[];
+  budgets: Budget[];
+  settings: Settings;
+  day_reviews: DayReviewRecord[];
+}
+
 export interface Repo {
   // Transactions
   insertTransaction(t: NewTransaction): Promise<void>;
@@ -23,6 +32,7 @@ export interface Repo {
   softDeleteTransaction(id: string): Promise<void>;
   getTransaction(id: string): Promise<Transaction | null>;
   listTransactionsInRange(fromIncl: LocalDate, toExcl: LocalDate): Promise<Transaction[]>;
+  listAllTransactionsForBackup(): Promise<Transaction[]>;
   searchTransactions(q: TxQuery, page: TxPage): Promise<TxSearchResult>;
   summarizeTransactions(q: TxQuery, currency: CurrencyCode): Promise<TxQuerySummary>;
   hasAnyTransactions(): Promise<boolean>;
@@ -45,7 +55,9 @@ export interface Repo {
   setSetting<K extends keyof Settings>(k: K, v: Settings[K]): Promise<void>;
   markDayReviewed(day: LocalDate): Promise<void>;
   isDayReviewed(day: LocalDate): Promise<boolean>;
+  listAllDayReviews(): Promise<DayReviewRecord[]>;
   deleteAllData(): Promise<void>;
+  replaceAllDataFromBackup(data: BackupDataSnapshot): Promise<void>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -61,4 +73,6 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   sampleDataLoaded: false,
   notificationPermissionDenied: false,
+  lastBackupAt: null,
+  speechDisclosureAccepted: false,
 };

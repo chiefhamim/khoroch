@@ -64,6 +64,21 @@ export function isAvailable(): boolean {
   }
 }
 
+/**
+ * Returns true when on-device speech recognition is available without sending audio online.
+ */
+export function supportsOnDeviceRecognition(): boolean {
+  const mod = loadSpeechModule();
+  if (!mod) return false;
+  try {
+    return typeof mod.supportsOnDeviceRecognition === 'function'
+      ? Boolean(mod.supportsOnDeviceRecognition())
+      : false;
+  } catch {
+    return false;
+  }
+}
+
 export async function getSpeechPermissionStatus(): Promise<SpeechPermissionState> {
   const mod = loadSpeechModule();
   if (!mod) return 'unavailable';
@@ -155,11 +170,13 @@ export function startListening(handlers: SpeechSessionHandlers): SpeechSessionHa
       })
     );
 
+    const useOnDevice = supportsOnDeviceRecognition();
     mod.start({
       lang: handlers.lang ?? 'en-US',
       interimResults: true,
       maxAlternatives: 1,
       continuous: false,
+      ...(useOnDevice ? { requiresOnDeviceRecognition: true } : {}),
     });
 
     return {

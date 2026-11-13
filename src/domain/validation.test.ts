@@ -1,4 +1,13 @@
-import { validateNewTransaction } from './validation';
+import {
+  MAX_CATEGORY_NAME_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+  MAX_NOTE_LENGTH,
+  MAX_QUICK_ENTRY_LENGTH,
+  isValidCategoryKind,
+  isValidQuickEntryText,
+  validateCategoryInput,
+  validateNewTransaction,
+} from './validation';
 
 describe('validation', () => {
   it('accepts valid expense and income transactions', () => {
@@ -76,5 +85,56 @@ describe('validation', () => {
         occurredOn: '2026-02-30',
       }).errors
     ).toContain('invalid_date');
+  });
+
+  test('enforces S7 bounded length limits for description, note, quick entry, and category names', () => {
+    expect(
+      validateNewTransaction({
+        id: 'tx-max',
+        type: 'expense',
+        amountMinor: 1000,
+        currency: 'BDT',
+        occurredOn: '2026-11-13',
+        description: 'a'.repeat(MAX_DESCRIPTION_LENGTH),
+        note: 'b'.repeat(MAX_NOTE_LENGTH),
+      }).valid
+    ).toBe(true);
+
+    expect(
+      validateNewTransaction({
+        id: 'tx-too-long',
+        type: 'expense',
+        amountMinor: 1000,
+        currency: 'BDT',
+        occurredOn: '2026-11-13',
+        description: 'a'.repeat(MAX_DESCRIPTION_LENGTH + 1),
+        note: 'b'.repeat(MAX_NOTE_LENGTH + 1),
+      }).errors
+    ).toEqual(expect.arrayContaining(['description_too_long', 'note_too_long']));
+
+    expect(isValidQuickEntryText('x'.repeat(MAX_QUICK_ENTRY_LENGTH))).toBe(true);
+    expect(isValidQuickEntryText('x'.repeat(MAX_QUICK_ENTRY_LENGTH + 1))).toBe(false);
+
+    expect(
+      validateCategoryInput({
+        id: 'cat-ok',
+        name: 'c'.repeat(MAX_CATEGORY_NAME_LENGTH),
+        kind: 'expense',
+        icon: 'utensils',
+      }).valid
+    ).toBe(true);
+
+    expect(
+      validateCategoryInput({
+        id: 'cat-long',
+        name: 'c'.repeat(MAX_CATEGORY_NAME_LENGTH + 1),
+        kind: 'expense',
+        icon: 'utensils',
+      }).errors
+    ).toContain('category_name_too_long');
+
+    expect(isValidCategoryKind('expense')).toBe(true);
+    expect(isValidCategoryKind('income')).toBe(true);
+    expect(isValidCategoryKind('transfer')).toBe(false);
   });
 });

@@ -4,7 +4,7 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done and verified · `BL
 Rules: `AGENTS.md`. At the start of **every** phase re-read AGENTS.md + SPEC DECISIONS + the sections listed. Don't rely on memory.
 You may tick boxes, add `BLOCKED:` notes under tasks, and append to the Log. Don't delete or reword tasks or "Done when" lines.
 
-> **v1.0 (Phases 0–6) is done.** The current work is **v1.1 UI OVERHAUL, Phases 7–13, at the bottom of this file.** Their spec is `docs/ui-overhaul/DESIGN.md` (+ `mockup.html`). Phone rules: AGENTS.md §6.
+> **v1.0 (Phases 0–6) and v1.1 (Phases 7–13) are done.** The current work is **v1.2 MONEY NOTEBOOK, Phases 14–25, at the very bottom of this file.** Spec: `docs/v1.2/PLAN.md` + `TEST-CASES-v1.2.md` + `mockup.html`. Phone rules: AGENTS.md §6 and §7 (dev app).
 
 Standard checks (referred to below as **CHECKS**):
 `npm run typecheck` → 0 errors · `npx expo lint` → 0 errors · `npm test` → all pass, 0 skipped · `npx expo export --platform web --output-dir dist-check` → succeeds
@@ -375,3 +375,154 @@ Re-read: DESIGN (all) · AGENTS §5, §6
 2. Tap center **`+`** to test Add (`+ Add a note`, category grid, keypad) or long-press **`+`** / tap **Say or type it** for offline Quick Entry (`"350 lunch"`).
 3. Check **Settings** → **Cycle starts on**, **Daily reminder** (Material clock picker + `Sun–Thu`/`Every day` presets), and **Categories** (tap any tile to recolor or rename).
 4. Use [`docs/PHONE-TEST.md`](PHONE-TEST.md) anytime for a full manual regression pass.
+
+
+---
+---
+
+# v1.2 MONEY NOTEBOOK — Phases 14–25
+
+Spec: **`docs/v1.2/PLAN.md`** (review §1, direction §2, visuals §3, data model + money rules §4, sharing §5, backup §6, dev app §7, day-to-day features §8) · **`docs/v1.2/TEST-CASES-v1.2.md`** · visual target **`docs/v1.2/mockup.html`** (open it at the start of every UI phase). These override `docs/ui-overhaul/DESIGN.md` where they conflict.
+At the start of every phase re-read: AGENTS.md (§6 phone rules + §7 dev app), PLAN.md §2–§4, and the sections listed for the phase.
+
+**PHONE CHECK v1.2:** from Phase 15 on, install and test on the phone using the **dev app** (`com.hamim.budgetapp.dev`) only. Take screenshots in light + dark into `docs/v1.2/after/phase-N/`, look at them, compare them with the mockup, and fix what's off. The owner's app is touched only in Phase 25. If the phone is unreachable or locked, do the web check at 360/390/430 instead and log "PHONE CHECK skipped: <reason>".
+
+## Phase 14 — Safety first: security fixes, backup, dev app, signing  [x]
+Re-read: PLAN §1 (security table), §6, §7 · TEST-CASES-v1.2 §C
+- [x] S3 `db.ts` reset `repoPromise` on failure (+ test) · S4 delete-all cancels reminders (+ test) · S5 `android.blockedPermissions` (SYSTEM_ALERT_WINDOW, READ/WRITE_EXTERNAL_STORAGE) · S7 length limits in UI and `validation.ts` (+ tests) · S8 safe JSON parse (+ test) · S9 VACUUM + WAL checkpoint after delete-all · S10 on-device speech when supported, else a one-time disclosure
+- [x] `app.json` → `app.config.ts` with `APP_VARIANT=dev` → `com.hamim.budgetapp.dev`, "Budget Dev", tinted icon. Production values unchanged (`com.hamim.budgetapp`, "Budget App")
+- [x] Backup export/import per PLAN §6 (`src/data/backup.ts` + Settings → Backup & restore + Home nudge) with every TEST-CASES-v1.2 §C test
+- [x] Private release keystore: generate it **outside the repo** (`%USERPROFILE%\.keystores\budgetapp-release.jks`), with passwords in `%USERPROFILE%\.gradle\gradle.properties`. A local config plugin (`plugins/withReleaseSigning.js`) uses it **only when `BUDGET_RELEASE_SIGNING=new`** is set; the default build stays on the current key so updates to the owner's phone keep working. Never commit the keystore or passwords.
+- [x] Write `docs/v1.2/KEY-SWITCH.md` (the owner's runbook: export → verify file → install new-key build (needs uninstall) → import → verify counts). **Don't execute it.**
+- [x] Settings → Privacy: explain Google auto-backup (S6 decision) in plain words
+- [x] Build + install the **dev app** on the phone; check that export → delete all → import works on the device with sample data
+
+**Done when:** CHECKS pass (incl. §C) · on the phone's dev app: backup round-trip verified with counts logged · S3–S10 each closed with file:line in the Log · keystore exists outside the repo and `git status` shows no key material.
+
+## Phase 15 — Visual system v1.2  [ ]
+Re-read: PLAN §3 · mockup.html
+- [ ] Fonts: Plus Jakarta Sans (400–800) + Hind Siliguri 600 for ৳. `Money` v3 with a `TakaSign` that never falls back (size 0.72×, baseline tuned per size bucket). Unit test: `Money` renders ৳ in the Hind Siliguri family
+- [ ] Tokens v1.2 from the mockup (warm neutrals, ink buttons, solid hero colour per accent), contrast tests updated
+- [ ] Theme engine: 5 accents × System/Light/Dark/Black, persisted in settings; `useTheme` exposes accent + card gradient
+- [ ] Solid hero card component (no gradient), flat cards with hairline borders and no shadows, neutral icon tiles, flush tab bar (Home · Ledger · + · Plan · People) per PLAN §3 and the refined mockup. Rename Activity→Ledger and Budget→Plan routes/labels (keep the old routes redirecting); Insights moves inside Plan (old route redirects). The `other` category icon becomes `shapes` (AGENTS §4b)
+- [ ] `src/__tests__/no-ellipsis.test.ts` per AGENTS §4b, passing
+- [ ] Number formatting: averages as whole taka, "—" + reason for missing values, compact-number helper (TEST-CASES-v1.2 §E)
+- [ ] Dev gallery updated: every component × every accent × modes
+- [ ] Native rebuild (fonts) → dev app on the phone
+
+**Done when:** CHECKS pass · PHONE CHECK (dev app): ৳ next to numbers at sizes 12/15/17/28/40 in light + dark (screenshot each; the ৳ must look the same weight and size as the digits, sitting on the baseline) · gallery screenshots for Forest + one other accent, light/dark/black.
+
+## Phase 16 — Wallets & transfers: data + maths  [ ]
+Re-read: PLAN §4 · TEST-CASES-v1.2 §A
+- [ ] Migration v3 exactly per PLAN §4 (additive), with a test migrating a v2 DB that holds real-shaped data, every row intact
+- [ ] Repo: accounts CRUD/archive, transfers CRUD with the linked fee expense in one DB transaction, `account_id` on transactions, queries by account
+- [ ] `src/domain/accounts.ts`: balances, total, the credit-card "due" display. Every §A number as a test
+- [ ] Backup schema extended to the new tables (§C round-trip still passes)
+
+**Done when:** CHECKS pass · every §A row is a passing test · migration test passes.
+
+## Phase 17 — Wallets UI  [ ]
+Re-read: PLAN §2, §3 (wallet identity), §4 · mockup Home/Add/Ledger
+- [ ] Wallet setup: onboarding step (new installs) + "Set up your wallets" card on Home for existing users. Presets Cash / bKash / Nagad / Upay / Rocket / Bank / Card / Other, balance **as of today**, skippable
+- [ ] Manage wallets screen (add/edit/reorder/archive, include-in-total, card last4) + wallet detail (balance, entries, mini balance chart)
+- [ ] Add screen: Out / In / **Transfer** segmented. Wallet chip (remembers the last-used wallet; optional, "No wallet" allowed). Transfer = from/to + amount + fee (with a "fee?" hint for MFS cash-outs, user-entered, no hard-coded rates). Save label "Save · ৳350 from bKash"
+- [ ] Home per mockup: hero card (total across wallets, In/Out this cycle, budget line if set; tap to hide amounts) + wallets list. Without wallets the card shows In/Out/Spent with the setup prompt
+- [ ] Ledger: wallet filter as underlined words, the wallet name on every row, transfer rows ("bKash → Cash", fee line), filters gain a wallet option
+- [ ] Optional "Tag older entries" helper (sets account_id only)
+
+**Done when:** CHECKS pass · component tests: transfer form saves the transfer + fee atomically; the wallet chip defaults to last used · PHONE CHECK (dev app, sample wallets): reproduce TEST-CASES-v1.2 §A by hand and screenshot Home showing **৳6,531.50** total, bKash **৳11,131.50**, Card "৳5,600 due".
+
+## Phase 18 — People & dues  [ ]
+Re-read: PLAN §2, §4 (v4) · TEST-CASES-v1.2 §B, §D
+- [ ] Migration v4 + repo + `src/domain/dues.ts` with every §B case
+- [ ] Home dues line ("Rafi owes you ৳1,500 · You owe Shuvo ৳300") → **People tab** (open / settled) → person detail per mockup screen 7 (timeline, "Settle up" sheet that prefills the outstanding amount)
+- [ ] Reminder message per PLAN §8.4: English | বাংলা toggle, editable text, honorific per person, WhatsApp / Messenger / Copy (+ tests for both templates incl. Bangla digits)
+- [ ] Add flows: a "Lend / Borrow" entry point in the Add screen (tile in the category grid per mockup, opening a dues form), wallet optional
+- [ ] Parser: every §D row (wallet words, cash out → transfer, sent to X → lent, X paid me back → received_back)
+
+**Done when:** CHECKS pass · §B and §D tests pass · PHONE CHECK (dev app): create Rafi/Nafees from §B by hand, screenshot the Home dues line (৳2,000 / ৳300) and Rafi's detail with the বাংলা reminder.
+
+## Phase 19 — Make it yours: appearance, privacy, app lock  [ ]
+Re-read: PLAN §3 (personalisation)
+- [ ] Appearance screen per mockup: solid accent swatches, mode tiles, hide amounts when the app opens (shows `Hidden`, no dots), show পয়সা, compact numbers, week starts on (Saturday default; affects "This week" everywhere, + tests)
+- [ ] Home sections: show/hide + reorder (persisted)
+- [ ] Profile: name + avatar colour or initial
+- [ ] App lock (`expo-local-authentication`): off by default; on = biometric or device credential on open and after N minutes in background; it never locks you out (falls back to device PIN). Native rebuild
+
+**Done when:** CHECKS pass · PHONE CHECK (dev app): every accent × light/dark screenshot of Home; hide-amounts screenshot; app-lock prompt screenshot.
+
+## Phase 20 — Sharing  [ ]
+Re-read: PLAN §5
+- [ ] Share sheet screen per mockup: snapshot card (`react-native-view-shot`) with privacy toggles (balances **off** by default), CSV of the current Ledger filter, PDF monthly statement (`expo-print`), all via `expo-sharing`
+- [ ] Share entry points: Home share icon, Insights period, wallet detail, person detail ("Send Rafi a summary of what he owes", amounts only for that person)
+- [ ] Tests: CSV escaping (commas, quotes, Bangla text, newlines), card data respects the toggles, hidden-amounts mode masks the share output too
+
+**Done when:** CHECKS pass · PHONE CHECK (dev app): generate image, CSV and PDF; open each from the share sheet into Files; screenshot.
+
+## Phase 21 — Close the day + monthly bills  [ ]
+Re-read: PLAN §8.1, §8.3, §8.8 · TEST-CASES-v1.2 §F · mockup screens 1, 4, 6
+- [ ] Migration v5 exactly per PLAN §8.8 (additive), with a test migrating a v4 DB holding real-shaped data, every row intact; seed `untracked`; backup schema extended (§C still passes)
+- [ ] `src/domain/cashCount.ts` + `src/domain/bills.ts` with every §F cash-count and bills case
+- [ ] Cash count screen (mockup 4), entry points (Home notice after 6 pm, Ledger Today header, evening reminder), outcomes match / lost track / found / add entry
+- [ ] Bills: Plan → Bills section (mockup 6), add/edit/archive bill, "Paid" sheet writing expense + payment atomically, undo, optional day-before reminder (no amounts)
+
+**Done when:** CHECKS pass · §F cash-count and bills tests pass · PHONE CHECK (dev app): count cash with the §F notes and screenshot the "৳50 short" state; screenshot Bills with 4 of 7 paid.
+
+## Phase 22 — Bazar lists + payday split  [ ]
+Re-read: PLAN §8.2, §8.5 · TEST-CASES-v1.2 §F · mockup screens 5, 8
+- [ ] `src/domain/shopping.ts` + `src/domain/payday.ts` with every §F case
+- [ ] Bazar lists (mockup 5): create, add items without prices, tick → price sheet, price memory hint, "Save as one entry", list opens from its Ledger row, "Use last list again"
+- [ ] Payday split (mockup 8): offered after saving a salary income and from Plan, lines editable, placed-of-total bar, "Start the month" writes budgets, save/send lines with "Mark done"
+- [ ] Envelope "left" shown per spend line during the month (reuse existing calc)
+
+**Done when:** CHECKS pass · §F bazar and payday tests pass · PHONE CHECK (dev app): build the §F Friday bazar list and save it (Ledger shows one ৳1,170 Groceries entry); run the §F payday split and screenshot Plan with the budgets it wrote.
+
+## Phase 23 — Occasions + widgets  [ ]
+Re-read: PLAN §8.6, §8.7 · TEST-CASES-v1.2 §F · mockup screens 9, 12
+- [ ] `src/domain/occasions.ts` + calc changes so excluded occasion expenses leave budget, safe-to-spend and Insights totals (every §F occasion case, plus the existing calc tests still pass unchanged)
+- [ ] Occasion page (mockup 9), "Occasion" row on Add while one is open, Insights "Occasions" line
+- [ ] Evening reminder text per PLAN §8.7 (no amounts)
+- [ ] Widgets with `react-native-android-widget` (Today, Person owes, Next bill), deep links, "Hide amounts on widgets". Native rebuild. 3-strike → BLOCKED, keep the reminder
+
+**Done when:** CHECKS pass · §F occasion tests pass · PHONE CHECK (dev app): occasion page screenshot; home-screen screenshot with the widgets placed (or BLOCKED with the build error).
+
+## Phase 24 — Rigorous QA  [ ]
+Re-read: everything in docs/v1.2 · SPEC §26
+- [ ] **E2E with Maestro** on the dev app (install the Maestro CLI inside the project's tools folder or via its Windows installer into the user profile, with no OS changes; if impossible after 3 tries → BLOCKED and fall back to scripted `adb` + `uiautomator` flows). Flows in `e2e/`: onboarding with wallets · add out/in/transfer with fee · dues lend → reminder → settle · budget set → over-budget state · cash count short → lost track · bazar list → one entry · bill paid → undo · payday split → budgets · occasion excluded from the month · backup export → delete all → import · theme switch · app lock
+- [ ] Load test: a dev-only generator for 5,000 transactions / 6 wallets / 20 people over 12 months; measure Home first render and Ledger scroll (log the numbers; Home < 500 ms after DB ready on the S25)
+- [ ] Edge sweep: month/cycle boundaries with wallets (opening date mid-cycle), leap day, deleting a wallet with history (archive only), archived category on old entries, a huge amount (999,999,999.99), Bangla text in names/notes, 0-fee transfer, hide-amounts + share
+- [ ] Accessibility: TalkBack labels on wallet cards, dues and share toggles; touch targets ≥ 48; contrast for all 5 accents × modes (automated test)
+- [ ] Security re-check: grep for `console.log` of money, look at the release manifest permissions, re-run `npm audit --omit=dev` (log it; don't downgrade majors)
+
+**Done when:** all CHECKS + every Maestro flow passes 2 runs in a row on the dev app (or the adb fallback with screenshots) · load numbers logged · findings fixed or logged as BLOCKED.
+
+## Phase 25 — Release to the owner's phone  [ ]
+Re-read: AGENTS §6 · PLAN §6
+- [ ] Bump the version to **1.2.0** · release build with the **current** key (no `BUDGET_RELEASE_SIGNING`) · `adb install -r` to `com.hamim.budgetapp` (the owner's app). If install is refused → STOP, BLOCKED
+- [ ] Cold start: migrations v3/v4 ran, the owner's existing transactions are intact (count before vs after, logged), and wallets are empty with the setup card shown
+- [ ] Do **not** add wallets or data to the owner's app. Leave Appearance on its current settings
+- [ ] Update README, PHONE-TEST.md, START-HERE
+- [ ] Write the **v1.2 summary**: what changed, before/after screenshot pairs, BLOCKED items, and the 3 things the owner should do first (back up, set up wallets, read KEY-SWITCH.md)
+
+**Done when:** release installed and cold-started on the owner's phone with data intact · v1.2 summary written.
+
+## v1.2 Log
+<!-- per phase: date/time, phase, built, CHECKS, PHONE CHECK (dev app) screenshots or skip reason, BLOCKED, D-entries -->
+- **2026-11-13 · Phase 14 — Safety first: security fixes, backup, dev app, signing**
+  - **Built:**
+    - **S3**: `src/data/db.ts:28,38` resets `repoPromise = null` on open/init failure (`src/data/safety.test.ts`).
+    - **S4**: `src/data/deleteAll.ts:8` (`runDeleteAllData` awaits `cancelAllReminders()`), invoked at `src/app/settings/index.tsx:278` (`src/data/safety.test.ts`).
+    - **S5**: `app.config.ts:64-68` blocks `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE` (verified via prebuild manifest + `aapt2 dump permissions`).
+    - **S6**: `src/app/settings/index.tsx:1083-1097` (`settings-privacy-sheet`) explains local SQLite storage, Google Auto Backup (`allowBackup="true"`), and Speech Services.
+    - **S7**: `src/domain/validation.ts:5-9,44,88,93,120` max-length bounds, enforced in `src/ui/TransactionForm.tsx:746,880`, `src/app/quick-entry.tsx:331,560`, `src/app/settings/categories.tsx:366`, and `src/app/settings/index.tsx:755` (`src/domain/validation.test.ts`).
+    - **S8**: `src/data/sqliteRepo.ts:523-553` (`parseJson` safe `JSON.parse` with fallback).
+    - **S9**: `src/data/sqliteRepo.ts:601-606` runs `PRAGMA wal_checkpoint(TRUNCATE);` + `VACUUM;` in `deleteAllData()`.
+    - **S10**: `src/voice/speech.ts:70-75,173` (`supportsOnDeviceRecognition()`) + `src/app/quick-entry.tsx:183,192` one-time `quick-entry-speech-disclosure-sheet` persisted via `speechDisclosureAccepted` (`src/voice/speech.test.ts`).
+    - Replaced `app.json` with `app.config.ts` (`APP_VARIANT=dev` -> `com.hamim.budgetapp.dev` / `"Budget Dev"` / emerald-tinted `assets/images/*-dev.png`; prod `com.hamim.budgetapp` / `"Budget App"` unchanged), added `plugins/withReleaseSigning.js` (active only with `BUDGET_RELEASE_SIGNING=new`), `src/config/appConfig.test.ts`, external keystore `C:\Users\hamim\.keystores\budgetapp-release.jks` + `C:\Users\hamim\.gradle\gradle.properties` (zero key material in repo), and `docs/v1.2/KEY-SWITCH.md`.
+    - Implemented JSON backup export/restore + Home backup nudge (`src/data/backup.ts`, `src/data/backupFiles.ts`, `src/app/settings/index.tsx`, `src/app/(tabs)/index.tsx`, `src/data/backup.test.ts` covering TEST-CASES-v1.2 §C).
+  - **CHECKS:** `npm run typecheck` (0 errors) · `npx expo lint` (0 errors, 0 warnings) · `npm test -- --no-color` (21 passed / 21 suites, 111 passed / 111 tests) · `npx expo export --platform web --output-dir dist-check` (3169 modules, exit 0; removed `dist-check`).
+  - **PHONE CHECK (dev app, `SM_S938B` via ADB `192.168.0.154:45643`):** Installed standalone `com.hamim.budgetapp.dev` (`assembleRelease` debug-signed) alongside untouched `com.hamim.budgetapp`. Entered 3 sample expenses (`450 Lunch`, `1200 Groceries`, `250 Rickshaw`; Home `৳1,900`), exported `budget-app-backup-2026-11-13.json` (`7514` bytes: `schema: 2`, `20 categories`, `3 transactions`, `0 budgets`, `0 day_reviews`) via SAF to `Download/BudgetBackups`, deleted all data (reset to onboarding / `৳0` DB), restored via preview (`"13 Nov · 3 transactions · 20 categories"`), verified `DevCheck` + Home `৳1,900` + all 3 Activity rows. Screenshots (`docs/v1.2/after/phase-14/`): `home-nudge-light.png`, `home-nudge-dark.png`, `backup-sheet-light.png`, `backup-sheet-dark.png`, `restore-confirm-dark.png`, `privacy-light.png`, `privacy-dark.png`.
+  - **BLOCKED:** None · **D-entries:** `D-009`
+
+## v1.2 summary
+<!-- written at the end -->

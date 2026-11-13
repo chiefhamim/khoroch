@@ -10,7 +10,7 @@ let repoPromise: Promise<{ repo: Repo; backend: 'sqlite' | 'memory' }> | null = 
 export async function initRepo(): Promise<{ repo: Repo; backend: 'sqlite' | 'memory' }> {
   if (repoPromise) return repoPromise;
 
-  repoPromise = (async () => {
+  const pending = (async () => {
     try {
       const db = await SQLite.openDatabaseAsync('budget.db');
       await runMigrations(db);
@@ -22,9 +22,16 @@ export async function initRepo(): Promise<{ repo: Repo; backend: 'sqlite' | 'mem
       }
       throw err;
     }
-  })();
+  })().catch((err) => {
+    // S3: clear rejected cache so a user-triggered retry can attempt init again.
+    if (repoPromise === pending) {
+      repoPromise = null;
+    }
+    throw err;
+  });
 
-  return repoPromise;
+  repoPromise = pending;
+  return pending;
 }
 
 export function resetRepoForTests(): void {

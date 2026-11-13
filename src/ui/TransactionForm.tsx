@@ -27,7 +27,11 @@ import type {
   Transaction,
   TransactionType,
 } from '@/domain/types';
-import { isValidLocalTime } from '@/domain/validation';
+import {
+  MAX_DESCRIPTION_LENGTH,
+  MAX_NOTE_LENGTH,
+  isValidLocalTime,
+} from '@/domain/validation';
 import { t } from '@/i18n';
 import { CATEGORY_COLORS, CATEGORY_COLOR_KEYS } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
@@ -739,6 +743,7 @@ export function TransactionForm({
                 leftIcon="pencil"
                 value={note}
                 onChangeText={setNote}
+                maxLength={MAX_NOTE_LENGTH}
                 onClear={
                   note.length > 0
                     ? () => setNote('')
@@ -872,6 +877,7 @@ export function TransactionForm({
             placeholder={t('tx.descriptionPlaceholder')}
             value={description}
             onChangeText={setDescription}
+            maxLength={MAX_DESCRIPTION_LENGTH}
             onClear={description.length > 0 ? () => setDescription('') : undefined}
             onFocus={() => setActiveField('description')}
             onBlur={() => setActiveField((prev) => (prev === 'description' ? null : prev))}

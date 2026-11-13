@@ -1,10 +1,15 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { assertValidNewTransaction, isValidBudgetAmount } from '@/domain/validation';
+import {
+  assertValidCategoryInput,
+  assertValidNewTransaction,
+  isValidBudgetAmount,
+} from '@/domain/validation';
 import {
   normalizeReminderSettings,
   type Budget,
   type Category,
   type CurrencyCode,
+  type DayReviewRecord,
   type LocalDate,
   type NewTransaction,
   type Settings,
@@ -19,7 +24,7 @@ import {
 } from '@/domain/types';
 import { normalizeCategoryColorKey } from '@/theme/categoryColors';
 import { seedDefaultCategoriesSqlite } from './migrations';
-import { DEFAULT_SETTINGS, type Repo } from './repo';
+import { DEFAULT_SETTINGS, type BackupDataSnapshot, type Repo } from './repo';
 
 interface TransactionRow {
   id: string;
@@ -65,6 +70,8 @@ const SETTING_DB_KEYS: Record<keyof Settings, string> = {
   reminder: 'reminder',
   sampleDataLoaded: 'sample_data_loaded',
   notificationPermissionDenied: 'notification_permission_denied',
+  lastBackupAt: 'last_backup_at',
+  speechDisclosureAccepted: 'speech_disclosure_accepted',
 };
 
 const BUDGET_SEEDED_KEY = '_budget_periods_seeded';
@@ -239,6 +246,13 @@ export class SqliteRepo implements Repo {
     return rows.map(mapTransactionRow);
   }
 
+  async listAllTransactionsForBackup(): Promise<Transaction[]> {
+    const rows = await this.db.getAllAsync<TransactionRow>(
+      `SELECT * FROM transactions ORDER BY created_at ASC, id ASC`
+    );
+    return rows.map(mapTransactionRow);
+  }
+
   private buildSearchFilter(q: TxQuery): { clauses: string[]; params: (string | number)[] } {
     const clauses: string[] = ['deleted_at IS NULL'];
     const params: (string | number)[] = [];
@@ -375,6 +389,7 @@ export class SqliteRepo implements Repo {
   }
 
   async upsertCategory(c: Category): Promise<void> {
+    assertValidCategoryInput(c);
     const colorKey = normalizeCategoryColorKey(c.colorKey);
     await this.db.runAsync(
       `INSERT INTO categories (id, name, icon, color_key, kind, sort_order, is_selected, archived_at, created_at)
@@ -452,9 +467,19 @@ export class SqliteRepo implements Repo {
       `SELECT value FROM settings WHERE key = ?`,
       [BUDGET_SEEDED_KEY]
     );
-    const seededSet = new Set<string>(
-      seededRow ? (JSON.parse(seededRow.value) as string[]) : []
-    );
+    let seededPeriods: string[] = [];
+    if (seededRow) {
+      try {
+        const parsed: unknown = JSON.parse(seededRow.value);
+        if (Array.isArray(parsed)) {
+          seededPeriods = parsed.filter((item): item is string => typeof item === 'string');
+        }
+      } catch {
+        // S8: tolerate malformed settings JSON and fall back cleanly.
+        seededPeriods = [];
+      }
+    }
+    const seededSet = new Set<string>(seededPeriods);
     if (seededSet.has(periodStart)) return;
 
     const existing = await this.getBudgets(periodStart);
@@ -520,6 +545,11 @@ export class SqliteRepo implements Repo {
         SETTING_DB_KEYS.notificationPermissionDenied,
         DEFAULT_SETTINGS.notificationPermissionDenied
       ),
+      lastBackupAt: parseJson(SETTING_DB_KEYS.lastBackupAt, DEFAULT_SETTINGS.lastBackupAt),
+      speechDisclosureAccepted: parseJson(
+        SETTING_DB_KEYS.speechDisclosureAccepted,
+        DEFAULT_SETTINGS.speechDisclosureAccepted
+      ),
     };
   }
 
@@ -548,6 +578,13 @@ export class SqliteRepo implements Repo {
     return row !== null;
   }
 
+  async listAllDayReviews(): Promise<DayReviewRecord[]> {
+    const rows = await this.db.getAllAsync<{ day: string; reviewed_at: number }>(
+      `SELECT day, reviewed_at FROM day_reviews ORDER BY day ASC`
+    );
+    return rows.map((r) => ({ day: r.day, reviewedAt: r.reviewed_at }));
+  }
+
   async deleteAllData(): Promise<void> {
     await this.db.withTransactionAsync(async () => {
       await this.db.execAsync(`
@@ -558,6 +595,97 @@ export class SqliteRepo implements Repo {
         DELETE FROM categories;
       `);
       await seedDefaultCategoriesSqlite(this.db, Date.now());
+    });
+
+    // S9: reclaim deleted pages and truncate WAL outside the transaction.
+    try {
+      await this.db.execAsync('PRAGMA wal_checkpoint(TRUNCATE);');
+    } catch {
+      // Ignore in environments without WAL mode.
+    }
+    await this.db.execAsync('VACUUM;');
+  }
+
+  async replaceAllDataFromBackup(data: BackupDataSnapshot): Promise<void> {
+    await this.db.withTransactionAsync(async () => {
+      await this.db.execAsync(`
+        DELETE FROM transactions;
+        DELETE FROM budgets;
+        DELETE FROM day_reviews;
+        DELETE FROM settings;
+        DELETE FROM categories;
+      `);
+
+      for (const cat of data.categories) {
+        assertValidCategoryInput(cat);
+        const colorKey = normalizeCategoryColorKey(cat.colorKey);
+        await this.db.runAsync(
+          `INSERT INTO categories (id, name, icon, color_key, kind, sort_order, is_selected, archived_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            cat.id,
+            cat.name,
+            cat.icon,
+            colorKey,
+            cat.kind,
+            cat.sortOrder,
+            cat.isSelected ? 1 : 0,
+            cat.archivedAt,
+            cat.createdAt,
+          ]
+        );
+      }
+
+      for (const tx of data.transactions) {
+        assertValidNewTransaction(tx);
+        await this.db.runAsync(
+          `INSERT INTO transactions
+           (id, type, amount_minor, currency, category_id, description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            tx.id,
+            tx.type,
+            tx.amountMinor,
+            tx.currency,
+            tx.categoryId ?? null,
+            tx.description,
+            tx.note,
+            tx.occurredOn,
+            tx.occurredTime ?? null,
+            tx.source,
+            tx.createdAt,
+            tx.updatedAt,
+            tx.deletedAt,
+          ]
+        );
+      }
+
+      for (const b of data.budgets) {
+        if (!isValidBudgetAmount(b.amountMinor)) {
+          throw new Error(`Invalid budget amount: ${b.amountMinor}`);
+        }
+        await this.db.runAsync(
+          `INSERT INTO budgets (period_start, category_id, amount_minor, updated_at)
+           VALUES (?, ?, ?, ?)`,
+          [b.periodStart, b.categoryId, b.amountMinor, b.updatedAt]
+        );
+      }
+
+      for (const dr of data.day_reviews) {
+        await this.db.runAsync(
+          `INSERT INTO day_reviews (day, reviewed_at) VALUES (?, ?)`,
+          [dr.day, dr.reviewedAt]
+        );
+      }
+
+      const keys = Object.keys(SETTING_DB_KEYS) as (keyof Settings)[];
+      for (const key of keys) {
+        const dbKey = SETTING_DB_KEYS[key];
+        await this.db.runAsync(
+          `INSERT INTO settings (key, value) VALUES (?, ?)`,
+          [dbKey, JSON.stringify(data.settings[key])]
+        );
+      }
     });
   }
 }

@@ -8,6 +8,7 @@ import {
   type CategoryColorKey,
   type TransactionType,
 } from '@/domain/types';
+import { MAX_CATEGORY_NAME_LENGTH } from '@/domain/validation';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
@@ -362,7 +363,7 @@ export default function CategoriesScreen() {
             if (formError) setFormError(null);
           }}
           placeholder={t('categories.namePlaceholder')}
-          maxLength={40}
+          maxLength={MAX_CATEGORY_NAME_LENGTH}
           error={formError}
         />
 

@@ -142,6 +142,11 @@ export interface ReminderSettings {
   days: ReminderDays;
 }
 
+export interface DayReviewRecord {
+  day: LocalDate;
+  reviewedAt: number;
+}
+
 export interface Settings {
   onboardingDone: boolean;
   name: string;
@@ -151,6 +156,8 @@ export interface Settings {
   reminder: ReminderSettings;
   sampleDataLoaded: boolean;
   notificationPermissionDenied: boolean;
+  lastBackupAt: number | null;
+  speechDisclosureAccepted: boolean;
 }
 
 export interface Period {

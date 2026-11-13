@@ -88,3 +88,13 @@ Format:
   3. Set `Switch` `thumbColor="#ffffff"` across Settings, Categories, Onboarding Reminder, and Dev Gallery; render disabled dark `variant="primary"` `Button`s with `accentSoft` fill and `'accent'` label at `opacity: 0.72` (`src/ui/Button.tsx`).
   4. Use a scratch Gradle init script (`CMAKE_OBJECT_PATH_MAX=255` on `:app`, `225` on libraries, short `android/b/<slug>` staging dir removed afterward) for Windows `assembleRelease` without dirtying tracked Android config files.
 - Easy to reverse? Yes — localized component style/prop changes and standalone scratch Gradle init script.
+
+### D-009 — Standalone `assembleRelease` dev APK & Android SAF subfolder export (2026-11-13)
+- Question / Trigger: Running the dev variant (`APP_VARIANT=dev`, `com.hamim.budgetapp.dev`) away from a Metro workstation on physical hardware, plus Android 14+ SAF folder picker restrictions on the root `Download` directory.
+- Options considered:
+  1. Expo debug APK requiring live Metro bundler over USB/Wi-Fi vs standalone `assembleRelease` APK signed with the debug keystore.
+  2. Defaulting SAF export to root `Download` without messaging vs creating/selecting a dedicated subfolder inside `Download` (e.g. `BudgetBackups`) per Android Scoped Storage rules.
+- Choice & Why:
+  1. Build standalone `APP_VARIANT=dev` APKs with `assembleRelease` (default debug-key signing, `BUDGET_RELEASE_SIGNING` unset) so `Budget Dev` runs self-contained on the phone side-by-side with production `com.hamim.budgetapp` without blocking on Metro or risking the production keystore/signature.
+  2. Keep the native Android SAF directory picker (`StorageAccessFramework.requestDirectoryPermissionsAsync`), guiding/saving cleanly into a user-selected subfolder (tested with `Download/BudgetBackups`), matching Android's platform restriction without adding storage permissions.
+- Easy to reverse? Yes — dev builds can switch back to Metro debug anytime, and SAF logic lives solely in `src/data/backupFiles.ts`.

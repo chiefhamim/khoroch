@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import { epochMsToLocalDate, isBackupDue } from '@/data/backup';
 import { formatUtilizationPct } from '@/domain/calc';
 import {
   formatFriendlyDate,
@@ -309,6 +310,28 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               params: { preset: 'last_month' },
             } as never)
           }
+        />
+      ) : null}
+
+      {/* Monthly backup reminder nudge */}
+      {(summary.expenseCount > 0 ||
+        summary.incomeMinor > 0 ||
+        recentTransactions.length > 0) &&
+      isBackupDue(settings.lastBackupAt) ? (
+        <Banner
+          testID="overview-backup-nudge"
+          icon="shield-check"
+          tone="neutral"
+          showChevron
+          message={
+            settings.lastBackupAt === null
+              ? t('overview.backupNudgeNever')
+              : t('overview.backupNudgeDated', {
+                  date: formatShortDate(epochMsToLocalDate(settings.lastBackupAt)),
+                })
+          }
+          accessibilityLabel={t('overview.backupNudgeA11y')}
+          onPress={() => router.push('/settings?openBackup=1' as never)}
         />
       ) : null}
 

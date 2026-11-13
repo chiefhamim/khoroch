@@ -471,6 +471,39 @@ export const en = {
   'categoryDetail.loadError': 'Could not load category transactions.',
   'categories.loadError': 'Could not load categories.',
   'categories.errorSaveFailed': 'Could not save category changes. Please try again.',
+  'overview.backupNudgeNever': 'Last backup: never · Back up now',
+  'overview.backupNudgeDated': 'Last backup: {date} · Back up now',
+  'overview.backupNudgeA11y': 'Open backup settings to save a copy of your data',
+  'settings.backupRow': 'Backup & restore',
+  'settings.backupNever': 'Never backed up',
+  'settings.backupLastDate': 'Last backup {date}',
+  'settings.backupSheetTitle': 'Backup & restore',
+  'settings.backupPlaintextNotice':
+    'Backups are unencrypted JSON. Keep them private.',
+  'settings.backupShareButton': 'Share or save backup file',
+  'settings.backupSaveFolderButton': 'Save to device folder',
+  'settings.backupRestoreButton': 'Restore from backup file',
+  'settings.backupSavedToast': 'Backup saved',
+  'settings.backupRestoreTitle': 'Replace all data with backup?',
+  'settings.backupRestoreWarning':
+    'Restoring replaces every transaction, category, budget, and setting currently on this device.',
+  'settings.backupRestoreConfirm': 'Replace and restore',
+  'settings.backupRestoredToast': 'Backup restored',
+  'settings.backupErrorGeneric': 'Could not complete backup action. Please try again.',
+  'settings.privacyRow': 'Privacy & data storage',
+  'settings.privacyValue': 'On this device',
+  'settings.privacySheetTitle': 'Privacy & data storage',
+  'settings.privacyLocalBody':
+    'Your budget, transactions, categories, and reviews live in a private SQLite database on your phone. Nothing is sent to external servers.',
+  'settings.privacyCloudBody':
+    'Android Google Auto Backup is enabled so your app data can follow you if you switch phones. You can turn off Android device backup in Android system settings, or export a manual JSON backup here anytime.',
+  'settings.privacyVoiceBody':
+    'Voice quick entry prefers on-device speech recognition when your phone supports it. If your phone falls back to Google Speech Services, spoken audio goes only to that system service while recording.',
+  'settings.privacyDone': 'Got it',
+  'quickEntry.speechDisclosureTitle': 'Voice recognition notice',
+  'quickEntry.speechDisclosureBody':
+    'On-device speech recognition is not reported as available on this device. Voice input may be sent to Android Speech Services to convert speech to text.',
+  'quickEntry.speechDisclosureConfirm': 'Continue',
 } as const;
 
 export type TranslationKey = keyof typeof en;
