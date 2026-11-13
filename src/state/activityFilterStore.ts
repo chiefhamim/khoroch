@@ -14,6 +14,7 @@ export interface ActivityFilterValues {
   type: TransactionType | null;
   categoryId: string | null;
   categoryIds: string[];
+  accountId: string | null | undefined;
   datePreset: ActivityDatePreset;
   customFromIncl: LocalDate | '';
   customToIncl: LocalDate | '';
@@ -26,6 +27,7 @@ export const DEFAULT_ACTIVITY_FILTERS: ActivityFilterValues = {
   type: null,
   categoryId: null,
   categoryIds: [],
+  accountId: undefined,
   datePreset: 'all',
   customFromIncl: '',
   customToIncl: '',
@@ -38,6 +40,7 @@ interface ActivityFilterStore extends ActivityFilterValues {
   setType: (type: TransactionType | null) => void;
   setCategoryId: (categoryId: string | null) => void;
   setCategoryIds: (categoryIds: string[]) => void;
+  setAccountId: (accountId: string | null | undefined) => void;
   setDatePreset: (preset: ActivityDatePreset) => void;
   setCustomFromIncl: (date: string) => void;
   setCustomToIncl: (date: string) => void;
@@ -61,6 +64,7 @@ export const useActivityFilterStore = create<ActivityFilterStore>((set) => ({
       categoryIds,
       categoryId: categoryIds.length === 1 ? categoryIds[0] : null,
     }),
+  setAccountId: (accountId) => set({ accountId }),
   setDatePreset: (datePreset) => set({ datePreset }),
   setCustomFromIncl: (customFromIncl) => set({ customFromIncl: customFromIncl as LocalDate | '' }),
   setCustomToIncl: (customToIncl) => set({ customToIncl: customToIncl as LocalDate | '' }),

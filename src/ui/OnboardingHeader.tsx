@@ -13,7 +13,7 @@ export interface OnboardingHeaderProps {
 
 export function OnboardingHeader({
   step,
-  total = 6,
+  total = 7,
   title,
   subtitle,
 }: OnboardingHeaderProps) {

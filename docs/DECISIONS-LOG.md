@@ -104,3 +104,11 @@ Format:
 - Options considered: Special-case or leave deleted transfers subtracting `amountMinor` (violating conservation of money when `cash = 0`) / Assert exact integer conservation: `1,115,000` when `t1`'s fee is edited to `0`, and `1,215,000` when `t1` itself is soft-deleted (`cash = 0`).
 - Chose: Assert exact `1,215,000` on `Delete t1` (`cash = 0`, `spending = 196900`) and `1,115,000` on `Edit t1 fee 1850 -> 0` (`cash = 100000`) in `src/domain/accounts.test.ts` (note left doc `TEST-CASES-v1.2.md` untouched as reference spec, documented discrepancy here).
 - Easy to reverse? Yes — pure arithmetic check in `src/domain/accounts.test.ts`.
+
+## D-011 — Negative card balance toggle & Ledger fee-row folding  (Phase 17, 2026-11-13)
+- Question: Two Phase 17 UX details: (1) Android's `decimal-pad` soft keyboard omits the `-` key, preventing direct negative entry for initial credit card debt (`-5000`); (2) A transfer with a fee stores both a `transfers` row and a linked `'fees'` `transactions` row — showing both separately in unfiltered Ledger/Wallet feeds would visually duplicate the transfer event, while filtering by Category (`Fees & charges`) or Type (`expense`) excludes the parent transfer.
+- Options considered: Switch numeric inputs to `numbers-and-punctuation` (inconsistent on Android OEM keyboards) vs keep `decimal-pad` plus an explicit sign toggle (`Tap for negative (−)` / `Amount due (card debt)`); always show separate fee rows vs fold a linked fee transaction into its parent transfer row (`"Cash out · fee ৳ 18.50"`) only when the parent transfer is visible in the current feed.
+- Chose:
+  1. Keep `decimal-pad` on wallet balance inputs (`src/ui/WalletEditorSheet.tsx`, `src/app/onboarding/wallets.tsx`) and add an accessible explicit sign toggle pill (`"Positive balance (+)"` / `"Tap for negative (−)"` / `"Amount due (−)"`), storing signed `openingBalanceMinor`.
+  2. Fold `tx.transferId` rows into their parent transfer row in Ledger (`src/app/(tabs)/ledger.tsx`) and Wallet detail (`src/app/wallets/[id].tsx`) whenever that parent transfer is in the visible list; when filtering by category (`Fees & charges`) or type (`expense`), linked transfers are not loaded so the fee row remains visible and accurate.
+- Easy to reverse? Yes — sign toggle state in two wallet components and the `visibleTransferIds` check in Ledger/Wallet detail.

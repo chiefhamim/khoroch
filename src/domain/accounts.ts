@@ -1,5 +1,14 @@
+import { addDays } from './dates';
 import { formatBalanceWithDue } from './money';
-import type { Account, AccountKind, CurrencyCode, LocalDate, Transaction, Transfer } from './types';
+import type {
+  Account,
+  AccountKind,
+  AccountProvider,
+  CurrencyCode,
+  LocalDate,
+  Transaction,
+  Transfer,
+} from './types';
 
 export interface DueAccountFlow {
   kind: 'lent' | 'borrowed' | 'received_back' | 'paid_back';
@@ -229,4 +238,259 @@ export function computeAccountsOverview(input: ComputeAccountsOverviewInput): Ac
     includedCount,
     excludedCount,
   };
+}
+
+export type WalletPresetKey =
+  | 'cash'
+  | 'bkash'
+  | 'nagad'
+  | 'upay'
+  | 'rocket'
+  | 'cellfin'
+  | 'bank'
+  | 'credit_card'
+  | 'other';
+
+export interface WalletPreset {
+  key: WalletPresetKey;
+  name: string;
+  kind: AccountKind;
+  provider: AccountProvider | null;
+  colorKey: string;
+  monogram: string | null;
+  iconName: 'wallet' | 'landmark' | 'credit-card' | 'shapes';
+  supportsLast4: boolean;
+  defaultIncludeInTotal: boolean;
+}
+
+export const WALLET_PRESETS: readonly WalletPreset[] = [
+  {
+    key: 'cash',
+    name: 'Cash',
+    kind: 'cash',
+    provider: null,
+    colorKey: WALLET_BRAND_HEX.cash,
+    monogram: null,
+    iconName: 'wallet',
+    supportsLast4: false,
+    defaultIncludeInTotal: true,
+  },
+  {
+    key: 'bkash',
+    name: 'bKash',
+    kind: 'mobile_wallet',
+    provider: 'bkash',
+    colorKey: WALLET_BRAND_HEX.bkash,
+    monogram: 'bK',
+    iconName: 'wallet',
+    supportsLast4: false,
+    defaultIncludeInTotal: true,
+  },
+  {
+    key: 'nagad',
+    name: 'Nagad',
+    kind: 'mobile_wallet',
+    provider: 'nagad',
+    colorKey: WALLET_BRAND_HEX.nagad,
+    monogram: 'N',
+    iconName: 'wallet',
+    supportsLast4: false,
+    defaultIncludeInTotal: true,
+  },
+  {
+    key: 'upay',
+    name: 'Upay',
+    kind: 'mobile_wallet',
+    provider: 'upay',
+    colorKey: WALLET_BRAND_HEX.upay,
+    monogram: 'U',
+    iconName: 'wallet',
+    supportsLast4: false,
+    defaultIncludeInTotal: true,
+  },
+  {
+    key: 'rocket',
+    name: 'Rocket',
+    kind: 'mobile_wallet',
+    provider: 'rocket',
+    colorKey: WALLET_BRAND_HEX.rocket,
+    monogram: 'R',
+    iconName: 'wallet',
+    supportsLast4: false,
+    defaultIncludeInTotal: true,
+  },
+  {
+    key: 'cellfin',
+    name: 'CellFin',
+    kind: 'mobile_wallet',
+    provider: 'cellfin',
+    colorKey: WALLET_BRAND_HEX.cellfin,
+    monogram: 'CF',
+    iconName: 'wallet',
+    supportsLast4: false,
+    defaultIncludeInTotal: true,
+  },
+  {
+    key: 'bank',
+    name: 'Bank',
+    kind: 'bank',
+    provider: null,
+    colorKey: WALLET_BRAND_HEX.bank,
+    monogram: null,
+    iconName: 'landmark',
+    supportsLast4: true,
+    defaultIncludeInTotal: true,
+  },
+  {
+    key: 'credit_card',
+    name: 'Card',
+    kind: 'credit_card',
+    provider: null,
+    colorKey: WALLET_BRAND_HEX.credit_card,
+    monogram: null,
+    iconName: 'credit-card',
+    supportsLast4: true,
+    defaultIncludeInTotal: true,
+  },
+  {
+    key: 'other',
+    name: 'Other',
+    kind: 'other',
+    provider: null,
+    colorKey: WALLET_BRAND_HEX.other,
+    monogram: null,
+    iconName: 'shapes',
+    supportsLast4: false,
+    defaultIncludeInTotal: true,
+  },
+];
+
+export const WALLET_COLOR_PALETTE: readonly string[] = [
+  WALLET_BRAND_HEX.bkash,
+  WALLET_BRAND_HEX.nagad,
+  WALLET_BRAND_HEX.upay,
+  WALLET_BRAND_HEX.rocket,
+  WALLET_BRAND_HEX.cellfin,
+  WALLET_BRAND_HEX.cash,
+  WALLET_BRAND_HEX.bank,
+  WALLET_BRAND_HEX.credit_card,
+  WALLET_BRAND_HEX.other,
+  '#0B6B4B',
+  '#5B2C82',
+  '#B45309',
+];
+
+export function getWalletIconName(
+  kind: AccountKind
+): 'wallet' | 'landmark' | 'credit-card' | 'shapes' {
+  switch (kind) {
+    case 'bank':
+      return 'landmark';
+    case 'credit_card':
+      return 'credit-card';
+    case 'other':
+      return 'shapes';
+    case 'cash':
+    case 'mobile_wallet':
+    default:
+      return 'wallet';
+  }
+}
+
+export function resolveWalletColorHex(account: Pick<Account, 'kind' | 'provider' | 'colorKey'>): string {
+  const key = account.colorKey.trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(key)) return key;
+  if (account.provider && WALLET_BRAND_HEX[account.provider]) {
+    return WALLET_BRAND_HEX[account.provider];
+  }
+  return WALLET_BRAND_HEX[account.kind] ?? WALLET_BRAND_HEX.other;
+}
+
+export function formatWalletSubtitle(account: Pick<Account, 'name' | 'last4'>): string {
+  if (account.last4) {
+    return `${account.name} ending ${account.last4}`;
+  }
+  return account.name;
+}
+
+export interface WalletBalancePoint {
+  date: LocalDate;
+  balanceMinor: number;
+}
+
+export interface ComputeAccountBalanceSeriesInput {
+  account: Pick<Account, 'id' | 'openingBalanceMinor' | 'openingDate'>;
+  transactions: readonly Transaction[];
+  transfers: readonly Transfer[];
+  dues?: readonly DueAccountFlow[];
+  fromDate: LocalDate;
+  toDate: LocalDate;
+  currency?: CurrencyCode;
+}
+
+/**
+ * Builds daily end-of-day balances from `max(fromDate, openingDate)` through `toDate`.
+ * Returns a single point at `openingDate` when `openingDate > toDate` so the chart never renders empty.
+ */
+export function computeAccountBalanceSeries(
+  input: ComputeAccountBalanceSeriesInput
+): WalletBalancePoint[] {
+  const {
+    account,
+    transactions,
+    transfers,
+    dues = [],
+    fromDate,
+    toDate,
+    currency,
+  } = input;
+
+  if (account.openingDate > toDate) {
+    return [{ date: account.openingDate, balanceMinor: account.openingBalanceMinor }];
+  }
+
+  const startDate = fromDate > account.openingDate ? fromDate : account.openingDate;
+  const deltaByDate = new Map<LocalDate, number>();
+  let running = account.openingBalanceMinor;
+
+  const applyDelta = (date: LocalDate, delta: number) => {
+    if (date < account.openingDate || date > toDate) return;
+    if (date < startDate) {
+      running += delta;
+    } else {
+      deltaByDate.set(date, (deltaByDate.get(date) ?? 0) + delta);
+    }
+  };
+
+  for (const tx of transactions) {
+    if (tx.deletedAt != null || tx.accountId !== account.id) continue;
+    if (currency && tx.currency !== currency) continue;
+    applyDelta(tx.occurredOn, tx.type === 'income' ? tx.amountMinor : -tx.amountMinor);
+  }
+
+  for (const tr of transfers) {
+    if (tr.deletedAt != null) continue;
+    if (tr.fromAccountId === account.id) {
+      applyDelta(tr.occurredOn, -tr.amountMinor);
+    }
+    if (tr.toAccountId === account.id) {
+      applyDelta(tr.occurredOn, tr.amountMinor);
+    }
+  }
+
+  for (const d of dues) {
+    if (d.deletedAt != null || d.accountId !== account.id) continue;
+    const sign = d.kind === 'borrowed' || d.kind === 'received_back' ? 1 : -1;
+    applyDelta(d.occurredOn, sign * d.amountMinor);
+  }
+
+  const points: WalletBalancePoint[] = [];
+  let cursor = startDate;
+  while (cursor <= toDate) {
+    running += deltaByDate.get(cursor) ?? 0;
+    points.push({ date: cursor, balanceMinor: running });
+    cursor = addDays(cursor, 1);
+  }
+
+  return points;
 }

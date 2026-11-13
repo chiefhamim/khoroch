@@ -67,7 +67,7 @@ export default function OnboardingReminderScreen() {
       }
     }
 
-    router.push('/onboarding/done');
+    router.push('/onboarding/wallets');
   };
 
   const isEveryDay = sameDays(reminderDays, ALL_REMINDER_DAYS);

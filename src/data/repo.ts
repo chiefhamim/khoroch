@@ -110,4 +110,5 @@ export const DEFAULT_SETTINGS: Settings = {
   notificationPermissionDenied: false,
   lastBackupAt: null,
   speechDisclosureAccepted: false,
+  lastUsedAccountId: null,
 };

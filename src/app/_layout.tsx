@@ -79,6 +79,9 @@ function AppNavigator() {
           }}
         />
         <Stack.Screen name="transaction/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="transfer/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="wallets/index" options={{ headerShown: false }} />
+        <Stack.Screen name="wallets/[id]" options={{ headerShown: false }} />
         <Stack.Screen
           name="quick-entry"
           options={{

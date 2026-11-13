@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { groupTransactionsByDate, type DailyTransactionGroup } from '@/domain/calc';
-import type { Category, Transaction, TxQuery, TxQuerySummary } from '@/domain/types';
+import type {
+  Account,
+  Category,
+  Transaction,
+  Transfer,
+  TxQuery,
+  TxQuerySummary,
+} from '@/domain/types';
 import { useAppContext } from './AppContext';
 import { useDataVersionStore } from './dataVersion';
 
@@ -8,9 +15,12 @@ const PAGE_SIZE = 30;
 
 export interface UseTransactionsState {
   transactions: Transaction[];
+  transfers: Transfer[];
   groups: DailyTransactionGroup[];
   summary: TxQuerySummary;
   categoriesById: Map<string, Category>;
+  accounts: Account[];
+  accountsById: Map<string, Account>;
   loading: boolean;
   loadingMore: boolean;
   hasMore: boolean;
@@ -24,12 +34,14 @@ export function useTransactions(query: TxQuery = {}): UseTransactionsState {
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [summary, setSummary] = useState<TxQuerySummary>({
     count: 0,
     expenseMinor: 0,
     incomeMinor: 0,
   });
   const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -42,18 +54,34 @@ export function useTransactions(query: TxQuery = {}): UseTransactionsState {
     let active = true;
     const parsedQuery = JSON.parse(queryKey) as TxQuery;
 
+    const shouldLoadTransfers =
+      !parsedQuery.type &&
+      !parsedQuery.categoryId &&
+      (!parsedQuery.categoryIds || parsedQuery.categoryIds.length === 0) &&
+      parsedQuery.accountId !== null;
+
     (async () => {
       try {
-        const [pageRes, summaryRes, cats] = await Promise.all([
+        const [pageRes, summaryRes, cats, accs, transferList] = await Promise.all([
           repo.searchTransactions(parsedQuery, { limit: PAGE_SIZE }),
           repo.summarizeTransactions(parsedQuery, settings.currency),
           repo.listCategories({ includeArchived: true }),
+          repo.listAccounts({ includeArchived: true }),
+          shouldLoadTransfers
+            ? repo.listTransfers({
+                accountId: parsedQuery.accountId ?? undefined,
+                fromIncl: parsedQuery.fromIncl,
+                toExcl: parsedQuery.toExcl,
+              })
+            : Promise.resolve([] as Transfer[]),
         ]);
         if (!active) return;
         setTransactions(pageRes.rows);
+        setTransfers(transferList);
         setSummary(summaryRes);
         setNextCursor(pageRes.next);
         setCategories(cats);
+        setAccounts(accs);
         setError(null);
       } catch {
         if (!active) return;
@@ -96,6 +124,11 @@ export function useTransactions(query: TxQuery = {}): UseTransactionsState {
     [categories]
   );
 
+  const accountsById = useMemo(
+    () => new Map(accounts.map((a) => [a.id, a])),
+    [accounts]
+  );
+
   const groups = useMemo(
     () => groupTransactionsByDate(transactions, settings.currency),
     [transactions, settings.currency]
@@ -103,9 +136,12 @@ export function useTransactions(query: TxQuery = {}): UseTransactionsState {
 
   return {
     transactions,
+    transfers,
     groups,
     summary,
     categoriesById,
+    accounts,
+    accountsById,
     loading,
     loadingMore,
     hasMore: Boolean(nextCursor),

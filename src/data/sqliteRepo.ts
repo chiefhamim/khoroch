@@ -117,6 +117,7 @@ const SETTING_DB_KEYS: Record<keyof Settings, string> = {
   notificationPermissionDenied: 'notification_permission_denied',
   lastBackupAt: 'last_backup_at',
   speechDisclosureAccepted: 'speech_disclosure_accepted',
+  lastUsedAccountId: 'last_used_account_id',
 };
 
 const BUDGET_SEEDED_KEY = '_budget_periods_seeded';
@@ -1042,6 +1043,10 @@ export class SqliteRepo implements Repo {
       speechDisclosureAccepted: parseJson(
         SETTING_DB_KEYS.speechDisclosureAccepted,
         DEFAULT_SETTINGS.speechDisclosureAccepted
+      ),
+      lastUsedAccountId: parseJson(
+        SETTING_DB_KEYS.lastUsedAccountId,
+        DEFAULT_SETTINGS.lastUsedAccountId
       ),
     };
   }

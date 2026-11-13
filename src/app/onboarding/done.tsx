@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import * as Crypto from 'expo-crypto';
 import { useRouter } from 'expo-router';
+import { WALLET_PRESETS } from '@/domain/accounts';
 import { todayLocalDate } from '@/domain/dates';
 import { formatMoney, parseMoneyInput } from '@/domain/money';
 import { formatCycleLabel, getPeriod } from '@/domain/period';
@@ -35,6 +37,7 @@ export default function OnboardingDoneScreen() {
     reminderEnabled,
     reminderTime,
     reminderDays,
+    walletDrafts,
     reset,
   } = useOnboardingDraft();
 
@@ -96,6 +99,39 @@ export default function OnboardingDoneScreen() {
         await repo.setBudget(period.start, '', budgetMinor);
       }
 
+      const presetByKey = new Map(WALLET_PRESETS.map((p) => [p.key, p]));
+      const enabledWallets = walletDrafts.filter((w) => w.enabled);
+      for (let idx = 0; idx < enabledWallets.length; idx += 1) {
+        const draft = enabledWallets[idx];
+        const preset = presetByKey.get(draft.presetKey);
+        if (!preset) continue;
+        const cleanBal = draft.balanceInput.trim();
+        let openingMinor = 0;
+        if (cleanBal.length > 0) {
+          const isExplicitNeg = cleanBal.startsWith('-');
+          const rawAbs = isExplicitNeg ? cleanBal.slice(1).trim() : cleanBal;
+          const parsed = parseMoneyInput(rawAbs);
+          if (parsed.ok && parsed.minor !== null) {
+            openingMinor =
+              isExplicitNeg || draft.isDueNegative ? -parsed.minor : parsed.minor;
+          }
+        }
+        const cleanLast4 = draft.last4.trim();
+        await repo.insertAccount({
+          id: `acc_${preset.key}_${Crypto.randomUUID().slice(0, 8)}`,
+          name: draft.name.trim() || preset.name,
+          kind: preset.kind,
+          provider: preset.provider,
+          colorKey: preset.colorKey,
+          monogram: preset.monogram,
+          last4: /^\d{4}$/.test(cleanLast4) ? cleanLast4 : null,
+          openingBalanceMinor: openingMinor,
+          openingDate: today,
+          includeInTotal: draft.includeInTotal,
+          sortOrder: idx,
+        });
+      }
+
       await repo.setSetting('onboardingDone', true);
       await refreshSettings();
       bumpDataVersion();
@@ -116,7 +152,7 @@ export default function OnboardingDoneScreen() {
     >
       <View style={{ gap: theme.spacing.lg }}>
         <OnboardingHeader
-          step={6}
+          step={7}
           title={t('onboarding.doneTitle')}
           subtitle={t('onboarding.doneSubtitle')}
         />
@@ -137,6 +173,14 @@ export default function OnboardingDoneScreen() {
               budgetMinor !== null
                 ? formatMoney(budgetMinor, currency)
                 : t('overview.noBudgetSet')
+            }
+          />
+          <SettingsRow
+            label={t('wallets.title')}
+            value={
+              walletDrafts.some((w) => w.enabled)
+                ? String(walletDrafts.filter((w) => w.enabled).length)
+                : t('wallets.emptyTitle')
             }
           />
         </SettingsGroup>

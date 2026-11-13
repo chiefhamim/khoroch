@@ -2,13 +2,14 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Platform,
   Pressable,
+  ScrollView,
   SectionList,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import type { DailyTransactionGroup } from '@/domain/calc';
+import { formatWalletSubtitle } from '@/domain/accounts';
 import {
   addDays,
   formatFriendlyDate,
@@ -19,7 +20,7 @@ import {
 } from '@/domain/dates';
 import { resolveInsightsWindow } from '@/domain/insights';
 import { formatMoney, parseMoneyInput } from '@/domain/money';
-import type { LocalDate, Transaction, TransactionType, TxQuery } from '@/domain/types';
+import type { LocalDate, Transaction, TransactionType, Transfer, TxQuery } from '@/domain/types';
 import { t } from '@/i18n';
 import {
   type ActivityDatePreset,
@@ -45,6 +46,7 @@ import { Screen, useTabScrollPadding } from '@/ui/Screen';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
+import { WalletAvatar } from '@/ui/WalletAvatar';
 
 function resolveDateRange(
   preset: ActivityDatePreset,
@@ -85,6 +87,7 @@ function buildTxQueryFromState(params: {
   search: string;
   type: TransactionType | null;
   categoryIds: string[];
+  accountId: string | null | undefined;
   datePreset: ActivityDatePreset;
   customFromIncl: string;
   customToIncl: string;
@@ -101,6 +104,9 @@ function buildTxQueryFromState(params: {
     query.categoryId = params.categoryIds[0];
   } else if (params.categoryIds.length > 1) {
     query.categoryIds = params.categoryIds;
+  }
+  if (params.accountId !== undefined) {
+    query.accountId = params.accountId;
   }
 
   const bounds = resolveDateRange(
@@ -130,9 +136,17 @@ function buildTxQueryFromState(params: {
   return query;
 }
 
+type LedgerRowItem =
+  | { kind: 'tx'; id: string; tx: Transaction; createdAt: number }
+  | { kind: 'transfer'; id: string; transfer: Transfer; createdAt: number };
+
 interface ActivitySection {
-  group: DailyTransactionGroup;
-  data: Transaction[];
+  group: {
+    date: LocalDate;
+    incomeMinor: number;
+    expenseMinor: number;
+  };
+  data: LedgerRowItem[];
 }
 
 export default function ActivityScreen() {
@@ -147,6 +161,7 @@ export default function ActivityScreen() {
     type,
     categoryId,
     categoryIds,
+    accountId,
     datePreset,
     customFromIncl,
     customToIncl,
@@ -155,6 +170,7 @@ export default function ActivityScreen() {
     setSearch,
     setType,
     setCategoryIds,
+    setAccountId,
     setDatePreset,
     setCustomFromIncl,
     setCustomToIncl,
@@ -176,6 +192,7 @@ export default function ActivityScreen() {
   // Filter sheet draft states
   const [draftType, setDraftType] = useState<TransactionType | null>(type);
   const [draftCategoryIds, setDraftCategoryIds] = useState<string[]>(effectiveCategoryIds);
+  const [draftAccountId, setDraftAccountId] = useState<string | null | undefined>(accountId);
   const [draftPreset, setDraftPreset] = useState<ActivityDatePreset>(datePreset);
   const [draftFrom, setDraftFrom] = useState<LocalDate>(customFromIncl || todayLocalDate());
   const [draftTo, setDraftTo] = useState<LocalDate>(customToIncl || todayLocalDate());
@@ -200,6 +217,7 @@ export default function ActivityScreen() {
         search: debouncedSearch,
         type,
         categoryIds: effectiveCategoryIds,
+        accountId,
         datePreset,
         customFromIncl,
         customToIncl,
@@ -212,6 +230,7 @@ export default function ActivityScreen() {
       debouncedSearch,
       type,
       effectiveCategoryIds,
+      accountId,
       datePreset,
       customFromIncl,
       customToIncl,
@@ -223,9 +242,12 @@ export default function ActivityScreen() {
   );
 
   const {
+    transfers,
     groups,
     summary,
     categoriesById,
+    accounts,
+    accountsById,
     loading,
     loadingMore,
     hasMore,
@@ -242,6 +264,7 @@ export default function ActivityScreen() {
       search,
       type: draftType,
       categoryIds: draftCategoryIds,
+      accountId: draftAccountId,
       datePreset: draftPreset,
       customFromIncl: draftPreset === 'custom' ? draftFrom : '',
       customToIncl: draftPreset === 'custom' ? draftTo : '',
@@ -270,6 +293,7 @@ export default function ActivityScreen() {
     search,
     draftType,
     draftCategoryIds,
+    draftAccountId,
     draftPreset,
     draftFrom,
     draftTo,
@@ -285,9 +309,18 @@ export default function ActivityScreen() {
     [categoriesById]
   );
 
+  const activeWallets = useMemo(
+    () =>
+      accounts
+        .filter((a) => a.archivedAt == null)
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name)),
+    [accounts]
+  );
+
   const activeFilterCount =
     (type ? 1 : 0) +
     effectiveCategoryIds.length +
+    (accountId !== undefined ? 1 : 0) +
     (datePreset !== 'all' ? 1 : 0) +
     (minAmountText.trim() ? 1 : 0) +
     (maxAmountText.trim() ? 1 : 0);
@@ -295,6 +328,7 @@ export default function ActivityScreen() {
   const nonPeriodFilterCount =
     (type ? 1 : 0) +
     effectiveCategoryIds.length +
+    (accountId !== undefined ? 1 : 0) +
     (minAmountText.trim() ? 1 : 0) +
     (maxAmountText.trim() ? 1 : 0);
 
@@ -303,6 +337,7 @@ export default function ActivityScreen() {
   const openFilterSheet = () => {
     setDraftType(type);
     setDraftCategoryIds(effectiveCategoryIds);
+    setDraftAccountId(accountId);
     setDraftPreset(datePreset);
     setDraftFrom(customFromIncl || addDays(today, -30));
     setDraftTo(customToIncl || today);
@@ -324,6 +359,7 @@ export default function ActivityScreen() {
     hapticLight();
     setDraftType(null);
     setDraftCategoryIds([]);
+    setDraftAccountId(undefined);
     setDraftPreset('all');
     setDraftFrom(addDays(today, -30));
     setDraftTo(today);
@@ -342,6 +378,7 @@ export default function ActivityScreen() {
       search,
       type: draftType,
       categoryIds: draftCategoryIds,
+      accountId: draftAccountId,
       datePreset: draftPreset,
       customFromIncl: draftPreset === 'custom' ? draftFrom : '',
       customToIncl: draftPreset === 'custom' ? draftTo : '',
@@ -351,14 +388,77 @@ export default function ActivityScreen() {
     setFilterSheetOpen(false);
   };
 
-  const sections = useMemo<ActivitySection[]>(
-    () =>
-      groups.map((g) => ({
-        group: g,
-        data: g.transactions,
-      })),
-    [groups]
-  );
+  const minParsed = minAmountText.trim() ? parseMoneyInput(minAmountText) : null;
+  const maxParsed = maxAmountText.trim() ? parseMoneyInput(maxAmountText) : null;
+
+  const sections = useMemo<ActivitySection[]>(() => {
+    const searchNeedle = debouncedSearch.trim().toLowerCase();
+    const minVal = minParsed?.ok && minParsed.minor && minParsed.minor > 0 ? minParsed.minor : null;
+    const maxVal = maxParsed?.ok && maxParsed.minor && maxParsed.minor > 0 ? maxParsed.minor : null;
+
+    const visibleTransfers = transfers.filter((tr) => {
+      if (tr.deletedAt != null) return false;
+      if (minVal !== null && tr.amountMinor < minVal) return false;
+      if (maxVal !== null && tr.amountMinor > maxVal) return false;
+      if (searchNeedle) {
+        const fromName = accountsById.get(tr.fromAccountId)?.name ?? '';
+        const toName = accountsById.get(tr.toAccountId)?.name ?? '';
+        const hay = `${fromName} ${toName} ${tr.note} transfer`.toLowerCase();
+        if (!hay.includes(searchNeedle)) return false;
+      }
+      return true;
+    });
+
+    const visibleTransferIds = new Set(visibleTransfers.map((tr) => tr.id));
+    const bucketMap = new Map<
+      LocalDate,
+      { incomeMinor: number; expenseMinor: number; items: LedgerRowItem[] }
+    >();
+
+    for (const g of groups) {
+      const items: LedgerRowItem[] = [];
+      for (const tx of g.transactions) {
+        if (tx.transferId && visibleTransferIds.has(tx.transferId)) {
+          continue;
+        }
+        items.push({ kind: 'tx', id: `tx_${tx.id}`, tx, createdAt: tx.createdAt });
+      }
+      bucketMap.set(g.date, {
+        incomeMinor: g.incomeMinor,
+        expenseMinor: g.expenseMinor,
+        items,
+      });
+    }
+
+    for (const tr of visibleTransfers) {
+      let bucket = bucketMap.get(tr.occurredOn);
+      if (!bucket) {
+        bucket = { incomeMinor: 0, expenseMinor: 0, items: [] };
+        bucketMap.set(tr.occurredOn, bucket);
+      }
+      bucket.items.push({
+        kind: 'transfer',
+        id: `tr_${tr.id}`,
+        transfer: tr,
+        createdAt: tr.createdAt,
+      });
+    }
+
+    return Array.from(bucketMap.entries())
+      .filter(([, b]) => b.items.length > 0)
+      .sort(([da], [db]) => db.localeCompare(da))
+      .map(([date, b]) => ({
+        group: {
+          date,
+          incomeMinor: b.incomeMinor,
+          expenseMinor: b.expenseMinor,
+        },
+        data: [...b.items].sort((a, bb) => {
+          if (a.createdAt !== bb.createdAt) return bb.createdAt - a.createdAt;
+          return bb.id.localeCompare(a.id);
+        }),
+      }));
+  }, [groups, transfers, debouncedSearch, minParsed, maxParsed, accountsById]);
 
   const periodLabel = useMemo(() => {
     switch (datePreset) {
@@ -380,8 +480,6 @@ export default function ActivityScreen() {
     }
   }, [datePreset, customFromIncl, customToIncl]);
 
-  const minParsed = minAmountText.trim() ? parseMoneyInput(minAmountText) : null;
-  const maxParsed = maxAmountText.trim() ? parseMoneyInput(maxAmountText) : null;
   const searchBg =
     theme.scheme === 'dark' ? theme.colors.surfaceSunken : theme.colors.surface;
 
@@ -452,6 +550,82 @@ export default function ActivityScreen() {
         />
       </View>
 
+      {/* Horizontal underlined wallet filter tabs */}
+      {activeWallets.length > 0 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[
+            styles.underlineTabsScroll,
+            {
+              marginBottom: theme.spacing.sm,
+              borderBottomColor: theme.colors.separator,
+            },
+          ]}
+          contentContainerStyle={[
+            styles.underlineTabsRow,
+            { gap: theme.spacing.md },
+          ]}
+        >
+          <Pressable
+            testID="ledger-wallet-tab-all"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: accountId === undefined }}
+            onPress={() => {
+              hapticSelection();
+              setAccountId(undefined);
+            }}
+            style={({ pressed }) => [
+              styles.underlineTab,
+              {
+                borderBottomColor:
+                  accountId === undefined ? theme.colors.text : 'transparent',
+                opacity: pressed && !reducedMotion ? 0.72 : 1,
+              },
+            ]}
+          >
+            <AppText
+              variant="label"
+              color={accountId === undefined ? 'text' : 'textSecondary'}
+              numberOfLines={1}
+            >
+              {t('activity.allWalletsTab')}
+            </AppText>
+          </Pressable>
+
+          {activeWallets.map((w) => {
+            const selected = accountId === w.id;
+            return (
+              <Pressable
+                key={w.id}
+                testID={`ledger-wallet-tab-${w.id}`}
+                accessibilityRole="tab"
+                accessibilityState={{ selected }}
+                onPress={() => {
+                  hapticSelection();
+                  setAccountId(selected ? undefined : w.id);
+                }}
+                style={({ pressed }) => [
+                  styles.underlineTab,
+                  {
+                    borderBottomColor: selected ? theme.colors.text : 'transparent',
+                    opacity: pressed && !reducedMotion ? 0.72 : 1,
+                  },
+                ]}
+              >
+                <AppText
+                  variant="label"
+                  color={selected ? 'text' : 'textSecondary'}
+                  numberOfLines={1}
+                >
+                  {w.name}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
       {/* Period selector chip + live summary */}
       <View style={[styles.summaryBar, { gap: theme.spacing.sm, marginBottom: theme.spacing.sm }]}>
         <Pressable
@@ -520,6 +694,18 @@ export default function ActivityScreen() {
               onPress={() => setType(null)}
             />
           ) : null}
+          {accountId !== undefined ? (
+            <Chip
+              testID="active-chip-wallet"
+              label={`${
+                accountId === null
+                  ? t('tx.noWallet')
+                  : accountsById.get(accountId)?.name ?? t('tx.walletLabel')
+              } ×`}
+              selected
+              onPress={() => setAccountId(undefined)}
+            />
+          ) : null}
           {effectiveCategoryIds.map((id) => (
             <Chip
               key={id}
@@ -581,7 +767,7 @@ export default function ActivityScreen() {
           />
         )
       ) : (
-        <SectionList<Transaction, ActivitySection>
+        <SectionList<LedgerRowItem, ActivitySection>
           testID="activity-flatlist"
           style={styles.flexOne}
           sections={sections}
@@ -628,33 +814,104 @@ export default function ActivityScreen() {
               </View>
             );
           }}
-          renderItem={({ item: tx, index, section }) => {
+          renderItem={({ item, index, section }) => {
+            const isFirst = index === 0;
+            const isLast = index === section.data.length - 1;
+            const cardRadiusStyle = {
+              backgroundColor: theme.colors.surface,
+              borderTopLeftRadius: isFirst ? theme.radius.card : 0,
+              borderTopRightRadius: isFirst ? theme.radius.card : 0,
+              borderBottomLeftRadius: isLast ? theme.radius.card : 0,
+              borderBottomRightRadius: isLast ? theme.radius.card : 0,
+              overflow: 'hidden' as const,
+            };
+
+            if (item.kind === 'transfer') {
+              const tr = item.transfer;
+              const fromAcc = accountsById.get(tr.fromAccountId);
+              const toAcc = accountsById.get(tr.toAccountId);
+              const fromName = fromAcc?.name ?? t('tx.walletLabel');
+              const toName = toAcc?.name ?? t('tx.walletLabel');
+              const isCashOut =
+                fromAcc?.kind === 'mobile_wallet' && toAcc?.kind === 'cash';
+
+              const subParts: string[] = [];
+              if (tr.feeMinor > 0) {
+                const feeStr = formatMoney(tr.feeMinor, settings.currency);
+                subParts.push(
+                  isCashOut
+                    ? t('activity.cashOutWithFeeSub', { fee: feeStr })
+                    : t('activity.transferWithFeeSub', { fee: feeStr })
+                );
+              } else {
+                subParts.push(t('activity.transferSub'));
+              }
+              if (tr.note.trim()) {
+                subParts.push(tr.note.trim());
+              }
+              subParts.push(
+                tr.occurredTime
+                  ? formatFriendlyTime(tr.occurredTime, use24Hour)
+                  : formatShortDate(tr.occurredOn)
+              );
+
+              return (
+                <View style={cardRadiusStyle}>
+                  <ListRow
+                    testID={`activity-transfer-${tr.id}`}
+                    title={t('activity.transferTitle', {
+                      from: fromName,
+                      to: toName,
+                    })}
+                    subtitle={subParts.join(' · ')}
+                    left={
+                      <IconTile
+                        icon="arrow-left-right"
+                        colorKey="gray"
+                        size="md"
+                      />
+                    }
+                    right={
+                      <View style={styles.transferAmtCol}>
+                        <Money
+                          amountMinor={tr.amountMinor}
+                          currency={settings.currency}
+                          variant="bodyStrong"
+                          color="text"
+                        />
+                        <AppText variant="caption" color="textTertiary">
+                          {t('activity.transferBadge')}
+                        </AppText>
+                      </View>
+                    }
+                    showDivider={!isLast}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/transfer/[id]',
+                        params: { id: tr.id },
+                      })
+                    }
+                  />
+                </View>
+              );
+            }
+
+            const tx = item.tx;
             const cat = tx.categoryId ? categoriesById.get(tx.categoryId) : undefined;
             const catLabel = cat?.name ?? t('common.uncategorized');
+            const wallet = tx.accountId ? accountsById.get(tx.accountId) : undefined;
             const subtitleParts = [catLabel];
             if (cat?.archivedAt) subtitleParts.push(t('categories.archivedBadge'));
+            if (wallet) subtitleParts.push(formatWalletSubtitle(wallet));
             subtitleParts.push(
               tx.occurredTime
                 ? formatFriendlyTime(tx.occurredTime, use24Hour)
                 : formatShortDate(tx.occurredOn)
             );
             const isIncome = tx.type === 'income';
-            const isFirst = index === 0;
-            const isLast = index === section.data.length - 1;
 
             return (
-              <View
-                style={[
-                  {
-                    backgroundColor: theme.colors.surface,
-                    borderTopLeftRadius: isFirst ? theme.radius.card : 0,
-                    borderTopRightRadius: isFirst ? theme.radius.card : 0,
-                    borderBottomLeftRadius: isLast ? theme.radius.card : 0,
-                    borderBottomRightRadius: isLast ? theme.radius.card : 0,
-                    overflow: 'hidden',
-                  },
-                ]}
-              >
+              <View style={cardRadiusStyle}>
                 <ListRow
                   testID={`activity-tx-${tx.id}`}
                   title={tx.description.trim() || catLabel}
@@ -793,6 +1050,69 @@ export default function ActivityScreen() {
             ]}
           />
         </View>
+
+        {/* Wallets */}
+        {accounts.length > 0 ? (
+          <View style={{ gap: theme.spacing.xs }}>
+            <AppText variant="label" color="textSecondary">
+              {t('activity.filterWallet')}
+            </AppText>
+            <View style={[styles.wrapChips, { gap: theme.spacing.xs }]}>
+              <Chip
+                testID="filter-wallet-all"
+                label={t('activity.filterAllWallets')}
+                selected={draftAccountId === undefined}
+                onPress={() => setDraftAccountId(undefined)}
+              />
+              <Chip
+                testID="filter-wallet-none"
+                label={t('tx.noWallet')}
+                selected={draftAccountId === null}
+                onPress={() => setDraftAccountId(null)}
+              />
+              {activeWallets.map((w) => {
+                const selected = draftAccountId === w.id;
+                return (
+                  <Pressable
+                    key={w.id}
+                    testID={`filter-wallet-${w.id}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      hapticSelection();
+                      setDraftAccountId(selected ? undefined : w.id);
+                    }}
+                    style={({ pressed }) => [
+                      styles.categoryTileBtn,
+                      {
+                        minHeight: 40,
+                        paddingHorizontal: theme.spacing.sm,
+                        paddingVertical: theme.spacing.xs,
+                        borderRadius: theme.radius.pill,
+                        backgroundColor: selected
+                          ? theme.colors.accentSoft
+                          : theme.colors.surfaceSunken,
+                        borderColor: selected
+                          ? theme.colors.accent
+                          : theme.colors.separator,
+                        gap: theme.spacing.xs,
+                        opacity: pressed && !reducedMotion ? 0.72 : 1,
+                      },
+                    ]}
+                  >
+                    <WalletAvatar account={w} size="xs" />
+                    <AppText
+                      variant="label"
+                      color={selected ? 'accent' : 'text'}
+                    >
+                      {w.name}
+                    </AppText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
 
         {/* Categories multi-select tiles */}
         <View style={{ gap: theme.spacing.xs }}>
@@ -1012,5 +1332,22 @@ const styles = StyleSheet.create({
   },
   applyBtn: {
     flex: 2,
+  },
+  underlineTabsScroll: {
+    flexGrow: 0,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  underlineTabsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  underlineTab: {
+    paddingVertical: 10,
+    minHeight: 40,
+    justifyContent: 'center',
+    borderBottomWidth: 2,
+  },
+  transferAmtCol: {
+    alignItems: 'flex-end',
   },
 });

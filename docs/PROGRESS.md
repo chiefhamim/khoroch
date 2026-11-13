@@ -421,14 +421,14 @@ Re-read: PLAN §4 · TEST-CASES-v1.2 §A
 
 **Done when:** CHECKS pass · every §A row is a passing test · migration test passes.
 
-## Phase 17 — Wallets UI  [ ]
+## Phase 17 — Wallets UI  [x]
 Re-read: PLAN §2, §3 (wallet identity), §4 · mockup Home/Add/Ledger
-- [ ] Wallet setup: onboarding step (new installs) + "Set up your wallets" card on Home for existing users. Presets Cash / bKash / Nagad / Upay / Rocket / Bank / Card / Other, balance **as of today**, skippable
-- [ ] Manage wallets screen (add/edit/reorder/archive, include-in-total, card last4) + wallet detail (balance, entries, mini balance chart)
-- [ ] Add screen: Out / In / **Transfer** segmented. Wallet chip (remembers the last-used wallet; optional, "No wallet" allowed). Transfer = from/to + amount + fee (with a "fee?" hint for MFS cash-outs, user-entered, no hard-coded rates). Save label "Save · ৳350 from bKash"
-- [ ] Home per mockup: hero card (total across wallets, In/Out this cycle, budget line if set; tap to hide amounts) + wallets list. Without wallets the card shows In/Out/Spent with the setup prompt
-- [ ] Ledger: wallet filter as underlined words, the wallet name on every row, transfer rows ("bKash → Cash", fee line), filters gain a wallet option
-- [ ] Optional "Tag older entries" helper (sets account_id only)
+- [x] Wallet setup: onboarding step (new installs) + "Set up your wallets" card on Home for existing users. Presets Cash / bKash / Nagad / Upay / Rocket / Bank / Card / Other, balance **as of today**, skippable
+- [x] Manage wallets screen (add/edit/reorder/archive, include-in-total, card last4) + wallet detail (balance, entries, mini balance chart)
+- [x] Add screen: Out / In / **Transfer** segmented. Wallet chip (remembers the last-used wallet; optional, "No wallet" allowed). Transfer = from/to + amount + fee (with a "fee?" hint for MFS cash-outs, user-entered, no hard-coded rates). Save label "Save · ৳350 from bKash"
+- [x] Home per mockup: hero card (total across wallets, In/Out this cycle, budget line if set; tap to hide amounts) + wallets list. Without wallets the card shows In/Out/Spent with the setup prompt
+- [x] Ledger: wallet filter as underlined words, the wallet name on every row, transfer rows ("bKash → Cash", fee line), filters gain a wallet option
+- [x] Optional "Tag older entries" helper (sets account_id only)
 
 **Done when:** CHECKS pass · component tests: transfer form saves the transfer + fee atomically; the wallet chip defaults to last used · PHONE CHECK (dev app, sample wallets): reproduce TEST-CASES-v1.2 §A by hand and screenshot Home showing **৳6,531.50** total, bKash **৳11,131.50**, Card "৳5,600 due".
 
@@ -540,6 +540,16 @@ Re-read: AGENTS §6 · PLAN §6
   - **CHECKS:** `npm run typecheck` (0 errors) · `npx expo lint` (0 errors, 0 warnings) · `npm test -- --no-color` (23 passed / 23 suites, 134 passed / 134 tests) · `npx expo export --platform web --output-dir dist-check` (3171 modules, exit 0; removed `dist-check`).
   - **PHONE CHECK:** Skipped (Phase 16 is schema/repo/domain math only; UI lands in Phase 17).
   - **BLOCKED:** None · **D-entries:** `D-010`
+- **2026-11-13 · Phase 17 — Wallets UI**
+  - **Built:**
+    - Settings & Privacy store: added `lastUsedAccountId` to `Settings` / `DEFAULT_SETTINGS` / `sqliteRepo.ts` (`SETTING_DB_KEYS`) / `backup.ts` (`sanitizeSettingsForExport`, `validateSettingsObject`, dangling-ID cleanup) + `backup.test.ts`, and `usePrivacyStore` (`src/state/privacyStore.ts`) + `useAccounts` (`src/state/useAccounts.ts`).
+    - Wallet identity & charts: extended `src/domain/accounts.ts` (`WALLET_PRESETS`, `WALLET_COLOR_PALETTE`, `computeAccountBalanceSeries`, `formatWalletSubtitle`), `src/ui/AppIcon.tsx`, `src/ui/WalletAvatar.tsx`, `src/ui/WalletBalanceChart.tsx`, `src/ui/WalletPickerSheet.tsx`, `src/ui/WalletEditorSheet.tsx` (with negative-balance toggle + Card last4 + Archive/Restore).
+    - Onboarding Step 6 (`src/app/onboarding/wallets.tsx`, `onboardingStore.ts`, `OnboardingHeader.tsx` total 7) + Manage Wallets & Tag Older (`src/app/wallets/index.tsx`) + Wallet Detail (`src/app/wallets/[id].tsx`).
+    - Upgraded Add / Edit (`src/ui/TransactionForm.tsx`, `src/app/transaction/new.tsx`, `src/app/transaction/[id].tsx`, `src/app/transfer/[id].tsx`, `src/app/_layout.tsx`) with `Out | In | Transfer`, Wallet picker defaulting to `lastUsedAccountId`, dynamic `"Save · ৳350 from bKash"`, atomic transfers + `"Cash-out fee?"` badge on MFS→Cash, plus component tests in `src/ui/TransactionForm.test.tsx`.
+    - Updated Home (`src/app/(tabs)/index.tsx`, `src/state/overview.test.tsx`) with Wallets HeroCard, tap-to-hide (`"Hidden"`), Wallets list (`৳5,600 due`), `"Set up your wallets"` empty prompt, and Ledger (`src/app/(tabs)/ledger.tsx`, `activityFilterStore.ts`, `useTransactions.ts`) with horizontal underlined wallet tabs, wallet chip filters, transfer rows, and wallet subtitles.
+  - **CHECKS:** `npm run typecheck` (0 errors) · `npx expo lint` (0 errors, 0 warnings) · `npm test -- --no-color` (23 passed / 23 suites, 137 passed / 137 tests) · `npx expo export --platform web --output-dir dist-check` (3182 modules, 33 bundles, exit 0; removed `dist-check`).
+  - **PHONE CHECK (dev app, `SM_S938B` via ADB `192.168.0.154:45643`):** Walked fresh onboarding (`Step 6 of 7` `"Your wallets"`), created Scenario A wallets (`Cash` ৳0 Nov 10, `bKash` ৳10,000 Nov 10, `Card ending 4821` ৳5,000 due Nov 1, `Savings` ৳300,000 Excluded Nov 1), entered `e1`–`e5` and `t1` (`bKash → Cash` ৳1,000 + `18.50` fee); verified Home shows **৳6,531.50** total (`In ৳2,500` / `Out ৳2,418.50`), Cash **৳1,000**, bKash **৳11,131.50**, Card **৳5,600 due**, tap-to-hide toggles `"Hidden"`, Ledger underlined tabs filter cleanly (`bKash` shows `Spent ৳368.50`), Wallet Detail renders 30-day chart (`৳11,131.50`), and `logcat` reported 0 JS/Android runtime errors. Caught & fixed Manage Wallets Card subtitle clipping (`"Ending 4821"`). Screenshots (`docs/v1.2/after/phase-17/`): `01-launch.png`, `02-onboarding-wallets.png`, `03-home-wallets.png`, `04-home-hidden.png`, `04-add-out-bkash.png`, `05-add-transfer.png`, `06-ledger-wallets.png`, `06b-ledger-bkash-tab.png`, `07-wallets-manage-initial.png`, `08-wallet-detail.png`.
+  - **BLOCKED:** None · **D-entries:** `D-011`
 
 ## v1.2 summary
 <!-- written at the end -->

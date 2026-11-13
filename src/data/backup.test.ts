@@ -245,6 +245,7 @@ async function seedComplexState(repo: MemoryRepo | SqliteRepo) {
   });
   await repo.setSetting('lastBackupAt', 1731500999000);
   await repo.setSetting('speechDisclosureAccepted', true);
+  await repo.setSetting('lastUsedAccountId', 'bkash');
 }
 
 describe('backup export, validation, and restore (TEST-CASES §C)', () => {
@@ -387,6 +388,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     delete v1Raw.data.day_reviews;
     delete v1Raw.data.settings.lastBackupAt;
     delete v1Raw.data.settings.speechDisclosureAccepted;
+    delete v1Raw.data.settings.lastUsedAccountId;
     v1Raw.data.categories = v1Raw.data.categories
       .filter((c) => c.id !== 'fees')
       .map((c) => {
@@ -404,6 +406,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     expect(migratedV1.data.transfers).toEqual([]);
     expect(migratedV1.data.settings.lastBackupAt).toBeNull();
     expect(migratedV1.data.settings.speechDisclosureAccepted).toBe(false);
+    expect(migratedV1.data.settings.lastUsedAccountId).toBeNull();
     const foodCat = migratedV1.data.categories.find((c) => c.id === 'food_dining');
     expect(foodCat?.icon).toBe('utensils');
     expect(foodCat?.colorKey).toBe(DEFAULT_CATEGORIES.find((c) => c.id === 'food_dining')?.colorKey);

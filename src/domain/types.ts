@@ -288,6 +288,7 @@ export interface Settings {
   notificationPermissionDenied: boolean;
   lastBackupAt: number | null;
   speechDisclosureAccepted: boolean;
+  lastUsedAccountId: string | null;
 }
 
 export interface Period {

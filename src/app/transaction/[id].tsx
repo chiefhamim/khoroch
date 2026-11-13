@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { buildCustomCategory } from '@/domain/categories';
-import type { Category, Transaction } from '@/domain/types';
+import type { Account, Category, Transaction } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
@@ -37,6 +37,7 @@ export default function EditTransactionScreen() {
 
   const [tx, setTx] = useState<Transaction | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [moreSheetOpen, setMoreSheetOpen] = useState(false);
@@ -49,12 +50,14 @@ export default function EditTransactionScreen() {
     Promise.all([
       txId ? repo.getTransaction(txId) : Promise.resolve(null),
       repo.listCategories({ includeArchived: true }),
+      repo.listAccounts({ includeArchived: true }),
       repo.searchTransactions({}, { limit: 150 }),
     ])
-      .then(([loadedTx, allCats, txPage]) => {
+      .then(([loadedTx, allCats, allAccs, txPage]) => {
         if (!active) return;
         setTx(loadedTx);
         setCategories(allCats);
+        setAccounts(allAccs);
         setRecentTransactions(txPage.rows);
       })
       .finally(() => {
@@ -94,6 +97,7 @@ export default function EditTransactionScreen() {
         type: values.type,
         amountMinor: values.amountMinor,
         categoryId: values.categoryId,
+        accountId: values.accountId,
         description: values.description,
         note: values.note,
         occurredOn: values.occurredOn,
@@ -194,11 +198,14 @@ export default function EditTransactionScreen() {
           mode="edit"
           currency={settings.currency}
           categories={categories}
+          accounts={accounts}
+          onPressSetupWallets={() => router.push('/wallets?setup=1' as never)}
           recentTransactions={recentTransactions}
           initialValues={{
             type: tx.type,
             amountMinor: tx.amountMinor,
             categoryId: tx.categoryId,
+            accountId: tx.accountId,
             description: tx.description,
             note: tx.note,
             occurredOn: tx.occurredOn,

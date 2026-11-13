@@ -15,11 +15,13 @@ import {
 } from '@/domain/dates';
 import {
   formatMinorToDraft,
+  formatMoney,
   getCurrencySymbol,
   groupThousands,
   parseMoneyInput,
 } from '@/domain/money';
 import type {
+  Account,
   Category,
   CategoryColorKey,
   CurrencyCode,
@@ -41,6 +43,7 @@ import { AppText } from './AppText';
 import { Button } from './Button';
 import { Chip } from './Chip';
 import { DateField } from './DateField';
+import { EmptyState } from './EmptyState';
 import { Field } from './Field';
 import { hapticLight, hapticSelection } from './haptics';
 import { IconButton } from './IconButton';
@@ -48,16 +51,32 @@ import { IconTile } from './IconTile';
 import { Keypad } from './Keypad';
 import { SegmentedControl } from './SegmentedControl';
 import { Sheet } from './Sheet';
+import { Surface } from './Surface';
 import { TimeField } from './TimeField';
+import { WalletAvatar } from './WalletAvatar';
+import { WalletPickerSheet } from './WalletPickerSheet';
+
+export type TransactionEntryMode = TransactionType | 'transfer';
 
 export interface TransactionFormValues {
   type: TransactionType;
   amountMinor: number;
   categoryId: string | null;
+  accountId: string | null;
   description: string;
   note: string;
   occurredOn: LocalDate;
   occurredTime: string | null;
+}
+
+export interface TransferFormValues {
+  fromAccountId: string;
+  toAccountId: string;
+  amountMinor: number;
+  feeMinor: number;
+  occurredOn: LocalDate;
+  occurredTime: string | null;
+  note: string;
 }
 
 export interface CreateCategoryInput {
@@ -71,22 +90,38 @@ export interface TransactionFormProps {
   mode?: 'new' | 'edit';
   currency: CurrencyCode;
   categories: Category[];
+  accounts?: Account[];
+  defaultAccountId?: string | null;
+  balancesById?: ReadonlyMap<string, number>;
+  onPressSetupWallets?: () => void;
   recentDescriptions?: string[];
   recentTransactions?: Transaction[];
+  initialMode?: TransactionEntryMode;
   initialValues?: {
     type?: TransactionType;
     amountMinor?: number;
     categoryId?: string | null;
+    accountId?: string | null;
     description?: string;
     note?: string;
     occurredOn?: LocalDate;
     occurredTime?: string | null;
+  };
+  initialTransferValues?: {
+    fromAccountId?: string;
+    toAccountId?: string;
+    amountMinor?: number;
+    feeMinor?: number;
+    occurredOn?: LocalDate;
+    occurredTime?: string | null;
+    note?: string;
   };
   submitLabel?: string;
   onClose?: () => void;
   onMorePress?: () => void;
   onCreateCategory?: (input: CreateCategoryInput) => Promise<Category>;
   onSubmit: (values: TransactionFormValues) => Promise<void>;
+  onSubmitTransfer?: (values: TransferFormValues) => Promise<void>;
 }
 
 const CATEGORY_SUGGESTION_FALLBACKS: Readonly<Record<string, readonly string[]>> = {
@@ -455,39 +490,97 @@ export function TransactionForm({
   mode = 'new',
   currency,
   categories,
+  accounts = [],
+  defaultAccountId = null,
+  balancesById,
+  onPressSetupWallets,
   recentTransactions = [],
+  initialMode,
   initialValues,
+  initialTransferValues,
   submitLabel,
   onClose,
   onMorePress,
   onCreateCategory,
   onSubmit,
+  onSubmitTransfer,
 }: TransactionFormProps) {
   const { theme } = useTheme();
   const isEditing = mode === 'edit';
-
-  const [type, setType] = useState<TransactionType>(initialValues?.type ?? 'expense');
-  const [amountText, setAmountText] = useState<string>(() =>
-    initialValues?.amountMinor && initialValues.amountMinor > 0
-      ? formatMinorToDraft(initialValues.amountMinor)
-      : ''
+  const activeAccounts = useMemo(
+    () => accounts.filter((a) => a.archivedAt == null),
+    [accounts]
   );
+  const accountsMap = useMemo(
+    () => new Map(accounts.map((a) => [a.id, a])),
+    [accounts]
+  );
+
+  const [entryMode, setEntryMode] = useState<TransactionEntryMode>(
+    () => initialMode ?? initialValues?.type ?? 'expense'
+  );
+  const txType: TransactionType = entryMode === 'income' ? 'income' : 'expense';
+  const isTransferMode = entryMode === 'transfer';
+
+  const [amountText, setAmountText] = useState<string>(() => {
+    const initAmt =
+      (initialMode === 'transfer' ? initialTransferValues?.amountMinor : undefined) ??
+      initialValues?.amountMinor;
+    return initAmt && initAmt > 0 ? formatMinorToDraft(initAmt) : '';
+  });
   // Strict v2 rule: NO preselected category on new creation.
   const [categoryId, setCategoryId] = useState<string | null>(
     initialValues?.categoryId ?? null
   );
-  const [description, setDescription] = useState<string>(initialValues?.description ?? '');
-  const [note, setNote] = useState<string>(initialValues?.note ?? '');
-  const [noteOpen, setNoteOpen] = useState<boolean>(
-    Boolean(initialValues?.note && initialValues.note.trim().length > 0)
+  const [accountId, setAccountId] = useState<string | null>(() => {
+    if (isEditing) return initialValues?.accountId ?? null;
+    if (initialValues?.accountId !== undefined) return initialValues.accountId;
+    if (defaultAccountId && accounts.some((a) => a.id === defaultAccountId && a.archivedAt == null)) {
+      return defaultAccountId;
+    }
+    return null;
+  });
+
+  const [fromAccountId, setFromAccountId] = useState<string | null>(() => {
+    if (initialTransferValues?.fromAccountId) return initialTransferValues.fromAccountId;
+    if (defaultAccountId && activeAccounts.some((a) => a.id === defaultAccountId)) {
+      return defaultAccountId;
+    }
+    return activeAccounts[0]?.id ?? null;
+  });
+  const [toAccountId, setToAccountId] = useState<string | null>(() => {
+    if (initialTransferValues?.toAccountId) return initialTransferValues.toAccountId;
+    const initFrom =
+      initialTransferValues?.fromAccountId ??
+      (defaultAccountId && activeAccounts.some((a) => a.id === defaultAccountId)
+        ? defaultAccountId
+        : activeAccounts[0]?.id ?? null);
+    return activeAccounts.find((a) => a.id !== initFrom)?.id ?? null;
+  });
+  const [feeText, setFeeText] = useState<string>(() =>
+    initialTransferValues?.feeMinor && initialTransferValues.feeMinor > 0
+      ? formatMinorToDraft(initialTransferValues.feeMinor)
+      : ''
   );
+
+  const [description, setDescription] = useState<string>(initialValues?.description ?? '');
+  const [note, setNote] = useState<string>(
+    initialTransferValues?.note ?? initialValues?.note ?? ''
+  );
+  const [noteOpen, setNoteOpen] = useState<boolean>(() => {
+    const initialNoteText = initialTransferValues?.note ?? initialValues?.note ?? '';
+    return initialNoteText.trim().length > 0;
+  });
   const [occurredOn, setOccurredOn] = useState<LocalDate>(
-    initialValues?.occurredOn ?? todayLocalDate()
+    initialTransferValues?.occurredOn ?? initialValues?.occurredOn ?? todayLocalDate()
   );
   // Strict v2 rule: auto-fill current time ONLY when creating new; preserve on edit.
   const [occurredTime, setOccurredTime] = useState<string>(() => {
     if (isEditing) {
-      return initialValues?.occurredTime ?? '';
+      return initialTransferValues?.occurredTime ?? initialValues?.occurredTime ?? '';
+    }
+    if (initialTransferValues?.occurredTime !== undefined) {
+      return initialTransferValues.occurredTime ?? '';
     }
     if (initialValues?.occurredTime !== undefined) {
       return initialValues.occurredTime ?? '';
@@ -496,7 +589,10 @@ export function TransactionForm({
   });
 
   const [allCatsOpen, setAllCatsOpen] = useState(false);
-  const [activeField, setActiveField] = useState<'description' | 'note' | null>(null);
+  const [walletPickerTarget, setWalletPickerTarget] = useState<'tx' | 'from' | 'to' | null>(
+    null
+  );
+  const [activeField, setActiveField] = useState<'description' | 'note' | 'fee' | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -504,6 +600,7 @@ export function TransactionForm({
   const savingRef = useRef(false);
   const descriptionRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const noteRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const feeRef = useRef<React.ComponentRef<typeof TextInput>>(null);
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
@@ -518,8 +615,8 @@ export function TransactionForm({
   }, []);
 
   const orderedCategories = useMemo(
-    () => orderCategoriesForPicker(categories, type, recentTransactions),
-    [categories, type, recentTransactions]
+    () => orderCategoriesForPicker(categories, txType, recentTransactions),
+    [categories, txType, recentTransactions]
   );
 
   const gridCategories = useMemo(() => {
@@ -527,14 +624,14 @@ export function TransactionForm({
     if (!categoryId || topSeven.some((c) => c.id === categoryId)) {
       return topSeven;
     }
-    const selectedCat = categories.find((c) => c.id === categoryId && c.kind === type);
+    const selectedCat = categories.find((c) => c.id === categoryId && c.kind === txType);
     if (!selectedCat) return topSeven;
     return [...orderedCategories.slice(0, 6), selectedCat];
-  }, [orderedCategories, categoryId, categories, type]);
+  }, [orderedCategories, categoryId, categories, txType]);
 
   const suggestions = useMemo(
-    () => buildContextualSuggestions(type, categoryId, recentTransactions),
-    [type, categoryId, recentTransactions]
+    () => buildContextualSuggestions(txType, categoryId, recentTransactions),
+    [txType, categoryId, recentTransactions]
   );
 
   const parsedAmount = useMemo(() => parseMoneyInput(amountText), [amountText]);
@@ -543,22 +640,55 @@ export function TransactionForm({
       ? parsedAmount.minor
       : null;
 
-  const canSave = validAmountMinor !== null && categoryId !== null && !saving;
-  const hideKeypad = activeField !== null || keyboardVisible;
+  const feeTrimmed = feeText.trim();
+  const parsedFee = useMemo(
+    () => (feeTrimmed.length > 0 ? parseMoneyInput(feeTrimmed) : null),
+    [feeTrimmed]
+  );
+  const feeMinorValid =
+    feeTrimmed.length === 0 ||
+    (parsedFee !== null && parsedFee.ok && parsedFee.minor !== null && parsedFee.minor >= 0);
+  const validFeeMinor =
+    feeTrimmed.length === 0
+      ? 0
+      : parsedFee && parsedFee.ok && parsedFee.minor !== null
+        ? parsedFee.minor
+        : 0;
+
+  const selectedAccount = accountId ? accountsMap.get(accountId) ?? null : null;
+  const fromAccount = fromAccountId ? accountsMap.get(fromAccountId) ?? null : null;
+  const toAccount = toAccountId ? accountsMap.get(toAccountId) ?? null : null;
+
+  const canSave = isTransferMode
+    ? validAmountMinor !== null &&
+      fromAccountId !== null &&
+      toAccountId !== null &&
+      fromAccountId !== toAccountId &&
+      feeMinorValid &&
+      !saving
+    : validAmountMinor !== null && categoryId !== null && !saving;
+
+  const hideKeypad =
+    activeField !== null ||
+    keyboardVisible ||
+    (isTransferMode && activeAccounts.length < 2);
 
   const dismissTextInputs = () => {
     descriptionRef.current?.blur();
     noteRef.current?.blur();
+    feeRef.current?.blur();
     Keyboard.dismiss();
     setActiveField(null);
     setKeyboardVisible(false);
   };
 
-  const handleTypeChange = (nextType: TransactionType) => {
-    if (nextType === type) return;
-    setType(nextType);
-    // Switching type clears category selection (different category sets).
-    setCategoryId(null);
+  const handleModeChange = (nextMode: TransactionEntryMode) => {
+    if (nextMode === entryMode) return;
+    if (entryMode !== 'transfer' && nextMode !== 'transfer') {
+      // Switching Out <-> In clears category selection (different category sets).
+      setCategoryId(null);
+    }
+    setEntryMode(nextMode);
     setErrorMsg(null);
   };
 
@@ -566,6 +696,23 @@ export function TransactionForm({
     hapticSelection();
     dismissTextInputs();
     setCategoryId(id);
+    setErrorMsg(null);
+  };
+
+  const handleSelectWallet = (chosenId: string | null) => {
+    if (walletPickerTarget === 'tx') {
+      setAccountId(chosenId);
+    } else if (walletPickerTarget === 'from' && chosenId) {
+      if (chosenId === toAccountId) {
+        setToAccountId(fromAccountId);
+      }
+      setFromAccountId(chosenId);
+    } else if (walletPickerTarget === 'to' && chosenId) {
+      if (chosenId === fromAccountId) {
+        setFromAccountId(toAccountId);
+      }
+      setToAccountId(chosenId);
+    }
     setErrorMsg(null);
   };
 
@@ -583,6 +730,8 @@ export function TransactionForm({
         } else {
           setErrorMsg(t('tx.errorInvalidAmount'));
         }
+      } else if (!savingRef.current && isTransferMode && fromAccountId === toAccountId) {
+        setErrorMsg(t('transfer.sameAccountError'));
       }
       return;
     }
@@ -604,15 +753,31 @@ export function TransactionForm({
     setSaving(true);
     setErrorMsg(null);
     try {
-      await onSubmit({
-        type,
-        amountMinor: validAmountMinor,
-        categoryId,
-        description: description.trim(),
-        note: note.trim(),
-        occurredOn: trimmedDate,
-        occurredTime: trimmedTime || null,
-      });
+      if (isTransferMode) {
+        if (!onSubmitTransfer || !fromAccountId || !toAccountId) {
+          return;
+        }
+        await onSubmitTransfer({
+          fromAccountId,
+          toAccountId,
+          amountMinor: validAmountMinor,
+          feeMinor: validFeeMinor,
+          occurredOn: trimmedDate,
+          occurredTime: trimmedTime || null,
+          note: note.trim(),
+        });
+      } else {
+        await onSubmit({
+          type: txType,
+          amountMinor: validAmountMinor,
+          categoryId,
+          accountId,
+          description: description.trim(),
+          note: note.trim(),
+          occurredOn: trimmedDate,
+          occurredTime: trimmedTime || null,
+        });
+      }
     } catch {
       setErrorMsg(t('tx.errorSaveFailed'));
     } finally {
@@ -629,8 +794,29 @@ export function TransactionForm({
   const symbolFontSize = Math.round(amountFontSize * 0.6);
   const heroColor = amountText.length > 0 ? theme.colors.text : theme.colors.textTertiary;
 
-  const primaryLabel =
-    submitLabel ?? (type === 'income' ? t('tx.saveIncomeCta') : t('tx.saveExpenseCta'));
+  const primaryLabel = (() => {
+    if (isTransferMode) {
+      if (isEditing) return submitLabel ?? t('transfer.updateCta');
+      const amountStr = formatMoney(validAmountMinor ?? 0, currency);
+      return t('transfer.saveCta', { amount: amountStr });
+    }
+    if (submitLabel) return submitLabel;
+    if (validAmountMinor !== null) {
+      const amountStr = formatMoney(validAmountMinor, currency);
+      if (selectedAccount) {
+        return txType === 'income'
+          ? t('tx.saveIntoWallet', { amount: amountStr, wallet: selectedAccount.name })
+          : t('tx.saveFromWallet', { amount: amountStr, wallet: selectedAccount.name });
+      }
+      return t('tx.saveWithAmount', { amount: amountStr });
+    }
+    return txType === 'income' ? t('tx.saveIncomeCta') : t('tx.saveExpenseCta');
+  })();
+
+  const showCashOutFeeHint =
+    isTransferMode &&
+    fromAccount?.kind === 'mobile_wallet' &&
+    toAccount?.kind === 'cash';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -658,15 +844,25 @@ export function TransactionForm({
           }}
         />
         <View style={styles.topCenter}>
-          <SegmentedControl
+          <SegmentedControl<TransactionEntryMode>
             testID="tx-type-toggle"
             size="sm"
-            value={type}
-            onChange={handleTypeChange}
-            options={[
-              { value: 'expense', label: t('common.expense') },
-              { value: 'income', label: t('common.income') },
-            ]}
+            value={entryMode}
+            onChange={handleModeChange}
+            options={
+              isEditing
+                ? initialMode === 'transfer'
+                  ? [{ value: 'transfer', label: t('tx.typeTransfer') }]
+                  : [
+                      { value: 'expense', label: t('tx.typeOut') },
+                      { value: 'income', label: t('tx.typeIn') },
+                    ]
+                : [
+                    { value: 'expense', label: t('tx.typeOut') },
+                    { value: 'income', label: t('tx.typeIn') },
+                    { value: 'transfer', label: t('tx.typeTransfer') },
+                  ]
+            }
           />
         </View>
         {isEditing && onMorePress ? (
@@ -798,119 +994,293 @@ export function TransactionForm({
           </View>
         ) : null}
 
-        {/* Centered Date & Time Chips */}
-        <View style={[styles.dateTimeRow, { gap: theme.spacing.sm }]}>
-          <DateField
-            testID="tx-date-field"
-            value={occurredOn}
-            onChange={(next) => {
-              dismissTextInputs();
-              setOccurredOn(next);
-            }}
-            maximumDate={new Date()}
-          />
-          <TimeField
-            testID="tx-time-field"
-            value={occurredTime}
-            onChange={(next) => {
-              dismissTextInputs();
-              setOccurredTime(next);
-            }}
-          />
-        </View>
-
-        {/* Category 4x2 Grid */}
-        <View style={styles.catGrid}>
-          {gridCategories.map((cat) => {
-            const selected = categoryId === cat.id;
-            return (
-              <Pressable
-                key={cat.id}
-                testID={`cat-chip-${cat.id}`}
-                accessibilityRole="button"
-                accessibilityLabel={cat.name}
-                accessibilityState={{ selected }}
-                onPress={() => handleSelectCategory(cat.id)}
-                style={({ pressed }) => [
-                  styles.catCell,
-                  { opacity: pressed ? 0.78 : 1 },
-                ]}
-              >
-                <IconTile icon={cat.icon} colorKey={cat.colorKey} selected={selected} size="md" />
-                <AppText
-                  variant="caption"
-                  color={selected ? 'text' : 'textSecondary'}
-                  numberOfLines={1}
-                  style={[
-                    styles.catLabel,
-                    selected ? { fontFamily: 'PlusJakartaSans_600SemiBold' } : null,
-                  ]}
-                >
-                  {cat.name}
-                </AppText>
-              </Pressable>
-            );
-          })}
-
-          <Pressable
-            testID="cat-all-button"
-            accessibilityRole="button"
-            accessibilityLabel={t('tx.allCategories')}
-            onPress={() => {
-              hapticSelection();
-              dismissTextInputs();
-              setAllCatsOpen(true);
-            }}
-            style={({ pressed }) => [styles.catCell, { opacity: pressed ? 0.78 : 1 }]}
-          >
-            <IconTile icon="layout-grid" neutral size="md" />
-            <AppText variant="caption" color="textSecondary" numberOfLines={1} style={styles.catLabel}>
-              {t('tx.allCategories')}
-            </AppText>
-          </Pressable>
-        </View>
-
-        {/* Description Input + Strict Contextual Suggestions */}
-        <View style={{ gap: theme.spacing.sm }}>
-          <Field
-            inputRef={descriptionRef}
-            testID="description-input"
-            leftIcon="pencil"
-            placeholder={t('tx.descriptionPlaceholder')}
-            value={description}
-            onChangeText={setDescription}
-            maxLength={MAX_DESCRIPTION_LENGTH}
-            onClear={description.length > 0 ? () => setDescription('') : undefined}
-            onFocus={() => setActiveField('description')}
-            onBlur={() => setActiveField((prev) => (prev === 'description' ? null : prev))}
-            returnKeyType="done"
-            onSubmitEditing={dismissTextInputs}
-          />
-
-          {suggestions.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={[styles.suggestionRow, { gap: theme.spacing.xs }]}
+        {isTransferMode && activeAccounts.length < 2 ? (
+          <Surface>
+            <EmptyState
+              icon="arrow-left-right"
+              title={t('transfer.needTwoWalletsTitle')}
+              body={t('transfer.needTwoWalletsBody')}
+              ctaLabel={onPressSetupWallets ? t('tx.setupWalletCta') : undefined}
+              onCtaPress={onPressSetupWallets}
+            />
+          </Surface>
+        ) : isTransferMode ? (
+          <Surface padded={false}>
+            <Pressable
+              testID="transfer-from-row"
+              accessibilityRole="button"
+              accessibilityLabel={`${t('transfer.fromLabel')}: ${fromAccount?.name ?? ''}`}
+              onPress={() => {
+                hapticSelection();
+                dismissTextInputs();
+                setWalletPickerTarget('from');
+              }}
+              style={({ pressed }) => [styles.flatRow, { opacity: pressed ? 0.72 : 1 }]}
             >
-              {suggestions.map((item, idx) => (
-                <Chip
-                  key={`${type}-${categoryId ?? 'none'}-${item}`}
-                  testID={`suggestion-chip-${idx}`}
-                  variant="sunken"
-                  label={item}
-                  selected={description.trim().toLowerCase() === item.toLowerCase()}
-                  onPress={() => {
-                    hapticSelection();
-                    setDescription(item);
+              <WalletAvatar account={fromAccount} size="xs" />
+              <AppText variant="label" color="textSecondary" style={styles.rowLabel}>
+                {t('transfer.fromLabel')}
+              </AppText>
+              <AppText variant="bodyStrong" numberOfLines={1} style={styles.rowValue}>
+                {fromAccount?.name ?? t('tx.noWallet')}
+              </AppText>
+              <AppIcon name="chevron-right" size={16} color={theme.colors.textTertiary} />
+            </Pressable>
+
+            <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />
+
+            <Pressable
+              testID="transfer-to-row"
+              accessibilityRole="button"
+              accessibilityLabel={`${t('transfer.toLabel')}: ${toAccount?.name ?? ''}`}
+              onPress={() => {
+                hapticSelection();
+                dismissTextInputs();
+                setWalletPickerTarget('to');
+              }}
+              style={({ pressed }) => [styles.flatRow, { opacity: pressed ? 0.72 : 1 }]}
+            >
+              <WalletAvatar account={toAccount} size="xs" />
+              <AppText variant="label" color="textSecondary" style={styles.rowLabel}>
+                {t('transfer.toLabel')}
+              </AppText>
+              <AppText variant="bodyStrong" numberOfLines={1} style={styles.rowValue}>
+                {toAccount?.name ?? t('tx.noWallet')}
+              </AppText>
+              <AppIcon name="chevron-right" size={16} color={theme.colors.textTertiary} />
+            </Pressable>
+
+            <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />
+
+            <View testID="transfer-fee-row" style={styles.flatRow}>
+              <AppIcon name="receipt" size={18} color={theme.colors.textSecondary} />
+              <View style={styles.feeLabelWrap}>
+                <AppText variant="label" color="textSecondary">
+                  {t('transfer.feeLabel')}
+                </AppText>
+                {showCashOutFeeHint ? (
+                  <View
+                    style={[
+                      styles.feeHintBadge,
+                      {
+                        backgroundColor: theme.colors.accentSoft,
+                        borderRadius: theme.radius.pill,
+                      },
+                    ]}
+                  >
+                    <AppText variant="caption" color="accent">
+                      {t('transfer.feeHintMfs')}
+                    </AppText>
+                  </View>
+                ) : null}
+              </View>
+              <View style={styles.feeInputWrap}>
+                <AppText variant="label" color="textSecondary">
+                  {symbol}
+                </AppText>
+                <TextInput
+                  ref={feeRef}
+                  testID="transfer-fee-input"
+                  value={feeText}
+                  onChangeText={(next) => {
+                    setFeeText(next);
+                    if (errorMsg) setErrorMsg(null);
+                  }}
+                  placeholder={t('transfer.feePlaceholder')}
+                  placeholderTextColor={theme.colors.textTertiary}
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                  onFocus={() => setActiveField('fee')}
+                  onBlur={() => setActiveField((prev) => (prev === 'fee' ? null : prev))}
+                  onSubmitEditing={dismissTextInputs}
+                  style={[
+                    styles.feeInput,
+                    {
+                      color: feeMinorValid ? theme.colors.text : theme.colors.danger,
+                      fontFamily: theme.typography.bodyStrong.fontFamily,
+                      fontSize: theme.typography.bodyStrong.fontSize,
+                    },
+                  ]}
+                />
+              </View>
+            </View>
+
+            <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />
+
+            <View style={styles.flatRow}>
+              <AppIcon name="calendar" size={18} color={theme.colors.textTertiary} />
+              <View style={styles.whenControlsRow}>
+                <DateField
+                  testID="tx-date-field"
+                  value={occurredOn}
+                  onChange={(next) => {
                     dismissTextInputs();
+                    setOccurredOn(next);
+                  }}
+                  maximumDate={new Date()}
+                />
+                <TimeField
+                  testID="tx-time-field"
+                  value={occurredTime}
+                  onChange={(next) => {
+                    dismissTextInputs();
+                    setOccurredTime(next);
                   }}
                 />
-              ))}
-            </ScrollView>
-          ) : null}
-        </View>
+              </View>
+            </View>
+          </Surface>
+        ) : (
+          <>
+            <Surface padded={false}>
+              <Pressable
+                testID="tx-wallet-row"
+                accessibilityRole="button"
+                accessibilityLabel={`${
+                  txType === 'income' ? t('tx.walletIntoLabel') : t('tx.walletFromLabel')
+                }: ${selectedAccount?.name ?? t('tx.noWallet')}`}
+                onPress={() => {
+                  hapticSelection();
+                  dismissTextInputs();
+                  setWalletPickerTarget('tx');
+                }}
+                style={({ pressed }) => [styles.flatRow, { opacity: pressed ? 0.72 : 1 }]}
+              >
+                <WalletAvatar account={selectedAccount} size="xs" />
+                <AppText variant="label" color="textSecondary" style={styles.rowLabel}>
+                  {txType === 'income' ? t('tx.walletIntoLabel') : t('tx.walletFromLabel')}
+                </AppText>
+                <AppText
+                  variant="bodyStrong"
+                  color={selectedAccount ? 'text' : 'textSecondary'}
+                  numberOfLines={1}
+                  style={styles.rowValue}
+                >
+                  {selectedAccount?.name ?? t('tx.noWallet')}
+                </AppText>
+                <AppIcon name="chevron-right" size={16} color={theme.colors.textTertiary} />
+              </Pressable>
+
+              <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />
+
+              <View style={styles.flatRow}>
+                <AppIcon name="calendar" size={18} color={theme.colors.textTertiary} />
+                <View style={styles.whenControlsRow}>
+                  <DateField
+                    testID="tx-date-field"
+                    value={occurredOn}
+                    onChange={(next) => {
+                      dismissTextInputs();
+                      setOccurredOn(next);
+                    }}
+                    maximumDate={new Date()}
+                  />
+                  <TimeField
+                    testID="tx-time-field"
+                    value={occurredTime}
+                    onChange={(next) => {
+                      dismissTextInputs();
+                      setOccurredTime(next);
+                    }}
+                  />
+                </View>
+              </View>
+            </Surface>
+
+            {/* Category 4x2 Grid */}
+            <View style={styles.catGrid}>
+              {gridCategories.map((cat) => {
+                const selected = categoryId === cat.id;
+                return (
+                  <Pressable
+                    key={cat.id}
+                    testID={`cat-chip-${cat.id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={cat.name}
+                    accessibilityState={{ selected }}
+                    onPress={() => handleSelectCategory(cat.id)}
+                    style={({ pressed }) => [
+                      styles.catCell,
+                      { opacity: pressed ? 0.78 : 1 },
+                    ]}
+                  >
+                    <IconTile icon={cat.icon} colorKey={cat.colorKey} selected={selected} size="md" />
+                    <AppText
+                      variant="caption"
+                      color={selected ? 'text' : 'textSecondary'}
+                      numberOfLines={1}
+                      style={[
+                        styles.catLabel,
+                        selected ? { fontFamily: 'PlusJakartaSans_600SemiBold' } : null,
+                      ]}
+                    >
+                      {cat.name}
+                    </AppText>
+                  </Pressable>
+                );
+              })}
+
+              <Pressable
+                testID="cat-all-button"
+                accessibilityRole="button"
+                accessibilityLabel={t('tx.allCategories')}
+                onPress={() => {
+                  hapticSelection();
+                  dismissTextInputs();
+                  setAllCatsOpen(true);
+                }}
+                style={({ pressed }) => [styles.catCell, { opacity: pressed ? 0.78 : 1 }]}
+              >
+                <IconTile icon="layout-grid" neutral size="md" />
+                <AppText variant="caption" color="textSecondary" numberOfLines={1} style={styles.catLabel}>
+                  {t('tx.allCategories')}
+                </AppText>
+              </Pressable>
+            </View>
+
+            {/* Description Input + Strict Contextual Suggestions */}
+            <View style={{ gap: theme.spacing.sm }}>
+              <Field
+                inputRef={descriptionRef}
+                testID="description-input"
+                leftIcon="pencil"
+                placeholder={t('tx.descriptionPlaceholder')}
+                value={description}
+                onChangeText={setDescription}
+                maxLength={MAX_DESCRIPTION_LENGTH}
+                onClear={description.length > 0 ? () => setDescription('') : undefined}
+                onFocus={() => setActiveField('description')}
+                onBlur={() => setActiveField((prev) => (prev === 'description' ? null : prev))}
+                returnKeyType="done"
+                onSubmitEditing={dismissTextInputs}
+              />
+
+              {suggestions.length > 0 ? (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  contentContainerStyle={[styles.suggestionRow, { gap: theme.spacing.xs }]}
+                >
+                  {suggestions.map((item, idx) => (
+                    <Chip
+                      key={`${txType}-${categoryId ?? 'none'}-${item}`}
+                      testID={`suggestion-chip-${idx}`}
+                      variant="sunken"
+                      label={item}
+                      selected={description.trim().toLowerCase() === item.toLowerCase()}
+                      onPress={() => {
+                        hapticSelection();
+                        setDescription(item);
+                        dismissTextInputs();
+                      }}
+                    />
+                  ))}
+                </ScrollView>
+              ) : null}
+            </View>
+          </>
+        )}
       </ScrollView>
 
       {/* Pinned Bottom Dock: Keypad (hidden while typing in text inputs) + Primary CTA */}
@@ -955,7 +1325,7 @@ export function TransactionForm({
       <AllCategoriesSheet
         visible={allCatsOpen}
         onClose={() => setAllCatsOpen(false)}
-        type={type}
+        type={txType}
         categories={orderedCategories}
         selectedCategoryId={categoryId}
         onSelectCategory={(id) => {
@@ -963,6 +1333,31 @@ export function TransactionForm({
           setErrorMsg(null);
         }}
         onCreateCategory={onCreateCategory}
+      />
+
+      <WalletPickerSheet
+        visible={walletPickerTarget !== null}
+        onClose={() => setWalletPickerTarget(null)}
+        title={
+          walletPickerTarget === 'from'
+            ? t('transfer.fromLabel')
+            : walletPickerTarget === 'to'
+              ? t('transfer.toLabel')
+              : t('tx.chooseWalletTitle')
+        }
+        accounts={activeAccounts}
+        selectedAccountId={
+          walletPickerTarget === 'from'
+            ? fromAccountId
+            : walletPickerTarget === 'to'
+              ? toAccountId
+              : accountId
+        }
+        allowNone={walletPickerTarget === 'tx'}
+        balancesById={balancesById}
+        currency={currency}
+        onSelect={handleSelectWallet}
+        onPressSetupWallets={onPressSetupWallets}
       />
     </View>
   );
@@ -1018,6 +1413,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexWrap: 'wrap',
+  },
+  flatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minHeight: 48,
+    gap: 10,
+  },
+  rowLabel: {
+    width: 44,
+  },
+  rowValue: {
+    flex: 1,
+    textAlign: 'right',
+  },
+  rowDivider: {
+    height: 1,
+    marginHorizontal: 14,
+  },
+  whenControlsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  feeLabelWrap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  feeHintBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  feeInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 80,
+    justifyContent: 'flex-end',
+  },
+  feeInput: {
+    minWidth: 54,
+    textAlign: 'right',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    fontVariant: ['tabular-nums'],
   },
   catGrid: {
     flexDirection: 'row',

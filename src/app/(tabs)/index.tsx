@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { epochMsToLocalDate, isBackupDue } from '@/data/backup';
 import { formatUtilizationPct } from '@/domain/calc';
@@ -10,11 +10,17 @@ import {
   formatWeekdayShortDate,
   isDevice24HourClock,
 } from '@/domain/dates';
-import { formatMoney, MISSING_METRIC_DASH } from '@/domain/money';
+import {
+  formatMoney,
+  HIDDEN_AMOUNT_TEXT,
+  MISSING_METRIC_DASH,
+} from '@/domain/money';
 import { remainingDays } from '@/domain/period';
 import type { LocalDate } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
+import { usePrivacyStore } from '@/state/privacyStore';
+import { useAccounts } from '@/state/useAccounts';
 import { useDashboard } from '@/state/useDashboard';
 import { getCategoryTileVisual } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
@@ -35,6 +41,7 @@ import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Sheet } from '@/ui/Sheet';
 import { SpendingChart, type ChartGranularity } from '@/ui/SpendingChart';
 import { Surface } from '@/ui/Surface';
+import { WalletAvatar } from '@/ui/WalletAvatar';
 
 function buildGreeting(hour: number): string {
   if (hour < 12) return t('overview.goodMorning');
@@ -72,6 +79,14 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
 
   const [chartGranularity, setChartGranularity] = useState<ChartGranularity>('daily');
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+
+  const { hideAmounts, toggleHideAmounts } = usePrivacyStore();
+  const {
+    overview: accountsOverview,
+    accountsById,
+    loading: accountsLoading,
+  } = useAccounts(today);
+  const hasWallets = accountsOverview.balances.length > 0;
 
   const hour = hourOverride ?? new Date().getHours();
   const greeting = buildGreeting(hour);
@@ -147,9 +162,99 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         />
       ) : null}
 
-      {/* Hero budget card */}
-      <HeroCard testID="overview-budget-card" style={{ gap: theme.spacing.md }}>
-        {overallBudgetMinor !== null && summary.remainingMinor !== null ? (
+      {/* Hero summary / budget card */}
+      <HeroCard
+        testID="overview-budget-card"
+        onPress={toggleHideAmounts}
+        accessibilityLabel={hideAmounts ? t('overview.amountsHiddenLabel') : t('overview.tapToHideHint')}
+        accessibilityHint={hideAmounts ? t('overview.tapToShowHint') : t('overview.tapToHideHint')}
+        style={{ gap: theme.spacing.md }}
+      >
+        {hasWallets ? (
+          <>
+            <View style={styles.heroTopRow}>
+              <AppText variant="label" color="heroTextSecondary">
+                {hideAmounts
+                  ? t('overview.tapToShowHint')
+                  : t('overview.acrossWallets', { count: accountsOverview.includedCount })}
+              </AppText>
+              <View style={[styles.heroTopRight, { gap: theme.spacing.xs }]}>
+                {overallBudgetMinor !== null ? (
+                  <BudgetStatusBadge status={summary.status} surface="hero" />
+                ) : null}
+                <IconButton
+                  testID="overview-hero-menu"
+                  icon="info"
+                  variant="ghost"
+                  iconColor={theme.colors.heroTextSecondary}
+                  size={30}
+                  iconSize={18}
+                  accessibilityLabel={t('overview.howNumbersWork')}
+                  onPress={() => setHowItWorksOpen(true)}
+                />
+              </View>
+            </View>
+
+            <Money
+              testID="hero-wallets-total"
+              variant="hero"
+              amountMinor={Math.abs(accountsOverview.totalMinor)}
+              prefix={accountsOverview.totalMinor < 0 ? '−' : ''}
+              currency={settings.currency}
+              color="heroText"
+              hidden={hideAmounts}
+            />
+
+            <View style={[styles.divider, { backgroundColor: theme.colors.heroLine }]} />
+
+            <View style={[styles.stripRow, { gap: theme.spacing.sm }]}>
+              <View style={styles.stripCol}>
+                <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
+                  {t('overview.inThisCycle')}
+                </AppText>
+                <Money
+                  variant="bodyStrong"
+                  amountMinor={summary.incomeMinor}
+                  currency={settings.currency}
+                  color="heroText"
+                  hidden={hideAmounts}
+                />
+              </View>
+              <View style={styles.stripCol}>
+                <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
+                  {t('overview.outThisCycle')}
+                </AppText>
+                <Money
+                  variant="bodyStrong"
+                  amountMinor={summary.spentMinor}
+                  currency={settings.currency}
+                  color="heroText"
+                  hidden={hideAmounts}
+                />
+              </View>
+            </View>
+
+            {overallBudgetMinor !== null && summary.remainingMinor !== null ? (
+              <>
+                <View style={[styles.heroSubRow, { gap: theme.spacing.sm }]}>
+                  <AppText variant="label" color="heroTextSecondary" tabularNums>
+                    {t('overview.usedPct', {
+                      pct: formatUtilizationPct(summary.utilizationPct ?? 0),
+                    })}
+                  </AppText>
+                  <AppText variant="label" color="heroTextSecondary" tabularNums>
+                    {hideAmounts
+                      ? HIDDEN_AMOUNT_TEXT
+                      : summary.safeToSpendPerDayMinor !== null
+                        ? `${formatMoney(summary.safeToSpendPerDayMinor, settings.currency)} / day`
+                        : MISSING_METRIC_DASH}
+                  </AppText>
+                </View>
+                <HeroProgressBar pct={summary.utilizationPct} />
+              </>
+            ) : null}
+          </>
+        ) : overallBudgetMinor !== null && summary.remainingMinor !== null ? (
           <>
             <View style={styles.heroTopRow}>
               <AppText variant="label" color="heroTextSecondary">
@@ -178,6 +283,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               amountMinor={Math.abs(summary.remainingMinor)}
               currency={settings.currency}
               color="heroText"
+              hidden={hideAmounts}
             />
 
             <View style={[styles.heroSubRow, { gap: theme.spacing.sm }]}>
@@ -187,10 +293,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 style={styles.flexOne}
                 numberOfLines={1}
               >
-                {t('overview.ofBudgetDaysLeft', {
-                  budget: formatMoney(overallBudgetMinor, settings.currency),
-                  days: remainingDaysCount,
-                })}
+                {hideAmounts
+                  ? t('overview.tapToShowHint')
+                  : t('overview.ofBudgetDaysLeft', {
+                      budget: formatMoney(overallBudgetMinor, settings.currency),
+                      days: remainingDaysCount,
+                    })}
               </AppText>
               <AppText variant="label" color="heroTextSecondary" tabularNums>
                 {t('overview.usedPct', {
@@ -214,6 +322,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     amountMinor={summary.safeToSpendPerDayMinor}
                     currency={settings.currency}
                     color="heroText"
+                    hidden={hideAmounts}
                   />
                 ) : (
                   <View>
@@ -235,6 +344,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                   amountMinor={summary.spentMinor}
                   currency={settings.currency}
                   color="heroText"
+                  hidden={hideAmounts}
                 />
               </View>
               <View style={styles.stripCol}>
@@ -246,6 +356,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                   amountMinor={summary.incomeMinor}
                   currency={settings.currency}
                   color="heroText"
+                  hidden={hideAmounts}
                 />
               </View>
             </View>
@@ -274,6 +385,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               amountMinor={summary.spentMinor}
               currency={settings.currency}
               color="heroText"
+              hidden={hideAmounts}
             />
 
             <View style={[styles.divider, { backgroundColor: theme.colors.heroLine }]} />
@@ -366,6 +478,93 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           style={styles.flexOne}
         />
       </View>
+
+      {/* Wallets list OR "Set up your wallets" prompt */}
+      {hasWallets ? (
+        <View style={{ gap: theme.spacing.sm }}>
+          <View style={styles.sectionRow}>
+            <AppText variant="headline">{t('overview.walletsHeading')}</AppText>
+            <Pressable
+              testID="overview-manage-wallets"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => router.push('/wallets' as never)}
+            >
+              <AppText variant="label" color="accent" style={styles.semiBold}>
+                {t('overview.manageWallets')}
+              </AppText>
+            </Pressable>
+          </View>
+
+          <Surface testID="overview-wallets-list" padded={false}>
+            {accountsOverview.balances.map((entry, idx) => {
+              const acc = entry.account;
+              const metaParts: string[] = [];
+              if (acc.last4) metaParts.push(`Ending ${acc.last4}`);
+              if (!acc.includeInTotal) metaParts.push(t('wallets.excludedBadge'));
+              const subtitle = metaParts.length > 0 ? metaParts.join(' · ') : undefined;
+
+              return (
+                <ListRow
+                  key={acc.id}
+                  testID={`overview-wallet-row-${acc.id}`}
+                  title={acc.name}
+                  subtitle={subtitle}
+                  left={<WalletAvatar account={acc} size="sm" />}
+                  right={
+                    hideAmounts ? (
+                      <AppText variant="bodyStrong" color="textSecondary" tabularNums>
+                        {HIDDEN_AMOUNT_TEXT}
+                      </AppText>
+                    ) : entry.isDue ? (
+                      <Text accessibilityLabel={entry.formattedBalance}>
+                        <Money
+                          variant="bodyStrong"
+                          amountMinor={Math.abs(entry.balanceMinor)}
+                          currency={settings.currency}
+                          color="danger"
+                        />
+                        <Text
+                          style={[
+                            theme.typography.bodyStrong,
+                            { color: theme.colors.danger },
+                          ]}
+                        >
+                          {' due'}
+                        </Text>
+                      </Text>
+                    ) : (
+                      <Money
+                        variant="bodyStrong"
+                        amountMinor={Math.abs(entry.balanceMinor)}
+                        prefix={entry.balanceMinor < 0 ? '−' : ''}
+                        currency={settings.currency}
+                        color="text"
+                      />
+                    )
+                  }
+                  showDivider={idx < accountsOverview.balances.length - 1}
+                  onPress={() => router.push(`/wallets/${acc.id}` as never)}
+                />
+              );
+            })}
+          </Surface>
+        </View>
+      ) : !accountsLoading ? (
+        <Surface
+          testID="overview-setup-wallets-card"
+          padded={false}
+          onPress={() => router.push('/wallets?setup=1' as never)}
+          accessibilityLabel={t('overview.setupWalletsTitle')}
+        >
+          <ListRow
+            title={t('overview.setupWalletsTitle')}
+            subtitle={t('overview.setupWalletsBody')}
+            left={<WalletAvatar account={null} size="sm" />}
+            showChevron
+          />
+        </Surface>
+      ) : null}
 
       {/* Spending chart + inline Day | Week | Month switcher */}
       <View style={{ gap: theme.spacing.sm }}>
@@ -540,10 +739,14 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             {recentTransactions.map((tx, idx) => {
               const cat = tx.categoryId ? categoriesById.get(tx.categoryId) : undefined;
               const catName = cat?.name ?? t('common.uncategorized');
+              const wallet = tx.accountId ? accountsById.get(tx.accountId) : undefined;
               const isIncome = tx.type === 'income';
               const whenLabel = tx.occurredTime
                 ? formatFriendlyTime(tx.occurredTime, use24Hour)
                 : formatFriendlyDate(tx.occurredOn, today);
+              const subtitleParts = [catName];
+              if (wallet) subtitleParts.push(wallet.name);
+              subtitleParts.push(whenLabel);
 
               return (
                 <ListRow
@@ -556,7 +759,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     />
                   }
                   title={tx.description.trim() || catName}
-                  subtitle={`${catName} · ${whenLabel}`}
+                  subtitle={subtitleParts.join(' · ')}
                   right={
                     <Money
                       variant="bodyStrong"
@@ -564,6 +767,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                       amountMinor={tx.amountMinor}
                       currency={tx.currency}
                       color={isIncome ? 'accent' : 'text'}
+                      hidden={hideAmounts}
                     />
                   }
                   showDivider={idx < recentTransactions.length - 1}

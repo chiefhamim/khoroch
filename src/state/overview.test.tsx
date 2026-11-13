@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { OverviewContent } from '@/app/(tabs)/index';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { t } from '@/i18n';
@@ -236,5 +236,149 @@ describe('Overview Scenario A integration', () => {
     expect(
       view.getByText('New cycle started 10 Nov · Last cycle ৳ 4,600')
     ).toBeTruthy();
+  });
+
+  it('renders Wallets hero, tap-to-hide toggle, and Card due balance per v1.2 Scenario A', async () => {
+    const repo = new MemoryRepo();
+    await repo.setSetting('onboardingDone', true);
+    await repo.setSetting('currency', 'BDT');
+    await repo.setSetting('monthStartDay', 1);
+    await repo.setSetting('name', 'Hamim');
+
+    await repo.insertAccount({
+      id: 'acc_bkash',
+      name: 'bKash',
+      kind: 'mobile_wallet',
+      provider: 'bkash',
+      colorKey: '#E2136E',
+      monogram: 'bK',
+      openingBalanceMinor: 1_000_000,
+      openingDate: '2026-11-10',
+      includeInTotal: true,
+      sortOrder: 0,
+    });
+    await repo.insertAccount({
+      id: 'acc_cash',
+      name: 'Cash',
+      kind: 'cash',
+      colorKey: '#123227',
+      openingBalanceMinor: 0,
+      openingDate: '2026-11-10',
+      includeInTotal: true,
+      sortOrder: 1,
+    });
+    await repo.insertAccount({
+      id: 'acc_card',
+      name: 'Card',
+      kind: 'credit_card',
+      colorKey: '#334155',
+      last4: '4821',
+      openingBalanceMinor: -500_000,
+      openingDate: '2026-11-01',
+      includeInTotal: true,
+      sortOrder: 2,
+    });
+    await repo.insertAccount({
+      id: 'acc_savings',
+      name: 'Savings',
+      kind: 'bank',
+      colorKey: '#1E40AF',
+      openingBalanceMinor: 30_000_000,
+      openingDate: '2026-11-01',
+      includeInTotal: false,
+      sortOrder: 3,
+    });
+
+    await repo.insertTransaction({
+      id: 'e1',
+      type: 'expense',
+      amountMinor: 25_000,
+      currency: 'BDT',
+      categoryId: 'food_dining',
+      accountId: 'acc_cash',
+      description: 'Lunch',
+      occurredOn: '2026-11-09',
+    });
+    await repo.insertTransaction({
+      id: 'e2',
+      type: 'income',
+      amountMinor: 250_000,
+      currency: 'BDT',
+      categoryId: 'salary',
+      accountId: 'acc_bkash',
+      description: 'Freelance',
+      occurredOn: '2026-11-11',
+    });
+    await repo.insertTransaction({
+      id: 'e4',
+      type: 'expense',
+      amountMinor: 35_000,
+      currency: 'BDT',
+      categoryId: 'food_dining',
+      accountId: 'acc_bkash',
+      description: 'Coffee',
+      occurredOn: '2026-11-12',
+    });
+    await repo.insertTransaction({
+      id: 'e5',
+      type: 'expense',
+      amountMinor: 60_000,
+      currency: 'BDT',
+      categoryId: 'shopping',
+      accountId: 'acc_card',
+      description: 'Groceries card',
+      occurredOn: '2026-11-12',
+    });
+    await repo.createTransfer({
+      id: 't1',
+      fromAccountId: 'acc_bkash',
+      toAccountId: 'acc_cash',
+      amountMinor: 100_000,
+      feeMinor: 1_850,
+      occurredOn: '2026-11-12',
+    });
+
+    const settings = await repo.getSettings();
+    const view = await render(
+      <AppContext.Provider
+        value={{
+          repo,
+          backend: 'memory',
+          settings,
+          updateSetting: async (k, v) => {
+            await repo.setSetting(k, v);
+          },
+          refreshSettings: async () => {},
+        }}
+      >
+        <ThemeProvider preference="light">
+          <OverviewContent todayOverride="2026-11-13" hourOverride={14} />
+        </ThemeProvider>
+      </AppContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(view.getByTestId('hero-wallets-total')).toBeTruthy();
+    });
+
+    expect(view.getByLabelText('৳ 6,531.50')).toBeTruthy();
+    expect(view.getByText('Across 3 wallet(s)')).toBeTruthy();
+    expect(view.getByText(t('wallets.excludedBadge'))).toBeTruthy();
+    expect(view.getByTestId('overview-wallets-list')).toBeTruthy();
+    expect(view.getByTestId('overview-wallet-row-acc_bkash')).toBeTruthy();
+    expect(view.getByTestId('overview-wallet-row-acc_card')).toBeTruthy();
+    expect(view.getByLabelText('৳5,600 due')).toBeTruthy();
+
+    // Tap Hero card toggles privacy hide-mode
+    await fireEvent.press(view.getByTestId('overview-budget-card'));
+    await waitFor(() => {
+      expect(view.getByText(t('overview.tapToShowHint'))).toBeTruthy();
+    });
+    // Tap again to restore visibility
+    await fireEvent.press(view.getByTestId('overview-budget-card'));
+    await waitFor(() => {
+      expect(view.getByText('Across 3 wallet(s)')).toBeTruthy();
+      expect(view.getByLabelText('৳ 6,531.50')).toBeTruthy();
+    });
   });
 });

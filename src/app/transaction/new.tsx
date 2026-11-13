@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { buildCustomCategory } from '@/domain/categories';
-import type { Category, Transaction } from '@/domain/types';
+import type { Account, Category, Transaction } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
@@ -22,15 +22,17 @@ import {
   TransactionForm,
   type CreateCategoryInput,
   type TransactionFormValues,
+  type TransferFormValues,
 } from '@/ui/TransactionForm';
 
 export default function NewTransactionScreen() {
-  const { repo, settings } = useAppContext();
+  const { repo, settings, updateSetting } = useAppContext();
   const { theme } = useTheme();
   const { showToast } = useToast();
   const txIdRef = useRef<string>(Crypto.randomUUID());
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -40,11 +42,13 @@ export default function NewTransactionScreen() {
     let active = true;
     Promise.all([
       repo.listCategories({ includeArchived: false }),
+      repo.listAccounts({ includeArchived: false }),
       repo.searchTransactions({}, { limit: 150 }),
     ])
-      .then(([cats, txPage]) => {
+      .then(([cats, accs, txPage]) => {
         if (!active) return;
         setCategories(cats);
+        setAccounts(accs);
         setRecentTransactions(txPage.rows);
         setLoadError(null);
       })
@@ -96,12 +100,16 @@ export default function NewTransactionScreen() {
         amountMinor: values.amountMinor,
         currency: settings.currency,
         categoryId: values.categoryId,
+        accountId: values.accountId,
         description: values.description,
         note: values.note,
         occurredOn: values.occurredOn,
         occurredTime: values.occurredTime,
         source: 'manual',
       });
+      if (values.accountId !== settings.lastUsedAccountId) {
+        await updateSetting('lastUsedAccountId', values.accountId);
+      }
       hapticSuccess();
       bumpDataVersion();
       showToast({
@@ -111,7 +119,35 @@ export default function NewTransactionScreen() {
       });
       handleClose();
     },
-    [handleClose, repo, settings.currency, showToast]
+    [handleClose, repo, settings.currency, settings.lastUsedAccountId, showToast, updateSetting]
+  );
+
+  const handleSubmitTransfer = useCallback(
+    async (values: TransferFormValues) => {
+      await repo.createTransfer({
+        id: txIdRef.current,
+        fromAccountId: values.fromAccountId,
+        toAccountId: values.toAccountId,
+        amountMinor: values.amountMinor,
+        feeMinor: values.feeMinor,
+        currency: settings.currency,
+        occurredOn: values.occurredOn,
+        occurredTime: values.occurredTime,
+        note: values.note,
+      });
+      if (values.fromAccountId !== settings.lastUsedAccountId) {
+        await updateSetting('lastUsedAccountId', values.fromAccountId);
+      }
+      hapticSuccess();
+      bumpDataVersion();
+      showToast({
+        message: t('transfer.savedToast'),
+        icon: 'circle-check',
+        tone: 'accent',
+      });
+      handleClose();
+    },
+    [handleClose, repo, settings.currency, settings.lastUsedAccountId, showToast, updateSetting]
   );
 
   if (loading) {
@@ -162,10 +198,14 @@ export default function NewTransactionScreen() {
           mode="new"
           currency={settings.currency}
           categories={categories}
+          accounts={accounts}
+          defaultAccountId={settings.lastUsedAccountId}
+          onPressSetupWallets={() => router.push('/wallets?setup=1' as never)}
           recentTransactions={recentTransactions}
           onClose={handleClose}
           onCreateCategory={handleCreateCategory}
           onSubmit={handleSubmit}
+          onSubmitTransfer={handleSubmitTransfer}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

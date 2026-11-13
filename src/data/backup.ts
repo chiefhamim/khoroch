@@ -106,6 +106,10 @@ function sanitizeSettingsForExport(s: Settings): Settings {
     notificationPermissionDenied: Boolean(s.notificationPermissionDenied),
     lastBackupAt: s.lastBackupAt ?? null,
     speechDisclosureAccepted: Boolean(s.speechDisclosureAccepted),
+    lastUsedAccountId:
+      typeof s.lastUsedAccountId === 'string' && s.lastUsedAccountId.trim().length > 0
+        ? s.lastUsedAccountId
+        : null,
   };
 }
 
@@ -593,6 +597,10 @@ function validateSettingsObject(raw: unknown): Settings {
     notificationPermissionDenied: Boolean(obj.notificationPermissionDenied),
     lastBackupAt: (obj.lastBackupAt ?? null) as number | null,
     speechDisclosureAccepted: Boolean(obj.speechDisclosureAccepted),
+    lastUsedAccountId:
+      typeof obj.lastUsedAccountId === 'string' && obj.lastUsedAccountId.trim().length > 0
+        ? obj.lastUsedAccountId
+        : null,
   };
 }
 
@@ -752,6 +760,9 @@ export function parseAndValidateBackup(
   }
 
   const settings = validateSettingsObject(dataObj.settings);
+  if (settings.lastUsedAccountId && !accountIds.has(settings.lastUsedAccountId)) {
+    settings.lastUsedAccountId = null;
+  }
 
   return {
     app: BACKUP_APP_ID,

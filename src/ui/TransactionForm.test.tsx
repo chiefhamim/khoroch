@@ -4,7 +4,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import EditTransactionScreen from '@/app/transaction/[id]';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { buildDefaultCategories } from '@/domain/categories';
-import type { Transaction } from '@/domain/types';
+import type { Account, Transaction } from '@/domain/types';
 import { isValidLocalTime } from '@/domain/validation';
 import { DEFAULT_SETTINGS } from '@/data/repo';
 import { t } from '@/i18n';
@@ -140,12 +140,12 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
     await fireEvent.press(view.getByTestId('cat-chip-food_dining'));
     expect(view.getByTestId('save-tx-button').props.accessibilityState.disabled).toBe(false);
 
-    // Switch type to Income — resets category so Save returns to disabled
-    await fireEvent.press(view.getByText('Income'));
+    // Switch type to In — resets category so Save returns to disabled
+    await fireEvent.press(view.getByText('In'));
     expect(view.getByTestId('save-tx-button').props.accessibilityState.disabled).toBe(true);
 
-    // Switch back to Expense, pick Food & Dining, fill description chip, submit
-    await fireEvent.press(view.getByText('Expense'));
+    // Switch back to Out, pick Food & Dining, fill description chip, submit
+    await fireEvent.press(view.getByText('Out'));
     await fireEvent.press(view.getByTestId('cat-chip-food_dining'));
     await fireEvent.press(view.getByTestId('suggestion-chip-0'));
     await fireEvent.press(view.getByTestId('save-tx-button'));
@@ -360,5 +360,159 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
 
     const after = await repo.getTransaction('tx-edit-1');
     expect(after?.deletedAt).not.toBeNull();
+  });
+
+  it('defaults Wallet to defaultAccountId, supports No wallet, and formats Save CTA', async () => {
+    const categories = buildDefaultCategories(1700000000000);
+    const accounts: Account[] = [
+      {
+        id: 'acc_bkash',
+        name: 'bKash',
+        kind: 'mobile_wallet',
+        provider: 'bkash',
+        colorKey: '#E2136E',
+        monogram: 'bK',
+        last4: null,
+        openingBalanceMinor: 1_000_000,
+        openingDate: '2026-11-10',
+        includeInTotal: true,
+        sortOrder: 0,
+        archivedAt: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'acc_cash',
+        name: 'Cash',
+        kind: 'cash',
+        provider: null,
+        colorKey: '#123227',
+        monogram: null,
+        last4: null,
+        openingBalanceMinor: 50_000,
+        openingDate: '2026-11-10',
+        includeInTotal: true,
+        sortOrder: 1,
+        archivedAt: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    const onSubmit = jest.fn(async () => {});
+
+    const view = await render(
+      <ThemeProvider preference="light">
+        <TransactionForm
+          currency="BDT"
+          categories={categories}
+          accounts={accounts}
+          defaultAccountId="acc_bkash"
+          balancesById={new Map([['acc_bkash', 1_000_000], ['acc_cash', 50_000]])}
+          onSubmit={onSubmit}
+        />
+      </ThemeProvider>
+    );
+
+    expect(view.getByTestId('tx-wallet-row')).toBeTruthy();
+    await fireEvent.press(view.getByTestId('tx-keypad-key-3'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-5'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+    await fireEvent.press(view.getByTestId('cat-chip-food_dining'));
+
+    expect(view.getByText('Save · ৳ 350 from bKash')).toBeTruthy();
+
+    // Switch wallet to No wallet and submit
+    await fireEvent.press(view.getByTestId('tx-wallet-row'));
+    await waitFor(() => expect(view.getByTestId('wallet-picker-option-none')).toBeTruthy());
+    await fireEvent.press(view.getByTestId('wallet-picker-option-none'));
+    expect(view.getByText('Save · ৳ 350')).toBeTruthy();
+
+    await fireEvent.press(view.getByTestId('save-tx-button'));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'expense',
+        amountMinor: 35_000,
+        accountId: null,
+      })
+    );
+  });
+
+  it('submits Transfer mode atomically with fee', async () => {
+    const categories = buildDefaultCategories(1700000000000);
+    const accounts: Account[] = [
+      {
+        id: 'acc_bkash',
+        name: 'bKash',
+        kind: 'mobile_wallet',
+        provider: 'bkash',
+        colorKey: '#E2136E',
+        monogram: 'bK',
+        last4: null,
+        openingBalanceMinor: 1_000_000,
+        openingDate: '2026-11-10',
+        includeInTotal: true,
+        sortOrder: 0,
+        archivedAt: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'acc_cash',
+        name: 'Cash',
+        kind: 'cash',
+        provider: null,
+        colorKey: '#123227',
+        monogram: null,
+        last4: null,
+        openingBalanceMinor: 0,
+        openingDate: '2026-11-10',
+        includeInTotal: true,
+        sortOrder: 1,
+        archivedAt: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    const onSubmit = jest.fn(async () => {});
+    const onSubmitTransfer = jest.fn(async () => {});
+
+    const view = await render(
+      <ThemeProvider preference="light">
+        <TransactionForm
+          currency="BDT"
+          categories={categories}
+          accounts={accounts}
+          defaultAccountId="acc_bkash"
+          onSubmit={onSubmit}
+          onSubmitTransfer={onSubmitTransfer}
+        />
+      </ThemeProvider>
+    );
+
+    await fireEvent.press(view.getByText('Transfer'));
+    expect(view.getByTestId('transfer-from-row')).toBeTruthy();
+    expect(view.getByTestId('transfer-to-row')).toBeTruthy();
+    expect(view.getByText(t('transfer.feeHintMfs'))).toBeTruthy();
+
+    await fireEvent.press(view.getByTestId('tx-keypad-key-1'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+    await fireEvent.changeText(view.getByTestId('transfer-fee-input'), '18.50');
+
+    expect(view.getByText('Transfer · ৳ 1,000')).toBeTruthy();
+    await fireEvent.press(view.getByTestId('save-tx-button'));
+
+    await waitFor(() => expect(onSubmitTransfer).toHaveBeenCalledTimes(1));
+    expect(onSubmitTransfer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fromAccountId: 'acc_bkash',
+        toAccountId: 'acc_cash',
+        amountMinor: 100_000,
+        feeMinor: 1_850,
+      })
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });
