@@ -399,16 +399,16 @@ Re-read: PLAN §1 (security table), §6, §7 · TEST-CASES-v1.2 §C
 
 **Done when:** CHECKS pass (incl. §C) · on the phone's dev app: backup round-trip verified with counts logged · S3–S10 each closed with file:line in the Log · keystore exists outside the repo and `git status` shows no key material.
 
-## Phase 15 — Visual system v1.2  [ ]
+## Phase 15 — Visual system v1.2  [x]
 Re-read: PLAN §3 · mockup.html
-- [ ] Fonts: Plus Jakarta Sans (400–800) + Hind Siliguri 600 for ৳. `Money` v3 with a `TakaSign` that never falls back (size 0.72×, baseline tuned per size bucket). Unit test: `Money` renders ৳ in the Hind Siliguri family
-- [ ] Tokens v1.2 from the mockup (warm neutrals, ink buttons, solid hero colour per accent), contrast tests updated
-- [ ] Theme engine: 5 accents × System/Light/Dark/Black, persisted in settings; `useTheme` exposes accent + card gradient
-- [ ] Solid hero card component (no gradient), flat cards with hairline borders and no shadows, neutral icon tiles, flush tab bar (Home · Ledger · + · Plan · People) per PLAN §3 and the refined mockup. Rename Activity→Ledger and Budget→Plan routes/labels (keep the old routes redirecting); Insights moves inside Plan (old route redirects). The `other` category icon becomes `shapes` (AGENTS §4b)
-- [ ] `src/__tests__/no-ellipsis.test.ts` per AGENTS §4b, passing
-- [ ] Number formatting: averages as whole taka, "—" + reason for missing values, compact-number helper (TEST-CASES-v1.2 §E)
-- [ ] Dev gallery updated: every component × every accent × modes
-- [ ] Native rebuild (fonts) → dev app on the phone
+- [x] Fonts: Plus Jakarta Sans (400–800) + Hind Siliguri 600 for ৳. `Money` v3 with a `TakaSign` that never falls back (size 0.72×, baseline tuned per size bucket). Unit test: `Money` renders ৳ in the Hind Siliguri family
+- [x] Tokens v1.2 from the mockup (warm neutrals, ink buttons, solid hero colour per accent), contrast tests updated
+- [x] Theme engine: 5 accents × System/Light/Dark/Black, persisted in settings; `useTheme` exposes accent + hero styling (`heroGradient` / solid `HeroCard` per `D-009`)
+- [x] Solid hero card component (no gradient), flat cards with hairline borders and no shadows, neutral icon tiles, flush tab bar (Home · Ledger · + · Plan · People) per PLAN §3 and the refined mockup. Rename Activity→Ledger and Budget→Plan routes/labels (keep the old routes redirecting); Insights moves inside Plan (old route redirects). The `other` category icon becomes `shapes` (AGENTS §4b)
+- [x] `src/__tests__/no-ellipsis.test.ts` per AGENTS §4b, passing
+- [x] Number formatting: averages as whole taka, "—" + reason for missing values, compact-number helper (TEST-CASES-v1.2 §E)
+- [x] Dev gallery updated: every component × every accent × modes
+- [x] Native rebuild (fonts) → dev app on the phone
 
 **Done when:** CHECKS pass · PHONE CHECK (dev app): ৳ next to numbers at sizes 12/15/17/28/40 in light + dark (screenshot each; the ৳ must look the same weight and size as the digits, sitting on the baseline) · gallery screenshots for Forest + one other accent, light/dark/black.
 
@@ -522,6 +522,14 @@ Re-read: AGENTS §6 · PLAN §6
     - Implemented JSON backup export/restore + Home backup nudge (`src/data/backup.ts`, `src/data/backupFiles.ts`, `src/app/settings/index.tsx`, `src/app/(tabs)/index.tsx`, `src/data/backup.test.ts` covering TEST-CASES-v1.2 §C).
   - **CHECKS:** `npm run typecheck` (0 errors) · `npx expo lint` (0 errors, 0 warnings) · `npm test -- --no-color` (21 passed / 21 suites, 111 passed / 111 tests) · `npx expo export --platform web --output-dir dist-check` (3169 modules, exit 0; removed `dist-check`).
   - **PHONE CHECK (dev app, `SM_S938B` via ADB `192.168.0.154:45643`):** Installed standalone `com.hamim.budgetapp.dev` (`assembleRelease` debug-signed) alongside untouched `com.hamim.budgetapp`. Entered 3 sample expenses (`450 Lunch`, `1200 Groceries`, `250 Rickshaw`; Home `৳1,900`), exported `budget-app-backup-2026-11-13.json` (`7514` bytes: `schema: 2`, `20 categories`, `3 transactions`, `0 budgets`, `0 day_reviews`) via SAF to `Download/BudgetBackups`, deleted all data (reset to onboarding / `৳0` DB), restored via preview (`"13 Nov · 3 transactions · 20 categories"`), verified `DevCheck` + Home `৳1,900` + all 3 Activity rows. Screenshots (`docs/v1.2/after/phase-14/`): `home-nudge-light.png`, `home-nudge-dark.png`, `backup-sheet-light.png`, `backup-sheet-dark.png`, `restore-confirm-dark.png`, `privacy-light.png`, `privacy-dark.png`.
+  - **BLOCKED:** None · **D-entries:** `D-009`
+- **2026-11-13 · Phase 15 — Visual system v1.2**
+  - **Built:**
+    - Loaded `PlusJakartaSans` (400–800) and `HindSiliguri` (500–700) in `src/app/_layout.tsx` (uninstalled `@expo-google-fonts/inter`, updated `Keypad.tsx` and `TransactionForm.tsx`); fixed Android Fabric wrapping inside `<Money>` (`src/ui/Money.tsx:212`) with `'\u00A0'` so `৳` stays on one line with 12/15/17/28/40sp digits.
+    - Updated `src/theme/tokens.ts`, `HeroCard` + `HeroProgressBar` (`src/ui/HeroCard.tsx`, solid accent fill, zero shadow), `BudgetStatusBadge` (`surface="hero"`), `IconButton` (`iconColor`), `Settings` appearance picker (`5 accents × 4 modes` in `src/app/settings/index.tsx`, persisted in `backup.ts` via `normalizeAccentTheme`), and `src/app/dev/gallery.tsx` (`isDevVariant()` gated, full-width mode switch, 5 accents, `TAKA SIGN SCALE`, wrapping category tiles).
+    - Rebuilt navigation (`src/app/(tabs)/_layout.tsx` + `src/ui/Screen.tsx` `TAB_BAR_CONTENT_HEIGHT = 64`): flush tab bar (`Home · Ledger · + · Plan · People`), `src/app/(tabs)/ledger.tsx`, `src/app/(tabs)/plan.tsx`, `src/app/(tabs)/people.tsx`, `src/screens/InsightsScreen.tsx` + `src/app/plan/insights.tsx` (with `<Redirect>` on `activity`, `budget`, `insights`), whole-taka `roundToWhole` averages, `MISSING_METRIC_DASH` (`—`) with reason labels, `'shapes'` icon replacement, and `src/__tests__/no-ellipsis.test.ts`.
+  - **CHECKS:** `npm run typecheck` (0 errors) · `npx expo lint` (0 errors, 0 warnings) · `npm test -- --no-color` (22 passed / 22 suites, 128 passed / 128 tests).
+  - **PHONE CHECK (dev app, `SM_S938B` via ADB `192.168.0.154:45643`):** Built & installed `com.hamim.budgetapp.dev` (`assembleRelease`) and visually verified (`docs/v1.2/after/phase-15/`): `01-home.png`, `02-gallery-forest-light.png`, `03-gallery-taka-light.png`, `04-gallery-forest-dark.png`, `05-gallery-taka-dark.png`, `06-gallery-ocean-black.png`, `06-gallery-plum-black.png`, `07-settings.png`, `08-appearance-sheet.png`, `09-ledger.png`, `10-plan.png`, `11-gallery-saffron-dark.png`, `12-plan-insights.png`, `13-people.png`.
   - **BLOCKED:** None · **D-entries:** `D-009`
 
 ## v1.2 summary

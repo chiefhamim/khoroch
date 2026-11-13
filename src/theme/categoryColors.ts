@@ -9,19 +9,19 @@ export interface CategoryColorSpec {
 }
 
 export const CATEGORY_COLORS: Record<CategoryColorKey, CategoryColorSpec> = {
-  orange: { light: '#E8590C', dark: '#FF922B', label: 'Orange' },
-  green: { light: '#2F9E44', dark: '#69DB7C', label: 'Green' },
-  blue: { light: '#1C7ED6', dark: '#4DABF7', label: 'Blue' },
-  pink: { light: '#D6336C', dark: '#F783AC', label: 'Pink' },
-  violet: { light: '#7048E8', dark: '#9775FA', label: 'Violet' },
-  amber: { light: '#E67700', dark: '#FFD43B', label: 'Amber' },
-  red: { light: '#E03131', dark: '#FF8787', label: 'Red' },
-  grape: { light: '#AE3EC9', dark: '#DA77F2', label: 'Grape' },
-  indigo: { light: '#4263EB', dark: '#748FFC', label: 'Indigo' },
+  orange: { light: '#D9480F', dark: '#FF922B', label: 'Orange' },
+  green: { light: '#2B8A3E', dark: '#69DB7C', label: 'Green' },
+  blue: { light: '#1971C2', dark: '#4DABF7', label: 'Blue' },
+  pink: { light: '#C2255C', dark: '#F783AC', label: 'Pink' },
+  violet: { light: '#6741D9', dark: '#9775FA', label: 'Violet' },
+  amber: { light: '#C77700', dark: '#FFD43B', label: 'Amber' },
+  red: { light: '#B42318', dark: '#F08A7E', label: 'Red' },
+  grape: { light: '#9C36B5', dark: '#DA77F2', label: 'Grape' },
+  indigo: { light: '#3B5BDB', dark: '#748FFC', label: 'Indigo' },
   cyan: { light: '#0C8599', dark: '#3BC9DB', label: 'Cyan' },
-  teal: { light: '#099268', dark: '#38D9A9', label: 'Teal' },
-  lime: { light: '#5C940D', dark: '#A9E34B', label: 'Lime' },
-  gray: { light: '#6B7280', dark: '#9CA3AF', label: 'Gray' },
+  teal: { light: '#0B7A55', dark: '#4CCB97', label: 'Teal' },
+  lime: { light: '#5C7A2E', dark: '#A9E34B', label: 'Lime' },
+  gray: { light: '#5F5C54', dark: '#A6A39C', label: 'Gray' },
 };
 
 const COLOR_KEY_SET = new Set<string>(CATEGORY_COLOR_KEYS);
@@ -38,7 +38,7 @@ export function hexToRgba(hex: string, alpha: number): string {
   const clean = hex.replace('#', '');
   const num = Number.parseInt(clean, 16);
   if (!Number.isFinite(num) || clean.length !== 6) {
-    return `rgba(107, 114, 128, ${alpha})`;
+    return `rgba(95, 92, 84, ${alpha})`;
   }
   const r = (num >> 16) & 255;
   const g = (num >> 8) & 255;
@@ -46,6 +46,10 @@ export function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+/**
+ * In v1.2, category glyphs carry their category colour on a neutral sunken tile
+ * (`#EEEDE8` light / `#1C1C1F` dark) — never a coloured tinted square.
+ */
 export function getCategoryTileVisual(
   colorKey: string | null | undefined,
   scheme: 'light' | 'dark'
@@ -53,9 +57,6 @@ export function getCategoryTileVisual(
   const key = normalizeCategoryColorKey(colorKey);
   const spec = CATEGORY_COLORS[key];
   const fg = scheme === 'dark' ? spec.dark : spec.light;
-  const alpha = scheme === 'dark' ? 0.18 : 0.14;
-  return {
-    fg,
-    bg: hexToRgba(fg, alpha),
-  };
+  const bg = scheme === 'dark' ? '#1C1C1F' : '#EEEDE8';
+  return { fg, bg };
 }

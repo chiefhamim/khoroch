@@ -1,6 +1,6 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
-import { InsightsContent } from '@/app/(tabs)/insights';
+import { InsightsContent } from '@/screens/InsightsScreen';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { t } from '@/i18n';
 import { useActivityFilterStore } from '@/state/activityFilterStore';
@@ -119,7 +119,7 @@ describe('InsightsContent integration', () => {
 
     await fireEvent.press(view.getByTestId('insight-top-category'));
 
-    expect(mockPush).toHaveBeenCalledWith('/(tabs)/activity');
+    expect(mockPush).toHaveBeenCalledWith('/(tabs)/ledger');
     const filterState = useActivityFilterStore.getState();
     expect(filterState.type).toBe('expense');
     expect(filterState.categoryId).toBe('food_dining');

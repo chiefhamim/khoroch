@@ -424,7 +424,7 @@ export default function QuickEntryScreen() {
                     {/* Card Header: Category Tile + Type Switcher + Trash */}
                     <View style={[styles.draftHeader, { gap: theme.spacing.sm }]}>
                       <IconTile
-                        icon={selectedCategory?.icon ?? 'circle-ellipsis'}
+                        icon={selectedCategory?.icon ?? 'shapes'}
                         colorKey={selectedCategory?.colorKey ?? 'gray'}
                         neutral={!selectedCategory}
                         size="sm"

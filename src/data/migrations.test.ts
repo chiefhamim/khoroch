@@ -91,7 +91,7 @@ const V1_DEFAULT_SEED: readonly {
   { id: 'personal_care', name: 'Personal Care', icon: 'sparkles', kind: 'expense', sortOrder: 12 },
   { id: 'family', name: 'Family', icon: 'people', kind: 'expense', sortOrder: 13 },
   { id: 'gifts', name: 'Gifts', icon: 'gift', kind: 'expense', sortOrder: 14 },
-  { id: 'other', name: 'Other', icon: 'ellipsis-horizontal', kind: 'expense', sortOrder: 15 },
+  { id: 'other', name: 'Other', icon: 'shapes', kind: 'expense', sortOrder: 15 },
   { id: 'salary', name: 'Salary', icon: 'cash', kind: 'income', sortOrder: 101 },
   { id: 'business', name: 'Business / Freelance', icon: 'briefcase', kind: 'income', sortOrder: 102 },
   { id: 'gift_received', name: 'Gift Received', icon: 'gift', kind: 'income', sortOrder: 103 },

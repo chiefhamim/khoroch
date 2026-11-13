@@ -34,11 +34,15 @@ jest.mock('react-native-safe-area-context', () => {
 });
 
 describe('v2 design system components', () => {
-  it('renders Money with tabular-nums, U+2212 minus, and whole-unit vs decimal formatting', async () => {
+  it('renders Money with tabular-nums, Hind Siliguri TakaSign, U+2212 minus, compact, roundToWhole, and hidden', async () => {
     const view = await render(
-      <ThemeProvider preference="light">
+      <ThemeProvider preference="light" accent="ocean">
         <Money testID="m-neg" amountMinor={-60_000} currency="BDT" />
         <Money testID="m-dec" amountMinor={125_050} currency="USD" />
+        <Money testID="m-hero" amountMinor={4_835_000} currency="BDT" variant="hero" />
+        <Money testID="m-compact" amountMinor={4_835_000} currency="BDT" variant="bodyStrong" compact />
+        <Money testID="m-whole" amountMinor={248_769} currency="BDT" variant="headline" roundToWhole />
+        <Money testID="m-hidden" amountMinor={4_835_000} currency="BDT" variant="bodyStrong" hidden />
       </ThemeProvider>
     );
 
@@ -46,8 +50,22 @@ describe('v2 design system components', () => {
     expect(neg.props.accessibilityLabel).toBe('−৳ 600');
     expect(StyleSheet.flatten(neg.props.style).fontVariant).toEqual(['tabular-nums']);
 
+    const negTaka = view.getByTestId('m-neg-taka');
+    expect(StyleSheet.flatten(negTaka.props.style).fontFamily).toBe('HindSiliguri_600SemiBold');
+    expect(StyleSheet.flatten(negTaka.props.style).fontSize).toBe(11); // round(15 * 0.72)
+    expect(StyleSheet.flatten(negTaka.props.style).opacity).toBe(0.8);
+
+    const heroTaka = view.getByTestId('m-hero-taka');
+    expect(StyleSheet.flatten(heroTaka.props.style).fontFamily).toBe('HindSiliguri_600SemiBold');
+    expect(StyleSheet.flatten(heroTaka.props.style).fontSize).toBe(29); // round(40 * 0.72)
+
     const dec = view.getByTestId('m-dec');
     expect(dec.props.accessibilityLabel).toBe('$1,250.50');
+
+    expect(view.getByText(/৳\s48\.4k/)).toBeTruthy();
+    expect(view.getByTestId('m-compact').props.accessibilityLabel).toBe('৳ 48,350');
+    expect(view.getByText(/৳\s2,488/)).toBeTruthy();
+    expect(view.getByText('Hidden')).toBeTruthy();
   });
 
   it('applies keypad keys respecting 2 decimal precision and max length', () => {

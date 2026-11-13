@@ -34,6 +34,7 @@ import {
 } from '@/domain/validation';
 import { t } from '@/i18n';
 import { CATEGORY_COLORS, CATEGORY_COLOR_KEYS } from '@/theme/categoryColors';
+import { TAKA_FONT_FAMILY } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, CATEGORY_ICON_CHOICES } from './AppIcon';
 import { AppText } from './AppText';
@@ -671,7 +672,7 @@ export function TransactionForm({
         {isEditing && onMorePress ? (
           <IconButton
             testID="tx-more-button"
-            icon="more-horizontal"
+            icon="sliders-horizontal"
             variant="sunken"
             size={40}
             accessibilityLabel={t('tx.moreActions')}
@@ -713,7 +714,8 @@ export function TransactionForm({
                 style={{
                   fontSize: symbolFontSize,
                   lineHeight: Math.round(amountLineHeight * 0.72),
-                  fontFamily: 'Inter_600SemiBold',
+                  fontFamily: symbol === '৳' ? TAKA_FONT_FAMILY : 'PlusJakartaSans_600SemiBold',
+                  opacity: symbol === '৳' ? 0.8 : 1,
                   marginRight: 4,
                 }}
               >
@@ -725,7 +727,7 @@ export function TransactionForm({
                   fontSize: amountFontSize,
                   lineHeight: amountLineHeight,
                   letterSpacing: -1.1,
-                  fontFamily: 'Inter_600SemiBold',
+                  fontFamily: 'PlusJakartaSans_600SemiBold',
                   color: heroColor,
                 }}
               >
@@ -841,7 +843,7 @@ export function TransactionForm({
                   numberOfLines={1}
                   style={[
                     styles.catLabel,
-                    selected ? { fontFamily: 'Inter_600SemiBold' } : null,
+                    selected ? { fontFamily: 'PlusJakartaSans_600SemiBold' } : null,
                   ]}
                 >
                   {cat.name}

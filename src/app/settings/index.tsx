@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { AppState, Linking, Platform, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { isDevVariant } from '@/config/appVariant';
 import {
   buildBackupPreview,
   epochMsToLocalDate,
@@ -21,14 +22,17 @@ import { buildSampleTransactions } from '@/data/sampleData';
 import { formatShortDate, todayLocalDate } from '@/domain/dates';
 import { formatCycleLabel, getPeriod } from '@/domain/period';
 import {
+  ACCENT_THEMES,
   ALL_REMINDER_DAYS,
   CURRENCIES,
   SUN_THU_REMINDER_DAYS,
+  type AccentTheme,
   type CurrencyCode,
   type ReminderSettings,
+  type ThemePreference,
 } from '@/domain/types';
 import { MAX_PROFILE_NAME_LENGTH } from '@/domain/validation';
-import { t } from '@/i18n';
+import { t, type TranslationKey } from '@/i18n';
 import {
   getNotificationPermissionStatus,
   isNotificationsSupported,
@@ -37,6 +41,7 @@ import {
 } from '@/notifications/reminders';
 import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
 import { useSettings } from '@/state/useSettings';
+import { ACCENT_DEFINITIONS } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
@@ -415,15 +420,26 @@ export default function SettingsScreen() {
     }
   };
 
+  const ACCENT_LABEL_KEYS: Record<AccentTheme, TranslationKey> = {
+    forest: 'settings.accentForest',
+    ocean: 'settings.accentOcean',
+    plum: 'settings.accentPlum',
+    saffron: 'settings.accentSaffron',
+    graphite: 'settings.accentGraphite',
+  };
+
   const trimmedName = settings.name.trim();
   const initialLetter = trimmedName ? trimmedName.charAt(0).toUpperCase() : 'H';
 
-  const appearanceLabel =
+  const modeLabel =
     settings.theme === 'light'
       ? t('settings.themeLight')
       : settings.theme === 'dark'
         ? t('settings.themeDark')
-        : t('settings.themeSystem');
+        : settings.theme === 'black'
+          ? t('settings.themeBlack')
+          : t('settings.themeSystem');
+  const appearanceLabel = `${t(ACCENT_LABEL_KEYS[settings.accent])} · ${modeLabel}`;
 
   const today = todayLocalDate();
   const draftCyclePreview = formatCycleLabel(
@@ -707,8 +723,8 @@ export default function SettingsScreen() {
         />
       </SettingsGroup>
 
-      {/* DEVELOPER (__DEV__ only) */}
-      {__DEV__ ? (
+      {/* DEVELOPER (dev variant only) */}
+      {isDevVariant() ? (
         <SettingsGroup
           title={t('settings.sectionDev')}
           footer={
@@ -824,110 +840,190 @@ export default function SettingsScreen() {
         </Surface>
       </Sheet>
 
-      {/* Appearance Sheet with 3 Swatches */}
+      {/* Appearance Sheet: 5 Accents × 4 Modes */}
       <Sheet
         testID="settings-appearance-sheet"
         visible={appearanceSheetOpen}
         onClose={() => setAppearanceSheetOpen(false)}
         title={t('settings.themeLabel')}
       >
-        <View style={[styles.swatchRow, { gap: theme.spacing.sm }]}>
-          {(
-            [
-              { pref: 'system', label: t('settings.themeSystem') },
-              { pref: 'light', label: t('settings.themeLight') },
-              { pref: 'dark', label: t('settings.themeDark') },
-            ] as const
-          ).map(({ pref, label }) => {
-            const selected = settings.theme === pref;
-            return (
-              <Pressable
-                key={pref}
-                testID={`settings-theme-${pref}`}
-                accessibilityRole="button"
-                accessibilityLabel={label}
-                accessibilityState={{ selected }}
-                onPress={() => {
-                  hapticSelection();
-                  void updateSetting('theme', pref);
-                  setAppearanceSheetOpen(false);
-                }}
-                style={({ pressed }) => [
-                  styles.swatchCard,
-                  {
-                    backgroundColor: theme.colors.surfaceSunken,
-                    borderColor: selected ? theme.colors.accent : 'transparent',
-                    borderRadius: theme.radius.card,
-                    padding: theme.spacing.md,
-                    gap: theme.spacing.sm,
-                    opacity: pressed && !reducedMotion ? 0.8 : 1,
-                  },
-                ]}
-              >
-                {/* Mini UI preview frame */}
-                <View style={styles.swatchPreviewFrame}>
-                  {pref === 'system' ? (
-                    <View style={styles.splitPreview}>
-                      <View style={[styles.splitHalf, { backgroundColor: '#F5F5F7' }]}>
-                        <View style={[styles.miniCard, { backgroundColor: '#FFFFFF' }]}>
-                          <View style={[styles.miniBar, { backgroundColor: '#097A52' }]} />
-                        </View>
-                      </View>
-                      <View style={[styles.splitHalf, { backgroundColor: '#0A0A0C' }]}>
-                        <View style={[styles.miniCard, { backgroundColor: '#151518' }]}>
-                          <View style={[styles.miniBar, { backgroundColor: '#34D399' }]} />
-                        </View>
-                      </View>
-                    </View>
-                  ) : (
+        <View style={{ gap: theme.spacing.lg }}>
+          {/* 5 Accent swatches */}
+          <View style={{ gap: theme.spacing.sm }}>
+            <AppText variant="label" color="textSecondary">
+              {t('settings.accentLabel')}
+            </AppText>
+            <View style={styles.accentRow}>
+              {ACCENT_THEMES.map((accentId) => {
+                const def = ACCENT_DEFINITIONS[accentId];
+                const selected = settings.accent === accentId;
+                const label = t(ACCENT_LABEL_KEYS[accentId]);
+                return (
+                  <Pressable
+                    key={accentId}
+                    testID={`settings-accent-${accentId}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={label}
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      hapticSelection();
+                      void updateSetting('accent', accentId);
+                    }}
+                    style={({ pressed }) => [
+                      styles.accentItem,
+                      { opacity: pressed && !reducedMotion ? 0.8 : 1 },
+                    ]}
+                  >
                     <View
                       style={[
-                        styles.solidPreview,
-                        { backgroundColor: pref === 'light' ? '#F5F5F7' : '#0A0A0C' },
+                        styles.accentOuterRing,
+                        {
+                          borderColor: selected ? theme.colors.text : 'transparent',
+                        },
                       ]}
                     >
                       <View
                         style={[
-                          styles.miniCard,
-                          {
-                            backgroundColor: pref === 'light' ? '#FFFFFF' : '#151518',
-                            padding: 6,
-                            gap: 4,
-                          },
+                          styles.accentSwatch,
+                          { backgroundColor: def.swatchColor },
                         ]}
                       >
-                        <View
-                          style={[
-                            styles.miniLine,
-                            { backgroundColor: pref === 'light' ? '#0B0B0D' : '#F4F4F5' },
-                          ]}
-                        />
-                        <View
-                          style={[
-                            styles.miniBar,
-                            { backgroundColor: pref === 'light' ? '#097A52' : '#34D399' },
-                          ]}
-                        />
+                        {selected ? <AppIcon name="check" size={16} color="#FFFFFF" /> : null}
                       </View>
                     </View>
-                  )}
-                </View>
+                    <AppText
+                      variant="caption"
+                      color={selected ? 'text' : 'textSecondary'}
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </AppText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
-                <View style={styles.swatchLabelRow}>
-                  <AppText
-                    variant="label"
-                    color={selected ? 'accent' : 'text'}
-                    numberOfLines={1}
+          {/* 4 Modes: System · Light · Dark · Black */}
+          <View style={{ gap: theme.spacing.sm }}>
+            <AppText variant="label" color="textSecondary">
+              {t('settings.modeLabel')}
+            </AppText>
+            <View style={[styles.swatchGrid, { gap: theme.spacing.sm }]}>
+              {(
+                [
+                  { pref: 'system', label: t('settings.themeSystem') },
+                  { pref: 'light', label: t('settings.themeLight') },
+                  { pref: 'dark', label: t('settings.themeDark') },
+                  { pref: 'black', label: t('settings.themeBlack') },
+                ] as { pref: ThemePreference; label: string }[]
+              ).map(({ pref, label }) => {
+                const selected = settings.theme === pref;
+                const activeAccentDef = ACCENT_DEFINITIONS[settings.accent];
+                const bgHex =
+                  pref === 'light'
+                    ? '#F6F5F1'
+                    : pref === 'black'
+                      ? '#000000'
+                      : '#0B0B0C';
+                const surfaceHex =
+                  pref === 'light'
+                    ? '#FFFFFF'
+                    : pref === 'black'
+                      ? '#0B0B0D'
+                      : '#151517';
+                const lineHex =
+                  pref === 'light'
+                    ? '#161513'
+                    : '#F2F0EB';
+                const barHex =
+                  pref === 'light'
+                    ? activeAccentDef.light.accent
+                    : activeAccentDef.dark.accent;
+
+                return (
+                  <Pressable
+                    key={pref}
+                    testID={`settings-theme-${pref}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={label}
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      hapticSelection();
+                      void updateSetting('theme', pref);
+                    }}
+                    style={({ pressed }) => [
+                      styles.swatchCard,
+                      {
+                        backgroundColor: theme.colors.surfaceSunken,
+                        borderColor: selected ? theme.colors.text : 'transparent',
+                        borderRadius: theme.radius.card,
+                        padding: theme.spacing.sm,
+                        gap: theme.spacing.xs,
+                        opacity: pressed && !reducedMotion ? 0.8 : 1,
+                      },
+                    ]}
                   >
-                    {label}
-                  </AppText>
-                  {selected ? (
-                    <AppIcon name="check" size={14} color={theme.colors.accent} />
-                  ) : null}
-                </View>
-              </Pressable>
-            );
-          })}
+                    <View style={styles.swatchPreviewFrame}>
+                      {pref === 'system' ? (
+                        <View style={styles.splitPreview}>
+                          <View style={[styles.splitHalf, { backgroundColor: '#F6F5F1' }]}>
+                            <View style={[styles.miniCard, { backgroundColor: '#FFFFFF' }]}>
+                              <View
+                                style={[
+                                  styles.miniBar,
+                                  { backgroundColor: activeAccentDef.light.accent },
+                                ]}
+                              />
+                            </View>
+                          </View>
+                          <View style={[styles.splitHalf, { backgroundColor: '#0B0B0C' }]}>
+                            <View style={[styles.miniCard, { backgroundColor: '#151517' }]}>
+                              <View
+                                style={[
+                                  styles.miniBar,
+                                  { backgroundColor: activeAccentDef.dark.accent },
+                                ]}
+                              />
+                            </View>
+                          </View>
+                        </View>
+                      ) : (
+                        <View style={[styles.solidPreview, { backgroundColor: bgHex }]}>
+                          <View
+                            style={[
+                              styles.miniCard,
+                              {
+                                backgroundColor: surfaceHex,
+                                padding: 6,
+                                gap: 4,
+                              },
+                            ]}
+                          >
+                            <View style={[styles.miniLine, { backgroundColor: lineHex }]} />
+                            <View style={[styles.miniBar, { backgroundColor: barHex }]} />
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.swatchLabelRow}>
+                      <AppText
+                        variant="label"
+                        color={selected ? 'text' : 'textSecondary'}
+                        numberOfLines={1}
+                      >
+                        {label}
+                      </AppText>
+                      {selected ? (
+                        <AppIcon name="check" size={14} color={theme.colors.text} />
+                      ) : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         </View>
       </Sheet>
 
@@ -1118,11 +1214,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  swatchRow: {
+  accentRow: {
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  accentItem: {
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  accentOuterRing: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accentSwatch: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  swatchGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
   },
   swatchCard: {
-    flex: 1,
+    width: '48%',
+    flexGrow: 1,
     borderWidth: 2,
     alignItems: 'center',
   },

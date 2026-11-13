@@ -13,15 +13,21 @@ export function AppText({
   variant = 'body',
   color = 'text',
   tabularNums = false,
+  numberOfLines,
+  ellipsizeMode,
   style,
   children,
   ...rest
 }: AppTextProps) {
   const { theme } = useTheme();
   const typeStyle = theme.typography[variant];
+  const resolvedEllipsize =
+    ellipsizeMode ?? (numberOfLines !== undefined ? 'clip' : undefined);
 
   return (
     <Text
+      numberOfLines={numberOfLines}
+      ellipsizeMode={resolvedEllipsize}
       style={[
         typeStyle,
         { color: theme.colors[color] },

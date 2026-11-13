@@ -1,4 +1,5 @@
-import { darkColors, lightColors, type ColorPalette } from './tokens';
+import { ACCENT_THEMES } from '@/domain/types';
+import { getPalette, type ColorPalette, type ResolvedColorMode } from './tokens';
 
 function relativeLuminance(hex: string): number {
   const num = Number.parseInt(hex.slice(1), 16);
@@ -16,7 +17,14 @@ function contrastRatio(fg: string, bg: string): number {
 }
 
 type SurfaceKey = 'bg' | 'surface' | 'surfaceRaised';
-type TextRoleKey = 'text' | 'textSecondary' | 'textTertiary' | 'accent' | 'warning' | 'danger';
+type TextRoleKey =
+  | 'text'
+  | 'textSecondary'
+  | 'textTertiary'
+  | 'income'
+  | 'accent'
+  | 'warning'
+  | 'danger';
 
 function assertPaletteContrast(name: string, p: ColorPalette): void {
   const surfaces: SurfaceKey[] = ['bg', 'surface', 'surfaceRaised'];
@@ -24,6 +32,7 @@ function assertPaletteContrast(name: string, p: ColorPalette): void {
     'text',
     'textSecondary',
     'textTertiary',
+    'income',
     'accent',
     'warning',
     'danger',
@@ -44,18 +53,25 @@ function assertPaletteContrast(name: string, p: ColorPalette): void {
   expect(contrastRatio(p.textSecondary, p.accentSoft)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(p.accent, p.accentSoft)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(p.warning, p.accentSoft)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.warning, p.warningBg)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.text, p.warningBg)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(p.danger, p.dangerSoft)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(p.text, p.dangerSoft)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(p.onAccent, p.accent)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(p.onDanger, p.danger)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.onInk, p.ink)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.heroText, p.hero)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.heroTextSecondary, p.hero)).toBeGreaterThanOrEqual(4.5);
 }
 
-describe('theme v2 token WCAG AA contrast', () => {
-  it('ensures every light text role passes >= 4.5:1 across bg, surface, surfaceRaised, and soft surfaces', () => {
-    assertPaletteContrast('light', lightColors);
-  });
+describe('v1.2 token WCAG AA contrast across all 5 accents x 3 resolved modes', () => {
+  const modes: readonly ResolvedColorMode[] = ['light', 'dark', 'black'];
 
-  it('ensures every dark text role passes >= 4.5:1 across bg, surface, surfaceRaised, and soft surfaces', () => {
-    assertPaletteContrast('dark', darkColors);
-  });
+  for (const accent of ACCENT_THEMES) {
+    for (const mode of modes) {
+      it(`passes >= 4.5:1 for ${accent} / ${mode}`, () => {
+        assertPaletteContrast(`${accent}/${mode}`, getPalette(mode, accent));
+      });
+    }
+  }
 });

@@ -66,6 +66,7 @@ export const DEFAULT_SETTINGS: Settings = {
   currency: 'BDT',
   monthStartDay: 1,
   theme: 'system',
+  accent: 'forest',
   reminder: {
     enabled: false,
     time: '21:00',

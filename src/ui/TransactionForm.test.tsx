@@ -196,7 +196,7 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
     });
   });
 
-  it('supports All… sheet selection, inline + New category creation, note toggle, and keypad hide/return', async () => {
+  it('supports All sheet selection, inline + New category creation, note toggle, and keypad hide/return', async () => {
     const onCreateCategory = jest.fn(async (input) => ({
       id: 'custom_pets_1',
       name: input.name,
@@ -233,14 +233,14 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
     await fireEvent.press(view.getByTestId('tx-add-note-toggle'));
     expect(view.getByTestId('note-input')).toBeTruthy();
 
-    // Open All… sheet and select a category beyond first 7 ("travel")
+    // Open All sheet and select a category beyond first 7 ("travel")
     await fireEvent.press(view.getByTestId('cat-all-button'));
     expect(view.getByTestId('all-categories-sheet')).toBeTruthy();
     await fireEvent.press(view.getByTestId('cat-sheet-item-travel'));
     expect(view.queryByTestId('all-categories-sheet')).toBeNull();
     expect(view.getByTestId('cat-chip-travel')).toBeTruthy();
 
-    // Re-open All… and create a custom category inline
+    // Re-open All and create a custom category inline
     await fireEvent.press(view.getByTestId('cat-all-button'));
     await fireEvent.press(view.getByTestId('new-category-open-button'));
     await fireEvent.changeText(view.getByTestId('new-category-name-input'), 'Pets');

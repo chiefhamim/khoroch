@@ -13,6 +13,7 @@ export interface IconButtonProps {
   size?: number;
   iconSize?: number;
   badgeCount?: number;
+  iconColor?: string;
   disabled?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
@@ -27,6 +28,7 @@ export function IconButton({
   size = 40,
   iconSize = 20,
   badgeCount,
+  iconColor,
   disabled = false,
   style,
   testID,
@@ -76,7 +78,7 @@ export function IconButton({
         style,
       ]}
     >
-      {children ?? (icon ? <AppIcon name={icon} size={iconSize} color={fgColor} /> : null)}
+      {children ?? (icon ? <AppIcon name={icon} size={iconSize} color={iconColor ?? fgColor} /> : null)}
       {badgeCount !== undefined && badgeCount > 0 ? (
         <View
           style={[

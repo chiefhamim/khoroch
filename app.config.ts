@@ -77,6 +77,11 @@ export function buildAppConfig(
       typedRoutes: true,
       reactCompiler: true,
     },
+    extra: {
+      ...(baseConfig.extra ?? {}),
+      appVariant: isDev ? 'dev' : 'prod',
+      isDev,
+    },
   };
 }
 

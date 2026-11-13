@@ -114,6 +114,9 @@ export function groupThousands(digits: string): string {
   return result;
 }
 
+export const MISSING_METRIC_DASH = '—';
+export const HIDDEN_AMOUNT_TEXT = 'Hidden';
+
 /**
  * Formats integer minor units for display without float division.
  * Whole units omit decimals; fractional units always show 2 decimal places.
@@ -133,6 +136,102 @@ export function formatMoney(amountMinor: number, currency: CurrencyCode): string
   const meta = CURRENCIES[currency] ?? CURRENCIES.BDT;
   const prefix = meta.spaceAfterSymbol ? `${meta.symbol} ` : meta.symbol;
   return `${isNegative ? '-' : ''}${prefix}${numberPart}`;
+}
+
+/**
+ * Rounds integer minor units to nearest whole major currency unit (e.g. `248769` -> `248800`).
+ */
+export function roundMinorToWhole(amountMinor: number): number {
+  const safe = Math.trunc(amountMinor);
+  if (safe === 0) return 0;
+  const absRoundedWhole = Math.round(Math.abs(safe) / 100);
+  const res = absRoundedWhole * 100;
+  return safe < 0 ? -res : res;
+}
+
+/**
+ * Formats a value rounded to the nearest whole major currency unit (TEST-CASES-v1.2 §E).
+ */
+export function formatWholeMoney(amountMinor: number, currency: CurrencyCode = 'BDT'): string {
+  const rounded = roundMinorToWhole(amountMinor);
+  const isNegative = rounded < 0;
+  const absWhole = Math.abs(rounded) / 100;
+  const meta = CURRENCIES[currency] ?? CURRENCIES.BDT;
+  return `${isNegative ? '-' : ''}${meta.symbol}${groupThousands(String(absWhole))}`;
+}
+
+function formatTenthsUnit(tenths: number, suffix: 'k' | 'M'): string {
+  const whole = Math.floor(tenths / 10);
+  const dec = tenths % 10;
+  const wholeStr = groupThousands(String(whole));
+  return dec === 0 ? `${wholeStr}${suffix}` : `${wholeStr}.${dec}${suffix}`;
+}
+
+/**
+ * Splits minor units into compact display parts (`৳` symbol separated from `48.4k` / `12.5M`)
+ * for cards and summary strips (never used in Ledger rows).
+ */
+export function getCompactNumberPart(amountMinor: number): {
+  isNegative: boolean;
+  numberPart: string;
+} {
+  const safeMinor = Math.trunc(amountMinor);
+  const isNegative = safeMinor < 0;
+  const absMinor = Math.abs(safeMinor);
+  const roundedWhole = Math.round(absMinor / 100);
+
+  if (roundedWhole < 1000) {
+    const frac = absMinor % 100;
+    const whole = (absMinor - frac) / 100;
+    const numberPart = frac === 0 ? String(whole) : `${whole}.${String(frac).padStart(2, '0')}`;
+    return { isNegative, numberPart };
+  }
+
+  const tenthsK = Math.floor((roundedWhole * 10 + 500) / 1000);
+  if (tenthsK < 10_000) {
+    return { isNegative, numberPart: formatTenthsUnit(tenthsK, 'k') };
+  }
+
+  const tenthsM = Math.floor((roundedWhole * 10 + 500_000) / 1_000_000);
+  return { isNegative, numberPart: formatTenthsUnit(tenthsM, 'M') };
+}
+
+/**
+ * Formats an amount into compact `k` / `M` form per TEST-CASES-v1.2 §E (`4835000` -> `৳48.4k`).
+ */
+export function compactMoney(amountMinor: number, currency: CurrencyCode = 'BDT'): string {
+  const { isNegative, numberPart } = getCompactNumberPart(amountMinor);
+  const meta = CURRENCIES[currency] ?? CURRENCIES.BDT;
+  return `${isNegative ? '-' : ''}${meta.symbol}${numberPart}`;
+}
+
+export const compact = compactMoney;
+
+/**
+ * Formats a credit card or wallet balance where negative balances display as `"৳5,600 due"`.
+ */
+export function formatBalanceWithDue(amountMinor: number, currency: CurrencyCode = 'BDT'): string {
+  const safeMinor = Math.trunc(amountMinor);
+  if (safeMinor < 0) {
+    const absMinor = Math.abs(safeMinor);
+    const frac = absMinor % 100;
+    const whole = (absMinor - frac) / 100;
+    const wholeStr = groupThousands(String(whole));
+    const numberPart = frac === 0 ? wholeStr : `${wholeStr}.${String(frac).padStart(2, '0')}`;
+    const meta = CURRENCIES[currency] ?? CURRENCIES.BDT;
+    return `${meta.symbol}${numberPart} due`;
+  }
+  return formatWholeMoney(safeMinor, currency);
+}
+
+/**
+ * Formats an optional average metric as whole currency units or `"—"` with an explicit reason.
+ */
+export function formatMissingMetric(reason: string): { value: string; reason: string } {
+  return {
+    value: MISSING_METRIC_DASH,
+    reason,
+  };
 }
 
 export function getCurrencySymbol(currency: CurrencyCode): string {

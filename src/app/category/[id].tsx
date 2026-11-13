@@ -120,7 +120,7 @@ export default function CategoryPeriodScreen() {
 
       <Surface style={[styles.summaryCard, { gap: theme.spacing.md, marginBottom: theme.spacing.lg }]}>
         <IconTile
-          icon={category?.icon ?? 'circle-ellipsis'}
+          icon={category?.icon ?? 'shapes'}
           colorKey={category?.colorKey ?? 'gray'}
           size="lg"
         />
@@ -163,7 +163,7 @@ export default function CategoryPeriodScreen() {
                 showDivider={idx < result.transactions.length - 1}
                 left={
                   <IconTile
-                    icon={category?.icon ?? 'circle-ellipsis'}
+                    icon={category?.icon ?? 'shapes'}
                     colorKey={category?.colorKey ?? 'gray'}
                     size="md"
                   />

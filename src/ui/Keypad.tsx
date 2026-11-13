@@ -108,6 +108,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   keyText: {
-    fontFamily: 'Inter_500Medium',
+    fontFamily: 'PlusJakartaSans_500Medium',
   },
 });

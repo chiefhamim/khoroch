@@ -37,16 +37,11 @@ export function Button({
   const { theme, reducedMotion } = useTheme();
   const isDisabled = disabled || loading;
 
-  const useDarkDisabledPrimary =
-    variant === 'primary' && isDisabled && theme.scheme === 'dark';
-
   const backgroundColor =
     variant === 'primary'
-      ? useDarkDisabledPrimary
-        ? theme.colors.accentSoft
-        : theme.colors.accent
+      ? theme.colors.ink
       : variant === 'secondary'
-        ? theme.colors.surfaceRaised
+        ? theme.colors.surface
         : variant === 'danger'
           ? theme.colors.danger
           : variant === 'dangerSoft'
@@ -54,13 +49,11 @@ export function Button({
             : 'transparent';
 
   const borderColor =
-    variant === 'secondary' ? theme.colors.separator : 'transparent';
+    variant === 'secondary' ? theme.colors.cardBorder : 'transparent';
 
   const textColor =
     variant === 'primary'
-      ? useDarkDisabledPrimary
-        ? 'accent'
-        : 'onAccent'
+      ? 'onInk'
       : variant === 'danger'
         ? 'onDanger'
         : variant === 'dangerSoft'
@@ -90,7 +83,7 @@ export function Button({
         styles.base,
         {
           minHeight: size === 'sm' ? height : Math.max(height, theme.touch.min),
-          borderRadius: size === 'sm' ? theme.radius.pill : theme.radius.button,
+          borderRadius: size === 'sm' ? theme.radius.button : theme.radius.button,
           paddingHorizontal: size === 'sm' ? theme.spacing.lg : theme.spacing.xl,
           paddingVertical: size === 'sm' ? theme.spacing.sm : theme.spacing.md,
           gap: theme.spacing.sm,
@@ -98,9 +91,7 @@ export function Button({
           borderColor,
           borderWidth: variant === 'secondary' ? 1 : 0,
           opacity: isDisabled
-            ? useDarkDisabledPrimary
-              ? 0.72
-              : 0.5
+            ? 0.45
             : pressed && !reducedMotion
               ? 0.84
               : 1,

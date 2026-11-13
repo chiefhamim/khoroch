@@ -1,9 +1,12 @@
 export const en = {
   // Navigation & Tabs
   'tabs.overview': 'Home',
-  'tabs.activity': 'Activity',
-  'tabs.budget': 'Budget',
+  'tabs.activity': 'Ledger',
+  'tabs.ledger': 'Ledger',
+  'tabs.budget': 'Plan',
+  'tabs.plan': 'Plan',
   'tabs.insights': 'Insights',
+  'tabs.people': 'People',
   'tabs.settings': 'Settings',
   'tabs.add': 'Add',
   'tabs.addAccessibility': 'Add transaction',
@@ -11,7 +14,7 @@ export const en = {
 
   // Common
   'common.save': 'Save',
-  'common.saving': 'Saving…',
+  'common.saving': 'Saving',
   'common.cancel': 'Cancel',
   'common.close': 'Close',
   'common.delete': 'Delete',
@@ -105,7 +108,7 @@ export const en = {
   'tx.editTitle': 'Edit transaction',
   'tx.amountPlaceholder': '0',
   'tx.descriptionPlaceholder': 'What was this for?',
-  'tx.notePlaceholder': 'Optional note…',
+  'tx.notePlaceholder': 'Optional note',
   'tx.timePlaceholder': 'HH:mm (e.g. 14:30)',
   'tx.recentSuggestions': 'Suggestions',
   'tx.saved': 'Transaction saved',
@@ -127,7 +130,7 @@ export const en = {
   'tx.padDigit': 'Digit {digit}',
   'tx.sayOrType': 'Say or type it',
   'tx.addNoteCta': '+ Add a note',
-  'tx.allCategories': 'All…',
+  'tx.allCategories': 'All',
   'tx.allCategoriesTitle': 'All categories',
   'tx.newCategoryCta': 'New category',
   'tx.saveExpenseCta': 'Save expense',
@@ -142,8 +145,8 @@ export const en = {
   'tx.categoryIconLabel': 'Icon',
   'tx.editHeroLabel': 'Tap to edit amount',
 
-  // Activity
-  'activity.title': 'Activity',
+  // Activity / Ledger
+  'activity.title': 'Ledger',
   'activity.spentLabel': 'Spent',
   'activity.incomeLabel': 'Income',
   'activity.noDescription': 'No description',
@@ -167,6 +170,14 @@ export const en = {
   'settings.themeSystem': 'System',
   'settings.themeLight': 'Light',
   'settings.themeDark': 'Dark',
+  'settings.themeBlack': 'Black',
+  'settings.accentLabel': 'Colour',
+  'settings.modeLabel': 'Mode',
+  'settings.accentForest': 'Forest',
+  'settings.accentOcean': 'Ocean',
+  'settings.accentPlum': 'Plum',
+  'settings.accentSaffron': 'Saffron',
+  'settings.accentGraphite': 'Graphite',
   'settings.categoriesRow': 'Categories',
   'settings.categoriesSubtitle': 'Add, edit, customize colors & icons',
   'settings.galleryRow': 'Component gallery',
@@ -344,7 +355,7 @@ export const en = {
   'quickEntry.inputPlaceholder': 'e.g. Spent 500 on Uber and 200 on coffee',
   'quickEntry.parseCta': 'Parse entry',
   'quickEntry.voiceBtn': 'Speak',
-  'quickEntry.voiceListening': 'Listening… speak now',
+  'quickEntry.voiceListening': 'Listening, speak now',
   'quickEntry.voiceStop': 'Stop',
   'quickEntry.voiceExplainTitle': 'Use microphone for voice entry?',
   'quickEntry.voiceExplainBody': 'Your speech is converted into draft transactions you can edit before saving. Nothing is saved automatically.',
@@ -504,6 +515,12 @@ export const en = {
   'quickEntry.speechDisclosureBody':
     'On-device speech recognition is not reported as available on this device. Voice input may be sent to Android Speech Services to convert speech to text.',
   'quickEntry.speechDisclosureConfirm': 'Continue',
+  'plan.title': 'Plan',
+  'plan.insightsRowTitle': 'Insights',
+  'plan.insightsRowSubtitle': 'Patterns, cycle comparisons, averages',
+  'people.title': 'People',
+  'people.emptyTitle': 'People & dues',
+  'people.emptyBody': 'Lending and borrowing balances appear here once people or dues are recorded.',
 } as const;
 
 export type TranslationKey = keyof typeof en;

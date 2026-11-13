@@ -12,19 +12,19 @@ import { TAB_BAR_CONTENT_HEIGHT, useTabBarHeight } from '@/ui/Screen';
 export type V2TabBarProps = Parameters<NonNullable<React.ComponentProps<typeof Tabs>['tabBar']>>[0];
 
 interface TabItemConfig {
-  routeName: 'index' | 'activity' | 'budget' | 'insights';
-  labelKey: 'tabs.overview' | 'tabs.activity' | 'tabs.budget' | 'tabs.insights';
+  routeName: 'index' | 'ledger' | 'plan' | 'people';
+  labelKey: 'tabs.overview' | 'tabs.ledger' | 'tabs.plan' | 'tabs.people';
   icon: AppIconName;
 }
 
 const LEFT_TABS: TabItemConfig[] = [
   { routeName: 'index', labelKey: 'tabs.overview', icon: 'house' },
-  { routeName: 'activity', labelKey: 'tabs.activity', icon: 'list' },
+  { routeName: 'ledger', labelKey: 'tabs.ledger', icon: 'scroll-text' },
 ];
 
 const RIGHT_TABS: TabItemConfig[] = [
-  { routeName: 'budget', labelKey: 'tabs.budget', icon: 'pie-chart' },
-  { routeName: 'insights', labelKey: 'tabs.insights', icon: 'chart-column' },
+  { routeName: 'plan', labelKey: 'tabs.plan', icon: 'target' },
+  { routeName: 'people', labelKey: 'tabs.people', icon: 'users' },
 ];
 
 export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
@@ -38,7 +38,7 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
   const renderTab = (tab: TabItemConfig) => {
     const route = state.routes.find((r) => r.name === tab.routeName);
     const isFocused = activeRouteName === tab.routeName;
-    const color = isFocused ? theme.colors.accent : theme.colors.textTertiary;
+    const color = isFocused ? theme.colors.text : theme.colors.textTertiary;
 
     const handlePress = () => {
       if (!route) return;
@@ -78,8 +78,8 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
       >
         <AppIcon
           name={tab.icon}
-          size={22}
-          strokeWidth={isFocused ? 2 : 1.75}
+          size={20}
+          strokeWidth={isFocused ? 2.1 : 1.75}
           color={color}
         />
         <AppText
@@ -101,7 +101,7 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
         {
           height: tabBarHeight,
           paddingBottom: bottomPadding,
-          backgroundColor: theme.colors.surface,
+          backgroundColor: theme.colors.bg,
           borderTopColor: theme.colors.separator,
         },
       ]}
@@ -123,21 +123,19 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
             router.push('/quick-entry');
           }}
           style={({ pressed }) => [
-            styles.addCircle,
+            styles.addSquircle,
             {
-              backgroundColor: theme.colors.accent,
-              shadowColor: theme.colors.accent,
+              backgroundColor: theme.colors.ink,
               transform: [{ scale: pressed && !reducedMotion ? 0.97 : 1 }],
               opacity: pressed ? 0.9 : 1,
             },
-            theme.scheme === 'light' ? styles.addShadowLight : styles.addShadowDark,
           ]}
         >
           <AppIcon
             name="plus"
-            size={26}
+            size={22}
             strokeWidth={2.25}
-            color={theme.colors.onAccent}
+            color={theme.colors.onInk}
           />
         </Pressable>
       </View>
@@ -156,9 +154,12 @@ export default function TabsLayout() {
       tabBar={(props) => <V2TabBar {...props} />}
     >
       <Tabs.Screen name="index" options={{ title: t('tabs.overview') }} />
-      <Tabs.Screen name="activity" options={{ title: t('tabs.activity') }} />
-      <Tabs.Screen name="budget" options={{ title: t('tabs.budget') }} />
-      <Tabs.Screen name="insights" options={{ title: t('tabs.insights') }} />
+      <Tabs.Screen name="ledger" options={{ title: t('tabs.ledger') }} />
+      <Tabs.Screen name="plan" options={{ title: t('tabs.plan') }} />
+      <Tabs.Screen name="people" options={{ title: t('tabs.people') }} />
+      <Tabs.Screen name="activity" options={{ href: null }} />
+      <Tabs.Screen name="budget" options={{ href: null }} />
+      <Tabs.Screen name="insights" options={{ href: null }} />
     </Tabs>
   );
 }
@@ -167,7 +168,7 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopWidth: 1,
     paddingTop: 6,
   },
   tabSlot: {
@@ -182,23 +183,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  addSquircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  addShadowLight: {
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 4,
-  },
-  addShadowDark: {
-    shadowOpacity: 0.22,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 3,
   },
 });

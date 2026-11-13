@@ -15,7 +15,7 @@ interface StatusVisual {
 
 const STATUS_MAP: Record<BudgetStatus, StatusVisual> = {
   no_budget: {
-    icon: 'circle-ellipsis',
+    icon: 'minus',
     labelKey: 'status.no_budget',
     tone: 'neutral',
   },
@@ -49,16 +49,29 @@ const STATUS_MAP: Record<BudgetStatus, StatusVisual> = {
 export interface BudgetStatusBadgeProps {
   status: BudgetStatus;
   label?: string;
+  surface?: 'default' | 'hero';
   testID?: string;
 }
 
-export function BudgetStatusBadge({ status, label, testID }: BudgetStatusBadgeProps) {
+export function BudgetStatusBadge({
+  status,
+  label,
+  surface = 'default',
+  testID,
+}: BudgetStatusBadgeProps) {
   const { theme } = useTheme();
   const cfg = STATUS_MAP[status];
   const displayLabel = label ?? t(cfg.labelKey);
 
-  const fgColor =
-    cfg.tone === 'danger'
+  const isHero = surface === 'hero';
+
+  const fgColor = isHero
+    ? cfg.tone === 'danger'
+      ? '#991B1B'
+      : cfg.tone === 'warning'
+        ? '#92400E'
+        : theme.colors.heroText
+    : cfg.tone === 'danger'
       ? theme.colors.danger
       : cfg.tone === 'warning'
         ? theme.colors.warning
@@ -66,17 +79,13 @@ export function BudgetStatusBadge({ status, label, testID }: BudgetStatusBadgePr
           ? theme.colors.accent
           : theme.colors.textSecondary;
 
-  const textKey =
-    cfg.tone === 'danger'
-      ? 'danger'
+  const bgColor = isHero
+    ? cfg.tone === 'danger'
+      ? '#FCEBEB'
       : cfg.tone === 'warning'
-        ? 'warning'
-        : cfg.tone === 'accent'
-          ? 'accent'
-          : 'textSecondary';
-
-  const bgColor =
-    cfg.tone === 'danger'
+        ? '#FEF3C7'
+        : theme.colors.heroLine
+    : cfg.tone === 'danger'
       ? theme.colors.dangerSoft
       : cfg.tone === 'warning'
         ? hexToRgba(theme.colors.warning, 0.14)
@@ -100,7 +109,7 @@ export function BudgetStatusBadge({ status, label, testID }: BudgetStatusBadgePr
       ]}
     >
       <AppIcon name={cfg.icon} size={13} color={fgColor} />
-      <AppText variant="caption" color={textKey} style={styles.text}>
+      <AppText variant="caption" style={[styles.text, { color: fgColor }]}>
         {displayLabel}
       </AppText>
     </View>

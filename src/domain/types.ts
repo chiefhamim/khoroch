@@ -14,7 +14,26 @@ export type LocalDate = string;
 /** Local wall-clock time in 'HH:mm' format. */
 export type LocalTime = string;
 
-export type ThemePreference = 'system' | 'light' | 'dark';
+export type ThemePreference = 'system' | 'light' | 'dark' | 'black';
+
+export type AccentTheme = 'forest' | 'ocean' | 'plum' | 'saffron' | 'graphite';
+
+export const ACCENT_THEMES: readonly AccentTheme[] = [
+  'forest',
+  'ocean',
+  'plum',
+  'saffron',
+  'graphite',
+];
+
+const ACCENT_THEME_SET = new Set<string>(ACCENT_THEMES);
+
+export function normalizeAccentTheme(
+  raw: unknown,
+  fallback: AccentTheme = 'forest'
+): AccentTheme {
+  return typeof raw === 'string' && ACCENT_THEME_SET.has(raw) ? (raw as AccentTheme) : fallback;
+}
 
 /** Day-of-week indices stored as 0 = Sunday .. 6 = Saturday (DESIGN §4). */
 export const ALL_REMINDER_DAYS: readonly number[] = [0, 1, 2, 3, 4, 5, 6];
@@ -153,6 +172,7 @@ export interface Settings {
   currency: CurrencyCode;
   monthStartDay: number;
   theme: ThemePreference;
+  accent: AccentTheme;
   reminder: ReminderSettings;
   sampleDataLoaded: boolean;
   notificationPermissionDenied: boolean;

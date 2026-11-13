@@ -2,8 +2,11 @@ import { DEFAULT_CATEGORIES } from '@/domain/categories';
 import { formatLocalDate, isValidLocalDate } from '@/domain/dates';
 import { MAX_AMOUNT_MINOR } from '@/domain/money';
 import {
+  ACCENT_THEMES,
   CATEGORY_COLOR_KEYS,
+  normalizeAccentTheme,
   normalizeReminderDays,
+  type AccentTheme,
   type Budget,
   type Category,
   type CategoryColorKey,
@@ -31,7 +34,8 @@ export const MAX_BACKUP_BYTES = 20 * 1024 * 1024; // 20 MB
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 const VALID_COLOR_KEY_SET: ReadonlySet<string> = new Set<string>(CATEGORY_COLOR_KEYS);
-const VALID_THEMES: ReadonlySet<string> = new Set<ThemePreference>(['system', 'light', 'dark']);
+const VALID_THEMES: ReadonlySet<string> = new Set<ThemePreference>(['system', 'light', 'dark', 'black']);
+const VALID_ACCENTS: ReadonlySet<string> = new Set<AccentTheme>(ACCENT_THEMES);
 const VALID_SOURCES: ReadonlySet<string> = new Set<TransactionSource>(['manual', 'quick', 'voice', 'sample']);
 const DEFAULT_CAT_MAP = new Map(DEFAULT_CATEGORIES.map((d) => [d.id, d]));
 
@@ -86,6 +90,7 @@ function sanitizeSettingsForExport(s: Settings): Settings {
     currency: s.currency,
     monthStartDay: s.monthStartDay,
     theme: s.theme,
+    accent: normalizeAccentTheme(s.accent),
     reminder: {
       enabled: Boolean(s.reminder.enabled),
       time: s.reminder.time,
@@ -401,12 +406,17 @@ function validateSettingsObject(raw: unknown): Settings {
     throw new Error('Settings: invalid lastBackupAt.');
   }
 
+  if (obj.accent !== undefined && (typeof obj.accent !== 'string' || !VALID_ACCENTS.has(obj.accent))) {
+    throw new Error('Settings: invalid accent.');
+  }
+
   return {
     onboardingDone: obj.onboardingDone,
     name: obj.name,
     currency: obj.currency,
     monthStartDay: obj.monthStartDay,
     theme: obj.theme as ThemePreference,
+    accent: (obj.accent ?? 'forest') as AccentTheme,
     reminder: {
       enabled: reminderObj.enabled,
       time: reminderObj.time,

@@ -10,7 +10,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/useTheme';
 
-export const TAB_BAR_CONTENT_HEIGHT = 66;
+export const TAB_BAR_CONTENT_HEIGHT = 64;
 export const TAB_SCROLL_EXTRA_GAP = 16;
 
 export function computeTabBarHeight(bottomInset: number): number {

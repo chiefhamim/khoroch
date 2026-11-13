@@ -47,7 +47,6 @@ export function Surface({
 
   const surfaceStyle: StyleProp<ViewStyle> = [
     styles.base,
-    isElevated ? theme.cardShadow : null,
     {
       backgroundColor,
       borderColor,

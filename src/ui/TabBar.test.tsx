@@ -24,7 +24,7 @@ jest.mock('./haptics', () => ({
   hapticMedium: () => mockHapticMedium(),
 }));
 
-describe('Phase 8 navigation shell (V2TabBar)', () => {
+describe('v1.2 navigation shell (V2TabBar)', () => {
   beforeEach(() => {
     mockPush.mockClear();
     mockHapticLight.mockClear();
@@ -39,12 +39,12 @@ describe('Phase 8 navigation shell (V2TabBar)', () => {
         state: {
           key: 'tabs',
           index: activeIndex,
-          routeNames: ['index', 'activity', 'budget', 'insights'],
+          routeNames: ['index', 'ledger', 'plan', 'people'],
           routes: [
             { key: 'r-index', name: 'index' },
-            { key: 'r-activity', name: 'activity' },
-            { key: 'r-budget', name: 'budget' },
-            { key: 'r-insights', name: 'insights' },
+            { key: 'r-ledger', name: 'ledger' },
+            { key: 'r-plan', name: 'plan' },
+            { key: 'r-people', name: 'people' },
           ],
           stale: false,
           type: 'tab' as const,
@@ -60,12 +60,12 @@ describe('Phase 8 navigation shell (V2TabBar)', () => {
     };
   }
 
-  it('computes tab bar height including safe-area inset + clearance', () => {
-    expect(computeTabBarHeight(0)).toBe(76);
-    expect(computeTabBarHeight(24)).toBe(90);
+  it('computes flush 64dp tab bar height including safe-area inset + clearance', () => {
+    expect(computeTabBarHeight(0)).toBe(74);
+    expect(computeTabBarHeight(24)).toBe(88);
   });
 
-  it('renders Home, Activity, Budget, Insights (no Settings tab) and routes center + tap vs long-press', async () => {
+  it('renders Home, Ledger, +, Plan, People (no Insights/Settings tab) and routes center + tap vs long-press', async () => {
     const { props, navigateToTab, emit } = buildTabBarProps(0);
 
     const view = await render(
@@ -77,19 +77,25 @@ describe('Phase 8 navigation shell (V2TabBar)', () => {
     );
 
     expect(view.getByText('Home')).toBeTruthy();
-    expect(view.getByText('Activity')).toBeTruthy();
-    expect(view.getByText('Budget')).toBeTruthy();
-    expect(view.getByText('Insights')).toBeTruthy();
+    expect(view.getByText('Ledger')).toBeTruthy();
+    expect(view.getByText('Plan')).toBeTruthy();
+    expect(view.getByText('People')).toBeTruthy();
+    expect(view.queryByText('Insights')).toBeNull();
     expect(view.queryByText('Settings')).toBeNull();
 
     const barStyle = StyleSheet.flatten(view.getByTestId('v2-tab-bar').props.style);
-    expect(barStyle.height).toBe(86);
+    expect(barStyle.height).toBe(84);
 
-    await fireEvent.press(view.getByTestId('tab-item-budget'));
+    const addStyle = StyleSheet.flatten(view.getByTestId('tab-add-button').props.style);
+    expect(addStyle.width).toBe(46);
+    expect(addStyle.height).toBe(46);
+    expect(addStyle.borderRadius).toBe(14);
+
+    await fireEvent.press(view.getByTestId('tab-item-plan'));
     expect(emit).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'tabPress', target: 'r-budget' })
+      expect.objectContaining({ type: 'tabPress', target: 'r-plan' })
     );
-    expect(navigateToTab).toHaveBeenCalledWith('r-budget');
+    expect(navigateToTab).toHaveBeenCalledWith('r-plan');
 
     await fireEvent.press(view.getByTestId('tab-add-button'));
     expect(mockHapticLight).toHaveBeenCalledTimes(1);

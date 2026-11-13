@@ -15,6 +15,8 @@ describe('app.config variants and S5 blockedPermissions', () => {
       ])
     );
     expect(cfg.plugins).not.toContain('./plugins/withReleaseSigning');
+    expect(cfg.extra?.isDev).toBe(false);
+    expect(cfg.extra?.appVariant).toBe('prod');
   });
 
   it('switches package, app name, scheme, and icons cleanly when APP_VARIANT=dev', () => {
@@ -31,6 +33,8 @@ describe('app.config variants and S5 blockedPermissions', () => {
       './assets/images/android-icon-background-dev.png'
     );
     expect(cfg.plugins).not.toContain('./plugins/withReleaseSigning');
+    expect(cfg.extra?.isDev).toBe(true);
+    expect(cfg.extra?.appVariant).toBe('dev');
   });
 
   it('activates withReleaseSigning plugin ONLY when BUDGET_RELEASE_SIGNING=new', () => {

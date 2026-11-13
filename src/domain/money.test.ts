@@ -1,4 +1,16 @@
-import { formatMinorToDraft, formatMoney, normalizeDigits, parseMoneyInput } from './money';
+import {
+  compact,
+  formatBalanceWithDue,
+  formatMinorToDraft,
+  formatMissingMetric,
+  formatMoney,
+  formatWholeMoney,
+  HIDDEN_AMOUNT_TEXT,
+  MISSING_METRIC_DASH,
+  normalizeDigits,
+  parseMoneyInput,
+  roundMinorToWhole,
+} from './money';
 
 describe('money parsing (TEST-CASES §1)', () => {
   it('parses valid integer and decimal inputs into minor units', () => {
@@ -46,5 +58,30 @@ describe('money formatting (TEST-CASES §1)', () => {
     expect(formatMinorToDraft(1250)).toBe('12.5');
     expect(formatMinorToDraft(1205)).toBe('12.05');
     expect(formatMinorToDraft(0)).toBe('0');
+  });
+});
+
+describe('v1.2 number formatting (TEST-CASES-v1.2 §E)', () => {
+  it('rounds averages to whole taka', () => {
+    expect(roundMinorToWhole(248769)).toBe(248800);
+    expect(roundMinorToWhole(248749)).toBe(248700);
+    expect(formatWholeMoney(248769, 'BDT')).toBe('৳2,488');
+  });
+
+  it('formats compact k and M amounts cleanly', () => {
+    expect(compact(4_835_000)).toBe('৳48.4k');
+    expect(compact(1_250_000_000)).toBe('৳12.5M');
+    expect(compact(500_000)).toBe('৳5k');
+    expect(compact(45_000)).toBe('৳450');
+    expect(compact(-4_835_000, 'BDT')).toBe('-৳48.4k');
+  });
+
+  it('formats due card balances and missing metric placeholders without ellipsis dots', () => {
+    expect(formatBalanceWithDue(-560_000, 'BDT')).toBe('৳5,600 due');
+    expect(formatMissingMetric('Set a monthly budget')).toEqual({
+      value: MISSING_METRIC_DASH,
+      reason: 'Set a monthly budget',
+    });
+    expect(HIDDEN_AMOUNT_TEXT).toBe('Hidden');
   });
 });

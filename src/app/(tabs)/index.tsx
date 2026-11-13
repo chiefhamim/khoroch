@@ -10,7 +10,7 @@ import {
   formatWeekdayShortDate,
   isDevice24HourClock,
 } from '@/domain/dates';
-import { formatMoney } from '@/domain/money';
+import { formatMoney, MISSING_METRIC_DASH } from '@/domain/money';
 import { remainingDays } from '@/domain/period';
 import type { LocalDate } from '@/domain/types';
 import { t } from '@/i18n';
@@ -25,11 +25,11 @@ import { BudgetStatusBadge } from '@/ui/BudgetStatusBadge';
 import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
+import { HeroCard, HeroProgressBar } from '@/ui/HeroCard';
 import { IconButton } from '@/ui/IconButton';
 import { IconTile } from '@/ui/IconTile';
 import { ListRow } from '@/ui/ListRow';
 import { Money } from '@/ui/Money';
-import { ProgressBar } from '@/ui/ProgressBar';
 import { Screen } from '@/ui/Screen';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Sheet } from '@/ui/Sheet';
@@ -148,21 +148,22 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
       ) : null}
 
       {/* Hero budget card */}
-      <Surface testID="overview-budget-card" style={{ gap: theme.spacing.md }}>
+      <HeroCard testID="overview-budget-card" style={{ gap: theme.spacing.md }}>
         {overallBudgetMinor !== null && summary.remainingMinor !== null ? (
           <>
             <View style={styles.heroTopRow}>
-              <AppText variant="label" color="textSecondary">
+              <AppText variant="label" color="heroTextSecondary">
                 {isNegativeRemaining
                   ? t('overview.overByHero')
                   : t('overview.leftToSpend')}
               </AppText>
               <View style={[styles.heroTopRight, { gap: theme.spacing.xs }]}>
-                <BudgetStatusBadge status={summary.status} />
+                <BudgetStatusBadge status={summary.status} surface="hero" />
                 <IconButton
                   testID="overview-hero-menu"
-                  icon="more-horizontal"
+                  icon="info"
                   variant="ghost"
+                  iconColor={theme.colors.heroTextSecondary}
                   size={30}
                   iconSize={18}
                   accessibilityLabel={t('overview.howNumbersWork')}
@@ -176,13 +177,13 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               variant="hero"
               amountMinor={Math.abs(summary.remainingMinor)}
               currency={settings.currency}
-              color={isNegativeRemaining ? 'danger' : 'text'}
+              color="heroText"
             />
 
             <View style={[styles.heroSubRow, { gap: theme.spacing.sm }]}>
               <AppText
                 variant="label"
-                color="textSecondary"
+                color="heroTextSecondary"
                 style={styles.flexOne}
                 numberOfLines={1}
               >
@@ -191,20 +192,20 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                   days: remainingDaysCount,
                 })}
               </AppText>
-              <AppText variant="label" color="textSecondary" tabularNums>
+              <AppText variant="label" color="heroTextSecondary" tabularNums>
                 {t('overview.usedPct', {
                   pct: formatUtilizationPct(summary.utilizationPct ?? 0),
                 })}
               </AppText>
             </View>
 
-            <ProgressBar pct={summary.utilizationPct} status={summary.status} />
+            <HeroProgressBar pct={summary.utilizationPct} />
 
-            <View style={[styles.divider, { backgroundColor: theme.colors.separator }]} />
+            <View style={[styles.divider, { backgroundColor: theme.colors.heroLine }]} />
 
             <View style={[styles.stripRow, { gap: theme.spacing.sm }]}>
               <View style={styles.stripCol}>
-                <AppText variant="label" color="textSecondary" numberOfLines={1}>
+                <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
                   {t('overview.safeToday')}
                 </AppText>
                 {summary.safeToSpendPerDayMinor !== null ? (
@@ -212,32 +213,39 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     variant="bodyStrong"
                     amountMinor={summary.safeToSpendPerDayMinor}
                     currency={settings.currency}
+                    color="heroText"
                   />
                 ) : (
-                  <AppText variant="bodyStrong" color="textSecondary">
-                    {t('overview.metricNotAvailable')}
-                  </AppText>
+                  <View>
+                    <AppText variant="bodyStrong" color="heroText">
+                      {MISSING_METRIC_DASH}
+                    </AppText>
+                    <AppText variant="tab" color="heroTextSecondary">
+                      {remainingDaysCount <= 0 ? 'Cycle ended' : 'No budget'}
+                    </AppText>
+                  </View>
                 )}
               </View>
               <View style={styles.stripCol}>
-                <AppText variant="label" color="textSecondary" numberOfLines={1}>
+                <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
                   {t('overview.spentShort')}
                 </AppText>
                 <Money
                   variant="bodyStrong"
                   amountMinor={summary.spentMinor}
                   currency={settings.currency}
+                  color="heroText"
                 />
               </View>
               <View style={styles.stripCol}>
-                <AppText variant="label" color="textSecondary" numberOfLines={1}>
+                <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
                   {t('overview.incomeShort')}
                 </AppText>
                 <Money
                   variant="bodyStrong"
                   amountMinor={summary.incomeMinor}
                   currency={settings.currency}
-                  color={summary.incomeMinor > 0 ? 'accent' : 'text'}
+                  color="heroText"
                 />
               </View>
             </View>
@@ -245,13 +253,14 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         ) : (
           <>
             <View style={styles.heroTopRow}>
-              <AppText variant="label" color="textSecondary">
+              <AppText variant="label" color="heroTextSecondary">
                 {t('overview.spentThisCycle')}
               </AppText>
               <IconButton
                 testID="overview-hero-menu"
-                icon="more-horizontal"
+                icon="info"
                 variant="ghost"
+                iconColor={theme.colors.heroTextSecondary}
                 size={30}
                 iconSize={18}
                 accessibilityLabel={t('overview.howNumbersWork')}
@@ -264,15 +273,16 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               variant="hero"
               amountMinor={summary.spentMinor}
               currency={settings.currency}
+              color="heroText"
             />
 
-            <View style={[styles.divider, { backgroundColor: theme.colors.separator }]} />
+            <View style={[styles.divider, { backgroundColor: theme.colors.heroLine }]} />
 
             <Pressable
               testID="overview-set-budget-inline"
               accessibilityRole="button"
               accessibilityLabel={t('overview.setBudgetCta')}
-              onPress={() => router.push('/(tabs)/budget' as never)}
+              onPress={() => router.push('/(tabs)/plan' as never)}
               style={({ pressed }) => [
                 styles.noBudgetRow,
                 {
@@ -281,17 +291,17 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 },
               ]}
             >
-              <AppText variant="label" color="accent" style={styles.flexOne}>
+              <AppText variant="label" color="heroTextSecondary" style={styles.flexOne}>
                 {t('overview.noBudgetInline')}
               </AppText>
-              <AppText variant="label" color="accent" style={styles.semiBold}>
+              <AppText variant="label" color="heroBar" style={styles.semiBold}>
                 {t('overview.setBudgetCta')}
               </AppText>
-              <AppIcon name="chevron-right" size={16} color={theme.colors.accent} />
+              <AppIcon name="chevron-right" size={16} color={theme.colors.heroBar} />
             </Pressable>
           </>
         )}
-      </Surface>
+      </HeroCard>
 
       {/* New-cycle hint banner */}
       {showNewCycleHint ? (
@@ -306,7 +316,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           })}
           onPress={() =>
             router.push({
-              pathname: '/(tabs)/insights',
+              pathname: '/plan/insights',
               params: { preset: 'last_month' },
             } as never)
           }
@@ -393,7 +403,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             <Pressable
               accessibilityRole="button"
               hitSlop={8}
-              onPress={() => router.push('/(tabs)/insights' as never)}
+              onPress={() => router.push('/plan/insights' as never)}
             >
               <AppText variant="label" color="accent">
                 {t('overview.seeAll')}
@@ -427,7 +437,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     accessibilityLabel={`${catName}: ${formatMoney(slice.spentMinor, settings.currency)}`}
                     onPress={() => {
                       if (slice.isOtherGroup || !sliceCatId) {
-                        router.push('/(tabs)/insights' as never);
+                        router.push('/plan/insights' as never);
                       } else {
                         router.push({
                           pathname: '/category/[id]',
@@ -446,7 +456,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     ]}
                   >
                     <IconTile
-                      icon={cat?.icon ?? 'circle-ellipsis'}
+                      icon={cat?.icon ?? 'shapes'}
                       colorKey={cat?.colorKey ?? 'gray'}
                       size="sm"
                     />
@@ -509,7 +519,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           <Pressable
             accessibilityRole="button"
             hitSlop={8}
-            onPress={() => router.push('/(tabs)/activity' as never)}
+            onPress={() => router.push('/(tabs)/ledger' as never)}
           >
             <AppText variant="label" color="accent">
               {t('overview.seeAll')}
@@ -540,7 +550,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                   key={tx.id}
                   left={
                     <IconTile
-                      icon={cat?.icon ?? 'circle-ellipsis'}
+                      icon={cat?.icon ?? 'shapes'}
                       colorKey={cat?.colorKey ?? 'gray'}
                       size="md"
                     />

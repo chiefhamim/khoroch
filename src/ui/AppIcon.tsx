@@ -19,34 +19,41 @@ import {
   ChevronRight,
   CircleAlert,
   CircleCheck,
-  CircleEllipsis,
   CirclePlus,
   Clapperboard,
   Clock,
   Coffee,
+  CreditCard,
   Delete,
   Dumbbell,
+  Eye,
+  EyeOff,
   Gamepad2,
   Gift,
   GraduationCap,
   HandHeart,
+  HeartHandshake,
   HeartPulse,
   House,
   Info,
+  Landmark,
   LayoutGrid,
   List,
   Lock,
   Mic,
-  MoreHorizontal,
+  Minus,
   Music,
+  Palette,
   PawPrint,
   Pencil,
   Plane,
   Plus,
   ReceiptText,
   Repeat,
+  ScrollText,
   Search,
   Settings,
+  Shapes,
   ShieldCheck,
   Shirt,
   ShoppingBag,
@@ -55,6 +62,7 @@ import {
   Sparkle,
   Sparkles,
   Tag,
+  Target,
   Trash2,
   TrendingUp,
   TriangleAlert,
@@ -84,14 +92,15 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
   sparkles: Sparkles,
   users: Users,
   gift: Gift,
-  'circle-ellipsis': CircleEllipsis,
+  shapes: Shapes,
   banknote: Banknote,
   'building-2': Building2,
   briefcase: Briefcase,
   'hand-heart': HandHeart,
+  'heart-handshake': HeartHandshake,
   'circle-plus': CirclePlus,
 
-  // Custom category / extra icons
+  // Custom category / wallet / extra icons
   coffee: Coffee,
   bike: Bike,
   dumbbell: Dumbbell,
@@ -102,8 +111,10 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
   'paw-print': PawPrint,
   tag: Tag,
   wallet: Wallet,
+  landmark: Landmark,
+  'credit-card': CreditCard,
 
-  // Legacy v1 Ionicons aliases (for custom categories preserved from v1 DB)
+  // Legacy v1 Ionicons aliases (preserved for older DB rows)
   restaurant: Utensils,
   cart: ShoppingBasket,
   'bag-handle': ShoppingBag,
@@ -114,7 +125,6 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
   school: GraduationCap,
   airplane: Plane,
   people: Users,
-  'ellipsis-horizontal': CircleEllipsis,
   cash: Banknote,
   cafe: Coffee,
   bicycle: Bike,
@@ -127,6 +137,7 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
 
   // UI chrome & actions
   plus: Plus,
+  minus: Minus,
   x: X,
   check: Check,
   'chevron-right': ChevronRight,
@@ -141,7 +152,6 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
   pencil: Pencil,
   lock: Lock,
   'layout-grid': LayoutGrid,
-  'more-horizontal': MoreHorizontal,
   delete: Delete,
   mic: Mic,
   'circle-alert': CircleAlert,
@@ -150,6 +160,8 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
   info: Info,
   bell: Bell,
   list: List,
+  'scroll-text': ScrollText,
+  target: Target,
   'pie-chart': ChartPie,
   'chart-pie': ChartPie,
   'chart-column': ChartColumn,
@@ -160,6 +172,9 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
   'trending-up': TrendingUp,
   'shield-check': ShieldCheck,
   'receipt-text': ReceiptText,
+  palette: Palette,
+  eye: Eye,
+  'eye-off': EyeOff,
 };
 
 export type AppIconName = keyof typeof ICON_MAP | (string & {});
@@ -188,7 +203,7 @@ export const CATEGORY_ICON_CHOICES: readonly string[] = [
   'gamepad-2',
   'dumbbell',
   'book-open',
-  'circle-ellipsis',
+  'shapes',
 ];
 
 export interface AppIconProps {
@@ -204,6 +219,6 @@ export function AppIcon({
   color,
   strokeWidth = 1.75,
 }: AppIconProps) {
-  const IconComp = (name ? ICON_MAP[name] : undefined) ?? CircleEllipsis;
+  const IconComp = (name ? ICON_MAP[name] : undefined) ?? Shapes;
   return <IconComp size={size} color={color} strokeWidth={strokeWidth} />;
 }

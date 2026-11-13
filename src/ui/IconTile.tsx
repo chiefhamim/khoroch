@@ -33,11 +33,11 @@ export function IconTile({
         : size === 'lg'
           ? 48
           : theme.geometry.iconTile;
-  const glyphSize = Math.round(boxSize * 0.48);
+  const glyphSize = Math.round(boxSize * 0.5);
 
-  const visual = neutral
-    ? { fg: theme.colors.textSecondary, bg: theme.colors.surfaceSunken }
-    : getCategoryTileVisual(colorKey, theme.scheme);
+  const fg = neutral
+    ? theme.colors.textSecondary
+    : getCategoryTileVisual(colorKey, theme.scheme).fg;
 
   return (
     <View
@@ -48,14 +48,14 @@ export function IconTile({
           width: boxSize,
           height: boxSize,
           borderRadius: theme.radius.iconTile,
-          backgroundColor: visual.bg,
+          backgroundColor: theme.colors.surfaceSunken,
           borderWidth: selected ? 2 : 0,
-          borderColor: selected ? visual.fg : 'transparent',
+          borderColor: selected ? fg : 'transparent',
         },
         style,
       ]}
     >
-      <AppIcon name={icon ?? 'circle-ellipsis'} size={glyphSize} color={visual.fg} />
+      <AppIcon name={icon ?? 'shapes'} size={glyphSize} color={fg} />
     </View>
   );
 }

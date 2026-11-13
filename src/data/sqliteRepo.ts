@@ -5,6 +5,7 @@ import {
   isValidBudgetAmount,
 } from '@/domain/validation';
 import {
+  normalizeAccentTheme,
   normalizeReminderSettings,
   type Budget,
   type Category,
@@ -67,6 +68,7 @@ const SETTING_DB_KEYS: Record<keyof Settings, string> = {
   currency: 'currency',
   monthStartDay: 'month_start_day',
   theme: 'theme',
+  accent: 'theme_accent',
   reminder: 'reminder',
   sampleDataLoaded: 'sample_data_loaded',
   notificationPermissionDenied: 'notification_permission_denied',
@@ -536,6 +538,10 @@ export class SqliteRepo implements Repo {
       currency: parseJson(SETTING_DB_KEYS.currency, DEFAULT_SETTINGS.currency),
       monthStartDay: parseJson(SETTING_DB_KEYS.monthStartDay, DEFAULT_SETTINGS.monthStartDay),
       theme: parseJson(SETTING_DB_KEYS.theme, DEFAULT_SETTINGS.theme),
+      accent: normalizeAccentTheme(
+        parseJson<unknown>(SETTING_DB_KEYS.accent, DEFAULT_SETTINGS.accent),
+        DEFAULT_SETTINGS.accent
+      ),
       reminder: normalizeReminderSettings(
         parseJson<unknown>(SETTING_DB_KEYS.reminder, DEFAULT_SETTINGS.reminder),
         DEFAULT_SETTINGS.reminder

@@ -22,7 +22,7 @@ export interface ListRowProps {
 export function ListRow({
   title,
   subtitle,
-  titleNumberOfLines = 1,
+  titleNumberOfLines = 2,
   left,
   right,
   onPress,

@@ -69,7 +69,7 @@ export default function EditTransactionScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/(tabs)/activity');
+      router.replace('/(tabs)/ledger');
     }
   }, []);
 

@@ -259,7 +259,7 @@ export default function CheckInScreen() {
                 showDivider={idx < daySummary.transactions.length - 1}
                 left={
                   <IconTile
-                    icon={cat?.icon ?? 'circle-ellipsis'}
+                    icon={cat?.icon ?? 'shapes'}
                     colorKey={cat?.colorKey ?? 'gray'}
                     size="md"
                   />
