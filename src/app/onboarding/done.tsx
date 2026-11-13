@@ -3,7 +3,7 @@ import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { todayLocalDate } from '@/domain/dates';
 import { formatMoney, parseMoneyInput } from '@/domain/money';
-import { getPeriod } from '@/domain/period';
+import { formatCycleLabel, getPeriod } from '@/domain/period';
 import { t } from '@/i18n';
 import {
   getNotificationPermissionStatus,
@@ -16,8 +16,11 @@ import { useOnboardingDraft } from '@/state/onboardingStore';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
+import { hapticSuccess } from '@/ui/haptics';
+import { OnboardingHeader } from '@/ui/OnboardingHeader';
 import { Screen } from '@/ui/Screen';
+import { SettingsGroup } from '@/ui/SettingsGroup';
+import { SettingsRow } from '@/ui/SettingsRow';
 
 export default function OnboardingDoneScreen() {
   const { theme } = useTheme();
@@ -43,6 +46,10 @@ export default function OnboardingDoneScreen() {
     parsedBudget && parsedBudget.ok && parsedBudget.minor && parsedBudget.minor > 0
       ? parsedBudget.minor
       : null;
+
+  const today = todayLocalDate();
+  const period = getPeriod(today, monthStartDay);
+  const cyclePreview = formatCycleLabel(period, monthStartDay, { includeYear: false });
 
   const handleFinish = async () => {
     if (saving) return;
@@ -86,13 +93,13 @@ export default function OnboardingDoneScreen() {
       }
 
       if (budgetMinor !== null) {
-        const period = getPeriod(todayLocalDate(), monthStartDay);
         await repo.setBudget(period.start, '', budgetMinor);
       }
 
       await repo.setSetting('onboardingDone', true);
       await refreshSettings();
       bumpDataVersion();
+      hapticSuccess();
       reset();
       router.replace('/(tabs)');
     } catch {
@@ -102,45 +109,46 @@ export default function OnboardingDoneScreen() {
   };
 
   return (
-    <Screen scroll edges={['top', 'bottom', 'left', 'right']}>
-      <View style={{ gap: theme.spacing.xs }}>
-        <AppText variant="caption" color="primary">
-          {t('onboarding.stepLabel', { step: 6, total: 6 })}
-        </AppText>
-        <AppText variant="display">{t('onboarding.doneTitle')}</AppText>
-        <AppText variant="body" color="textMuted">
-          {t('onboarding.doneSubtitle')}
-        </AppText>
+    <Screen
+      scroll
+      edges={['top', 'bottom', 'left', 'right']}
+      contentContainerStyle={styles.container}
+    >
+      <View style={{ gap: theme.spacing.lg }}>
+        <OnboardingHeader
+          step={6}
+          title={t('onboarding.doneTitle')}
+          subtitle={t('onboarding.doneSubtitle')}
+        />
+
+        <SettingsGroup>
+          <SettingsRow
+            label={t('settings.nameLabel')}
+            value={name.trim() || t('onboarding.doneSummaryNameDefault')}
+          />
+          <SettingsRow label={t('onboarding.currencyLabel')} value={currency} />
+          <SettingsRow
+            label={t('settings.monthStartLabel')}
+            value={cyclePreview}
+          />
+          <SettingsRow
+            label={t('onboarding.budgetTitle')}
+            value={
+              budgetMinor !== null
+                ? formatMoney(budgetMinor, currency)
+                : t('overview.noBudgetSet')
+            }
+          />
+        </SettingsGroup>
+
+        {error ? (
+          <AppText variant="caption" color="danger">
+            {error}
+          </AppText>
+        ) : null}
       </View>
 
-      <Card style={{ gap: theme.spacing.sm }}>
-        <AppText variant="body">
-          {t('onboarding.doneSummaryName', {
-            value: name.trim() || t('onboarding.doneSummaryNameDefault'),
-          })}
-        </AppText>
-        <AppText variant="body">
-          {t('onboarding.doneSummaryCurrency', { value: currency })}
-        </AppText>
-        <AppText variant="body">
-          {t('onboarding.doneSummaryCycle', { day: monthStartDay })}
-        </AppText>
-        <AppText variant="body">
-          {budgetMinor !== null
-            ? t('onboarding.doneSummaryBudget', {
-                value: formatMoney(budgetMinor, currency),
-              })
-            : t('onboarding.doneSummaryNoBudget')}
-        </AppText>
-      </Card>
-
-      {error ? (
-        <AppText variant="caption" color="danger">
-          {error}
-        </AppText>
-      ) : null}
-
-      <View style={[styles.navRow, { gap: theme.spacing.md }]}>
+      <View style={[styles.navRow, { gap: theme.spacing.sm, paddingTop: theme.spacing.lg }]}>
         <Button
           title={t('common.back')}
           variant="secondary"
@@ -153,8 +161,8 @@ export default function OnboardingDoneScreen() {
           title={t('onboarding.doneCta')}
           loading={saving}
           disabled={saving}
-          onPress={handleFinish}
-          style={styles.finishBtn}
+          onPress={() => void handleFinish()}
+          style={styles.navBtnPrimary}
         />
       </View>
     </Screen>
@@ -162,13 +170,17 @@ export default function OnboardingDoneScreen() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+  },
   navRow: {
     flexDirection: 'row',
   },
   navBtn: {
     flex: 1,
   },
-  finishBtn: {
+  navBtnPrimary: {
     flex: 2,
   },
 });

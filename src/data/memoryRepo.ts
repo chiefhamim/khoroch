@@ -1,19 +1,20 @@
 import { buildDefaultCategories } from '@/domain/categories';
 import { normalizeCategoryColorKey } from '@/theme/categoryColors';
 import { assertValidNewTransaction, isValidBudgetAmount } from '@/domain/validation';
-import type {
-  Budget,
-  Category,
-  CurrencyCode,
-  LocalDate,
-  NewTransaction,
-  Settings,
-  Transaction,
-  TransactionPatch,
-  TxPage,
-  TxQuery,
-  TxQuerySummary,
-  TxSearchResult,
+import {
+  normalizeReminderSettings,
+  type Budget,
+  type Category,
+  type CurrencyCode,
+  type LocalDate,
+  type NewTransaction,
+  type Settings,
+  type Transaction,
+  type TransactionPatch,
+  type TxPage,
+  type TxQuery,
+  type TxQuerySummary,
+  type TxSearchResult,
 } from '@/domain/types';
 import { DEFAULT_SETTINGS, type Repo } from './repo';
 
@@ -58,7 +59,7 @@ function isAfterCursor(tx: Transaction, c: CursorKey): boolean {
 function cloneSettings(s: Settings): Settings {
   return {
     ...s,
-    reminder: { ...s.reminder },
+    reminder: normalizeReminderSettings(s.reminder, DEFAULT_SETTINGS.reminder),
   };
 }
 
@@ -327,7 +328,10 @@ export class MemoryRepo implements Repo {
   async setSetting<K extends keyof Settings>(k: K, v: Settings[K]): Promise<void> {
     this.settings = {
       ...this.settings,
-      [k]: k === 'reminder' ? { ...(v as Settings['reminder']) } : v,
+      [k]:
+        k === 'reminder'
+          ? normalizeReminderSettings(v, DEFAULT_SETTINGS.reminder)
+          : v,
     };
   }
 

@@ -75,7 +75,7 @@ export function Sheet({
     <Modal
       visible
       transparent
-      animationType={reducedMotion ? 'none' : 'fade'}
+      animationType={reducedMotion || Platform.OS === 'web' ? 'none' : 'fade'}
       onRequestClose={onClose}
       statusBarTranslucent
     >

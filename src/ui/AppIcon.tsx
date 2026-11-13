@@ -43,9 +43,11 @@ import {
   Pencil,
   Plane,
   Plus,
+  ReceiptText,
   Repeat,
   Search,
   Settings,
+  ShieldCheck,
   Shirt,
   ShoppingBag,
   ShoppingBasket,
@@ -156,6 +158,8 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
   'arrow-down-left': ArrowDownLeft,
   sparkle: Sparkle,
   'trending-up': TrendingUp,
+  'shield-check': ShieldCheck,
+  'receipt-text': ReceiptText,
 };
 
 export type AppIconName = keyof typeof ICON_MAP | (string & {});

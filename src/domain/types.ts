@@ -16,7 +16,47 @@ export type LocalTime = string;
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
-export type ReminderDays = 'everyday' | 'weekdays';
+/** Day-of-week indices stored as 0 = Sunday .. 6 = Saturday (DESIGN §4). */
+export const ALL_REMINDER_DAYS: readonly number[] = [0, 1, 2, 3, 4, 5, 6];
+export const SUN_THU_REMINDER_DAYS: readonly number[] = [0, 1, 2, 3, 4];
+export const MON_FRI_REMINDER_DAYS: readonly number[] = [1, 2, 3, 4, 5];
+
+export type LegacyReminderDays = 'everyday' | 'weekdays';
+export type ReminderDays = number[];
+
+export function normalizeReminderDays(raw: unknown): ReminderDays {
+  if (raw === 'everyday') return [...ALL_REMINDER_DAYS];
+  if (raw === 'weekdays') return [...MON_FRI_REMINDER_DAYS];
+  if (Array.isArray(raw)) {
+    const valid = new Set<number>();
+    for (const item of raw) {
+      if (typeof item === 'number' && Number.isInteger(item) && item >= 0 && item <= 6) {
+        valid.add(item);
+      }
+    }
+    return Array.from(valid).sort((a, b) => a - b);
+  }
+  return [...ALL_REMINDER_DAYS];
+}
+
+export function normalizeReminderSettings(
+  raw: unknown,
+  fallback: ReminderSettings
+): ReminderSettings {
+  if (!raw || typeof raw !== 'object') {
+    return {
+      enabled: fallback.enabled,
+      time: fallback.time,
+      days: [...fallback.days],
+    };
+  }
+  const obj = raw as Record<string, unknown>;
+  return {
+    enabled: typeof obj.enabled === 'boolean' ? obj.enabled : fallback.enabled,
+    time: typeof obj.time === 'string' && obj.time.trim() ? obj.time.trim() : fallback.time,
+    days: obj.days !== undefined ? normalizeReminderDays(obj.days) : [...fallback.days],
+  };
+}
 
 export const CATEGORY_COLOR_KEYS = [
   'orange',

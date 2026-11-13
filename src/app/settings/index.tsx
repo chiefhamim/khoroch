@@ -1,61 +1,118 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AppState, Linking, StyleSheet, Switch, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { AppState, Linking, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { buildSampleTransactions } from '@/data/sampleData';
 import { todayLocalDate } from '@/domain/dates';
-import { getPeriod } from '@/domain/period';
+import { formatCycleLabel, getPeriod } from '@/domain/period';
 import {
+  ALL_REMINDER_DAYS,
   CURRENCIES,
+  SUN_THU_REMINDER_DAYS,
   type CurrencyCode,
-  type ReminderDays,
   type ReminderSettings,
-  type ThemePreference,
 } from '@/domain/types';
 import { t } from '@/i18n';
 import {
   getNotificationPermissionStatus,
   isNotificationsSupported,
-  parseReminderTime,
   requestNotificationPermission,
   syncReminderSchedule,
 } from '@/notifications/reminders';
-import { bumpDataVersion } from '@/state/dataVersion';
+import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
 import { useSettings } from '@/state/useSettings';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
+import { Banner } from '@/ui/Banner';
 import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
-import { ConfirmModal } from '@/ui/ConfirmModal';
+import { DayOfMonthGrid } from '@/ui/DayOfMonthGrid';
+import { DayToggles } from '@/ui/DayToggles';
+import { Field } from '@/ui/Field';
+import { hapticLight, hapticSelection, hapticSuccess } from '@/ui/haptics';
 import { IconButton } from '@/ui/IconButton';
 import { ListRow } from '@/ui/ListRow';
 import { Screen } from '@/ui/Screen';
-import { SectionHeader } from '@/ui/SectionHeader';
-import { SegmentedControl } from '@/ui/SegmentedControl';
+import { SettingsGroup } from '@/ui/SettingsGroup';
+import { SettingsRow } from '@/ui/SettingsRow';
+import { Sheet } from '@/ui/Sheet';
+import { Surface } from '@/ui/Surface';
+import { TimeField } from '@/ui/TimeField';
+import { useToast } from '@/ui/Toast';
 
-const CURRENCY_LABELS: Record<CurrencyCode, string> = {
-  BDT: 'BDT (৳)',
-  USD: 'USD ($)',
-  EUR: 'EUR (€)',
+const CURRENCY_SHORT: Record<CurrencyCode, string> = {
+  BDT: 'BDT ৳',
+  USD: 'USD $',
+  EUR: 'EUR €',
 };
 
+const CURRENCY_FULL: Record<CurrencyCode, string> = {
+  BDT: 'Bangladeshi Taka (BDT ৳)',
+  USD: 'US Dollar (USD $)',
+  EUR: 'Euro (EUR €)',
+};
+
+function formatOrdinal(day: number): string {
+  const mod100 = day % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${day}th`;
+  switch (day % 10) {
+    case 1:
+      return `${day}st`;
+    case 2:
+      return `${day}nd`;
+    case 3:
+      return `${day}rd`;
+    default:
+      return `${day}th`;
+  }
+}
+
+function sameDays(a: readonly number[], b: readonly number[]): boolean {
+  if (a.length !== b.length) return false;
+  const setA = new Set(a);
+  return b.every((d) => setA.has(d));
+}
+
 export default function SettingsScreen() {
-  const { theme } = useTheme();
+  const { theme, reducedMotion } = useTheme();
   const router = useRouter();
+  const { showToast } = useToast();
+  const dataVersion = useDataVersionStore((s) => s.dataVersion);
   const { repo, backend, settings, hasTransactions, updateSetting, refreshSettings } =
     useSettings();
 
-  const [nameDraft, setNameDraft] = useState(settings.name);
-  const [savedFlag, setSavedFlag] = useState(false);
-  const [deleteStep, setDeleteStep] = useState<0 | 1 | 2>(0);
+  const [activeCategoryCount, setActiveCategoryCount] = useState<number>(20);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [reminderTimeOverride, setReminderTimeOverride] = useState<string | null>(null);
-  const [reminderTimeError, setReminderTimeError] = useState<string | null>(null);
+
+  // Sheet states
+  const [nameSheetOpen, setNameSheetOpen] = useState(false);
+  const [nameDraft, setNameDraft] = useState(settings.name);
+
+  const [currencySheetOpen, setCurrencySheetOpen] = useState(false);
+
+  const [cycleSheetOpen, setCycleSheetOpen] = useState(false);
+  const [cycleDayDraft, setCycleDayDraft] = useState(settings.monthStartDay);
+
+  const [appearanceSheetOpen, setAppearanceSheetOpen] = useState(false);
+
   const [reminderExplainOpen, setReminderExplainOpen] = useState(false);
 
-  const reminderTimeDraft = reminderTimeOverride ?? settings.reminder.time;
+  const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    repo
+      .listCategories()
+      .then((cats) => {
+        if (active) setActiveCategoryCount(cats.length);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [repo, dataVersion]);
 
   const applyReminderUpdate = useCallback(
     async (nextReminder: ReminderSettings) => {
@@ -152,49 +209,46 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleSaveReminderTime = async (candidate: string) => {
-    const trimmed = candidate.trim();
-    if (!parseReminderTime(trimmed)) {
-      setReminderTimeError(t('settings.reminderInvalidTime'));
-      return;
-    }
-    setReminderTimeError(null);
-    setReminderTimeOverride(null);
-    await applyReminderUpdate({ ...settings.reminder, time: trimmed });
-  };
-
   const handleSaveName = async () => {
     const trimmed = nameDraft.trim();
-    if (trimmed === settings.name) return;
     setActionError(null);
     try {
       await updateSetting('name', trimmed);
-      setSavedFlag(true);
-      setTimeout(() => setSavedFlag(false), 1500);
+      hapticSuccess();
+      setNameSheetOpen(false);
+      showToast({ message: t('settings.savedNotice'), icon: 'circle-check', tone: 'accent' });
     } catch {
       setActionError(t('settings.actionError'));
     }
   };
 
-  const handleDeleteAllConfirm = async () => {
-    if (deleteStep === 1) {
-      setDeleteStep(2);
-      return;
+  const handleSaveCycleDay = async () => {
+    setActionError(null);
+    try {
+      await updateSetting('monthStartDay', cycleDayDraft);
+      hapticSuccess();
+      setCycleSheetOpen(false);
+      showToast({ message: t('settings.savedNotice'), icon: 'circle-check', tone: 'accent' });
+    } catch {
+      setActionError(t('settings.actionError'));
     }
-    if (deleteStep === 2 && !busy) {
-      setBusy(true);
-      setActionError(null);
-      try {
-        await repo.deleteAllData();
-        setDeleteStep(0);
-        await refreshSettings();
-        bumpDataVersion();
-      } catch {
-        setDeleteStep(0);
-        setActionError(t('settings.actionError'));
-      } finally {
-        setBusy(false);
-      }
+  };
+
+  const handleDeleteAll = async () => {
+    if (busy || deleteConfirmText.trim().toUpperCase() !== 'DELETE') return;
+    setBusy(true);
+    setActionError(null);
+    try {
+      await repo.deleteAllData();
+      setDeleteSheetOpen(false);
+      setDeleteConfirmText('');
+      await refreshSettings();
+      bumpDataVersion();
+    } catch {
+      setDeleteSheetOpen(false);
+      setActionError(t('settings.actionError'));
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -216,6 +270,7 @@ export default function SettingsScreen() {
 
       await updateSetting('sampleDataLoaded', true);
       bumpDataVersion();
+      showToast({ message: t('settings.sampleLoadedNote'), icon: 'circle-check', tone: 'accent' });
     } catch {
       setActionError(t('settings.actionError'));
     } finally {
@@ -231,6 +286,7 @@ export default function SettingsScreen() {
       await repo.clearSampleTransactions();
       await updateSetting('sampleDataLoaded', false);
       bumpDataVersion();
+      showToast({ message: t('common.done'), icon: 'circle-check', tone: 'default' });
     } catch {
       setActionError(t('settings.actionError'));
     } finally {
@@ -238,9 +294,33 @@ export default function SettingsScreen() {
     }
   };
 
+  const trimmedName = settings.name.trim();
+  const initialLetter = trimmedName ? trimmedName.charAt(0).toUpperCase() : 'H';
+
+  const appearanceLabel =
+    settings.theme === 'light'
+      ? t('settings.themeLight')
+      : settings.theme === 'dark'
+        ? t('settings.themeDark')
+        : t('settings.themeSystem');
+
+  const today = todayLocalDate();
+  const draftCyclePreview = formatCycleLabel(
+    getPeriod(today, cycleDayDraft),
+    cycleDayDraft,
+    { includeYear: false }
+  );
+
+  const selectedDays = settings.reminder.days;
+  const isEveryDay = sameDays(selectedDays, ALL_REMINDER_DAYS);
+  const isSunThu = sameDays(selectedDays, SUN_THU_REMINDER_DAYS);
+  const reminderActive = settings.reminder.enabled && !settings.notificationPermissionDenied;
+  const canConfirmDelete = deleteConfirmText.trim().toUpperCase() === 'DELETE' && !busy;
+
   return (
     <Screen scroll edges={['top', 'left', 'right', 'bottom']}>
-      <View style={styles.headerRow}>
+      {/* Top header with Back arrow */}
+      <View style={[styles.headerRow, { gap: theme.spacing.md }]}>
         <IconButton
           testID="settings-back"
           icon="arrow-left"
@@ -252,177 +332,128 @@ export default function SettingsScreen() {
       </View>
 
       {actionError ? (
-        <Card tone="alt">
-          <AppText variant="caption" color="danger">
-            {actionError}
-          </AppText>
-        </Card>
+        <Banner
+          tone="danger"
+          icon="triangle-alert"
+          message={actionError}
+        />
       ) : null}
 
-      <SectionHeader title={t('settings.sectionPersonal')} />
-      <Card style={{ gap: theme.spacing.lg }}>
-        <View style={{ gap: theme.spacing.xs }}>
-          <View style={styles.labelRow}>
-            <AppText variant="label" color="textMuted">
-              {t('settings.nameLabel')}
-            </AppText>
-            {savedFlag ? (
-              <AppText variant="caption" color="primary">
-                {t('settings.savedNotice')}
-              </AppText>
-            ) : null}
-          </View>
-          <View style={[styles.nameRow, { gap: theme.spacing.sm }]}>
-            <TextInput
-              testID="settings-name-input"
-              value={nameDraft}
-              onChangeText={setNameDraft}
-              onEndEditing={() => void handleSaveName()}
-              placeholder={t('settings.namePlaceholder')}
-              placeholderTextColor={theme.colors.textMuted}
-              maxLength={50}
+      {/* Profile Row */}
+      <Surface padded={false}>
+        <SettingsRow
+          testID="settings-profile-row"
+          label={trimmedName || t('settings.profileFallbackName')}
+          subtitle={trimmedName ? undefined : t('settings.profileSubtitle')}
+          showChevron
+          left={
+            <View
               style={[
-                styles.input,
+                styles.avatar,
                 {
-                  flex: 1,
-                  minHeight: theme.touch.min,
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.surfaceAlt,
-                  borderRadius: theme.radius.md,
-                  paddingHorizontal: theme.spacing.md,
-                  color: theme.colors.text,
-                  fontFamily: theme.typography.body.fontFamily,
-                  fontSize: theme.typography.body.fontSize,
+                  width: 40,
+                  height: 40,
+                  borderRadius: theme.radius.pill,
+                  backgroundColor: theme.colors.accentSoft,
                 },
               ]}
-            />
-            {nameDraft.trim() !== settings.name ? (
-              <Button
-                title={t('common.save')}
-                variant="secondary"
-                onPress={() => void handleSaveName()}
-                style={{ minWidth: theme.touch.min + theme.spacing.xxl }}
-              />
-            ) : null}
-          </View>
-        </View>
-
-        <View style={{ gap: theme.spacing.xs }}>
-          <AppText variant="label" color="textMuted">
-            {t('settings.currencyLabel')}
-          </AppText>
-          <View
-            style={[
-              styles.rowWrap,
-              { gap: theme.spacing.sm, opacity: hasTransactions ? 0.6 : 1 },
-            ]}
-          >
-            {CURRENCIES.map((code) => (
-              <Chip
-                key={code}
-                testID={`settings-currency-${code}`}
-                label={CURRENCY_LABELS[code]}
-                selected={settings.currency === code}
-                onPress={() => {
-                  if (!hasTransactions) {
-                    void updateSetting('currency', code);
-                  }
-                }}
-              />
-            ))}
-          </View>
-          {hasTransactions ? (
-            <AppText variant="caption" color="textMuted">
-              {t('settings.currencyLockedNote')}
-            </AppText>
-          ) : null}
-        </View>
-
-        <View style={{ gap: theme.spacing.xs }}>
-          <AppText variant="label" color="textMuted">
-            {t('settings.monthStartLabel')}
-          </AppText>
-          <View style={[styles.stepperRow, { gap: theme.spacing.md }]}>
-            <Button
-              title="-"
-              variant="secondary"
-              accessibilityLabel={t('settings.decreaseMonthStart')}
-              disabled={settings.monthStartDay <= 1}
-              onPress={() =>
-                void updateSetting('monthStartDay', Math.max(1, settings.monthStartDay - 1))
-              }
-              style={{ minWidth: theme.touch.min + theme.spacing.lg }}
-            />
-            <View style={styles.dayValue}>
-              <AppText variant="title" tabularNums>
-                {settings.monthStartDay}
+            >
+              <AppText variant="headline" color="accent">
+                {initialLetter}
               </AppText>
             </View>
-            <Button
-              title="+"
-              variant="secondary"
-              accessibilityLabel={t('settings.increaseMonthStart')}
-              disabled={settings.monthStartDay >= 28}
-              onPress={() =>
-                void updateSetting('monthStartDay', Math.min(28, settings.monthStartDay + 1))
-              }
-              style={{ minWidth: theme.touch.min + theme.spacing.lg }}
+          }
+          onPress={() => {
+            hapticLight();
+            setNameDraft(settings.name);
+            setNameSheetOpen(true);
+          }}
+        />
+      </Surface>
+
+      {/* GENERAL */}
+      <SettingsGroup
+        title={t('settings.sectionPersonal')}
+        footer={hasTransactions ? t('settings.currencyLockedNote') : undefined}
+      >
+        <SettingsRow
+          testID="settings-currency-row"
+          label={t('settings.currencyLabel')}
+          value={CURRENCY_SHORT[settings.currency]}
+          locked={hasTransactions}
+          showChevron={!hasTransactions}
+          onPress={
+            hasTransactions
+              ? undefined
+              : () => {
+                  hapticLight();
+                  setCurrencySheetOpen(true);
+                }
+          }
+        />
+        <SettingsRow
+          testID="settings-cycle-row"
+          label={t('settings.monthStartLabel')}
+          value={t('settings.cycleStartOption', {
+            ordinal: formatOrdinal(settings.monthStartDay),
+          })}
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setCycleDayDraft(settings.monthStartDay);
+            setCycleSheetOpen(true);
+          }}
+        />
+        <SettingsRow
+          testID="settings-appearance-row"
+          label={t('settings.themeLabel')}
+          value={appearanceLabel}
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setAppearanceSheetOpen(true);
+          }}
+        />
+      </SettingsGroup>
+
+      {/* REMINDERS */}
+      <SettingsGroup
+        title={t('settings.sectionReminders')}
+        footer={!isNotificationsSupported() ? t('settings.reminderWebNote') : undefined}
+      >
+        <SettingsRow
+          label={t('settings.reminderToggle')}
+          trailing={
+            <Switch
+              testID="settings-reminder-switch"
+              accessibilityLabel={t('settings.reminderToggle')}
+              value={reminderActive}
+              onValueChange={(val) => void handleToggleReminder(val)}
+              trackColor={{ false: theme.colors.surfaceSunken, true: theme.colors.accent }}
+              thumbColor={theme.colors.surface}
             />
-          </View>
-        </View>
-
-        <View style={{ gap: theme.spacing.xs }}>
-          <AppText variant="label" color="textMuted">
-            {t('settings.themeLabel')}
-          </AppText>
-          <SegmentedControl<ThemePreference>
-            value={settings.theme}
-            onChange={(val) => void updateSetting('theme', val)}
-            options={[
-              { value: 'system', label: t('settings.themeSystem') },
-              { value: 'light', label: t('settings.themeLight') },
-              { value: 'dark', label: t('settings.themeDark') },
-            ]}
-          />
-        </View>
-      </Card>
-
-      <SectionHeader title={t('settings.sectionReminders')} />
-      <Card style={{ gap: theme.spacing.md }}>
-        <View style={[styles.toggleRow, { minHeight: theme.touch.min, gap: theme.spacing.md }]}>
-          <View style={styles.toggleText}>
-            <AppText variant="heading">{t('settings.reminderToggle')}</AppText>
-            <AppText variant="caption" color="textMuted">
-              {settings.reminder.enabled ? t('common.on') : t('common.off')}
-            </AppText>
-          </View>
-          <Switch
-            testID="settings-reminder-switch"
-            accessibilityLabel={t('settings.reminderToggle')}
-            value={settings.reminder.enabled && !settings.notificationPermissionDenied}
-            onValueChange={(val) => void handleToggleReminder(val)}
-            trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-            thumbColor={theme.colors.surface}
-          />
-        </View>
+          }
+        />
 
         {settings.notificationPermissionDenied ? (
           <View
             testID="settings-reminder-denied-box"
             style={{
-              backgroundColor: theme.colors.surfaceAlt,
-              borderRadius: theme.radius.md,
-              padding: theme.spacing.md,
+              paddingHorizontal: theme.spacing.lg,
+              paddingVertical: theme.spacing.md,
               gap: theme.spacing.sm,
             }}
           >
-            <AppText variant="caption" color="danger">
-              {t('settings.reminderBlockedNotice')}
-            </AppText>
+            <Banner
+              tone="danger"
+              icon="triangle-alert"
+              message={t('settings.reminderBlockedNotice')}
+            />
             <Button
               testID="settings-open-system-settings"
               title={t('settings.openSystemSettings')}
               variant="secondary"
+              size="sm"
               onPress={() => {
                 Linking.openSettings().catch(() => {});
               }}
@@ -430,202 +461,383 @@ export default function SettingsScreen() {
           </View>
         ) : null}
 
-        {settings.reminder.enabled && !settings.notificationPermissionDenied ? (
-          <View style={{ gap: theme.spacing.md }}>
-            <View style={{ gap: theme.spacing.xs }}>
-              <AppText variant="label" color="textMuted">
-                {t('settings.reminderDaysLabel')}
-              </AppText>
-              <SegmentedControl<ReminderDays>
-                value={settings.reminder.days}
-                onChange={(days) =>
-                  void applyReminderUpdate({ ...settings.reminder, days })
-                }
-                options={[
-                  { value: 'everyday', label: t('onboarding.reminderEveryDay') },
-                  { value: 'weekdays', label: t('onboarding.reminderWeekdays') },
-                ]}
+        {reminderActive ? (
+          <TimeField
+            testID="settings-reminder-time"
+            variant="row"
+            rowLabel={t('settings.reminderTimeLabel')}
+            value={settings.reminder.time}
+            accessibilityLabel={t('settings.reminderTimeLabel')}
+            onChange={(nextTime) => {
+              void applyReminderUpdate({ ...settings.reminder, time: nextTime });
+            }}
+          />
+        ) : null}
+
+        {reminderActive ? (
+          <View
+            style={{
+              paddingHorizontal: theme.spacing.lg,
+              paddingVertical: theme.spacing.md,
+              gap: theme.spacing.sm,
+            }}
+          >
+            <AppText variant="bodyStrong">{t('settings.reminderDaysLabel')}</AppText>
+            <DayToggles
+              testID="settings-reminder-days"
+              selectedDays={selectedDays.map((d) => d + 1)}
+              onChange={(expoWeekdays) => {
+                void applyReminderUpdate({
+                  ...settings.reminder,
+                  days: expoWeekdays.map((w) => w - 1),
+                });
+              }}
+            />
+            <View style={[styles.presetRow, { gap: theme.spacing.sm }]}>
+              <Chip
+                testID="settings-reminder-preset-everyday"
+                label={t('onboarding.reminderEveryDay')}
+                selected={isEveryDay}
+                onPress={() => {
+                  void applyReminderUpdate({
+                    ...settings.reminder,
+                    days: [...ALL_REMINDER_DAYS],
+                  });
+                }}
+              />
+              <Chip
+                testID="settings-reminder-preset-sun-thu"
+                label={t('onboarding.reminderWeekdays')}
+                selected={isSunThu}
+                onPress={() => {
+                  void applyReminderUpdate({
+                    ...settings.reminder,
+                    days: [...SUN_THU_REMINDER_DAYS],
+                  });
+                }}
               />
             </View>
-
-            <View style={{ gap: theme.spacing.xs }}>
-              <AppText variant="label" color="textMuted">
-                {t('settings.reminderTimeLabel')}
-              </AppText>
-              <View style={[styles.rowWrap, { gap: theme.spacing.sm }]}>
-                {(['20:00', '21:00', '22:00'] as const).map((preset) => (
-                  <Chip
-                    key={preset}
-                    testID={`settings-reminder-time-${preset}`}
-                    label={preset}
-                    selected={settings.reminder.time === preset}
-                    onPress={() => void handleSaveReminderTime(preset)}
-                  />
-                ))}
-              </View>
-              <View style={[styles.nameRow, { gap: theme.spacing.sm }]}>
-                <TextInput
-                  testID="settings-reminder-time-input"
-                  value={reminderTimeDraft}
-                  onChangeText={(txt) => {
-                    setReminderTimeOverride(txt);
-                    if (reminderTimeError) setReminderTimeError(null);
-                  }}
-                  onEndEditing={() => void handleSaveReminderTime(reminderTimeDraft)}
-                  placeholder="21:00"
-                  placeholderTextColor={theme.colors.textMuted}
-                  maxLength={5}
-                  style={[
-                    styles.input,
-                    {
-                      flex: 1,
-                      minWidth: 0,
-                      minHeight: theme.touch.min,
-                      borderColor: reminderTimeError ? theme.colors.danger : theme.colors.border,
-                      backgroundColor: theme.colors.surfaceAlt,
-                      borderRadius: theme.radius.md,
-                      paddingHorizontal: theme.spacing.md,
-                      color: theme.colors.text,
-                      fontFamily: theme.typography.body.fontFamily,
-                      fontSize: theme.typography.body.fontSize,
-                    },
-                  ]}
-                />
-                {reminderTimeDraft.trim() !== settings.reminder.time ? (
-                  <Button
-                    testID="settings-reminder-time-save"
-                    title={t('settings.reminderTimeSave')}
-                    variant="secondary"
-                    onPress={() => void handleSaveReminderTime(reminderTimeDraft)}
-                  />
-                ) : null}
-              </View>
-              {reminderTimeError ? (
-                <AppText variant="caption" color="danger">
-                  {reminderTimeError}
-                </AppText>
-              ) : null}
-            </View>
-
-            {!isNotificationsSupported() ? (
-              <AppText variant="caption" color="textMuted">
-                {t('settings.reminderWebNote')}
-              </AppText>
-            ) : null}
           </View>
         ) : null}
 
-        <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-        <ListRow
+        <SettingsRow
           testID="settings-checkin-row"
-          title={t('settings.checkInRow')}
+          label={t('settings.checkInRow')}
           subtitle={t('settings.checkInSubtitle')}
-          left={<Ionicons name="checkmark-done-outline" size={20} color={theme.colors.primary} />}
           showChevron
           onPress={() => router.push('/check-in')}
         />
-      </Card>
+      </SettingsGroup>
 
-      <SectionHeader title={t('settings.sectionData')} />
-      <Card style={{ gap: theme.spacing.md }}>
-        <ListRow
+      {/* DATA */}
+      <SettingsGroup title={t('settings.sectionData')}>
+        <SettingsRow
           testID="settings-categories-row"
-          title={t('settings.categoriesRow')}
-          subtitle={t('settings.categoriesSubtitle')}
-          left={<Ionicons name="pricetags-outline" size={20} color={theme.colors.primary} />}
+          label={t('settings.categoriesRow')}
+          value={String(activeCategoryCount)}
           showChevron
           onPress={() => router.push('/settings/categories')}
         />
-        <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-        <Button
+        <SettingsRow
           testID="settings-delete-all-button"
-          title={t('settings.deleteAllButton')}
-          variant="danger"
-          onPress={() => setDeleteStep(1)}
+          label={t('settings.deleteAllButton')}
+          destructive
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setDeleteConfirmText('');
+            setDeleteSheetOpen(true);
+          }}
         />
-      </Card>
+      </SettingsGroup>
 
+      {/* ABOUT */}
+      <SettingsGroup title={t('settings.sectionAbout')}>
+        <SettingsRow
+          label={t('settings.aboutVersionLine')}
+          subtitle={t('settings.aboutDesc', { backend })}
+        />
+      </SettingsGroup>
+
+      {/* DEVELOPER (__DEV__ only) */}
       {__DEV__ ? (
-        <>
-          <SectionHeader title={t('settings.sectionDev')} />
-          <Card style={{ gap: theme.spacing.sm }}>
-            <Button
-              testID="settings-load-sample"
-              title={t('settings.sampleLoad')}
-              variant="secondary"
-              loading={busy}
-              disabled={busy}
-              onPress={() => void handleLoadSample()}
-            />
-            <Button
-              testID="settings-clear-sample"
-              title={t('settings.sampleClear')}
-              variant="ghost"
-              disabled={busy}
-              onPress={() => void handleClearSample()}
-            />
-            <Button
-              testID="settings-open-gallery"
-              title="Open UI Gallery (v2)"
-              variant="ghost"
-              onPress={() => router.push('/dev/gallery' as never)}
-            />
-            {settings.sampleDataLoaded ? (
-              <AppText variant="caption" color="primary">
-                {t('settings.sampleLoadedNote')}
-              </AppText>
-            ) : (
-              <AppText variant="caption" color="textMuted">
-                {t('settings.sampleDevOnly')}
-              </AppText>
-            )}
-          </Card>
-        </>
+        <SettingsGroup
+          title={t('settings.sectionDev')}
+          footer={
+            settings.sampleDataLoaded
+              ? t('settings.sampleLoadedNote')
+              : t('settings.sampleDevOnly')
+          }
+        >
+          <SettingsRow
+            testID="settings-open-gallery"
+            label={t('settings.galleryRow')}
+            showChevron
+            onPress={() => router.push('/dev/gallery' as never)}
+          />
+          <SettingsRow
+            testID="settings-load-sample"
+            label={t('settings.sampleLoad')}
+            disabled={busy}
+            showChevron
+            onPress={() => void handleLoadSample()}
+          />
+          <SettingsRow
+            testID="settings-clear-sample"
+            label={t('settings.sampleClear')}
+            disabled={busy}
+            showChevron
+            onPress={() => void handleClearSample()}
+          />
+        </SettingsGroup>
       ) : null}
 
-      <SectionHeader title={t('settings.sectionAbout')} />
-      <Card style={{ gap: theme.spacing.xs }}>
-        <AppText variant="heading">{t('settings.aboutName')}</AppText>
-        <AppText variant="caption" color="textMuted">
-          {t('settings.aboutDesc', { backend })}
-        </AppText>
-      </Card>
+      {/* Name Sheet */}
+      <Sheet
+        testID="settings-name-sheet"
+        visible={nameSheetOpen}
+        onClose={() => setNameSheetOpen(false)}
+        title={t('settings.nameLabel')}
+      >
+        <Field
+          testID="settings-name-input"
+          value={nameDraft}
+          onChangeText={setNameDraft}
+          placeholder={t('settings.namePlaceholder')}
+          maxLength={50}
+          autoFocus
+        />
+        <Button
+          testID="settings-name-save"
+          title={t('common.save')}
+          onPress={() => void handleSaveName()}
+        />
+      </Sheet>
 
-      <ConfirmModal
-        visible={deleteStep !== 0}
-        title={
-          deleteStep === 2
-            ? t('settings.deleteAllStep2Title')
-            : t('settings.deleteAllStep1Title')
-        }
-        body={
-          deleteStep === 2
-            ? t('settings.deleteAllStep2Body')
-            : t('settings.deleteAllStep1Body')
-        }
-        confirmLabel={
-          deleteStep === 2
-            ? t('settings.deleteAllStep2Confirm')
-            : t('settings.deleteAllStep1Confirm')
-        }
-        cancelLabel={t('common.cancel')}
-        destructive
-        loading={busy}
-        onConfirm={() => void handleDeleteAllConfirm()}
-        onCancel={() => {
-          if (!busy) setDeleteStep(0);
-        }}
-      />
+      {/* Currency Sheet */}
+      <Sheet
+        testID="settings-currency-sheet"
+        visible={currencySheetOpen}
+        onClose={() => setCurrencySheetOpen(false)}
+        title={t('settings.currencyLabel')}
+      >
+        <Surface padded={false}>
+          {CURRENCIES.map((code, idx) => {
+            const active = settings.currency === code;
+            return (
+              <ListRow
+                key={code}
+                testID={`settings-currency-${code}`}
+                title={CURRENCY_FULL[code]}
+                showDivider={idx < CURRENCIES.length - 1}
+                right={
+                  active ? (
+                    <AppIcon name="check" size={18} color={theme.colors.accent} />
+                  ) : null
+                }
+                onPress={() => {
+                  hapticSelection();
+                  void updateSetting('currency', code);
+                  setCurrencySheetOpen(false);
+                }}
+              />
+            );
+          })}
+        </Surface>
+      </Sheet>
 
-      <ConfirmModal
+      {/* Cycle Start Sheet */}
+      <Sheet
+        testID="settings-cycle-sheet"
+        visible={cycleSheetOpen}
+        onClose={() => setCycleSheetOpen(false)}
+        title={t('settings.monthStartLabel')}
+        footer={
+          <Button
+            testID="settings-cycle-save"
+            title={t('common.save')}
+            onPress={() => void handleSaveCycleDay()}
+          />
+        }
+      >
+        <DayOfMonthGrid
+          testID="settings-cycle-grid"
+          value={cycleDayDraft}
+          onChange={setCycleDayDraft}
+        />
+        <Surface variant="soft">
+          <AppText
+            testID="settings-cycle-preview"
+            variant="label"
+            color="accent"
+          >
+            {t('settings.cyclePreview', { range: draftCyclePreview })}
+          </AppText>
+        </Surface>
+      </Sheet>
+
+      {/* Appearance Sheet with 3 Swatches */}
+      <Sheet
+        testID="settings-appearance-sheet"
+        visible={appearanceSheetOpen}
+        onClose={() => setAppearanceSheetOpen(false)}
+        title={t('settings.themeLabel')}
+      >
+        <View style={[styles.swatchRow, { gap: theme.spacing.sm }]}>
+          {(
+            [
+              { pref: 'system', label: t('settings.themeSystem') },
+              { pref: 'light', label: t('settings.themeLight') },
+              { pref: 'dark', label: t('settings.themeDark') },
+            ] as const
+          ).map(({ pref, label }) => {
+            const selected = settings.theme === pref;
+            return (
+              <Pressable
+                key={pref}
+                testID={`settings-theme-${pref}`}
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                accessibilityState={{ selected }}
+                onPress={() => {
+                  hapticSelection();
+                  void updateSetting('theme', pref);
+                  setAppearanceSheetOpen(false);
+                }}
+                style={({ pressed }) => [
+                  styles.swatchCard,
+                  {
+                    backgroundColor: theme.colors.surfaceSunken,
+                    borderColor: selected ? theme.colors.accent : 'transparent',
+                    borderRadius: theme.radius.card,
+                    padding: theme.spacing.md,
+                    gap: theme.spacing.sm,
+                    opacity: pressed && !reducedMotion ? 0.8 : 1,
+                  },
+                ]}
+              >
+                {/* Mini UI preview frame */}
+                <View style={styles.swatchPreviewFrame}>
+                  {pref === 'system' ? (
+                    <View style={styles.splitPreview}>
+                      <View style={[styles.splitHalf, { backgroundColor: '#F5F5F7' }]}>
+                        <View style={[styles.miniCard, { backgroundColor: '#FFFFFF' }]}>
+                          <View style={[styles.miniBar, { backgroundColor: '#097A52' }]} />
+                        </View>
+                      </View>
+                      <View style={[styles.splitHalf, { backgroundColor: '#0A0A0C' }]}>
+                        <View style={[styles.miniCard, { backgroundColor: '#151518' }]}>
+                          <View style={[styles.miniBar, { backgroundColor: '#34D399' }]} />
+                        </View>
+                      </View>
+                    </View>
+                  ) : (
+                    <View
+                      style={[
+                        styles.solidPreview,
+                        { backgroundColor: pref === 'light' ? '#F5F5F7' : '#0A0A0C' },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.miniCard,
+                          {
+                            backgroundColor: pref === 'light' ? '#FFFFFF' : '#151518',
+                            padding: 6,
+                            gap: 4,
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.miniLine,
+                            { backgroundColor: pref === 'light' ? '#0B0B0D' : '#F4F4F5' },
+                          ]}
+                        />
+                        <View
+                          style={[
+                            styles.miniBar,
+                            { backgroundColor: pref === 'light' ? '#097A52' : '#34D399' },
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.swatchLabelRow}>
+                  <AppText
+                    variant="label"
+                    color={selected ? 'accent' : 'text'}
+                    numberOfLines={1}
+                  >
+                    {label}
+                  </AppText>
+                  {selected ? (
+                    <AppIcon name="check" size={14} color={theme.colors.accent} />
+                  ) : null}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Sheet>
+
+      {/* Reminder Permission Explanation Sheet */}
+      <Sheet
+        testID="settings-reminder-explain-sheet"
         visible={reminderExplainOpen}
+        onClose={() => setReminderExplainOpen(false)}
         title={t('settings.reminderExplainTitle')}
-        body={t('settings.reminderExplainBody')}
-        confirmLabel={t('settings.reminderExplainContinue')}
-        cancelLabel={t('common.cancel')}
-        onConfirm={() => void handleConfirmReminderPermission()}
-        onCancel={() => setReminderExplainOpen(false)}
-      />
+      >
+        <AppText variant="body" color="textSecondary">
+          {t('settings.reminderExplainBody')}
+        </AppText>
+        <View style={[styles.sheetActions, { gap: theme.spacing.sm }]}>
+          <Button
+            title={t('common.cancel')}
+            variant="secondary"
+            onPress={() => setReminderExplainOpen(false)}
+            style={styles.flexOne}
+          />
+          <Button
+            title={t('settings.reminderExplainContinue')}
+            variant="primary"
+            onPress={() => void handleConfirmReminderPermission()}
+            style={styles.flexOne}
+          />
+        </View>
+      </Sheet>
+
+      {/* Delete All Data Sheet (type DELETE) */}
+      <Sheet
+        testID="settings-delete-sheet"
+        visible={deleteSheetOpen}
+        onClose={() => {
+          if (!busy) setDeleteSheetOpen(false);
+        }}
+        title={t('settings.deleteAllStep1Title')}
+      >
+        <AppText variant="body" color="textSecondary">
+          {t('settings.deleteAllStep1Body')}
+        </AppText>
+        <Field
+          testID="settings-delete-confirm-input"
+          label={t('settings.deleteAllTypePrompt')}
+          value={deleteConfirmText}
+          onChangeText={setDeleteConfirmText}
+          placeholder={t('settings.deleteAllTypePlaceholder')}
+          autoCapitalize="characters"
+        />
+        <Button
+          testID="settings-delete-confirm-btn"
+          title={t('settings.deleteAllStep2Confirm')}
+          variant="danger"
+          loading={busy}
+          disabled={!canConfirmDelete}
+          onPress={() => void handleDeleteAll()}
+        />
+      </Sheet>
     </Screen>
   );
 }
@@ -634,39 +846,68 @@ const styles = StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
   },
-  labelRow: {
-    flexDirection: 'row',
+  avatar: {
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  input: {
-    borderWidth: 1,
-  },
-  rowWrap: {
+  presetRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  stepperRow: {
+  swatchRow: {
+    flexDirection: 'row',
+  },
+  swatchCard: {
+    flex: 1,
+    borderWidth: 2,
+    alignItems: 'center',
+  },
+  swatchPreviewFrame: {
+    width: '100%',
+    height: 64,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  splitPreview: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  splitHalf: {
+    flex: 1,
+    padding: 4,
+    justifyContent: 'center',
+  },
+  solidPreview: {
+    flex: 1,
+    padding: 6,
+    justifyContent: 'center',
+  },
+  miniCard: {
+    borderRadius: 6,
+    padding: 4,
+  },
+  miniLine: {
+    width: '65%',
+    height: 4,
+    borderRadius: 2,
+    opacity: 0.7,
+  },
+  miniBar: {
+    width: '85%',
+    height: 6,
+    borderRadius: 3,
+  },
+  swatchLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
   },
-  dayValue: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  toggleRow: {
+  sheetActions: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  toggleText: {
+  flexOne: {
     flex: 1,
-    gap: 2,
+    minWidth: 0,
   },
 });

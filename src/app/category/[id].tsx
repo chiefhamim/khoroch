@@ -1,9 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { summarizeCategoryExpenses } from '@/domain/calc';
-import { formatPeriodRange, formatShortDate, isValidLocalDate, todayLocalDate } from '@/domain/dates';
+import {
+  formatFriendlyTime,
+  formatPeriodRange,
+  formatShortDate,
+  isDevice24HourClock,
+  isValidLocalDate,
+  todayLocalDate,
+} from '@/domain/dates';
 import { getPeriod } from '@/domain/period';
 import type { Category, Transaction } from '@/domain/types';
 import { t } from '@/i18n';
@@ -11,13 +17,14 @@ import { useAppContext } from '@/state/AppContext';
 import { useDataVersionStore } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from '@/ui/AppText';
-import { Card } from '@/ui/Card';
-import { CategoryIcon } from '@/ui/CategoryIcon';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
+import { IconButton } from '@/ui/IconButton';
+import { IconTile } from '@/ui/IconTile';
 import { ListRow } from '@/ui/ListRow';
 import { Money } from '@/ui/Money';
 import { Screen } from '@/ui/Screen';
+import { Surface } from '@/ui/Surface';
 
 export default function CategoryPeriodScreen() {
   const { id, periodStart, periodEnd } = useLocalSearchParams<{
@@ -29,6 +36,7 @@ export default function CategoryPeriodScreen() {
   const { theme } = useTheme();
   const router = useRouter();
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
+  const use24Hour = isDevice24HourClock();
 
   const fallbackPeriod = useMemo(
     () => getPeriod(todayLocalDate(), settings.monthStartDay),
@@ -91,47 +99,41 @@ export default function CategoryPeriodScreen() {
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
-      <View style={[styles.header, { minHeight: theme.touch.min, marginBottom: theme.spacing.md }]}>
-        <Pressable
+      <View style={[styles.header, { gap: theme.spacing.md, marginBottom: theme.spacing.md }]}>
+        <IconButton
           testID="category-detail-back"
-          accessibilityRole="button"
+          icon="arrow-left"
+          variant="surface"
           accessibilityLabel={t('common.back')}
           onPress={() => router.back()}
-          style={[
-            styles.iconBtn,
-            {
-              width: theme.touch.min,
-              height: theme.touch.min,
-              borderRadius: theme.radius.pill,
-              backgroundColor: theme.colors.surfaceAlt,
-            },
-          ]}
-        >
-          <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
-        </Pressable>
+        />
         <View style={styles.headerCenter}>
           <AppText variant="title" numberOfLines={1}>
             {titleName}
           </AppText>
-          <AppText variant="caption" color="textMuted">
+          <AppText variant="caption" color="textSecondary">
             {formatPeriodRange(rangeStart, rangeEndExcl)}
           </AppText>
         </View>
         <View style={{ width: theme.touch.min }} />
       </View>
 
-      <Card style={[styles.summaryCard, { gap: theme.spacing.md, marginBottom: theme.spacing.lg }]}>
-        <CategoryIcon icon={category?.icon} tone="primary" />
+      <Surface style={[styles.summaryCard, { gap: theme.spacing.md, marginBottom: theme.spacing.lg }]}>
+        <IconTile
+          icon={category?.icon ?? 'circle-ellipsis'}
+          colorKey={category?.colorKey ?? 'gray'}
+          size="lg"
+        />
         <View style={styles.summaryText}>
-          <AppText variant="caption" color="textMuted">
+          <AppText variant="caption" color="textSecondary">
             {t('categoryDetail.spentLabel')}
           </AppText>
           <Money amountMinor={result.spentMinor} currency={settings.currency} variant="title" />
         </View>
-        <AppText variant="caption" color="textMuted">
+        <AppText variant="label" color="textSecondary">
           {t('categoryDetail.txCountLabel', { count: result.count })}
         </AppText>
-      </Card>
+      </Surface>
 
       {loadError ? (
         <ErrorState
@@ -142,39 +144,45 @@ export default function CategoryPeriodScreen() {
         />
       ) : !loading && result.transactions.length === 0 ? (
         <EmptyState
-          icon="receipt-outline"
+          icon="receipt-text"
           title={titleName}
           body={t('categoryDetail.empty')}
         />
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}>
-          <Card style={{ paddingVertical: theme.spacing.xs }}>
+          <Surface padded={false}>
             {result.transactions.map((tx, idx) => (
-              <View key={tx.id}>
-                {idx > 0 ? <View style={{ height: 1, backgroundColor: theme.colors.border }} /> : null}
-                <ListRow
-                  title={tx.description || titleName}
-                  subtitle={
-                    tx.occurredTime
-                      ? `${formatShortDate(tx.occurredOn)} · ${tx.occurredTime}`
-                      : formatShortDate(tx.occurredOn)
-                  }
-                  left={<CategoryIcon icon={category?.icon} tone="neutral" />}
-                  right={
-                    <Money
-                      amountMinor={tx.amountMinor}
-                      currency={settings.currency}
-                      variant="heading"
-                      prefix="-"
-                    />
-                  }
-                  onPress={() =>
-                    router.push({ pathname: '/transaction/[id]', params: { id: tx.id } })
-                  }
-                />
-              </View>
+              <ListRow
+                key={tx.id}
+                title={tx.description.trim() || titleName}
+                subtitle={
+                  tx.occurredTime
+                    ? `${formatShortDate(tx.occurredOn)} · ${formatFriendlyTime(tx.occurredTime, use24Hour)}`
+                    : formatShortDate(tx.occurredOn)
+                }
+                showDivider={idx < result.transactions.length - 1}
+                left={
+                  <IconTile
+                    icon={category?.icon ?? 'circle-ellipsis'}
+                    colorKey={category?.colorKey ?? 'gray'}
+                    size="md"
+                  />
+                }
+                right={
+                  <Money
+                    amountMinor={tx.amountMinor}
+                    currency={settings.currency}
+                    variant="bodyStrong"
+                    prefix="−"
+                  />
+                }
+                showChevron
+                onPress={() =>
+                  router.push({ pathname: '/transaction/[id]', params: { id: tx.id } })
+                }
+              />
             ))}
-          </Card>
+          </Surface>
         </ScrollView>
       )}
     </Screen>
@@ -185,11 +193,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerCenter: {
     flex: 1,

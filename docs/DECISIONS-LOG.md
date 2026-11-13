@@ -71,3 +71,11 @@ Format:
   - `dark.textTertiary`: `#71717A` → `#86868F` (`5.48` on `bg`, `5.05` on `surface`, `4.66` on `surfaceRaised`)
   - Added `onDanger: '#FFFFFF'` (light) / `'#0A0A0C'` (dark, `7.15:1` on `#F87171`).
 - Easy to reverse? Yes — single palette edit in `src/theme/tokens.ts`, enforced by `src/theme/tokens.test.ts`.
+
+## D-007 — Reminder day indexing & Web Sheet transition  (Phase 12, 2026-11-13 14:12)
+- Question: `DESIGN.md §4` specifies `ReminderSettings.days` as `0 = Sun .. 6 = Sat`, whereas `DayToggles` (built in Phase 7) and `expo-notifications` `WeeklyTriggerInput.weekday` expect `1 = Sun .. 7 = Sat`, and legacy v1 settings stored `'everyday'` / `'weekdays'`. Separately, RN Web `<Modal animationType="fade">` briefly renders sheets semi-transparent during its CSS opacity fade.
+- Options considered: Refactor `DayToggles` and existing Phase 7 tests to `0..6` vs keep `DayToggles`/`expo-notifications` at `1..7` and map `+1`/`-1` at the Settings/Onboarding/Scheduler boundaries; wait longer vs disable Web `Modal` fade animation.
+- Chose:
+  1. Persist `ReminderSettings.days` as sorted unique `0..6` integers (`0 = Sun .. 6 = Sat`), map legacy `'everyday' -> [0..6]` and `'weekdays' -> [1..5]` (Mon–Fri, matching `D-005`) via `normalizeReminderDays()`, keep `SUN_THU_REMINDER_DAYS = [0..4]` for the `Sun–Thu` preset chip per `DESIGN.md §6.6`, and adapt `d + 1` / `w - 1` at `DayToggles` and `buildReminderTriggerSpecs()`.
+  2. Use `animationType="none"` on Web in `Sheet.tsx` (`fade` preserved on native Android/iOS unless `reducedMotion`) so sheets appear opaque immediately without bleed-through from underlying screens or toasts.
+- Easy to reverse? Yes — helpers in `src/domain/types.ts` and one platform condition in `src/ui/Sheet.tsx`.

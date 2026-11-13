@@ -1,32 +1,43 @@
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { summarizeDayActivity } from '@/domain/calc';
-import { addDays, formatWeekdayShortDate, todayLocalDate } from '@/domain/dates';
+import {
+  addDays,
+  formatFriendlyTime,
+  formatWeekdayShortDate,
+  isDevice24HourClock,
+  todayLocalDate,
+} from '@/domain/dates';
 import type { Category, Transaction } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { useDataVersionStore } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
-import { CategoryIcon } from '@/ui/CategoryIcon';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
+import { hapticSuccess } from '@/ui/haptics';
+import { IconButton } from '@/ui/IconButton';
+import { IconTile } from '@/ui/IconTile';
 import { ListRow } from '@/ui/ListRow';
 import { Money } from '@/ui/Money';
 import { Screen } from '@/ui/Screen';
 import { SectionHeader } from '@/ui/SectionHeader';
+import { Surface } from '@/ui/Surface';
+import { useToast } from '@/ui/Toast';
 
 export default function CheckInScreen() {
   const { repo, settings } = useAppContext();
   const { theme } = useTheme();
+  const { showToast } = useToast();
   const router = useRouter();
   const version = useDataVersionStore((s) => s.dataVersion);
 
   const today = todayLocalDate();
+  const use24Hour = isDevice24HourClock();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categoriesById, setCategoriesById] = useState<Map<string, Category>>(new Map());
   const [reviewed, setReviewed] = useState(false);
@@ -76,6 +87,12 @@ export default function CheckInScreen() {
     try {
       await repo.markDayReviewed(today);
       setReviewed(true);
+      hapticSuccess();
+      showToast({
+        message: t('checkIn.reviewedBadge'),
+        icon: 'circle-check',
+        tone: 'accent',
+      });
     } finally {
       setSavingReview(false);
     }
@@ -98,32 +115,23 @@ export default function CheckInScreen() {
 
   return (
     <Screen scroll edges={['top', 'bottom', 'left', 'right']}>
-      <View style={[styles.header, { minHeight: theme.touch.min }]}>
-        <Pressable
+      {/* Top Bar */}
+      <View style={[styles.header, { gap: theme.spacing.md }]}>
+        <IconButton
           testID="check-in-back"
-          accessibilityRole="button"
+          icon="arrow-left"
+          variant="surface"
           accessibilityLabel={t('common.back')}
           onPress={() => {
             if (router.canGoBack()) router.back();
             else router.replace('/(tabs)');
           }}
-          style={[
-            styles.backBtn,
-            {
-              width: theme.touch.min,
-              height: theme.touch.min,
-              borderRadius: theme.radius.pill,
-              backgroundColor: theme.colors.surfaceAlt,
-            },
-          ]}
-        >
-          <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
-        </Pressable>
-        <View style={{ flex: 1, marginLeft: theme.spacing.sm }}>
-          <AppText variant="title" numberOfLines={1}>
+        />
+        <View style={{ flex: 1 }}>
+          <AppText variant="display" numberOfLines={1}>
             {t('checkIn.title')}
           </AppText>
-          <AppText variant="caption" color="textMuted">
+          <AppText variant="label" color="textSecondary">
             {formatWeekdayShortDate(today)}
           </AppText>
         </View>
@@ -136,7 +144,7 @@ export default function CheckInScreen() {
             style={[
               styles.badge,
               {
-                backgroundColor: theme.colors.primarySoft,
+                backgroundColor: theme.colors.accentSoft,
                 borderRadius: theme.radius.pill,
                 paddingHorizontal: theme.spacing.md,
                 paddingVertical: theme.spacing.xs,
@@ -144,123 +152,133 @@ export default function CheckInScreen() {
               },
             ]}
           >
-            <Ionicons name="checkmark-circle" size={16} color={theme.colors.primary} />
-            <AppText variant="caption" color="primary">
+            <AppIcon name="circle-check" size={16} color={theme.colors.accent} />
+            <AppText variant="label" color="accent">
               {t('checkIn.reviewedBadge')}
             </AppText>
           </View>
         </View>
       ) : null}
 
-      <Card style={{ gap: theme.spacing.md }}>
-        <View style={[styles.statsRow, { gap: theme.spacing.md }]}>
+      {/* Three stat columns: Spent | Income | Entries */}
+      <Surface>
+        <View style={styles.statsRow}>
           <View style={styles.statCol}>
-            <AppText variant="caption" color="textMuted">
+            <AppText variant="caption" color="textSecondary">
               {t('checkIn.expensesLabel')}
             </AppText>
             <Money
               testID="check-in-expenses-amount"
               amountMinor={daySummary.expenseMinor}
               currency={settings.currency}
-              variant="title"
+              variant="headline"
             />
           </View>
+
+          <View style={[styles.vDivider, { backgroundColor: theme.colors.separator }]} />
+
           <View style={styles.statCol}>
-            <AppText variant="caption" color="textMuted">
+            <AppText variant="caption" color="textSecondary">
               {t('checkIn.incomeLabel')}
             </AppText>
             <Money
               testID="check-in-income-amount"
               amountMinor={daySummary.incomeMinor}
               currency={settings.currency}
-              variant="title"
-              color="primary"
+              variant="headline"
+              color="accent"
             />
           </View>
+
+          <View style={[styles.vDivider, { backgroundColor: theme.colors.separator }]} />
+
+          <View style={styles.statCol}>
+            <AppText variant="caption" color="textSecondary">
+              {t('checkIn.countLabel')}
+            </AppText>
+            <AppText testID="check-in-tx-count" variant="headline" tabularNums>
+              {daySummary.count}
+            </AppText>
+          </View>
         </View>
+      </Surface>
 
-        <View style={{ height: 1, backgroundColor: theme.colors.border }} />
+      {/* Primary Done CTA + Secondary 50/50 row */}
+      <View style={{ gap: theme.spacing.sm }}>
+        <Button
+          testID="check-in-done-btn"
+          title={reviewed ? t('checkIn.alreadyDone') : t('checkIn.doneForToday')}
+          variant={reviewed ? 'secondary' : 'primary'}
+          loading={savingReview}
+          disabled={savingReview || reviewed}
+          onPress={() => void handleMarkDone()}
+        />
 
-        <View style={styles.countRow}>
-          <AppText variant="label" color="textMuted">
-            {t('checkIn.countLabel')}
-          </AppText>
-          <AppText testID="check-in-tx-count" variant="heading" tabularNums>
-            {daySummary.count}
-          </AppText>
+        <View style={[styles.actionsRow, { gap: theme.spacing.sm }]}>
+          <Button
+            testID="check-in-add-btn"
+            title={t('checkIn.quickAddExpense')}
+            variant="secondary"
+            size="sm"
+            onPress={() => router.push('/transaction/new')}
+            style={{ flex: 1 }}
+          />
+          <Button
+            testID="check-in-quick-entry-btn"
+            title={t('quickEntry.title')}
+            variant="secondary"
+            size="sm"
+            onPress={() => router.push('/quick-entry')}
+            style={{ flex: 1 }}
+          />
         </View>
-      </Card>
-
-      <View style={[styles.actionsRow, { gap: theme.spacing.sm }]}>
-        <Button
-          testID="check-in-add-btn"
-          title={t('checkIn.quickAddExpense')}
-          variant="secondary"
-          onPress={() => router.push('/transaction/new')}
-          style={{ flex: 1 }}
-        />
-        <Button
-          testID="check-in-quick-entry-btn"
-          title={t('quickEntry.title')}
-          variant="secondary"
-          onPress={() => router.push('/quick-entry')}
-          style={{ flex: 1 }}
-        />
       </View>
-
-      <Button
-        testID="check-in-done-btn"
-        title={reviewed ? t('checkIn.alreadyDone') : t('checkIn.doneForToday')}
-        variant={reviewed ? 'secondary' : 'primary'}
-        loading={savingReview}
-        disabled={savingReview || reviewed}
-        onPress={() => void handleMarkDone()}
-      />
 
       <SectionHeader title={t('checkIn.todayListHeading')} />
       {daySummary.transactions.length === 0 ? (
         <EmptyState
-          icon="checkmark-done-outline"
+          icon="circle-check"
           title={t('checkIn.emptyTitle')}
           body={t('checkIn.emptyBody')}
         />
       ) : (
-        <Card padded={false}>
+        <Surface padded={false}>
           {daySummary.transactions.map((tx, idx) => {
             const cat = tx.categoryId ? categoriesById.get(tx.categoryId) : undefined;
-            const title =
-              tx.description.trim() || cat?.name || t('common.uncategorized');
+            const catLabel = cat?.name ?? t('common.uncategorized');
+            const title = tx.description.trim() || catLabel;
+            const subtitle = tx.occurredTime
+              ? `${catLabel} · ${formatFriendlyTime(tx.occurredTime, use24Hour)}`
+              : catLabel;
+            const isIncome = tx.type === 'income';
             return (
-              <React.Fragment key={tx.id}>
-                {idx > 0 ? (
-                  <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-                ) : null}
-                <ListRow
-                  title={title}
-                  subtitle={cat?.name ?? t('common.uncategorized')}
-                  left={
-                    <CategoryIcon
-                      icon={cat?.icon ?? 'ellipsis-horizontal'}
-                      size="md"
-                      tone={tx.type === 'income' ? 'income' : 'expense'}
-                    />
-                  }
-                  right={
-                    <Money
-                      amountMinor={tx.amountMinor}
-                      currency={tx.currency}
-                      prefix={tx.type === 'expense' ? '−' : '+'}
-                      variant="label"
-                      color={tx.type === 'income' ? 'income' : 'expense'}
-                    />
-                  }
-                  showChevron
-                  onPress={() => router.push(`/transaction/${tx.id}`)}
-                />
-              </React.Fragment>
+              <ListRow
+                key={tx.id}
+                title={title}
+                subtitle={subtitle}
+                showDivider={idx < daySummary.transactions.length - 1}
+                left={
+                  <IconTile
+                    icon={cat?.icon ?? 'circle-ellipsis'}
+                    colorKey={cat?.colorKey ?? 'gray'}
+                    size="md"
+                  />
+                }
+                right={
+                  <Money
+                    amountMinor={tx.amountMinor}
+                    currency={tx.currency}
+                    prefix={isIncome ? '+' : '−'}
+                    variant="bodyStrong"
+                    color={isIncome ? 'accent' : 'text'}
+                  />
+                }
+                showChevron
+                onPress={() => router.push(`/transaction/${tx.id}`)}
+              />
             );
           })}
-        </Card>
+        </Surface>
       )}
     </Screen>
   );
@@ -271,10 +289,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -284,15 +298,17 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
   statCol: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
+    paddingHorizontal: 6,
   },
-  countRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  vDivider: {
+    width: 1,
+    height: 36,
   },
   actionsRow: {
     flexDirection: 'row',

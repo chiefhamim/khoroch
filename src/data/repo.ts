@@ -1,16 +1,17 @@
-import type {
-  Budget,
-  Category,
-  CurrencyCode,
-  LocalDate,
-  NewTransaction,
-  Settings,
-  Transaction,
-  TransactionPatch,
-  TxPage,
-  TxQuery,
-  TxQuerySummary,
-  TxSearchResult,
+import {
+  ALL_REMINDER_DAYS,
+  type Budget,
+  type Category,
+  type CurrencyCode,
+  type LocalDate,
+  type NewTransaction,
+  type Settings,
+  type Transaction,
+  type TransactionPatch,
+  type TxPage,
+  type TxQuery,
+  type TxQuerySummary,
+  type TxSearchResult,
 } from '@/domain/types';
 
 export interface Repo {
@@ -56,7 +57,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reminder: {
     enabled: false,
     time: '21:00',
-    days: 'everyday',
+    days: [...ALL_REMINDER_DAYS],
   },
   sampleDataLoaded: false,
   notificationPermissionDenied: false,

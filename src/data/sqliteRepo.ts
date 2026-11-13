@@ -1,20 +1,21 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { assertValidNewTransaction, isValidBudgetAmount } from '@/domain/validation';
-import type {
-  Budget,
-  Category,
-  CurrencyCode,
-  LocalDate,
-  NewTransaction,
-  Settings,
-  Transaction,
-  TransactionPatch,
-  TransactionSource,
-  TransactionType,
-  TxPage,
-  TxQuery,
-  TxQuerySummary,
-  TxSearchResult,
+import {
+  normalizeReminderSettings,
+  type Budget,
+  type Category,
+  type CurrencyCode,
+  type LocalDate,
+  type NewTransaction,
+  type Settings,
+  type Transaction,
+  type TransactionPatch,
+  type TransactionSource,
+  type TransactionType,
+  type TxPage,
+  type TxQuery,
+  type TxQuerySummary,
+  type TxSearchResult,
 } from '@/domain/types';
 import { normalizeCategoryColorKey } from '@/theme/categoryColors';
 import { seedDefaultCategoriesSqlite } from './migrations';
@@ -510,10 +511,10 @@ export class SqliteRepo implements Repo {
       currency: parseJson(SETTING_DB_KEYS.currency, DEFAULT_SETTINGS.currency),
       monthStartDay: parseJson(SETTING_DB_KEYS.monthStartDay, DEFAULT_SETTINGS.monthStartDay),
       theme: parseJson(SETTING_DB_KEYS.theme, DEFAULT_SETTINGS.theme),
-      reminder: {
-        ...DEFAULT_SETTINGS.reminder,
-        ...parseJson(SETTING_DB_KEYS.reminder, DEFAULT_SETTINGS.reminder),
-      },
+      reminder: normalizeReminderSettings(
+        parseJson<unknown>(SETTING_DB_KEYS.reminder, DEFAULT_SETTINGS.reminder),
+        DEFAULT_SETTINGS.reminder
+      ),
       sampleDataLoaded: parseJson(SETTING_DB_KEYS.sampleDataLoaded, DEFAULT_SETTINGS.sampleDataLoaded),
       notificationPermissionDenied: parseJson(
         SETTING_DB_KEYS.notificationPermissionDenied,

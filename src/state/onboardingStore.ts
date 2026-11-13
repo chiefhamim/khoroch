@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { DEFAULT_EXPENSE_CATEGORIES } from '@/domain/categories';
-import type { CurrencyCode, ReminderDays } from '@/domain/types';
+import { ALL_REMINDER_DAYS, type CurrencyCode, type ReminderDays } from '@/domain/types';
 
 export interface OnboardingDraftState {
   name: string;
@@ -32,7 +32,7 @@ export const useOnboardingDraft = create<OnboardingDraftState>((set) => ({
   selectedCategoryIds: DEFAULT_SELECTED,
   reminderEnabled: true,
   reminderTime: '21:00',
-  reminderDays: 'everyday',
+  reminderDays: [...ALL_REMINDER_DAYS],
   setName: (name) => set({ name }),
   setCurrency: (currency) => set({ currency }),
   setMonthStartDay: (monthStartDay) => set({ monthStartDay }),
@@ -55,6 +55,6 @@ export const useOnboardingDraft = create<OnboardingDraftState>((set) => ({
       selectedCategoryIds: DEFAULT_SELECTED,
       reminderEnabled: true,
       reminderTime: '21:00',
-      reminderDays: 'everyday',
+      reminderDays: [...ALL_REMINDER_DAYS],
     }),
 }));

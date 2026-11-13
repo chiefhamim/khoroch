@@ -1,5 +1,5 @@
 import { Platform } from 'react-native';
-import type { ReminderSettings } from '@/domain/types';
+import { normalizeReminderDays, type ReminderSettings } from '@/domain/types';
 
 export interface ParsedReminderTime {
   hour: number;
@@ -46,21 +46,19 @@ export function parseReminderTime(value: string): ParsedReminderTime | null {
 }
 
 /**
- * Pure scheduler builder: returns the trigger list to register, or `[]` when reminders
- * are disabled or the configured time is invalid (signaling cancel-all with no reschedule).
+ * Pure scheduler builder: schedules one weekly trigger per selected day
+ * (`0 = Sun .. 6 = Sat`, mapped to Expo's `1 = Sun .. 7 = Sat`), or returns `[]`
+ * when disabled, invalid time, or no days are selected.
  */
 export function buildReminderTriggerSpecs(reminder: ReminderSettings): ReminderTriggerSpec[] {
   if (!reminder.enabled) return [];
   const parsed = parseReminderTime(reminder.time);
   if (!parsed) return [];
 
-  if (reminder.days === 'everyday') {
-    return [{ kind: 'daily', hour: parsed.hour, minute: parsed.minute }];
-  }
-
-  return WEEKDAY_NUMBERS.map((weekday) => ({
+  const days = normalizeReminderDays(reminder.days);
+  return days.map((day) => ({
     kind: 'weekly',
-    weekday,
+    weekday: day + 1,
     hour: parsed.hour,
     minute: parsed.minute,
   }));

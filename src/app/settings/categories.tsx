@@ -1,58 +1,39 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import type { Category, TransactionType } from '@/domain/types';
+import {
+  CATEGORY_COLOR_KEYS,
+  type Category,
+  type CategoryColorKey,
+  type TransactionType,
+} from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
+import { CATEGORY_COLORS } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon, CATEGORY_ICON_CHOICES } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
-import { CategoryIcon, resolveIoniconName } from '@/ui/CategoryIcon';
-import { ConfirmModal } from '@/ui/ConfirmModal';
 import { ErrorState } from '@/ui/ErrorState';
-import { ListRow } from '@/ui/ListRow';
+import { Field } from '@/ui/Field';
+import { hapticLight, hapticSelection, hapticSuccess } from '@/ui/haptics';
+import { IconButton } from '@/ui/IconButton';
+import { IconTile } from '@/ui/IconTile';
 import { Screen } from '@/ui/Screen';
 import { SegmentedControl } from '@/ui/SegmentedControl';
-
-const ICON_OPTIONS = [
-  'restaurant',
-  'cart',
-  'car',
-  'bag-handle',
-  'home',
-  'flash',
-  'medkit',
-  'film',
-  'school',
-  'airplane',
-  'repeat',
-  'sparkles',
-  'people',
-  'gift',
-  'cafe',
-  'pizza',
-  'bicycle',
-  'bus',
-  'book',
-  'fitness',
-  'shirt',
-  'game-controller',
-  'cash',
-  'briefcase',
-  'wallet',
-  'ellipsis-horizontal',
-] as const;
+import { Sheet } from '@/ui/Sheet';
+import { Surface } from '@/ui/Surface';
+import { useToast } from '@/ui/Toast';
 
 const PROTECTED_CATEGORY_IDS = new Set(['other', 'other_income']);
 
 export default function CategoriesScreen() {
   const { repo } = useAppContext();
-  const { theme } = useTheme();
+  const { theme, reducedMotion } = useTheme();
   const router = useRouter();
+  const { showToast } = useToast();
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
 
   const [kind, setKind] = useState<TransactionType>('expense');
@@ -60,17 +41,16 @@ export default function CategoriesScreen() {
   const [loadError, setLoadError] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
 
-  // Add/Edit modal state
-  const [modalOpen, setModalOpen] = useState(false);
+  // Add/Edit sheet state
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [editingCat, setEditingCat] = useState<Category | null>(null);
   const [nameInput, setNameInput] = useState('');
-  const [iconInput, setIconInput] = useState<string>('restaurant');
+  const [colorKeyInput, setColorKeyInput] = useState<CategoryColorKey>('orange');
+  const [iconInput, setIconInput] = useState<string>('utensils');
   const [isSelectedInput, setIsSelectedInput] = useState(true);
   const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  // Archive confirm state
-  const [archiveTarget, setArchiveTarget] = useState<Category | null>(null);
+  const [confirmArchive, setConfirmArchive] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -89,33 +69,38 @@ export default function CategoriesScreen() {
     };
   }, [repo, dataVersion, reloadTick]);
 
-  const filtered = useMemo(() => {
-    return categories
+  const { activeList, archivedList } = useMemo(() => {
+    const byKind = categories
       .filter((c) => c.kind === kind)
-      .sort((a, b) => {
-        const aArch = a.archivedAt !== null ? 1 : 0;
-        const bArch = b.archivedAt !== null ? 1 : 0;
-        if (aArch !== bArch) return aArch - bArch;
-        return a.sortOrder - b.sortOrder;
-      });
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    return {
+      activeList: byKind.filter((c) => c.archivedAt === null),
+      archivedList: byKind.filter((c) => c.archivedAt !== null),
+    };
   }, [categories, kind]);
 
   const openAdd = () => {
+    hapticLight();
     setEditingCat(null);
     setNameInput('');
-    setIconInput(kind === 'expense' ? 'pricetag' : 'cash');
+    setColorKeyInput(kind === 'expense' ? 'orange' : 'teal');
+    setIconInput(kind === 'expense' ? 'tag' : 'banknote');
     setIsSelectedInput(true);
     setFormError(null);
-    setModalOpen(true);
+    setConfirmArchive(false);
+    setSheetOpen(true);
   };
 
   const openEdit = (cat: Category) => {
+    hapticLight();
     setEditingCat(cat);
     setNameInput(cat.name);
+    setColorKeyInput(cat.colorKey);
     setIconInput(cat.icon);
     setIsSelectedInput(cat.isSelected);
     setFormError(null);
-    setModalOpen(true);
+    setConfirmArchive(false);
+    setSheetOpen(true);
   };
 
   const handleSaveCategory = async () => {
@@ -131,20 +116,48 @@ export default function CategoriesScreen() {
     try {
       const nextSortOrder =
         editingCat?.sortOrder ??
-        categories.reduce((max, c) => (c.kind === kind && c.sortOrder > max ? c.sortOrder : max), 0) +
-          1;
+        categories.reduce(
+          (max, c) => (c.kind === kind && c.sortOrder > max ? c.sortOrder : max),
+          0
+        ) + 1;
       await repo.upsertCategory({
         id: editingCat?.id ?? `custom_${Crypto.randomUUID().slice(0, 8)}`,
         name: trimmed,
         icon: iconInput,
-        colorKey: editingCat?.colorKey ?? 'gray',
+        colorKey: colorKeyInput,
         kind: editingCat?.kind ?? kind,
         sortOrder: nextSortOrder,
         isSelected: isSelectedInput,
         archivedAt: editingCat?.archivedAt ?? null,
         createdAt: editingCat?.createdAt ?? Date.now(),
       });
-      setModalOpen(false);
+      hapticSuccess();
+      setSheetOpen(false);
+      bumpDataVersion();
+      showToast({ message: t('tx.savedToast'), icon: 'circle-check', tone: 'accent' });
+    } catch {
+      setFormError(t('categories.errorSaveFailed'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleArchiveOrRestore = async () => {
+    if (!editingCat || saving) return;
+    setSaving(true);
+    setFormError(null);
+    try {
+      if (editingCat.archivedAt === null) {
+        await repo.archiveCategory(editingCat.id);
+      } else {
+        await repo.upsertCategory({
+          ...editingCat,
+          archivedAt: null,
+        });
+      }
+      hapticSuccess();
+      setConfirmArchive(false);
+      setSheetOpen(false);
       bumpDataVersion();
     } catch {
       setFormError(t('categories.errorSaveFailed'));
@@ -153,56 +166,78 @@ export default function CategoriesScreen() {
     }
   };
 
-  const handleConfirmArchive = async () => {
-    if (!archiveTarget || saving) return;
-    setSaving(true);
-    try {
-      await repo.archiveCategory(archiveTarget.id);
-      setArchiveTarget(null);
-      setModalOpen(false);
-      bumpDataVersion();
-    } catch {
-      setArchiveTarget(null);
-      setFormError(t('categories.errorSaveFailed'));
-    } finally {
-      setSaving(false);
-    }
-  };
+  const canArchive =
+    editingCat !== null &&
+    editingCat.archivedAt === null &&
+    !PROTECTED_CATEGORY_IDS.has(editingCat.id);
+  const canRestore = editingCat !== null && editingCat.archivedAt !== null;
+
+  const renderTileCard = (cat: Category, dimmed: boolean) => (
+    <Pressable
+      key={cat.id}
+      testID={`cat-tile-${cat.id}`}
+      accessibilityRole="button"
+      accessibilityLabel={cat.name}
+      onPress={() => openEdit(cat)}
+      style={({ pressed }) => [
+        styles.gridItem,
+        {
+          padding: theme.spacing.xs,
+          opacity: dimmed ? 0.55 : pressed && !reducedMotion ? 0.78 : 1,
+        },
+      ]}
+    >
+      <Surface
+        padding={0}
+        style={[
+          styles.tileSurface,
+          {
+            paddingHorizontal: theme.spacing.xs,
+            paddingVertical: theme.spacing.md,
+            gap: theme.spacing.sm,
+          },
+        ]}
+      >
+        <IconTile icon={cat.icon} colorKey={cat.colorKey} size="lg" />
+        <AppText
+          variant="caption"
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.82}
+          style={styles.tileLabel}
+        >
+          {cat.name}
+        </AppText>
+      </Surface>
+    </Pressable>
+  );
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
-      <View style={[styles.header, { minHeight: theme.touch.min, marginBottom: theme.spacing.md }]}>
-        <Pressable
+      {/* Top header */}
+      <View style={[styles.header, { gap: theme.spacing.md, marginBottom: theme.spacing.md }]}>
+        <IconButton
           testID="categories-back"
-          accessibilityRole="button"
+          icon="arrow-left"
+          variant="surface"
           accessibilityLabel={t('common.back')}
           onPress={() => router.back()}
-          style={[
-            styles.iconBtn,
-            {
-              width: theme.touch.min,
-              height: theme.touch.min,
-              borderRadius: theme.radius.pill,
-              backgroundColor: theme.colors.surfaceAlt,
-            },
-          ]}
-        >
-          <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
-        </Pressable>
+        />
         <AppText variant="title" style={styles.headerTitle}>
           {t('categories.title')}
         </AppText>
-        <Button
+        <IconButton
           testID="categories-add-button"
-          title={t('common.add')}
-          variant="secondary"
+          icon="plus"
+          variant="surface"
+          accessibilityLabel={t('categories.newTitle')}
           onPress={openAdd}
-          style={{ minWidth: theme.touch.min + theme.spacing.xxl }}
         />
       </View>
 
-      <View style={{ marginBottom: theme.spacing.md }}>
+      <View style={{ marginBottom: theme.spacing.lg }}>
         <SegmentedControl<TransactionType>
+          testID="categories-kind-segmented"
           value={kind}
           onChange={setKind}
           options={[
@@ -220,175 +255,210 @@ export default function CategoriesScreen() {
           onRetry={() => setReloadTick((v) => v + 1)}
         />
       ) : (
-        <ScrollView contentContainerStyle={{ paddingBottom: theme.spacing.xxxl }}>
-          <Card style={{ paddingVertical: theme.spacing.xs }}>
-            {filtered.map((cat, idx) => (
-              <View key={cat.id}>
-                {idx > 0 ? <View style={{ height: 1, backgroundColor: theme.colors.border }} /> : null}
-                <ListRow
-                  testID={`cat-row-${cat.id}`}
-                  title={cat.name}
-                  subtitle={
-                    cat.archivedAt !== null
-                      ? t('categories.archivedBadge')
-                      : cat.isSelected
-                        ? t('categories.quickChipToggle')
-                        : undefined
-                  }
-                  left={
-                    <CategoryIcon
-                      icon={cat.icon}
-                      tone={cat.archivedAt ? 'neutral' : cat.kind === 'income' ? 'income' : 'primary'}
-                    />
-                  }
-                  showChevron
-                  onPress={() => openEdit(cat)}
-                />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ gap: theme.spacing.lg, paddingBottom: theme.spacing.xxxl }}
+        >
+          <View style={[styles.tileGrid, { marginHorizontal: -theme.spacing.xs }]}>
+            {activeList.map((cat) => renderTileCard(cat, false))}
+          </View>
+
+          {archivedList.length > 0 ? (
+            <View style={{ gap: theme.spacing.sm }}>
+              <AppText variant="caption" color="textSecondary" style={styles.sectionCap}>
+                {t('categories.archivedBadge').toUpperCase()}
+              </AppText>
+              <View style={[styles.tileGrid, { marginHorizontal: -theme.spacing.xs }]}>
+                {archivedList.map((cat) => renderTileCard(cat, true))}
               </View>
-            ))}
-          </Card>
+            </View>
+          ) : null}
         </ScrollView>
       )}
 
-      {modalOpen ? (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => setModalOpen(false)}
-        >
-          <View style={[styles.backdrop, { padding: theme.spacing.xl }]}>
-            <Card style={[styles.dialog, { gap: theme.spacing.md }]}>
-              <AppText variant="title">
-                {editingCat ? t('categories.editTitle') : t('categories.newTitle')}
-              </AppText>
-
-              <View style={{ gap: theme.spacing.xs }}>
-                <AppText variant="label" color="textMuted">
-                  {t('categories.nameLabel')}
+      {/* Edit / Add Category Sheet */}
+      <Sheet
+        testID="category-edit-sheet"
+        visible={sheetOpen}
+        onClose={() => {
+          if (!saving) setSheetOpen(false);
+        }}
+        title={editingCat ? t('categories.editTitle') : t('categories.newTitle')}
+        footer={
+          <View style={{ gap: theme.spacing.sm }}>
+            <Button
+              testID="category-save-button"
+              title={t('common.save')}
+              loading={saving}
+              disabled={saving}
+              onPress={() => void handleSaveCategory()}
+            />
+            {canArchive && !confirmArchive ? (
+              <Button
+                testID="category-archive-button"
+                title={t('categories.archiveButton')}
+                variant="ghost"
+                disabled={saving}
+                onPress={() => setConfirmArchive(true)}
+              />
+            ) : null}
+            {canArchive && confirmArchive ? (
+              <Surface variant="dangerSoft" style={{ gap: theme.spacing.sm }}>
+                <AppText variant="label" color="danger">
+                  {t('categories.archiveConfirmTitle', { name: editingCat?.name ?? '' })}
                 </AppText>
-                <TextInput
-                  testID="category-name-input"
-                  value={nameInput}
-                  onChangeText={setNameInput}
-                  placeholder={t('categories.namePlaceholder')}
-                  placeholderTextColor={theme.colors.textMuted}
-                  maxLength={40}
+                <AppText variant="caption" color="textSecondary">
+                  {t('categories.archiveConfirmBody')}
+                </AppText>
+                <View style={[styles.confirmRow, { gap: theme.spacing.sm }]}>
+                  <Button
+                    title={t('common.cancel')}
+                    variant="secondary"
+                    size="sm"
+                    disabled={saving}
+                    onPress={() => setConfirmArchive(false)}
+                    style={styles.flexOne}
+                  />
+                  <Button
+                    testID="category-archive-confirm-btn"
+                    title={t('categories.archiveButton')}
+                    variant="danger"
+                    size="sm"
+                    loading={saving}
+                    disabled={saving}
+                    onPress={() => void handleArchiveOrRestore()}
+                    style={styles.flexOne}
+                  />
+                </View>
+              </Surface>
+            ) : null}
+            {canRestore ? (
+              <Button
+                testID="category-restore-button"
+                title={t('categories.restoreButton')}
+                variant="secondary"
+                loading={saving}
+                disabled={saving}
+                onPress={() => void handleArchiveOrRestore()}
+              />
+            ) : null}
+          </View>
+        }
+      >
+        {/* Live preview */}
+        <View style={styles.previewWrap}>
+          <IconTile icon={iconInput} colorKey={colorKeyInput} size="lg" />
+          <AppText variant="headline" numberOfLines={1}>
+            {nameInput.trim() || t('categories.namePlaceholder')}
+          </AppText>
+        </View>
+
+        <Field
+          testID="category-name-input"
+          label={t('categories.nameLabel')}
+          value={nameInput}
+          onChangeText={(txt) => {
+            setNameInput(txt);
+            if (formError) setFormError(null);
+          }}
+          placeholder={t('categories.namePlaceholder')}
+          maxLength={40}
+          error={formError}
+        />
+
+        {/* 13 Colour swatches */}
+        <View style={{ gap: theme.spacing.xs }}>
+          <AppText variant="label" color="textSecondary">
+            {t('categories.colorLabel')}
+          </AppText>
+          <View style={[styles.swatchGrid, { gap: theme.spacing.sm }]}>
+            {CATEGORY_COLOR_KEYS.map((key) => {
+              const spec = CATEGORY_COLORS[key];
+              const hex = theme.scheme === 'dark' ? spec.dark : spec.light;
+              const selected = colorKeyInput === key;
+              return (
+                <Pressable
+                  key={key}
+                  testID={`cat-color-${key}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={spec.label}
+                  accessibilityState={{ selected }}
+                  onPress={() => {
+                    hapticSelection();
+                    setColorKeyInput(key);
+                  }}
                   style={[
-                    styles.input,
+                    styles.colorSwatch,
                     {
-                      minHeight: theme.touch.min,
-                      borderColor: theme.colors.border,
-                      backgroundColor: theme.colors.surfaceAlt,
-                      borderRadius: theme.radius.md,
-                      paddingHorizontal: theme.spacing.md,
-                      color: theme.colors.text,
-                      fontFamily: theme.typography.body.fontFamily,
-                      fontSize: theme.typography.body.fontSize,
+                      backgroundColor: hex,
+                      borderColor: selected ? theme.colors.text : 'transparent',
                     },
                   ]}
-                />
-              </View>
-
-              <View style={{ gap: theme.spacing.xs }}>
-                <AppText variant="label" color="textMuted">
-                  {t('categories.iconLabel')}
-                </AppText>
-                <View style={[styles.iconGrid, { gap: theme.spacing.sm }]}>
-                  {ICON_OPTIONS.map((ic) => {
-                    const active = iconInput === ic;
-                    return (
-                      <Pressable
-                        key={ic}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Icon ${ic}`}
-                        onPress={() => setIconInput(ic)}
-                        style={[
-                          styles.iconChoice,
-                          {
-                            width: theme.touch.min,
-                            height: theme.touch.min,
-                            borderRadius: theme.radius.md,
-                            borderColor: active ? theme.colors.primary : theme.colors.border,
-                            backgroundColor: active
-                              ? theme.colors.primarySoft
-                              : theme.colors.surfaceAlt,
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name={resolveIoniconName(ic)}
-                          size={20}
-                          color={active ? theme.colors.primary : theme.colors.text}
-                        />
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={[styles.toggleRow, { minHeight: theme.touch.min }]}>
-                <AppText variant="body">{t('categories.quickChipToggle')}</AppText>
-                <Switch
-                  value={isSelectedInput}
-                  onValueChange={setIsSelectedInput}
-                  trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
-                  thumbColor={theme.colors.surface}
-                />
-              </View>
-
-              {formError ? (
-                <AppText variant="caption" color="danger">
-                  {formError}
-                </AppText>
-              ) : null}
-
-              <View style={[styles.modalActions, { gap: theme.spacing.sm }]}>
-                <Button
-                  title={t('common.cancel')}
-                  variant="secondary"
-                  disabled={saving}
-                  onPress={() => setModalOpen(false)}
-                  style={styles.modalBtn}
-                />
-                <Button
-                  testID="category-save-button"
-                  title={t('common.save')}
-                  loading={saving}
-                  disabled={saving}
-                  onPress={() => void handleSaveCategory()}
-                  style={styles.modalBtn}
-                />
-              </View>
-
-              {editingCat &&
-              editingCat.archivedAt === null &&
-              !PROTECTED_CATEGORY_IDS.has(editingCat.id) ? (
-                <Button
-                  testID="category-archive-button"
-                  title={t('categories.archiveButton')}
-                  variant="danger"
-                  onPress={() => setArchiveTarget(editingCat)}
-                />
-              ) : null}
-            </Card>
+                >
+                  {selected ? (
+                    <AppIcon
+                      name="check"
+                      size={16}
+                      color={theme.scheme === 'dark' ? '#0A0A0C' : '#FFFFFF'}
+                    />
+                  ) : null}
+                </Pressable>
+              );
+            })}
           </View>
-        </Modal>
-      ) : null}
+        </View>
 
-      <ConfirmModal
-        visible={archiveTarget !== null}
-        title={t('categories.archiveConfirmTitle', { name: archiveTarget?.name ?? '' })}
-        body={t('categories.archiveConfirmBody')}
-        confirmLabel={t('categories.archiveButton')}
-        cancelLabel={t('common.cancel')}
-        destructive
-        loading={saving}
-        onConfirm={() => void handleConfirmArchive()}
-        onCancel={() => {
-          if (!saving) setArchiveTarget(null);
-        }}
-      />
+        {/* Lucide icon grid */}
+        <View style={{ gap: theme.spacing.xs }}>
+          <AppText variant="label" color="textSecondary">
+            {t('categories.iconLabel')}
+          </AppText>
+          <View style={[styles.iconGrid, { gap: theme.spacing.xs }]}>
+            {CATEGORY_ICON_CHOICES.map((ic) => {
+              const active = iconInput === ic;
+              return (
+                <Pressable
+                  key={ic}
+                  testID={`cat-icon-${ic}`}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Icon ${ic}`}
+                  accessibilityState={{ selected: active }}
+                  onPress={() => {
+                    hapticSelection();
+                    setIconInput(ic);
+                  }}
+                  style={[
+                    styles.iconChoice,
+                    {
+                      borderRadius: theme.radius.iconTile,
+                      borderColor: active ? theme.colors.accent : 'transparent',
+                      backgroundColor: active
+                        ? theme.colors.accentSoft
+                        : theme.colors.surfaceSunken,
+                    },
+                  ]}
+                >
+                  <AppIcon
+                    name={ic}
+                    size={20}
+                    color={active ? theme.colors.accent : theme.colors.text}
+                  />
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={[styles.toggleRow, { minHeight: theme.touch.min }]}>
+          <AppText variant="body">{t('categories.quickChipToggle')}</AppText>
+          <Switch
+            value={isSelectedInput}
+            onValueChange={setIsSelectedInput}
+            trackColor={{ false: theme.colors.surfaceSunken, true: theme.colors.accent }}
+            thumbColor={theme.colors.surface}
+          />
+        </View>
+      </Sheet>
     </Screen>
   );
 }
@@ -397,35 +467,54 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  iconBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerTitle: {
     flex: 1,
-    textAlign: 'center',
   },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  tileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  gridItem: {
+    width: '33.3333%',
+  },
+  tileSurface: {
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 100,
   },
-  dialog: {
-    width: '100%',
-    maxWidth: 420,
+  tileLabel: {
+    textAlign: 'center',
   },
-  input: {
-    borderWidth: 1,
+  sectionCap: {
+    letterSpacing: 0.7,
+    fontWeight: '600',
+  },
+  previewWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  swatchGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  colorSwatch: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
   iconChoice: {
-    borderWidth: 1,
+    width: 44,
+    height: 44,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -434,10 +523,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  modalActions: {
+  confirmRow: {
     flexDirection: 'row',
   },
-  modalBtn: {
+  flexOne: {
     flex: 1,
+    minWidth: 0,
   },
 });

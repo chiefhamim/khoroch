@@ -6,6 +6,7 @@ import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
 import { AppText } from './AppText';
 import { Button } from './Button';
+import { SettingsRow } from './SettingsRow';
 import { Sheet } from './Sheet';
 
 export interface TimeFieldProps {
@@ -14,6 +15,8 @@ export interface TimeFieldProps {
   label?: string;
   use24Hour?: boolean;
   accessibilityLabel?: string;
+  variant?: 'pill' | 'row';
+  rowLabel?: string;
   testID?: string;
 }
 
@@ -63,6 +66,8 @@ export function TimeField({
   label,
   use24Hour,
   accessibilityLabel,
+  variant = 'pill',
+  rowLabel,
   testID,
 }: TimeFieldProps) {
   const { theme, reducedMotion } = useTheme();
@@ -124,31 +129,42 @@ export function TimeField({
           {label}
         </AppText>
       ) : null}
-      <View style={styles.wrap}>
-        <Pressable
-          testID={testID}
-          accessibilityRole="button"
-          accessibilityLabel={accessibilityLabel ?? (label ? `${label}: ${display}` : display)}
-          hitSlop={4}
-          onPress={handleOpenPicker}
-          style={({ pressed }) => [
-            styles.pill,
-            {
-              minHeight: 40,
-              borderRadius: theme.radius.pill,
-              backgroundColor: theme.colors.surfaceSunken,
-              paddingHorizontal: theme.spacing.md,
-              gap: theme.spacing.sm,
-              opacity: pressed && !reducedMotion ? 0.8 : 1,
-            },
-          ]}
-        >
-          <AppIcon name="clock" size={16} color={theme.colors.textSecondary} />
-          <AppText variant="label" numberOfLines={1} tabularNums>
-            {display}
-          </AppText>
-          <AppIcon name="chevron-down" size={15} color={theme.colors.textTertiary} />
-        </Pressable>
+      <View style={variant === 'row' ? styles.customWrap : styles.wrap}>
+        {variant === 'row' ? (
+          <SettingsRow
+            testID={testID}
+            label={rowLabel ?? label ?? 'Time'}
+            value={display}
+            showChevron
+            accessibilityLabel={accessibilityLabel ?? `${rowLabel ?? label ?? 'Time'}, ${display}`}
+            onPress={handleOpenPicker}
+          />
+        ) : (
+          <Pressable
+            testID={testID}
+            accessibilityRole="button"
+            accessibilityLabel={accessibilityLabel ?? (label ? `${label}: ${display}` : display)}
+            hitSlop={4}
+            onPress={handleOpenPicker}
+            style={({ pressed }) => [
+              styles.pill,
+              {
+                minHeight: 40,
+                borderRadius: theme.radius.pill,
+                backgroundColor: theme.colors.surfaceSunken,
+                paddingHorizontal: theme.spacing.md,
+                gap: theme.spacing.sm,
+                opacity: pressed && !reducedMotion ? 0.8 : 1,
+              },
+            ]}
+          >
+            <AppIcon name="clock" size={16} color={theme.colors.textSecondary} />
+            <AppText variant="label" numberOfLines={1} tabularNums>
+              {display}
+            </AppText>
+            <AppIcon name="chevron-down" size={15} color={theme.colors.textTertiary} />
+          </Pressable>
+        )}
 
         {Platform.OS === 'web'
           ? React.createElement('input', {
@@ -190,6 +206,10 @@ const styles = StyleSheet.create({
   wrap: {
     position: 'relative',
     alignSelf: 'flex-start',
+  },
+  customWrap: {
+    position: 'relative',
+    width: '100%',
   },
   pill: {
     flexDirection: 'row',
