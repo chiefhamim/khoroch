@@ -22,7 +22,17 @@ The month grid and exact-time state still need a separate phone capture and visu
 
 The wallet editor now presents the opening balance as a first-class amount with an in-sheet keypad and an as-of date. The Wallets list has an explicit starting-balance action for zero-balance wallets.
 
-The requested Adjust balance action is not implemented yet; the current editor changes the opening balance rather than recording a separate adjustment entry. This remains a known gap for the final report.
+Wallet detail now has an Adjust balance action that records the difference as a dated income or expense adjustment, while opening-balance editing remains separate.
+
+## Step 5
+
+Home, Wallets, Settings, the appearance sheet, and the fast-entry sheet were reviewed on the dev phone in light mode. The flat surfaces, restrained borders, solid hero, and accent icons read as a deliberate system rather than a recolour.
+
+Settings and the appearance sheet were also reviewed in dark mode. Contrast is usable, but the dark appearance screenshot was taken with the modal scrim active, so it is not a clean full-screen dark-mode pair for every route.
+
+## Step 6
+
+The wallet opening-balance editor and transaction note input are keyboard-capable and use the app's keyboard-aware form primitives. A complete keyboard screenshot matrix for every text-input sheet was not completed; this remains listed as not done in the final report.
 
 ## Verification
 
