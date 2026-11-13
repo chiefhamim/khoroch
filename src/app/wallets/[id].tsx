@@ -12,11 +12,13 @@ import { formatMoney, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
 import type { Category, Transfer } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
+import { bumpDataVersion } from '@/state/dataVersion';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
 import { usePeople } from '@/state/usePeople';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from '@/ui/AppText';
+import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
 import { IconButton } from '@/ui/IconButton';
@@ -27,6 +29,7 @@ import { Surface } from '@/ui/Surface';
 import { WalletAvatar } from '@/ui/WalletAvatar';
 import { WalletBalanceChart } from '@/ui/WalletBalanceChart';
 import { WalletEditorSheet, formatOpeningSummary } from '@/ui/WalletEditorSheet';
+import { BalanceAdjustmentSheet } from '@/ui/BalanceAdjustmentSheet';
 
 type WalletFeedItem =
   | {
@@ -96,6 +99,7 @@ export default function WalletDetailScreen() {
 
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [adjustmentOpen, setAdjustmentOpen] = useState(false);
 
   React.useEffect(() => {
     let active = true;
@@ -359,6 +363,13 @@ export default function WalletDetailScreen() {
         </View>
       </Surface>
 
+      <Button
+        testID="wallet-adjust-balance"
+        title={t('wallets.adjustBalance')}
+        variant="secondary"
+        onPress={() => setAdjustmentOpen(true)}
+      />
+
       {chartPoints.length > 0 ? (
         <WalletBalanceChart
           points={chartPoints}
@@ -418,6 +429,24 @@ export default function WalletDetailScreen() {
         visible={editorOpen}
         onClose={() => setEditorOpen(false)}
         account={account}
+      />
+      <BalanceAdjustmentSheet
+        visible={adjustmentOpen}
+        account={account}
+        currentBalanceMinor={balMinor}
+        currency={settings.currency}
+        onClose={() => setAdjustmentOpen(false)}
+        onSave={async (input) => {
+          await repo.insertTransaction({
+            ...input,
+            currency: settings.currency,
+            categoryId: 'other',
+            note: '',
+            occurredTime: null,
+            source: 'manual',
+          });
+          bumpDataVersion();
+        }}
       />
     </Screen>
   );
