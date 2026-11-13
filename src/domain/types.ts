@@ -131,10 +131,17 @@ export interface TxQuery {
   search?: string;
   type?: TransactionType;
   categoryId?: string;
+  categoryIds?: string[];
   fromIncl?: LocalDate;
   toExcl?: LocalDate;
   minAmountMinor?: number;
   maxAmountMinor?: number;
+}
+
+export interface TxQuerySummary {
+  count: number;
+  expenseMinor: number;
+  incomeMinor: number;
 }
 
 export interface TxPage {

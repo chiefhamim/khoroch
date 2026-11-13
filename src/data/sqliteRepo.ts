@@ -13,6 +13,7 @@ import type {
   TransactionType,
   TxPage,
   TxQuery,
+  TxQuerySummary,
   TxSearchResult,
 } from '@/domain/types';
 import { normalizeCategoryColorKey } from '@/theme/categoryColors';
@@ -237,7 +238,7 @@ export class SqliteRepo implements Repo {
     return rows.map(mapTransactionRow);
   }
 
-  async searchTransactions(q: TxQuery, page: TxPage): Promise<TxSearchResult> {
+  private buildSearchFilter(q: TxQuery): { clauses: string[]; params: (string | number)[] } {
     const clauses: string[] = ['deleted_at IS NULL'];
     const params: (string | number)[] = [];
 
@@ -245,7 +246,11 @@ export class SqliteRepo implements Repo {
       clauses.push('type = ?');
       params.push(q.type);
     }
-    if (q.categoryId !== undefined) {
+    if (q.categoryIds && q.categoryIds.length > 0) {
+      const placeholders = q.categoryIds.map(() => '?').join(', ');
+      clauses.push(`category_id IN (${placeholders})`);
+      params.push(...q.categoryIds);
+    } else if (q.categoryId !== undefined) {
       clauses.push('category_id = ?');
       params.push(q.categoryId);
     }
@@ -271,6 +276,12 @@ export class SqliteRepo implements Repo {
       clauses.push("(LOWER(description) LIKE ? ESCAPE '\\' OR LOWER(note) LIKE ? ESCAPE '\\')");
       params.push(pattern, pattern);
     }
+
+    return { clauses, params };
+  }
+
+  async searchTransactions(q: TxQuery, page: TxPage): Promise<TxSearchResult> {
+    const { clauses, params } = this.buildSearchFilter(q);
 
     const cursorKey = parseCursor(page.cursor);
     if (cursorKey) {
@@ -303,6 +314,28 @@ export class SqliteRepo implements Repo {
     const last = sliced[sliced.length - 1];
     const next = hasMore && last ? `${last.occurredOn}|${last.createdAt}|${last.id}` : undefined;
     return { rows: sliced, next };
+  }
+
+  async summarizeTransactions(q: TxQuery, currency: CurrencyCode): Promise<TxQuerySummary> {
+    const { clauses, params } = this.buildSearchFilter(q);
+    const row = await this.db.getFirstAsync<{
+      count: number;
+      expenseMinor: number | null;
+      incomeMinor: number | null;
+    }>(
+      `SELECT
+         COUNT(1) AS count,
+         COALESCE(SUM(CASE WHEN type = 'expense' AND currency = ? THEN amount_minor ELSE 0 END), 0) AS expenseMinor,
+         COALESCE(SUM(CASE WHEN type = 'income' AND currency = ? THEN amount_minor ELSE 0 END), 0) AS incomeMinor
+       FROM transactions
+       WHERE ${clauses.join(' AND ')}`,
+      [currency, currency, ...params]
+    );
+    return {
+      count: row?.count ?? 0,
+      expenseMinor: row?.expenseMinor ?? 0,
+      incomeMinor: row?.incomeMinor ?? 0,
+    };
   }
 
   async hasAnyTransactions(): Promise<boolean> {

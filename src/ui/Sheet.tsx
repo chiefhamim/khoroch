@@ -20,6 +20,7 @@ export interface SheetProps {
   onClose: () => void;
   title?: string;
   headerRight?: React.ReactNode;
+  footer?: React.ReactNode;
   children: React.ReactNode;
   scroll?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -31,6 +32,7 @@ export function Sheet({
   onClose,
   title,
   headerRight,
+  footer,
   children,
   scroll = true,
   style,
@@ -41,13 +43,17 @@ export function Sheet({
 
   if (!visible) return null;
 
+  const bottomPad = footer
+    ? theme.spacing.md
+    : Math.max(insets.bottom, theme.spacing.lg) + theme.spacing.sm;
+
   const content = scroll ? (
     <ScrollView
       keyboardShouldPersistTaps="handled"
       bounces={false}
       contentContainerStyle={{
         paddingHorizontal: theme.geometry.screenMargin,
-        paddingBottom: Math.max(insets.bottom, theme.spacing.lg) + theme.spacing.sm,
+        paddingBottom: bottomPad,
         gap: theme.spacing.md,
       }}
     >
@@ -57,7 +63,7 @@ export function Sheet({
     <View
       style={{
         paddingHorizontal: theme.geometry.screenMargin,
-        paddingBottom: Math.max(insets.bottom, theme.spacing.lg) + theme.spacing.sm,
+        paddingBottom: bottomPad,
         gap: theme.spacing.md,
       }}
     >
@@ -137,6 +143,19 @@ export function Sheet({
             </View>
           ) : null}
           {content}
+          {footer ? (
+            <View
+              style={{
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: theme.colors.separator,
+                paddingHorizontal: theme.geometry.screenMargin,
+                paddingTop: theme.spacing.sm + 2,
+                paddingBottom: Math.max(insets.bottom, theme.spacing.md),
+              }}
+            >
+              {footer}
+            </View>
+          ) : null}
         </View>
       </KeyboardAvoidingView>
     </Modal>

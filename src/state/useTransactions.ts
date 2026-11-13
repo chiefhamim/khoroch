@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { groupTransactionsByDate, type DailyTransactionGroup } from '@/domain/calc';
-import type { Category, Transaction, TxQuery } from '@/domain/types';
+import type { Category, Transaction, TxQuery, TxQuerySummary } from '@/domain/types';
 import { useAppContext } from './AppContext';
 import { useDataVersionStore } from './dataVersion';
 
@@ -9,6 +9,7 @@ const PAGE_SIZE = 30;
 export interface UseTransactionsState {
   transactions: Transaction[];
   groups: DailyTransactionGroup[];
+  summary: TxQuerySummary;
   categoriesById: Map<string, Category>;
   loading: boolean;
   loadingMore: boolean;
@@ -23,6 +24,11 @@ export function useTransactions(query: TxQuery = {}): UseTransactionsState {
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [summary, setSummary] = useState<TxQuerySummary>({
+    count: 0,
+    expenseMinor: 0,
+    incomeMinor: 0,
+  });
   const [categories, setCategories] = useState<Category[]>([]);
   const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
@@ -38,12 +44,14 @@ export function useTransactions(query: TxQuery = {}): UseTransactionsState {
 
     (async () => {
       try {
-        const [pageRes, cats] = await Promise.all([
+        const [pageRes, summaryRes, cats] = await Promise.all([
           repo.searchTransactions(parsedQuery, { limit: PAGE_SIZE }),
+          repo.summarizeTransactions(parsedQuery, settings.currency),
           repo.listCategories({ includeArchived: true }),
         ]);
         if (!active) return;
         setTransactions(pageRes.rows);
+        setSummary(summaryRes);
         setNextCursor(pageRes.next);
         setCategories(cats);
         setError(null);
@@ -58,7 +66,7 @@ export function useTransactions(query: TxQuery = {}): UseTransactionsState {
     return () => {
       active = false;
     };
-  }, [repo, dataVersion, queryKey, reloadTick]);
+  }, [repo, settings.currency, dataVersion, queryKey, reloadTick]);
 
   const loadMore = useCallback(async () => {
     if (loadingMore || !nextCursor) return;
@@ -96,6 +104,7 @@ export function useTransactions(query: TxQuery = {}): UseTransactionsState {
   return {
     transactions,
     groups,
+    summary,
     categoriesById,
     loading,
     loadingMore,

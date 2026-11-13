@@ -1,46 +1,61 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
-  ScrollView,
   StyleSheet,
-  TextInput,
   View,
   type LayoutChangeEvent,
 } from 'react-native';
 import Svg, { Line, Rect, Text as SvgText } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { formatUtilizationPct } from '@/domain/calc';
 import {
   addDays,
   formatPeriodRange,
   formatShortDate,
   formatShortMonthYear,
-  isValidLocalDate,
   todayLocalDate,
 } from '@/domain/dates';
 import type { CustomDateRange, InsightsPeriodPreset } from '@/domain/insights';
 import { formatMoney } from '@/domain/money';
+import { formatCycleLabel } from '@/domain/period';
 import type { LocalDate, TxQuery } from '@/domain/types';
 import { t } from '@/i18n';
 import { useActivityFilterStore } from '@/state/activityFilterStore';
 import { useAppContext } from '@/state/AppContext';
 import { useInsights } from '@/state/useInsights';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
-import { Card } from '@/ui/Card';
-import { Chip } from '@/ui/Chip';
+import { Button } from '@/ui/Button';
+import { DateField } from '@/ui/DateField';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
+import { hapticLight } from '@/ui/haptics';
+import { IconTile } from '@/ui/IconTile';
 import { ListRow } from '@/ui/ListRow';
 import { Money } from '@/ui/Money';
 import { Screen } from '@/ui/Screen';
-import { SectionHeader } from '@/ui/SectionHeader';
+import { Sheet } from '@/ui/Sheet';
+import { Surface } from '@/ui/Surface';
 
 const CHART_HEIGHT = 152;
 const TOP_PAD = 12;
 const BOTTOM_PAD = 24;
 const PLOT_HEIGHT = CHART_HEIGHT - TOP_PAD - BOTTOM_PAD;
+
+const PRESET_OPTIONS: { value: InsightsPeriodPreset; labelKey: Parameters<typeof t>[0] }[] = [
+  { value: 'this_week', labelKey: 'insights.presetThisWeek' },
+  { value: 'this_month', labelKey: 'insights.presetThisMonth' },
+  { value: 'last_month', labelKey: 'insights.presetLastMonth' },
+  { value: 'last_3_months', labelKey: 'insights.presetLast3Months' },
+  { value: 'last_6_months', labelKey: 'insights.presetLast6Months' },
+  { value: 'this_year', labelKey: 'insights.presetThisYear' },
+  { value: 'custom', labelKey: 'insights.presetCustom' },
+];
+
+function isValidPreset(value: string | undefined): value is InsightsPeriodPreset {
+  return PRESET_OPTIONS.some((opt) => opt.value === value);
+}
 
 export interface InsightsContentProps {
   todayOverride?: LocalDate;
@@ -48,14 +63,18 @@ export interface InsightsContentProps {
 
 export function InsightsContent({ todayOverride }: InsightsContentProps) {
   const { settings } = useAppContext();
-  const { theme } = useTheme();
+  const { theme, reducedMotion } = useTheme();
   const router = useRouter();
+  const params = useLocalSearchParams<{ preset?: string }>();
   const applyExternalFilters = useActivityFilterStore((s) => s.applyExternalFilters);
 
-  const [preset, setPreset] = useState<InsightsPeriodPreset>('this_month');
   const todayDefault = todayOverride ?? todayLocalDate();
-  const [fromDraft, setFromDraft] = useState<string>(addDays(todayDefault, -30));
-  const [toDraft, setToDraft] = useState<string>(todayDefault);
+  const initialPreset = isValidPreset(params?.preset) ? params.preset : 'this_month';
+
+  const [preset, setPreset] = useState<InsightsPeriodPreset>(initialPreset);
+  const [periodSheetOpen, setPeriodSheetOpen] = useState(false);
+  const [fromDraft, setFromDraft] = useState<LocalDate>(addDays(todayDefault, -30));
+  const [toDraft, setToDraft] = useState<LocalDate>(todayDefault);
   const [customRange, setCustomRange] = useState<CustomDateRange>({
     fromIncl: addDays(todayDefault, -30),
     toIncl: todayDefault,
@@ -63,6 +82,16 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
   const [customError, setCustomError] = useState<string | null>(null);
   const [selectedHistoryIdx, setSelectedHistoryIdx] = useState<number | null>(null);
   const [chartWidth, setChartWidth] = useState(280);
+  const lastRoutePresetRef = useRef<string | undefined>(params?.preset);
+
+  useEffect(() => {
+    const incoming = params?.preset;
+    if (incoming && incoming !== lastRoutePresetRef.current && isValidPreset(incoming)) {
+      lastRoutePresetRef.current = incoming;
+      setPreset(incoming);
+      setSelectedHistoryIdx(null);
+    }
+  }, [params?.preset]);
 
   const { today, loading, error, categoriesById, report, reload } = useInsights(
     preset,
@@ -76,6 +105,7 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
       search: query.search ?? '',
       type: query.type ?? null,
       categoryId: query.categoryId ?? null,
+      categoryIds: query.categoryId ? [query.categoryId] : [],
       datePreset: query.fromIncl || inclusiveTo ? 'custom' : 'all',
       customFromIncl: (query.fromIncl ?? '') as LocalDate | '',
       customToIncl: inclusiveTo as LocalDate | '',
@@ -104,26 +134,34 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
     return t('insights.historyChartA11y', {
       count: historyBars.length,
       total: formatMoney(total, settings.currency),
-      peakLabel: formatShortMonthYear(peak.period.start),
+      peakLabel: formatCycleLabel(peak.period, settings.monthStartDay, {
+        includeYear: true,
+      }),
       peakAmount: formatMoney(peak.spentMinor, settings.currency),
     });
-  }, [historyBars, settings.currency]);
+  }, [historyBars, settings.currency, settings.monthStartDay]);
 
   const handleApplyCustom = () => {
-    const f = fromDraft.trim();
-    const toVal = toDraft.trim();
-    if (!isValidLocalDate(f) || !isValidLocalDate(toVal) || f > toVal) {
+    if (fromDraft > toDraft) {
       setCustomError(t('activity.invalidCustomDates'));
       return;
     }
     setCustomError(null);
-    setCustomRange({ fromIncl: f, toIncl: toVal });
+    setCustomRange({ fromIncl: fromDraft, toIncl: toDraft });
+    setPreset('custom');
+    setSelectedHistoryIdx(null);
+    setPeriodSheetOpen(false);
   };
 
   const handleChartLayout = (e: LayoutChangeEvent) => {
     const w = Math.floor(e.nativeEvent.layout.width);
     if (w > 40 && w !== chartWidth) setChartWidth(w);
   };
+
+  const activePresetLabel = useMemo(() => {
+    const found = PRESET_OPTIONS.find((opt) => opt.value === preset);
+    return found ? t(found.labelKey) : t('insights.presetThisMonth');
+  }, [preset]);
 
   if (error && !loading) {
     return (
@@ -143,7 +181,8 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
       <Screen scroll bottomSpacer>
         <AppText variant="title">{t('insights.title')}</AppText>
         <EmptyState
-          icon="analytics-outline"
+          testID="insights-empty-state"
+          icon="chart-column"
           title={t('insights.notEnoughTitle')}
           body={t('insights.notEnoughBody')}
           ctaLabel={t('empty.activityCta')}
@@ -159,23 +198,61 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
     toExcl: report.window.toExcl,
   };
 
-  const formatDiffTrend = (diffMinor: number, pctChange: number | null) => {
-    if (pctChange === null) return t('overview.vsLastMonthNoBaseline');
+  const formatDiffTrend = (
+    diffMinor: number,
+    pctChange: number | null,
+    daysCompared?: number
+  ) => {
+    if (pctChange === null) {
+      return daysCompared !== undefined
+        ? t('insights.mtdNoPriorBaseline', { days: daysCompared })
+        : t('overview.vsLastMonthNoBaseline');
+    }
+    if (daysCompared !== undefined) {
+      if (diffMinor > 0) {
+        return `${t('insights.mtdDiffMore', {
+          diff: formatMoney(diffMinor, settings.currency),
+          days: daysCompared,
+        })} ↑`;
+      }
+      if (diffMinor < 0) {
+        return `${t('insights.mtdDiffLess', {
+          diff: formatMoney(Math.abs(diffMinor), settings.currency),
+          days: daysCompared,
+        })} ↓`;
+      }
+      return t('insights.mtdDiffSame', { days: daysCompared });
+    }
     const pctStr = formatUtilizationPct(Math.abs(pctChange));
     if (diffMinor > 0) {
-      return t('overview.vsLastMonthUp', {
+      return `${t('overview.vsLastMonthUp', {
         pct: pctStr,
         diff: formatMoney(diffMinor, settings.currency),
-      });
+      })} ↑`;
     }
     if (diffMinor < 0) {
-      return t('overview.vsLastMonthDown', {
+      return `${t('overview.vsLastMonthDown', {
         pct: pctStr,
         diff: formatMoney(Math.abs(diffMinor), settings.currency),
-      });
+      })} ↓`;
     }
     return t('overview.vsLastMonthSame');
   };
+
+  const currCompMinor = report.mtdComparison.currentMinor;
+  const prevCompMinor = report.mtdComparison.previousMinor;
+  const compMax = Math.max(currCompMinor, prevCompMinor, 1);
+  const currBarPct = currCompMinor > 0 ? Math.max(4, (currCompMinor / compMax) * 100) : 0;
+  const prevBarPct = prevCompMinor > 0 ? Math.max(4, (prevCompMinor / compMax) * 100) : 0;
+
+  const fullCurrLabel = formatCycleLabel(
+    report.fullPeriodComparison.currentPeriod,
+    settings.monthStartDay
+  );
+  const fullPrevLabel = formatCycleLabel(
+    report.fullPeriodComparison.previousPeriod,
+    settings.monthStartDay
+  );
 
   const selectedBar =
     selectedHistoryIdx !== null &&
@@ -185,185 +262,164 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
       : null;
 
   const slotW = chartWidth / Math.max(1, historyBars.length);
-  const barW = Math.max(8, Math.floor(slotW * 0.56));
+  const barW = Math.min(28, Math.max(8, Math.floor(slotW * 0.56)));
+
+  const mtdToneColor =
+    report.mtdComparison.diffMinor > 0
+      ? 'danger'
+      : report.mtdComparison.diffMinor < 0
+        ? 'accent'
+        : 'textSecondary';
 
   return (
     <Screen scroll bottomSpacer>
-      <AppText variant="title">{t('insights.title')}</AppText>
+      {/* Top header with Period dropdown */}
+      <View style={[styles.headerRow, { gap: theme.spacing.sm }]}>
+        <AppText variant="title">{t('insights.title')}</AppText>
+        <Pressable
+          testID="insights-period-dropdown"
+          accessibilityRole="button"
+          accessibilityLabel={`${t('insights.periodTitle')}: ${activePresetLabel}`}
+          onPress={() => {
+            hapticLight();
+            setPeriodSheetOpen(true);
+          }}
+          style={({ pressed }) => [
+            styles.periodDropdown,
+            {
+              backgroundColor: theme.colors.surfaceSunken,
+              borderRadius: theme.radius.pill,
+              paddingHorizontal: theme.spacing.md,
+              gap: theme.spacing.xs,
+              opacity: pressed && !reducedMotion ? 0.72 : 1,
+            },
+          ]}
+        >
+          <AppText variant="label" color="text">
+            {activePresetLabel}
+          </AppText>
+          <AppIcon name="chevron-down" size={14} color={theme.colors.textSecondary} />
+        </Pressable>
+      </View>
 
-      {/* Selectable periods */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={[styles.presetStrip, { gap: theme.spacing.sm }]}
-        style={{ flexGrow: 0 }}
-      >
-        {(
-          [
-            ['this_week', t('insights.presetThisWeek')],
-            ['this_month', t('insights.presetThisMonth')],
-            ['last_month', t('insights.presetLastMonth')],
-            ['last_3_months', t('insights.presetLast3Months')],
-            ['last_6_months', t('insights.presetLast6Months')],
-            ['this_year', t('insights.presetThisYear')],
-            ['custom', t('insights.presetCustom')],
-          ] as const
-        ).map(([val, label]) => (
-          <Chip
-            key={val}
-            testID={`insights-preset-${val}`}
-            label={label}
-            selected={preset === val}
-            onPress={() => {
-              setPreset(val);
-              setSelectedHistoryIdx(null);
-            }}
-          />
-        ))}
-      </ScrollView>
-
-      {preset === 'custom' ? (
-        <Card style={{ gap: theme.spacing.sm }}>
-          <View style={[styles.customRow, { gap: theme.spacing.sm }]}>
-            <TextInput
-              testID="insights-custom-from"
-              value={fromDraft}
-              onChangeText={setFromDraft}
-              placeholder={t('common.dateFormatHint')}
-              placeholderTextColor={theme.colors.textMuted}
-              style={[
-                styles.dateInput,
-                {
-                  minHeight: theme.touch.min,
-                  borderRadius: theme.radius.md,
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.surfaceAlt,
-                  paddingHorizontal: theme.spacing.md,
-                  color: theme.colors.text,
-                  fontFamily: theme.typography.body.fontFamily,
-                  fontSize: theme.typography.body.fontSize,
-                },
-              ]}
-            />
-            <TextInput
-              testID="insights-custom-to"
-              value={toDraft}
-              onChangeText={setToDraft}
-              placeholder={t('common.dateFormatHint')}
-              placeholderTextColor={theme.colors.textMuted}
-              style={[
-                styles.dateInput,
-                {
-                  minHeight: theme.touch.min,
-                  borderRadius: theme.radius.md,
-                  borderColor: theme.colors.border,
-                  backgroundColor: theme.colors.surfaceAlt,
-                  paddingHorizontal: theme.spacing.md,
-                  color: theme.colors.text,
-                  fontFamily: theme.typography.body.fontFamily,
-                  fontSize: theme.typography.body.fontSize,
-                },
-              ]}
-            />
-            <Chip label={t('common.save')} selected onPress={handleApplyCustom} />
-          </View>
-          {customError ? (
-            <AppText variant="caption" color="danger">
-              {customError}
-            </AppText>
-          ) : null}
-        </Card>
-      ) : null}
-
-      <AppText variant="caption" color="textMuted">
+      <AppText variant="caption" color="textSecondary" style={{ marginTop: -theme.spacing.sm }}>
         {formatPeriodRange(report.window.fromIncl, report.window.toExcl)}
       </AppText>
 
-      {/* Pattern sentences (strictly gated on >= 7 days & >= 5 txs in both periods) */}
-      <SectionHeader title={t('insights.patternsSection')} />
-      {report.hasSufficientPatternData && report.patternSentences.length > 0 ? (
-        <Card padded={false}>
-          {report.patternSentences.map((item, idx) => (
-            <React.Fragment key={item.id}>
-              {idx > 0 ? (
-                <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-              ) : null}
-              <ListRow
-                testID={`insight-pattern-${item.id}`}
-                title={item.text}
-                titleNumberOfLines={3}
-                left={
-                  <Ionicons name="sparkles-outline" size={18} color={theme.colors.primary} />
-                }
-                showChevron
-                onPress={() => openActivityWithQuery(item.filterQuery)}
-              />
-            </React.Fragment>
-          ))}
-        </Card>
-      ) : (
-        <Card testID="insights-patterns-insufficient" tone="alt" style={{ gap: theme.spacing.xs }}>
-          <AppText variant="body" color="textMuted">
+      {/* Headline comparison card */}
+      <Surface testID="insight-mtd-summary" style={{ gap: theme.spacing.md }}>
+        {!report.hasSufficientPatternData &&
+        currCompMinor === 0 &&
+        prevCompMinor === 0 &&
+        !report.hasWindowExpenses ? (
+          <AppText variant="body" color="textSecondary">
             {t('insights.notEnoughBody')}
           </AppText>
-        </Card>
-      )}
+        ) : (
+          <Pressable
+            testID="insight-mtd-card"
+            accessibilityRole="button"
+            accessibilityLabel={t('insights.mtdTitle')}
+            onPress={() =>
+              openActivityWithQuery({
+                type: 'expense',
+                fromIncl: report.window.fromIncl,
+                toExcl: report.window.toExcl,
+              })
+            }
+            style={{ gap: theme.spacing.sm }}
+          >
+            <View style={{ gap: 4 }}>
+              <AppText variant="display" tabularNums style={{ fontSize: 25, lineHeight: 31 }}>
+                {preset === 'this_month'
+                  ? t('insights.spentSoFarHeadline', {
+                      amount: formatMoney(currCompMinor, settings.currency),
+                    })
+                  : t('insights.spentWindowHeadline', {
+                      amount: formatMoney(
+                        report.averages.totalExpenseMinor,
+                        settings.currency
+                      ),
+                    })}
+              </AppText>
+              <AppText variant="label" color={mtdToneColor}>
+                {formatDiffTrend(
+                  report.mtdComparison.diffMinor,
+                  report.mtdComparison.pctChange,
+                  report.mtdComparison.daysCompared
+                )}
+              </AppText>
+            </View>
 
-      {/* Month-to-date comparison card */}
-      <SectionHeader title={t('insights.mtdTitle')} />
-      <Card testID="insight-mtd-summary" style={{ gap: theme.spacing.sm }}>
-        <Pressable
-          testID="insight-mtd-card"
-          accessibilityRole="button"
-          accessibilityLabel={t('insights.mtdTitle')}
-          onPress={() =>
-            openActivityWithQuery({
-              type: 'expense',
-              fromIncl: report.mtdComparison ? addDays(today, -(report.mtdComparison.daysCompared - 1)) : today,
-              toExcl: addDays(today, 1),
-            })
-          }
-          style={{ gap: theme.spacing.sm }}
-        >
-          <View style={styles.rowBetween}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <AppText variant="caption" color="textMuted">
-                {t('insights.mtdSubtitle', { days: report.mtdComparison.daysCompared })}
-              </AppText>
-              <AppText variant="heading">
-                {formatDiffTrend(report.mtdComparison.diffMinor, report.mtdComparison.pctChange)}
-              </AppText>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
-          </View>
-          <View style={[styles.rowBetween, { gap: theme.spacing.md }]}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <AppText variant="caption" color="textMuted">
-                {t('overview.spentLabel')}
-              </AppText>
-              <Money
-                amountMinor={report.mtdComparison.currentMinor}
-                currency={settings.currency}
-                variant="title"
-              />
-            </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <AppText variant="caption" color="textMuted">
-                {t('insights.presetLastMonth')}
-              </AppText>
-              <Money
-                amountMinor={report.mtdComparison.previousMinor}
-                currency={settings.currency}
-                variant="title"
-                color="textMuted"
-              />
-            </View>
-          </View>
-        </Pressable>
-      </Card>
+            {/* Two compared bars: this cycle vs last cycle */}
+            <View style={{ gap: theme.spacing.xs + 2, marginTop: theme.spacing.xs }}>
+              <View style={styles.compBarWrap}>
+                <View style={styles.compLabelRow}>
+                  <AppText variant="caption" color="textSecondary">
+                    {t('insights.thisCycleBar')}
+                  </AppText>
+                  <Money
+                    amountMinor={currCompMinor}
+                    currency={settings.currency}
+                    variant="caption"
+                    color="text"
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.compTrack,
+                    { backgroundColor: theme.colors.surfaceSunken },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.compFill,
+                      {
+                        width: `${currBarPct}%`,
+                        backgroundColor: theme.colors.accent,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
 
-      {/* Full complete months comparison */}
-      <Card testID="insight-full-period-card" style={{ gap: theme.spacing.sm }}>
+              <View style={styles.compBarWrap}>
+                <View style={styles.compLabelRow}>
+                  <AppText variant="caption" color="textSecondary">
+                    {t('insights.lastCycleBar')}
+                  </AppText>
+                  <Money
+                    amountMinor={prevCompMinor}
+                    currency={settings.currency}
+                    variant="caption"
+                    color="textSecondary"
+                  />
+                </View>
+                <View
+                  style={[
+                    styles.compTrack,
+                    { backgroundColor: theme.colors.surfaceSunken },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.compFill,
+                      {
+                        width: `${prevBarPct}%`,
+                        backgroundColor: theme.colors.textTertiary,
+                        opacity: 0.45,
+                      },
+                    ]}
+                  />
+                </View>
+              </View>
+            </View>
+          </Pressable>
+        )}
+      </Surface>
+
+      {/* Last complete cycle comparison */}
+      <Surface testID="insight-full-period-card" style={{ gap: theme.spacing.sm }}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('insights.fullPeriodTitle')}
@@ -377,135 +433,147 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
           style={{ gap: theme.spacing.sm }}
         >
           <View style={styles.rowBetween}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <AppText variant="label" color="textMuted">
+            <View style={[styles.flexOne, { gap: 2 }]}>
+              <AppText variant="label" color="textSecondary">
                 {t('insights.fullPeriodTitle')}
               </AppText>
-              <AppText variant="caption" color="textMuted">
+              <AppText variant="bodyStrong">
                 {t('insights.fullPeriodSubtitle', {
-                  curr: formatShortMonthYear(report.fullPeriodComparison.currentPeriod.start),
-                  prev: formatShortMonthYear(report.fullPeriodComparison.previousPeriod.start),
+                  curr: fullCurrLabel,
+                  prev: fullPrevLabel,
                 })}
               </AppText>
             </View>
-            <Ionicons name="chevron-forward" size={18} color={theme.colors.textMuted} />
+            <AppIcon name="chevron-right" size={18} color={theme.colors.textTertiary} />
           </View>
           <View style={[styles.rowBetween, { gap: theme.spacing.md }]}>
-            <View style={{ flex: 1, gap: 2 }}>
-              <AppText variant="caption" color="textMuted">
-                {formatShortMonthYear(report.fullPeriodComparison.currentPeriod.start)}
+            <View style={[styles.flexOne, { gap: 2 }]}>
+              <AppText variant="caption" color="textSecondary">
+                {fullCurrLabel}
               </AppText>
               <Money
                 amountMinor={report.fullPeriodComparison.currentMinor}
                 currency={settings.currency}
-                variant="heading"
+                variant="headline"
               />
             </View>
-            <View style={{ flex: 1, gap: 2 }}>
-              <AppText variant="caption" color="textMuted">
-                {formatShortMonthYear(report.fullPeriodComparison.previousPeriod.start)}
+            <View style={[styles.flexOne, { gap: 2 }]}>
+              <AppText variant="caption" color="textSecondary">
+                {fullPrevLabel}
               </AppText>
               <Money
                 amountMinor={report.fullPeriodComparison.previousMinor}
                 currency={settings.currency}
-                variant="heading"
-                color="textMuted"
+                variant="headline"
+                color="textSecondary"
               />
             </View>
           </View>
-          <AppText variant="caption" color="primary">
-            {formatDiffTrend(
-              report.fullPeriodComparison.diffMinor,
-              report.fullPeriodComparison.pctChange
-            )}
-          </AppText>
         </Pressable>
-      </Card>
+      </Surface>
 
-      {/* Average spending */}
-      <SectionHeader
-        title={t('insights.averagesSection')}
-        actionLabel={t('insights.viewInActivity')}
-        onActionPress={() => openActivityWithQuery(windowQuery)}
-      />
-      {!report.hasWindowExpenses ? (
-        <Card tone="alt">
-          <AppText variant="body" color="textMuted">
-            {t('insights.noWindowExpenses')}
-          </AppText>
-        </Card>
+      {/* Pattern observations (strictly gated on >=7 days & >=5 txs) */}
+      {report.hasSufficientPatternData && report.patternSentences.length > 0 ? (
+        <View style={{ gap: theme.spacing.sm }}>
+          <AppText variant="headline">{t('insights.patternsSection')}</AppText>
+          <Surface padded={false}>
+            {report.patternSentences.map((item, idx) => (
+              <ListRow
+                key={item.id}
+                testID={`insight-pattern-${item.id}`}
+                title={item.text}
+                titleNumberOfLines={3}
+                left={
+                  <AppIcon name="sparkles" size={18} color={theme.colors.accent} />
+                }
+                showChevron
+                showDivider={idx < report.patternSentences.length - 1}
+                onPress={() => openActivityWithQuery(item.filterQuery)}
+              />
+            ))}
+          </Surface>
+        </View>
       ) : (
-        <View style={{ gap: theme.spacing.md }}>
-          <View style={[styles.gridRow, { gap: theme.spacing.md }]}>
-            <Card style={styles.avgCard}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('insights.avgPerDay')}
+        <Surface testID="insights-patterns-insufficient" variant="sunken">
+          <AppText variant="body" color="textSecondary">
+            {t('insights.notEnoughBody')}
+          </AppText>
+        </Surface>
+      )}
+
+      {/* Averages 2x2 grid */}
+      <View style={{ gap: theme.spacing.sm }}>
+        <View style={styles.rowBetween}>
+          <AppText variant="headline">{t('insights.averagesSection')}</AppText>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => openActivityWithQuery(windowQuery)}
+          >
+            <AppText variant="label" color="accent">
+              {t('insights.viewInActivity')}
+            </AppText>
+          </Pressable>
+        </View>
+
+        {!report.hasWindowExpenses ? (
+          <Surface variant="sunken">
+            <AppText variant="body" color="textSecondary">
+              {t('insights.noWindowExpenses')}
+            </AppText>
+          </Surface>
+        ) : (
+          <View style={{ gap: theme.spacing.sm }}>
+            <View style={[styles.gridRow, { gap: theme.spacing.sm }]}>
+              <Surface
+                style={[styles.avgCard, { gap: 4 }]}
                 onPress={() => openActivityWithQuery(windowQuery)}
-                style={{ gap: theme.spacing.xs, minHeight: theme.touch.min }}
+                accessibilityLabel={t('insights.avgPerDay')}
               >
-                <AppText variant="caption" color="textMuted">
+                <AppText variant="caption" color="textSecondary">
                   {t('insights.avgPerDay')}
                 </AppText>
                 <Money
                   amountMinor={report.averages.perDayMinor}
                   currency={settings.currency}
-                  variant="heading"
+                  variant="headline"
                 />
-                <AppText variant="caption" color="textMuted">
-                  {t('insights.avgDaysBasis', { days: report.averages.calendarDays })}
-                </AppText>
-              </Pressable>
-            </Card>
-            <Card style={styles.avgCard}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('insights.avgPerTx')}
-                onPress={() => openActivityWithQuery(windowQuery)}
-                style={{ gap: theme.spacing.xs, minHeight: theme.touch.min }}
-              >
-                <AppText variant="caption" color="textMuted">
-                  {t('insights.avgPerTx')}
-                </AppText>
-                <Money
-                  amountMinor={report.averages.perTransactionMinor}
-                  currency={settings.currency}
-                  variant="heading"
-                />
-                <AppText variant="caption" color="textMuted">
-                  {t('insights.avgTxBasis', { count: report.averages.expenseCount })}
-                </AppText>
-              </Pressable>
-            </Card>
-          </View>
+              </Surface>
 
-          <View style={[styles.gridRow, { gap: theme.spacing.md }]}>
-            <Card style={styles.avgCard}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('insights.avgPerWeek')}
+              <Surface
+                style={[styles.avgCard, { gap: 4 }]}
                 onPress={() => openActivityWithQuery(windowQuery)}
-                style={{ gap: theme.spacing.xs, minHeight: theme.touch.min }}
+                accessibilityLabel={t('insights.avgPerWeek')}
               >
-                <AppText variant="caption" color="textMuted">
+                <AppText variant="caption" color="textSecondary">
                   {t('insights.avgPerWeek')}
                 </AppText>
                 <Money
                   amountMinor={report.averages.perWeekMinor}
                   currency={settings.currency}
-                  variant="heading"
+                  variant="headline"
                 />
-                <AppText variant="caption" color="textMuted">
-                  {t('insights.avgDaysBasis', { days: report.averages.calendarDays })}
+              </Surface>
+            </View>
+
+            <View style={[styles.gridRow, { gap: theme.spacing.sm }]}>
+              <Surface
+                style={[styles.avgCard, { gap: 4 }]}
+                onPress={() => openActivityWithQuery(windowQuery)}
+                accessibilityLabel={t('insights.avgPerTx')}
+              >
+                <AppText variant="caption" color="textSecondary">
+                  {t('insights.avgPerTx')}
                 </AppText>
-              </Pressable>
-            </Card>
-            <Card style={styles.avgCard}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t('insights.avgMonthly', {
-                  months: report.averages.monthlyAvgMonths,
-                })}
+                <Money
+                  amountMinor={report.averages.perTransactionMinor}
+                  currency={settings.currency}
+                  variant="headline"
+                />
+              </Surface>
+
+              <Surface
+                style={[styles.avgCard, { gap: 4 }]}
                 onPress={() =>
                   openActivityWithQuery({
                     type: 'expense',
@@ -513,136 +581,133 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
                     toExcl: report.fullPeriodComparison.currentPeriod.endExcl,
                   })
                 }
-                style={{ gap: theme.spacing.xs, minHeight: theme.touch.min }}
+                accessibilityLabel={t('insights.avgMonthly')}
               >
-                <AppText variant="caption" color="textMuted">
-                  {t('insights.avgMonthly', {
-                    months: report.averages.monthlyAvgMonths,
-                  })}
+                <AppText variant="caption" color="textSecondary">
+                  {t('insights.avgMonthly')}
                 </AppText>
                 <Money
                   amountMinor={report.averages.monthlyAvgMinor}
                   currency={settings.currency}
-                  variant="heading"
+                  variant="headline"
                 />
-                <AppText variant="caption" color="textMuted">
-                  {t('insights.avgCompleteBasis')}
-                </AppText>
-              </Pressable>
-            </Card>
+              </Surface>
+            </View>
           </View>
-        </View>
-      )}
+        )}
+      </View>
 
-      {/* Biggest spending (all interactive!) */}
-      <SectionHeader title={t('insights.biggestSection')} />
+      {/* Biggest */}
       {report.hasWindowExpenses ? (
-        <Card padded={false}>
-          {report.biggest.topCategory ? (
-            <ListRow
-              testID="insight-top-category"
-              title={t('insights.topCategory')}
-              subtitle={
-                categoriesById.get(report.biggest.topCategory.categoryId)?.name ??
-                t('common.uncategorized')
-              }
-              right={
-                <Money
-                  amountMinor={report.biggest.topCategory.spentMinor}
-                  currency={settings.currency}
-                  variant="heading"
-                />
-              }
-              showChevron
-              onPress={() =>
-                openActivityWithQuery({
-                  type: 'expense',
-                  categoryId: report.biggest.topCategory?.categoryId,
-                  fromIncl: report.window.fromIncl,
-                  toExcl: report.window.toExcl,
-                })
-              }
-            />
-          ) : null}
-
-          {report.biggest.largestExpense ? (
-            <>
-              <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-              <ListRow
-                testID="insight-largest-expense"
-                title={t('insights.largestExpense')}
-                subtitle={`${
-                  report.biggest.largestExpense.description ||
-                  (report.biggest.largestExpense.categoryId
-                    ? (categoriesById.get(report.biggest.largestExpense.categoryId)?.name ??
-                      t('common.uncategorized'))
-                    : t('common.uncategorized'))
-                } · ${formatShortDate(report.biggest.largestExpense.occurredOn)}`}
-                right={
-                  <Money
-                    amountMinor={report.biggest.largestExpense.amountMinor}
-                    currency={settings.currency}
-                    variant="heading"
+        <View style={{ gap: theme.spacing.sm }}>
+          <AppText variant="headline">{t('insights.biggestSection')}</AppText>
+          <Surface padded={false}>
+            {report.biggest.topCategory ? (
+              (() => {
+                const cat = categoriesById.get(report.biggest.topCategory.categoryId);
+                return (
+                  <ListRow
+                    testID="insight-top-category"
+                    left={
+                      <IconTile
+                        icon={cat?.icon ?? 'circle-ellipsis'}
+                        colorKey={cat?.colorKey ?? 'gray'}
+                        size="sm"
+                      />
+                    }
+                    title={t('insights.topCategory')}
+                    subtitle={cat?.name ?? t('common.uncategorized')}
+                    right={
+                      <Money
+                        amountMinor={report.biggest.topCategory.spentMinor}
+                        currency={settings.currency}
+                        variant="bodyStrong"
+                      />
+                    }
+                    showChevron
+                    showDivider={
+                      Boolean(
+                        report.biggest.largestExpense ||
+                          report.biggest.mostExpensiveDay ||
+                          report.biggest.mostFrequentCategory
+                      )
+                    }
+                    onPress={() =>
+                      openActivityWithQuery({
+                        type: 'expense',
+                        categoryId: report.biggest.topCategory?.categoryId,
+                        fromIncl: report.window.fromIncl,
+                        toExcl: report.window.toExcl,
+                      })
+                    }
                   />
-                }
-                showChevron
-                onPress={() =>
-                  router.push({
-                    pathname: '/transaction/[id]',
-                    params: { id: report.biggest.largestExpense?.transactionId ?? '' },
-                  })
-                }
-              />
-            </>
-          ) : null}
+                );
+              })()
+            ) : null}
 
-          {report.biggest.mostFrequentCategory ? (
-            <>
-              <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-              <ListRow
-                testID="insight-most-frequent"
-                title={t('insights.mostFrequent')}
-                subtitle={t('insights.mostFrequentValue', {
-                  name:
-                    categoriesById.get(report.biggest.mostFrequentCategory.categoryId)?.name ??
-                    t('common.uncategorized'),
-                  count: report.biggest.mostFrequentCategory.count,
-                })}
-                right={
-                  <Money
-                    amountMinor={report.biggest.mostFrequentCategory.spentMinor}
-                    currency={settings.currency}
-                    variant="heading"
+            {report.biggest.largestExpense ? (
+              (() => {
+                const cat = report.biggest.largestExpense.categoryId
+                  ? categoriesById.get(report.biggest.largestExpense.categoryId)
+                  : undefined;
+                return (
+                  <ListRow
+                    testID="insight-largest-expense"
+                    left={
+                      <IconTile
+                        icon={cat?.icon ?? 'circle-ellipsis'}
+                        colorKey={cat?.colorKey ?? 'gray'}
+                        size="sm"
+                      />
+                    }
+                    title={t('insights.largestExpense')}
+                    subtitle={`${
+                      report.biggest.largestExpense.description ||
+                      cat?.name ||
+                      t('common.uncategorized')
+                    } · ${formatShortDate(report.biggest.largestExpense.occurredOn)}`}
+                    right={
+                      <Money
+                        amountMinor={report.biggest.largestExpense.amountMinor}
+                        currency={settings.currency}
+                        variant="bodyStrong"
+                      />
+                    }
+                    showChevron
+                    showDivider={
+                      Boolean(
+                        report.biggest.mostExpensiveDay ||
+                          report.biggest.mostFrequentCategory
+                      )
+                    }
+                    onPress={() =>
+                      router.push({
+                        pathname: '/transaction/[id]',
+                        params: {
+                          id: report.biggest.largestExpense?.transactionId ?? '',
+                        },
+                      })
+                    }
                   />
-                }
-                showChevron
-                onPress={() =>
-                  openActivityWithQuery({
-                    type: 'expense',
-                    categoryId: report.biggest.mostFrequentCategory?.categoryId,
-                    fromIncl: report.window.fromIncl,
-                    toExcl: report.window.toExcl,
-                  })
-                }
-              />
-            </>
-          ) : null}
+                );
+              })()
+            ) : null}
 
-          {report.biggest.mostExpensiveDay ? (
-            <>
-              <View style={{ height: 1, backgroundColor: theme.colors.border }} />
+            {report.biggest.mostExpensiveDay ? (
               <ListRow
                 testID="insight-most-expensive-day"
+                left={<IconTile icon="calendar" colorKey="amber" size="sm" />}
                 title={t('insights.mostExpensiveDay')}
                 subtitle={formatShortDate(report.biggest.mostExpensiveDay.date)}
                 right={
                   <Money
                     amountMinor={report.biggest.mostExpensiveDay.spentMinor}
                     currency={settings.currency}
-                    variant="heading"
+                    variant="bodyStrong"
                   />
                 }
                 showChevron
+                showDivider={Boolean(report.biggest.mostFrequentCategory)}
                 onPress={() =>
                   openActivityWithQuery({
                     type: 'expense',
@@ -651,75 +716,79 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
                   })
                 }
               />
-            </>
-          ) : null}
+            ) : null}
 
-          {report.biggest.biggestCategoryChange ? (
-            <>
-              <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-              <ListRow
-                testID="insight-biggest-change"
-                title={t('insights.biggestChange')}
-                subtitle={
-                  categoriesById.get(report.biggest.biggestCategoryChange.categoryId)?.name ??
-                  t('common.uncategorized')
-                }
-                right={
-                  <AppText
-                    variant="label"
-                    color={
-                      report.biggest.biggestCategoryChange.diffMinor > 0
-                        ? 'expense'
-                        : report.biggest.biggestCategoryChange.diffMinor < 0
-                          ? 'income'
-                          : 'textMuted'
+            {report.biggest.mostFrequentCategory ? (
+              (() => {
+                const cat = categoriesById.get(
+                  report.biggest.mostFrequentCategory.categoryId
+                );
+                return (
+                  <ListRow
+                    testID="insight-most-frequent"
+                    left={
+                      <IconTile
+                        icon={cat?.icon ?? 'circle-ellipsis'}
+                        colorKey={cat?.colorKey ?? 'gray'}
+                        size="sm"
+                      />
                     }
-                    tabularNums
-                  >
-                    {`${report.biggest.biggestCategoryChange.diffMinor >= 0 ? '+' : '−'}${formatMoney(
-                      Math.abs(report.biggest.biggestCategoryChange.diffMinor),
-                      settings.currency
-                    )}`}
-                  </AppText>
-                }
-                showChevron
-                onPress={() =>
-                  openActivityWithQuery({
-                    type: 'expense',
-                    categoryId: report.biggest.biggestCategoryChange?.categoryId,
-                    fromIncl: addDays(today, -(report.mtdComparison.daysCompared - 1)),
-                    toExcl: addDays(today, 1),
-                  })
-                }
-              />
-            </>
-          ) : null}
-        </Card>
-      ) : (
-        <Card tone="alt">
-          <AppText variant="body" color="textMuted">
-            {t('insights.noWindowExpenses')}
-          </AppText>
-        </Card>
-      )}
+                    title={t('insights.mostFrequent')}
+                    subtitle={t('insights.mostFrequentValue', {
+                      name: cat?.name ?? t('common.uncategorized'),
+                      count: report.biggest.mostFrequentCategory.count,
+                    })}
+                    right={
+                      <Money
+                        amountMinor={report.biggest.mostFrequentCategory.spentMinor}
+                        currency={settings.currency}
+                        variant="bodyStrong"
+                      />
+                    }
+                    showChevron
+                    onPress={() =>
+                      openActivityWithQuery({
+                        type: 'expense',
+                        categoryId: report.biggest.mostFrequentCategory?.categoryId,
+                        fromIncl: report.window.fromIncl,
+                        toExcl: report.window.toExcl,
+                      })
+                    }
+                  />
+                );
+              })()
+            ) : null}
+          </Surface>
+        </View>
+      ) : null}
 
-      {/* Category changes list (MTD) */}
-      <SectionHeader title={t('insights.categoryChangesSection')} />
-      {report.categoryChanges.length > 0 ? (
-        <Card padded={false}>
-          {report.categoryChanges.slice(0, 6).map((item, idx) => {
-            const cat = categoriesById.get(item.categoryId);
-            const pctStr =
-              item.pctChange !== null
-                ? `${item.pctChange > 0 ? '+' : ''}${item.pctChange}%`
-                : 'New';
-            return (
-              <React.Fragment key={item.categoryId}>
-                {idx > 0 ? (
-                  <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-                ) : null}
+      {/* Changes vs last cycle */}
+      <View style={{ gap: theme.spacing.sm }}>
+        <AppText variant="headline">{t('insights.categoryChangesSection')}</AppText>
+        {report.categoryChanges.length > 0 ? (
+          <Surface padded={false}>
+            {report.categoryChanges.slice(0, 6).map((item, idx, arr) => {
+              const cat = categoriesById.get(item.categoryId);
+              const pctLabel =
+                item.pctChange !== null
+                  ? item.pctChange > 0
+                    ? `↑ +${item.pctChange}%`
+                    : item.pctChange < 0
+                      ? `↓ ${item.pctChange}%`
+                      : '0%'
+                  : 'New';
+
+              return (
                 <ListRow
+                  key={item.categoryId}
                   testID={`insight-cat-change-${item.categoryId}`}
+                  left={
+                    <IconTile
+                      icon={cat?.icon ?? 'circle-ellipsis'}
+                      colorKey={cat?.colorKey ?? 'gray'}
+                      size="sm"
+                    />
+                  }
                   title={cat?.name ?? t('common.uncategorized')}
                   subtitle={`${formatMoney(item.currentMinor, settings.currency)} vs ${formatMoney(
                     item.previousMinor,
@@ -730,17 +799,18 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
                       variant="label"
                       color={
                         item.diffMinor > 0
-                          ? 'expense'
+                          ? 'danger'
                           : item.diffMinor < 0
-                            ? 'income'
-                            : 'textMuted'
+                            ? 'accent'
+                            : 'textSecondary'
                       }
                       tabularNums
                     >
-                      {pctStr}
+                      {pctLabel}
                     </AppText>
                   }
                   showChevron
+                  showDivider={idx < arr.length - 1}
                   onPress={() =>
                     openActivityWithQuery({
                       type: 'expense',
@@ -750,36 +820,26 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
                     })
                   }
                 />
-              </React.Fragment>
-            );
-          })}
-        </Card>
-      ) : (
-        <Card tone="alt">
-          <AppText variant="body" color="textMuted">
-            {t('insights.noChangeYet')}
-          </AppText>
-        </Card>
-      )}
+              );
+            })}
+          </Surface>
+        ) : (
+          <Surface variant="sunken">
+            <AppText variant="body" color="textSecondary">
+              {t('insights.noChangeYet')}
+            </AppText>
+          </Surface>
+        )}
+      </View>
 
-      {/* Monthly history chart with descriptive accessibilityLabel */}
-      <SectionHeader title={t('insights.historyChartSection')} />
-      <Card style={{ gap: theme.spacing.md }}>
-        <View
-          style={[
-            styles.tooltipBox,
-            {
-              backgroundColor: theme.colors.surfaceAlt,
-              borderRadius: theme.radius.md,
-              paddingHorizontal: theme.spacing.md,
-              paddingVertical: theme.spacing.sm,
-            },
-          ]}
-        >
+      {/* Spending history bar chart by cycle */}
+      <View style={{ gap: theme.spacing.sm }}>
+        <AppText variant="headline">{t('insights.historyChartSection')}</AppText>
+        <Surface style={{ gap: theme.spacing.sm }}>
           {selectedBar ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`${formatShortMonthYear(selectedBar.period.start)} ${t('insights.viewInActivity')}`}
+              accessibilityLabel={`${formatCycleLabel(selectedBar.period, settings.monthStartDay)} ${t('insights.viewInActivity')}`}
               onPress={() =>
                 openActivityWithQuery({
                   type: 'expense',
@@ -787,94 +847,203 @@ export function InsightsContent({ todayOverride }: InsightsContentProps) {
                   toExcl: selectedBar.period.endExcl,
                 })
               }
-              style={styles.rowBetween}
+              style={[
+                styles.tooltipBox,
+                {
+                  backgroundColor: theme.colors.surfaceSunken,
+                  borderRadius: theme.radius.sm,
+                  paddingHorizontal: theme.spacing.md,
+                  paddingVertical: theme.spacing.xs + 2,
+                },
+              ]}
             >
-              <AppText variant="label" color="textMuted">
-                {formatShortMonthYear(selectedBar.period.start)}
-              </AppText>
-              <AppText variant="heading" color="primary" tabularNums>
-                {`${formatMoney(selectedBar.spentMinor, settings.currency)} →`}
-              </AppText>
+              <View style={styles.rowBetween}>
+                <AppText variant="label" color="textSecondary">
+                  {formatCycleLabel(selectedBar.period, settings.monthStartDay, {
+                    includeYear: true,
+                  })}
+                </AppText>
+                <AppText variant="bodyStrong" color="accent" tabularNums>
+                  {`${formatMoney(selectedBar.spentMinor, settings.currency)} →`}
+                </AppText>
+              </View>
             </Pressable>
           ) : (
-            <AppText variant="caption" color="textMuted">
+            <AppText variant="caption" color="textSecondary">
               {t('insights.historyChartHint')}
             </AppText>
           )}
-        </View>
 
-        <View onLayout={handleChartLayout} style={styles.svgContainer}>
-          <Svg
-            testID="insights-history-svg"
-            width={chartWidth}
-            height={CHART_HEIGHT}
-            accessibilityRole="image"
-            accessibilityLabel={historySummaryLabel}
-          >
-            <Line
-              x1={0}
-              y1={TOP_PAD + PLOT_HEIGHT}
-              x2={chartWidth}
-              y2={TOP_PAD + PLOT_HEIGHT}
-              stroke={theme.colors.border}
-              strokeWidth={1}
-            />
-            {historyBars.map((bar, idx) => {
-              const xCenter = idx * slotW + slotW / 2;
-              const x = xCenter - barW / 2;
-              const rawH =
-                maxHistoryMinor > 0 ? (bar.spentMinor / maxHistoryMinor) * PLOT_HEIGHT : 0;
-              const barH = bar.spentMinor > 0 ? Math.max(4, rawH) : 2;
-              const y = TOP_PAD + PLOT_HEIGHT - barH;
-              const isSelected = selectedHistoryIdx === idx;
-              const fillOpacity =
-                bar.spentMinor === 0
-                  ? 0.55
-                  : selectedHistoryIdx === null || isSelected
-                    ? 1
-                    : 0.45;
-              const shortLabel = formatShortMonthYear(bar.period.start).split(' ')[0];
-
-              return (
-                <React.Fragment key={bar.period.start}>
-                  <Rect
-                    x={x}
-                    y={y}
-                    width={barW}
-                    height={barH}
-                    rx={Math.min(6, barW / 2)}
-                    fill={bar.spentMinor === 0 ? theme.colors.border : theme.colors.primary}
-                    fillOpacity={fillOpacity}
-                  />
-                  <SvgText
-                    x={xCenter}
-                    y={CHART_HEIGHT - 6}
-                    fontSize={11}
-                    fill={theme.colors.textMuted}
-                    textAnchor="middle"
-                  >
-                    {shortLabel}
-                  </SvgText>
-                </React.Fragment>
-              );
-            })}
-          </Svg>
-          <View style={styles.hitOverlay}>
-            {historyBars.map((bar, idx) => (
-              <Pressable
-                key={bar.period.start}
-                accessibilityRole="button"
-                accessibilityLabel={`${formatShortMonthYear(bar.period.start)}: ${formatMoney(
-                  bar.spentMinor,
-                  settings.currency
-                )}`}
-                onPress={() => setSelectedHistoryIdx(idx === selectedHistoryIdx ? null : idx)}
-                style={styles.hitSlice}
+          <View onLayout={handleChartLayout} style={styles.svgContainer}>
+            <Svg
+              testID="insights-history-svg"
+              width={chartWidth}
+              height={CHART_HEIGHT}
+              accessibilityRole="image"
+              accessibilityLabel={historySummaryLabel}
+            >
+              <Line
+                x1={0}
+                y1={TOP_PAD + PLOT_HEIGHT}
+                x2={chartWidth}
+                y2={TOP_PAD + PLOT_HEIGHT}
+                stroke={theme.colors.separator}
+                strokeWidth={1}
               />
-            ))}
+              {historyBars.map((bar, idx) => {
+                const xCenter = idx * slotW + slotW / 2;
+                const x = xCenter - barW / 2;
+                const rawH =
+                  maxHistoryMinor > 0 ? (bar.spentMinor / maxHistoryMinor) * PLOT_HEIGHT : 0;
+                const barH = bar.spentMinor > 0 ? Math.max(5, rawH) : 2;
+                const y = TOP_PAD + PLOT_HEIGHT - barH;
+                const isSelected = selectedHistoryIdx === idx;
+                const isLatest = idx === historyBars.length - 1;
+                const fill =
+                  bar.spentMinor === 0
+                    ? theme.colors.textTertiary
+                    : theme.colors.accent;
+                const fillOpacity =
+                  bar.spentMinor === 0
+                    ? 0.3
+                    : selectedHistoryIdx !== null
+                      ? isSelected
+                        ? 1
+                        : 0.25
+                      : isLatest
+                        ? 1
+                        : 0.35;
+                const axisLabel =
+                  settings.monthStartDay === 1
+                    ? formatShortMonthYear(bar.period.start).split(' ')[0]
+                    : formatShortDate(bar.period.start);
+
+                return (
+                  <React.Fragment key={bar.period.start}>
+                    <Rect
+                      x={x}
+                      y={y}
+                      width={barW}
+                      height={barH}
+                      rx={bar.spentMinor === 0 ? 1 : Math.min(6, barW / 2)}
+                      fill={fill}
+                      fillOpacity={fillOpacity}
+                    />
+                    <SvgText
+                      x={xCenter}
+                      y={CHART_HEIGHT - 6}
+                      fontSize={11}
+                      fill={
+                        isLatest ? theme.colors.text : theme.colors.textSecondary
+                      }
+                      fontWeight={isLatest ? '600' : '400'}
+                      textAnchor="middle"
+                    >
+                      {axisLabel}
+                    </SvgText>
+                  </React.Fragment>
+                );
+              })}
+            </Svg>
+            <View style={styles.hitOverlay}>
+              {historyBars.map((bar, idx) => (
+                <Pressable
+                  key={bar.period.start}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${formatCycleLabel(bar.period, settings.monthStartDay)}: ${formatMoney(
+                    bar.spentMinor,
+                    settings.currency
+                  )}`}
+                  onPress={() =>
+                    setSelectedHistoryIdx(idx === selectedHistoryIdx ? null : idx)
+                  }
+                  style={styles.hitSlice}
+                />
+              ))}
+            </View>
           </View>
-        </View>
-      </Card>
+        </Surface>
+      </View>
+
+      {/* Time period selector bottom sheet (7 options + custom DateFields) */}
+      <Sheet
+        testID="insights-period-sheet"
+        visible={periodSheetOpen}
+        onClose={() => setPeriodSheetOpen(false)}
+        title={t('insights.periodTitle')}
+      >
+        <Surface padded={false}>
+          {PRESET_OPTIONS.map((opt, idx) => (
+            <ListRow
+              key={opt.value}
+              testID={`insights-preset-${opt.value}`}
+              compact
+              title={t(opt.labelKey)}
+              right={
+                preset === opt.value ? (
+                  <AppIcon name="check" size={18} color={theme.colors.accent} />
+                ) : null
+              }
+              showDivider={idx < PRESET_OPTIONS.length - 1}
+              onPress={() => {
+                setSelectedHistoryIdx(null);
+                setCustomError(null);
+                if (opt.value === 'custom') {
+                  setPreset('custom');
+                } else {
+                  setPreset(opt.value);
+                  setPeriodSheetOpen(false);
+                }
+              }}
+            />
+          ))}
+        </Surface>
+
+        {preset === 'custom' ? (
+          <View style={{ gap: theme.spacing.sm }}>
+            <View style={[styles.gridRow, { gap: theme.spacing.sm }]}>
+              <View style={[styles.flexOne, { gap: 4 }]}>
+                <AppText variant="caption" color="textSecondary">
+                  {t('activity.fromDateLabel')}
+                </AppText>
+                <DateField
+                  testID="insights-custom-from"
+                  value={fromDraft}
+                  today={today}
+                  onChange={(d) => {
+                    setFromDraft(d);
+                    if (customError) setCustomError(null);
+                  }}
+                />
+              </View>
+              <View style={[styles.flexOne, { gap: 4 }]}>
+                <AppText variant="caption" color="textSecondary">
+                  {t('activity.toDateLabel')}
+                </AppText>
+                <DateField
+                  testID="insights-custom-to"
+                  value={toDraft}
+                  today={today}
+                  onChange={(d) => {
+                    setToDraft(d);
+                    if (customError) setCustomError(null);
+                  }}
+                />
+              </View>
+            </View>
+            {customError ? (
+              <AppText variant="caption" color="danger">
+                {customError}
+              </AppText>
+            ) : null}
+            <Button
+              testID="insights-custom-apply-btn"
+              title={t('common.done')}
+              onPress={handleApplyCustom}
+            />
+          </View>
+        ) : null}
+      </Sheet>
     </Screen>
   );
 }
@@ -884,19 +1053,32 @@ export default function InsightsTab() {
 }
 
 const styles = StyleSheet.create({
-  presetStrip: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  periodDropdown: {
+    minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  customRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
+  compBarWrap: {
+    gap: 4,
   },
-  dateInput: {
-    flex: 1,
-    minWidth: 110,
-    borderWidth: 1,
+  compLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  compTrack: {
+    height: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  compFill: {
+    height: 8,
+    borderRadius: 999,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -910,7 +1092,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tooltipBox: {
-    minHeight: 38,
+    minHeight: 34,
     justifyContent: 'center',
   },
   svgContainer: {
@@ -929,5 +1111,9 @@ const styles = StyleSheet.create({
   hitSlice: {
     flex: 1,
     height: '100%',
+  },
+  flexOne: {
+    flex: 1,
+    minWidth: 0,
   },
 });

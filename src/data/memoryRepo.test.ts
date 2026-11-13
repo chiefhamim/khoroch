@@ -224,4 +224,65 @@ describe('MemoryRepo (TEST-CASES §6)', () => {
       expect.objectContaining({ icon: 'building-2', colorKey: 'violet', kind: 'income' })
     );
   });
+
+  it('filters searchTransactions by multiple categoryIds and summarizes expense/income totals', async () => {
+    const repo = new MemoryRepo();
+    await repo.insertTransactionsBatch([
+      {
+        id: 's1',
+        type: 'expense',
+        amountMinor: 12000,
+        currency: 'BDT',
+        categoryId: 'food_dining',
+        occurredOn: '2026-11-10',
+      },
+      {
+        id: 's2',
+        type: 'expense',
+        amountMinor: 8000,
+        currency: 'BDT',
+        categoryId: 'transportation',
+        occurredOn: '2026-11-11',
+      },
+      {
+        id: 's3',
+        type: 'expense',
+        amountMinor: 5000,
+        currency: 'BDT',
+        categoryId: 'utilities',
+        occurredOn: '2026-11-11',
+      },
+      {
+        id: 's4',
+        type: 'income',
+        amountMinor: 50000,
+        currency: 'BDT',
+        categoryId: 'salary',
+        occurredOn: '2026-11-12',
+      },
+    ]);
+
+    const filtered = await repo.searchTransactions(
+      { categoryIds: ['food_dining', 'transportation'] },
+      { limit: 30 }
+    );
+    expect(filtered.rows.map((r) => r.id).sort()).toEqual(['s1', 's2']);
+
+    const multiSummary = await repo.summarizeTransactions(
+      { categoryIds: ['food_dining', 'salary'] },
+      'BDT'
+    );
+    expect(multiSummary).toEqual({
+      count: 2,
+      expenseMinor: 12000,
+      incomeMinor: 50000,
+    });
+
+    const allSummary = await repo.summarizeTransactions({}, 'BDT');
+    expect(allSummary).toEqual({
+      count: 4,
+      expenseMinor: 25000,
+      incomeMinor: 50000,
+    });
+  });
 });

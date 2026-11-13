@@ -15,6 +15,7 @@ jest.mock('expo-router', () => ({
     replace: jest.fn(),
     back: jest.fn(),
   }),
+  useLocalSearchParams: () => ({}),
 }));
 
 jest.mock('react-native-safe-area-context', () => {
@@ -110,11 +111,18 @@ describe('InsightsContent integration', () => {
       ).toBeTruthy();
     });
 
-    expect(view.getByText(t('insights.mtdSubtitle', { days: 13 }))).toBeTruthy();
+    expect(
+      view.getByText(t('insights.spentSoFarHeadline', { amount: '৳ 1,180' }))
+    ).toBeTruthy();
+    expect(
+      view.getByText(
+        `${t('insights.mtdDiffMore', { diff: '৳ 180', days: 13 })} ↑`
+      )
+    ).toBeTruthy();
 
     const chart = view.getByTestId('insights-history-svg');
     expect(chart.props.accessibilityLabel).toBe(
-      'Monthly spending history over 6 months totaling ৳ 2,180. Peak month was Nov 2026 at ৳ 1,180.'
+      'Spending history over 6 cycles totaling ৳ 2,180. Peak cycle was November 2026 at ৳ 1,180.'
     );
 
     await fireEvent.press(view.getByTestId('insight-top-category'));
@@ -123,8 +131,35 @@ describe('InsightsContent integration', () => {
     const filterState = useActivityFilterStore.getState();
     expect(filterState.type).toBe('expense');
     expect(filterState.categoryId).toBe('food_dining');
+    expect(filterState.categoryIds).toEqual(['food_dining']);
     expect(filterState.datePreset).toBe('custom');
     expect(filterState.customFromIncl).toBe('2026-11-01');
     expect(filterState.customToIncl).toBe('2026-11-30');
+  });
+
+  it('formats non-1st cycle labels with date ranges everywhere instead of calendar month names', async () => {
+    const repo = new MemoryRepo();
+    await repo.setSetting('onboardingDone', true);
+    await repo.setSetting('currency', 'BDT');
+    await repo.setSetting('monthStartDay', 10);
+
+    await repo.insertTransaction({
+      id: 'c1',
+      type: 'expense',
+      amountMinor: 50000,
+      currency: 'BDT',
+      categoryId: 'food_dining',
+      description: 'Cycle tx',
+      occurredOn: '2026-11-11',
+    });
+
+    const view = await renderInsights(repo);
+
+    await waitFor(() => {
+      expect(view.getByTestId('insight-full-period-card')).toBeTruthy();
+    });
+
+    expect(view.getByText('10 Oct – 9 Nov vs 10 Sep – 9 Oct')).toBeTruthy();
+    expect(view.queryByText(/Oct 2026/)).toBeNull();
   });
 });

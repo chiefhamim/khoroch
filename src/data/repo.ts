@@ -1,6 +1,7 @@
 import type {
   Budget,
   Category,
+  CurrencyCode,
   LocalDate,
   NewTransaction,
   Settings,
@@ -8,6 +9,7 @@ import type {
   TransactionPatch,
   TxPage,
   TxQuery,
+  TxQuerySummary,
   TxSearchResult,
 } from '@/domain/types';
 
@@ -21,6 +23,7 @@ export interface Repo {
   getTransaction(id: string): Promise<Transaction | null>;
   listTransactionsInRange(fromIncl: LocalDate, toExcl: LocalDate): Promise<Transaction[]>;
   searchTransactions(q: TxQuery, page: TxPage): Promise<TxSearchResult>;
+  summarizeTransactions(q: TxQuery, currency: CurrencyCode): Promise<TxQuerySummary>;
   hasAnyTransactions(): Promise<boolean>;
   listRecentDescriptions(limit?: number): Promise<string[]>;
 

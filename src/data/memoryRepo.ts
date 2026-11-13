@@ -4,6 +4,7 @@ import { assertValidNewTransaction, isValidBudgetAmount } from '@/domain/validat
 import type {
   Budget,
   Category,
+  CurrencyCode,
   LocalDate,
   NewTransaction,
   Settings,
@@ -11,6 +12,7 @@ import type {
   TransactionPatch,
   TxPage,
   TxQuery,
+  TxQuerySummary,
   TxSearchResult,
 } from '@/domain/types';
 import { DEFAULT_SETTINGS, type Repo } from './repo';
@@ -156,24 +158,34 @@ export class MemoryRepo implements Repo {
     return rows;
   }
 
+  private matchesTxQuery(tx: Transaction, q: TxQuery, searchNorm: string): boolean {
+    if (tx.deletedAt != null) return false;
+    if (q.type && tx.type !== q.type) return false;
+    if (q.categoryIds && q.categoryIds.length > 0) {
+      if (!tx.categoryId || !q.categoryIds.includes(tx.categoryId)) return false;
+    } else if (q.categoryId !== undefined && tx.categoryId !== q.categoryId) {
+      return false;
+    }
+    if (q.fromIncl && tx.occurredOn < q.fromIncl) return false;
+    if (q.toExcl && tx.occurredOn >= q.toExcl) return false;
+    if (q.minAmountMinor !== undefined && tx.amountMinor < q.minAmountMinor) return false;
+    if (q.maxAmountMinor !== undefined && tx.amountMinor > q.maxAmountMinor) return false;
+    if (searchNorm.length > 0) {
+      const hay = `${tx.description} ${tx.note}`.toLowerCase();
+      if (!hay.includes(searchNorm)) return false;
+    }
+    return true;
+  }
+
   async searchTransactions(q: TxQuery, page: TxPage): Promise<TxSearchResult> {
     const searchNorm = q.search?.trim().toLowerCase() ?? '';
     const cursorKey = parseCursor(page.cursor);
 
     const filtered: Transaction[] = [];
     for (const tx of this.transactions.values()) {
-      if (tx.deletedAt != null) continue;
-      if (q.type && tx.type !== q.type) continue;
-      if (q.categoryId !== undefined && tx.categoryId !== q.categoryId) continue;
-      if (q.fromIncl && tx.occurredOn < q.fromIncl) continue;
-      if (q.toExcl && tx.occurredOn >= q.toExcl) continue;
-      if (q.minAmountMinor !== undefined && tx.amountMinor < q.minAmountMinor) continue;
-      if (q.maxAmountMinor !== undefined && tx.amountMinor > q.maxAmountMinor) continue;
-      if (searchNorm.length > 0) {
-        const hay = `${tx.description} ${tx.note}`.toLowerCase();
-        if (!hay.includes(searchNorm)) continue;
+      if (this.matchesTxQuery(tx, q, searchNorm)) {
+        filtered.push({ ...tx });
       }
-      filtered.push({ ...tx });
     }
 
     filtered.sort(compareTxDesc);
@@ -184,6 +196,23 @@ export class MemoryRepo implements Repo {
     const rows = afterCursor.slice(0, limit);
     const next = hasMore && rows.length > 0 ? encodeCursor(rows[rows.length - 1]) : undefined;
     return { rows, next };
+  }
+
+  async summarizeTransactions(q: TxQuery, currency: CurrencyCode): Promise<TxQuerySummary> {
+    const searchNorm = q.search?.trim().toLowerCase() ?? '';
+    let count = 0;
+    let expenseMinor = 0;
+    let incomeMinor = 0;
+
+    for (const tx of this.transactions.values()) {
+      if (!this.matchesTxQuery(tx, q, searchNorm)) continue;
+      count += 1;
+      if (tx.currency !== currency) continue;
+      if (tx.type === 'expense') expenseMinor += tx.amountMinor;
+      else if (tx.type === 'income') incomeMinor += tx.amountMinor;
+    }
+
+    return { count, expenseMinor, incomeMinor };
   }
 
   async hasAnyTransactions(): Promise<boolean> {

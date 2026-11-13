@@ -1,21 +1,25 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  FlatList,
-  Modal,
   Platform,
   Pressable,
-  ScrollView,
+  SectionList,
   StyleSheet,
   TextInput,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import type { DailyTransactionGroup } from '@/domain/calc';
-import { addDays, isValidLocalDate, parseLocalDate, toEpochDay, todayLocalDate } from '@/domain/dates';
+import {
+  addDays,
+  formatFriendlyDate,
+  formatFriendlyTime,
+  formatShortDate,
+  isDevice24HourClock,
+  todayLocalDate,
+} from '@/domain/dates';
 import { resolveInsightsWindow } from '@/domain/insights';
 import { formatMoney, parseMoneyInput } from '@/domain/money';
-import type { LocalDate, TransactionType, TxQuery } from '@/domain/types';
+import type { LocalDate, Transaction, TransactionType, TxQuery } from '@/domain/types';
 import { t } from '@/i18n';
 import {
   type ActivityDatePreset,
@@ -24,29 +28,23 @@ import {
 import { useAppContext } from '@/state/AppContext';
 import { useTransactions } from '@/state/useTransactions';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
-import { CategoryIcon } from '@/ui/CategoryIcon';
 import { Chip } from '@/ui/Chip';
+import { DateField } from '@/ui/DateField';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
+import { Field } from '@/ui/Field';
+import { hapticLight, hapticSelection } from '@/ui/haptics';
+import { IconButton } from '@/ui/IconButton';
+import { IconTile } from '@/ui/IconTile';
 import { ListRow } from '@/ui/ListRow';
 import { Money } from '@/ui/Money';
 import { Screen, useTabScrollPadding } from '@/ui/Screen';
 import { SegmentedControl } from '@/ui/SegmentedControl';
-
-const WEEKDAYS = ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'] as const;
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
-
-function formatGroupDate(date: LocalDate, today: LocalDate, yesterday: LocalDate): string {
-  if (date === today) return t('common.today');
-  if (date === yesterday) return t('common.yesterday');
-  const { month, day } = parseLocalDate(date);
-  const epochDay = toEpochDay(date);
-  const weekdayIdx = ((epochDay % 7) + 7) % 7;
-  return `${WEEKDAYS[weekdayIdx]}, ${day} ${MONTHS[month - 1]}`;
-}
+import { Sheet } from '@/ui/Sheet';
+import { Surface } from '@/ui/Surface';
 
 function resolveDateRange(
   preset: ActivityDatePreset,
@@ -73,8 +71,8 @@ function resolveDateRange(
       return { fromIncl: w.fromIncl, toExcl: w.toExcl };
     }
     case 'custom': {
-      const validFrom = isValidLocalDate(customFrom) ? customFrom : undefined;
-      const validTo = isValidLocalDate(customTo) ? addDays(customTo, 1) : undefined;
+      const validFrom = customFrom ? (customFrom as LocalDate) : undefined;
+      const validTo = customTo ? addDays(customTo as LocalDate, 1) : undefined;
       if (validFrom && validTo && customFrom > customTo) {
         return {};
       }
@@ -83,16 +81,72 @@ function resolveDateRange(
   }
 }
 
+function buildTxQueryFromState(params: {
+  search: string;
+  type: TransactionType | null;
+  categoryIds: string[];
+  datePreset: ActivityDatePreset;
+  customFromIncl: string;
+  customToIncl: string;
+  minAmountText: string;
+  maxAmountText: string;
+  today: LocalDate;
+  monthStartDay: number;
+}): TxQuery {
+  const query: TxQuery = {};
+  const s = params.search.trim();
+  if (s) query.search = s;
+  if (params.type) query.type = params.type;
+  if (params.categoryIds.length === 1) {
+    query.categoryId = params.categoryIds[0];
+  } else if (params.categoryIds.length > 1) {
+    query.categoryIds = params.categoryIds;
+  }
+
+  const bounds = resolveDateRange(
+    params.datePreset,
+    params.customFromIncl,
+    params.customToIncl,
+    params.today,
+    params.monthStartDay
+  );
+  if (bounds.fromIncl) query.fromIncl = bounds.fromIncl;
+  if (bounds.toExcl) query.toExcl = bounds.toExcl;
+
+  const minRes = params.minAmountText.trim()
+    ? parseMoneyInput(params.minAmountText)
+    : null;
+  if (minRes?.ok && minRes.minor !== null && minRes.minor > 0) {
+    query.minAmountMinor = minRes.minor;
+  }
+
+  const maxRes = params.maxAmountText.trim()
+    ? parseMoneyInput(params.maxAmountText)
+    : null;
+  if (maxRes?.ok && maxRes.minor !== null && maxRes.minor > 0) {
+    query.maxAmountMinor = maxRes.minor;
+  }
+
+  return query;
+}
+
+interface ActivitySection {
+  group: DailyTransactionGroup;
+  data: Transaction[];
+}
+
 export default function ActivityScreen() {
-  const { settings } = useAppContext();
-  const { theme } = useTheme();
+  const { repo, settings } = useAppContext();
+  const { theme, reducedMotion } = useTheme();
   const router = useRouter();
   const tabScrollPadding = useTabScrollPadding();
+  const use24Hour = isDevice24HourClock();
 
   const {
     search,
     type,
     categoryId,
+    categoryIds,
     datePreset,
     customFromIncl,
     customToIncl,
@@ -100,7 +154,7 @@ export default function ActivityScreen() {
     maxAmountText,
     setSearch,
     setType,
-    setCategoryId,
+    setCategoryIds,
     setDatePreset,
     setCustomFromIncl,
     setCustomToIncl,
@@ -110,18 +164,25 @@ export default function ActivityScreen() {
     resetAll,
   } = useActivityFilterStore();
 
-  const [debouncedSearch, setDebouncedSearch] = useState(search);
-  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const effectiveCategoryIds = useMemo(() => {
+    if (categoryIds.length > 0) return categoryIds;
+    return categoryId ? [categoryId] : [];
+  }, [categoryIds, categoryId]);
 
-  // Modal draft states
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [periodSheetOpen, setPeriodSheetOpen] = useState(false);
+
+  // Filter sheet draft states
   const [draftType, setDraftType] = useState<TransactionType | null>(type);
-  const [draftCategoryId, setDraftCategoryId] = useState<string | null>(categoryId);
+  const [draftCategoryIds, setDraftCategoryIds] = useState<string[]>(effectiveCategoryIds);
   const [draftPreset, setDraftPreset] = useState<ActivityDatePreset>(datePreset);
-  const [draftFrom, setDraftFrom] = useState<string>(customFromIncl);
-  const [draftTo, setDraftTo] = useState<string>(customToIncl);
+  const [draftFrom, setDraftFrom] = useState<LocalDate>(customFromIncl || todayLocalDate());
+  const [draftTo, setDraftTo] = useState<LocalDate>(customToIncl || todayLocalDate());
   const [draftMin, setDraftMin] = useState(minAmountText);
   const [draftMax, setDraftMax] = useState(maxAmountText);
-  const [modalError, setModalError] = useState<string | null>(null);
+  const [sheetError, setSheetError] = useState<string | null>(null);
+  const [draftCount, setDraftCount] = useState<number | null>(null);
 
   useEffect(() => {
     const delay = search.trim().length === 0 ? 0 : 250;
@@ -132,41 +193,38 @@ export default function ActivityScreen() {
   }, [search]);
 
   const today = todayLocalDate();
-  const yesterday = useMemo(() => addDays(today, -1), [today]);
 
-  const txQuery = useMemo<TxQuery>(() => {
-    const query: TxQuery = {};
-    const s = debouncedSearch.trim();
-    if (s) query.search = s;
-    if (type) query.type = type;
-    if (categoryId) query.categoryId = categoryId;
-
-    const bounds = resolveDateRange(datePreset, customFromIncl, customToIncl, today, settings.monthStartDay);
-    if (bounds.fromIncl) query.fromIncl = bounds.fromIncl;
-    if (bounds.toExcl) query.toExcl = bounds.toExcl;
-
-    const minRes = minAmountText.trim() ? parseMoneyInput(minAmountText) : null;
-    if (minRes?.ok && minRes.minor) query.minAmountMinor = minRes.minor;
-
-    const maxRes = maxAmountText.trim() ? parseMoneyInput(maxAmountText) : null;
-    if (maxRes?.ok && maxRes.minor) query.maxAmountMinor = maxRes.minor;
-
-    return query;
-  }, [
-    debouncedSearch,
-    type,
-    categoryId,
-    datePreset,
-    customFromIncl,
-    customToIncl,
-    today,
-    settings.monthStartDay,
-    minAmountText,
-    maxAmountText,
-  ]);
+  const txQuery = useMemo<TxQuery>(
+    () =>
+      buildTxQueryFromState({
+        search: debouncedSearch,
+        type,
+        categoryIds: effectiveCategoryIds,
+        datePreset,
+        customFromIncl,
+        customToIncl,
+        minAmountText,
+        maxAmountText,
+        today,
+        monthStartDay: settings.monthStartDay,
+      }),
+    [
+      debouncedSearch,
+      type,
+      effectiveCategoryIds,
+      datePreset,
+      customFromIncl,
+      customToIncl,
+      minAmountText,
+      maxAmountText,
+      today,
+      settings.monthStartDay,
+    ]
+  );
 
   const {
     groups,
+    summary,
     categoriesById,
     loading,
     loadingMore,
@@ -176,144 +234,133 @@ export default function ActivityScreen() {
     reload,
   } = useTransactions(txQuery);
 
+  // Live preview count inside Filter Sheet
+  useEffect(() => {
+    if (!filterSheetOpen) return;
+    let active = true;
+    const draftQuery = buildTxQueryFromState({
+      search,
+      type: draftType,
+      categoryIds: draftCategoryIds,
+      datePreset: draftPreset,
+      customFromIncl: draftPreset === 'custom' ? draftFrom : '',
+      customToIncl: draftPreset === 'custom' ? draftTo : '',
+      minAmountText: draftMin,
+      maxAmountText: draftMax,
+      today,
+      monthStartDay: settings.monthStartDay,
+    });
+    repo
+      .summarizeTransactions(draftQuery, settings.currency)
+      .then((res) => {
+        if (active) setDraftCount(res.count);
+      })
+      .catch(() => {
+        // Ignore transient preview errors
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    filterSheetOpen,
+    repo,
+    settings.currency,
+    settings.monthStartDay,
+    today,
+    search,
+    draftType,
+    draftCategoryIds,
+    draftPreset,
+    draftFrom,
+    draftTo,
+    draftMin,
+    draftMax,
+  ]);
+
   const allCategories = useMemo(
     () =>
-      Array.from(categoriesById.values()).sort((a, b) => a.sortOrder - b.sortOrder),
+      Array.from(categoriesById.values())
+        .filter((c) => c.archivedAt == null)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
     [categoriesById]
   );
 
   const activeFilterCount =
     (type ? 1 : 0) +
-    (categoryId ? 1 : 0) +
+    effectiveCategoryIds.length +
     (datePreset !== 'all' ? 1 : 0) +
+    (minAmountText.trim() ? 1 : 0) +
+    (maxAmountText.trim() ? 1 : 0);
+
+  const nonPeriodFilterCount =
+    (type ? 1 : 0) +
+    effectiveCategoryIds.length +
     (minAmountText.trim() ? 1 : 0) +
     (maxAmountText.trim() ? 1 : 0);
 
   const hasAnyFilterOrSearch = activeFilterCount > 0 || debouncedSearch.trim().length > 0;
 
-  const openFilterModal = () => {
+  const openFilterSheet = () => {
     setDraftType(type);
-    setDraftCategoryId(categoryId);
+    setDraftCategoryIds(effectiveCategoryIds);
     setDraftPreset(datePreset);
-    setDraftFrom(customFromIncl);
-    setDraftTo(customToIncl);
+    setDraftFrom(customFromIncl || addDays(today, -30));
+    setDraftTo(customToIncl || today);
     setDraftMin(minAmountText);
     setDraftMax(maxAmountText);
-    setModalError(null);
-    setFilterModalOpen(true);
+    setSheetError(null);
+    setDraftCount(summary.count);
+    setFilterSheetOpen(true);
   };
 
-  const handleApplyModalFilters = () => {
-    if (draftPreset === 'custom') {
-      const hasFrom = draftFrom.trim().length > 0;
-      const hasTo = draftTo.trim().length > 0;
-      if (
-        (hasFrom && !isValidLocalDate(draftFrom.trim())) ||
-        (hasTo && !isValidLocalDate(draftTo.trim())) ||
-        (hasFrom && hasTo && draftFrom.trim() > draftTo.trim())
-      ) {
-        setModalError(t('activity.invalidCustomDates'));
-        return;
-      }
+  const handleToggleDraftCategory = (catId: string) => {
+    hapticSelection();
+    setDraftCategoryIds((prev) =>
+      prev.includes(catId) ? prev.filter((id) => id !== catId) : [...prev, catId]
+    );
+  };
+
+  const handleResetDraft = () => {
+    hapticLight();
+    setDraftType(null);
+    setDraftCategoryIds([]);
+    setDraftPreset('all');
+    setDraftFrom(addDays(today, -30));
+    setDraftTo(today);
+    setDraftMin('');
+    setDraftMax('');
+    setSheetError(null);
+  };
+
+  const handleApplyFilters = () => {
+    if (draftPreset === 'custom' && draftFrom > draftTo) {
+      setSheetError(t('activity.invalidCustomDates'));
+      return;
     }
 
     applyExternalFilters({
       search,
       type: draftType,
-      categoryId: draftCategoryId,
+      categoryIds: draftCategoryIds,
       datePreset: draftPreset,
-      customFromIncl: (draftFrom.trim() as LocalDate | ''),
-      customToIncl: (draftTo.trim() as LocalDate | ''),
+      customFromIncl: draftPreset === 'custom' ? draftFrom : '',
+      customToIncl: draftPreset === 'custom' ? draftTo : '',
       minAmountText: draftMin.trim(),
       maxAmountText: draftMax.trim(),
     });
-    setFilterModalOpen(false);
+    setFilterSheetOpen(false);
   };
 
-  const renderGroup = ({ item }: { item: DailyTransactionGroup }) => (
-    <View style={{ gap: theme.spacing.sm }}>
-      <View style={[styles.groupHeader, { paddingHorizontal: theme.spacing.xs }]}>
-        <AppText variant="label" color="textMuted">
-          {formatGroupDate(item.date, today, yesterday)}
-        </AppText>
-        <View style={[styles.groupTotals, { gap: theme.spacing.md }]}>
-          {item.incomeMinor > 0 ? (
-            <View style={[styles.totalPair, { gap: theme.spacing.xs }]}>
-              <AppText variant="caption" color="textMuted">
-                {t('activity.incomeLabel')}
-              </AppText>
-              <Money
-                amountMinor={item.incomeMinor}
-                currency={settings.currency}
-                variant="caption"
-                color="income"
-                prefix="+"
-              />
-            </View>
-          ) : null}
-          {item.expenseMinor > 0 ? (
-            <View style={[styles.totalPair, { gap: theme.spacing.xs }]}>
-              <AppText variant="caption" color="textMuted">
-                {t('activity.spentLabel')}
-              </AppText>
-              <Money
-                amountMinor={item.expenseMinor}
-                currency={settings.currency}
-                variant="caption"
-                color="textMuted"
-              />
-            </View>
-          ) : null}
-        </View>
-      </View>
-
-      <Card style={{ paddingVertical: theme.spacing.xs }}>
-        {item.transactions.map((tx, idx) => {
-          const cat = tx.categoryId ? categoriesById.get(tx.categoryId) : undefined;
-          const catLabel = cat ? cat.name : t('common.uncategorized');
-          const subtitleParts = [catLabel];
-          if (cat?.archivedAt) subtitleParts.push(t('categories.archivedBadge'));
-          if (tx.occurredTime) subtitleParts.push(tx.occurredTime);
-
-          return (
-            <View key={tx.id}>
-              {idx > 0 ? (
-                <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-              ) : null}
-              <ListRow
-                testID={`activity-tx-${tx.id}`}
-                title={tx.description || catLabel}
-                subtitle={subtitleParts.join(' · ')}
-                left={
-                  <CategoryIcon
-                    icon={cat?.icon}
-                    tone={tx.type === 'income' ? 'income' : 'neutral'}
-                  />
-                }
-                right={
-                  <Money
-                    amountMinor={tx.amountMinor}
-                    currency={settings.currency}
-                    variant="heading"
-                    color={tx.type === 'income' ? 'income' : 'text'}
-                    prefix={tx.type === 'income' ? '+' : '-'}
-                  />
-                }
-                onPress={() =>
-                  router.push({
-                    pathname: '/transaction/[id]',
-                    params: { id: tx.id },
-                  })
-                }
-              />
-            </View>
-          );
-        })}
-      </Card>
-    </View>
+  const sections = useMemo<ActivitySection[]>(
+    () =>
+      groups.map((g) => ({
+        group: g,
+        data: g.transactions,
+      })),
+    [groups]
   );
 
-  const datePresetLabel = (() => {
+  const periodLabel = useMemo(() => {
     switch (datePreset) {
       case 'today':
         return t('activity.dateToday');
@@ -324,46 +371,48 @@ export default function ActivityScreen() {
       case 'last_month':
         return t('activity.dateLastMonth');
       case 'custom':
-        if (customFromIncl && customToIncl) return `${customFromIncl} – ${customToIncl}`;
-        return customFromIncl || customToIncl || t('activity.dateCustom');
+        if (customFromIncl && customToIncl) {
+          return `${formatShortDate(customFromIncl)} – ${formatShortDate(customToIncl)}`;
+        }
+        return t('activity.dateCustom');
       default:
-        return '';
+        return t('activity.dateAll');
     }
-  })();
+  }, [datePreset, customFromIncl, customToIncl]);
 
   const minParsed = minAmountText.trim() ? parseMoneyInput(minAmountText) : null;
   const maxParsed = maxAmountText.trim() ? parseMoneyInput(maxAmountText) : null;
+  const searchBg =
+    theme.scheme === 'dark' ? theme.colors.surfaceSunken : theme.colors.surface;
 
   return (
     <Screen contentContainerStyle={{ paddingBottom: 0 }}>
-      <View style={[styles.headerRow, { paddingBottom: theme.spacing.sm }]}>
-        <AppText variant="title">{t('activity.title')}</AppText>
-      </View>
+      <AppText variant="title" style={{ marginBottom: theme.spacing.md }}>
+        {t('activity.title')}
+      </AppText>
 
-      {/* Search & Filter trigger bar kept outside FlatList to preserve TextInput focus */}
-      <View style={[styles.searchRow, { gap: theme.spacing.sm, marginBottom: theme.spacing.sm }]}>
+      {/* Search + Filter icon button with badge */}
+      <View style={[styles.searchRow, { gap: theme.spacing.sm, marginBottom: theme.spacing.md }]}>
         <View
           style={[
             styles.searchBox,
             {
-              flex: 1,
-              minWidth: 0,
-              minHeight: theme.touch.min,
+              height: 44,
               borderRadius: theme.radius.md,
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
+              backgroundColor: searchBg,
               paddingHorizontal: theme.spacing.md,
-              gap: theme.spacing.xs,
+              gap: theme.spacing.sm,
             },
+            theme.scheme === 'light' ? theme.cardShadow : null,
           ]}
         >
-          <Ionicons name="search-outline" size={18} color={theme.colors.textMuted} />
+          <AppIcon name="search" size={18} color={theme.colors.textTertiary} />
           <TextInput
             testID="activity-search-input"
             value={search}
             onChangeText={setSearch}
             placeholder={t('activity.searchPlaceholder')}
-            placeholderTextColor={theme.colors.textMuted}
+            placeholderTextColor={theme.colors.textTertiary}
             returnKeyType="search"
             style={[
               styles.searchInput,
@@ -371,8 +420,10 @@ export default function ActivityScreen() {
                 color: theme.colors.text,
                 fontFamily: theme.typography.body.fontFamily,
                 fontSize: theme.typography.body.fontSize,
-                paddingVertical: theme.spacing.sm,
               },
+              Platform.OS === 'web'
+                ? ({ outlineStyle: 'none', outlineWidth: 0 } as never)
+                : null,
             ]}
           />
           {search.length > 0 ? (
@@ -380,59 +431,85 @@ export default function ActivityScreen() {
               testID="activity-search-clear"
               accessibilityRole="button"
               accessibilityLabel={t('common.close')}
+              hitSlop={8}
               onPress={() => setSearch('')}
-              style={[styles.clearIconBtn, { minWidth: theme.touch.min, minHeight: theme.touch.min }]}
             >
-              <Ionicons name="close-circle" size={18} color={theme.colors.textMuted} />
+              <AppIcon name="x" size={16} color={theme.colors.textTertiary} />
             </Pressable>
           ) : null}
         </View>
 
-        <Pressable
+        <IconButton
           testID="activity-filter-button"
-          accessibilityRole="button"
+          icon="sliders-horizontal"
+          variant={activeFilterCount > 0 ? 'accentSoft' : 'surface'}
+          size={44}
+          iconSize={20}
+          badgeCount={activeFilterCount > 0 ? activeFilterCount : undefined}
           accessibilityLabel={t('activity.filtersButton')}
-          onPress={openFilterModal}
-          style={[
-            styles.filterBtn,
+          onPress={openFilterSheet}
+        />
+      </View>
+
+      {/* Period selector chip + live summary */}
+      <View style={[styles.summaryBar, { gap: theme.spacing.sm, marginBottom: theme.spacing.sm }]}>
+        <Pressable
+          testID="activity-period-chip"
+          accessibilityRole="button"
+          accessibilityLabel={periodLabel}
+          onPress={() => {
+            hapticLight();
+            setPeriodSheetOpen(true);
+          }}
+          style={({ pressed }) => [
+            styles.periodPill,
             {
-              minHeight: theme.touch.min,
-              paddingHorizontal: theme.spacing.md,
-              borderRadius: theme.radius.md,
               backgroundColor:
-                activeFilterCount > 0 ? theme.colors.primarySoft : theme.colors.surface,
-              borderColor:
-                activeFilterCount > 0 ? theme.colors.primary : theme.colors.border,
+                datePreset !== 'all'
+                  ? theme.colors.accentSoft
+                  : theme.colors.surfaceSunken,
+              borderRadius: theme.radius.pill,
+              paddingHorizontal: theme.spacing.md,
               gap: theme.spacing.xs,
+              opacity: pressed && !reducedMotion ? 0.72 : 1,
             },
           ]}
         >
-          <Ionicons
-            name="options-outline"
-            size={18}
-            color={activeFilterCount > 0 ? theme.colors.primary : theme.colors.text}
-          />
           <AppText
             variant="label"
-            color={activeFilterCount > 0 ? 'primary' : 'text'}
+            color={datePreset !== 'all' ? 'accent' : 'text'}
+            numberOfLines={1}
           >
-            {activeFilterCount > 0
-              ? t('activity.filtersActiveCount', { count: activeFilterCount })
-              : t('activity.filtersButton')}
+            {periodLabel}
           </AppText>
+          <AppIcon
+            name="chevron-down"
+            size={14}
+            color={datePreset !== 'all' ? theme.colors.accent : theme.colors.textSecondary}
+          />
         </Pressable>
+
+        <AppText
+          testID="activity-summary-line"
+          variant="label"
+          color="textSecondary"
+          tabularNums
+          style={styles.summaryRight}
+        >
+          {t('activity.summaryLine', {
+            spent: formatMoney(summary.expenseMinor, settings.currency),
+            income: formatMoney(summary.incomeMinor, settings.currency),
+          })}
+        </AppText>
       </View>
 
-      {/* Active filter chips */}
-      {hasAnyFilterOrSearch ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.activeChipsRow,
-            { gap: theme.spacing.xs, paddingBottom: theme.spacing.sm },
+      {/* Dismissible active filter chips */}
+      {nonPeriodFilterCount > 0 ? (
+        <View
+          style={[
+            styles.activeChipsWrap,
+            { gap: theme.spacing.xs, marginBottom: theme.spacing.sm },
           ]}
-          style={{ flexGrow: 0 }}
         >
           {type ? (
             <Chip
@@ -442,26 +519,17 @@ export default function ActivityScreen() {
               onPress={() => setType(null)}
             />
           ) : null}
-          {categoryId ? (
+          {effectiveCategoryIds.map((id) => (
             <Chip
-              testID="active-chip-category"
-              label={`${categoriesById.get(categoryId)?.name ?? t('common.uncategorized')} ×`}
+              key={id}
+              testID={`active-chip-cat-${id}`}
+              label={`${categoriesById.get(id)?.name ?? t('common.uncategorized')} ×`}
               selected
-              onPress={() => setCategoryId(null)}
+              onPress={() =>
+                setCategoryIds(effectiveCategoryIds.filter((existing) => existing !== id))
+              }
             />
-          ) : null}
-          {datePreset !== 'all' ? (
-            <Chip
-              testID="active-chip-date"
-              label={`${datePresetLabel} ×`}
-              selected
-              onPress={() => {
-                setDatePreset('all');
-                setCustomFromIncl('');
-                setCustomToIncl('');
-              }}
-            />
-          ) : null}
+          ))}
           {minParsed?.ok && minParsed.minor ? (
             <Chip
               testID="active-chip-min"
@@ -483,20 +551,20 @@ export default function ActivityScreen() {
             label={t('activity.resetFilters')}
             onPress={() => resetAll()}
           />
-        </ScrollView>
+        </View>
       ) : null}
 
-      {error && groups.length === 0 ? (
+      {error && sections.length === 0 ? (
         <ErrorState
           title={t('error.genericTitle')}
           body={t('error.genericBody')}
           retryLabel={t('common.retry')}
           onRetry={reload}
         />
-      ) : !loading && groups.length === 0 ? (
+      ) : !loading && sections.length === 0 ? (
         hasAnyFilterOrSearch ? (
           <EmptyState
-            icon="search-outline"
+            icon="search"
             title={t('activity.emptyFilterTitle')}
             body={t('activity.emptyFilterBody')}
             ctaLabel={t('activity.resetFilters')}
@@ -504,7 +572,7 @@ export default function ActivityScreen() {
           />
         ) : (
           <EmptyState
-            icon="receipt-outline"
+            icon="list"
             title={t('empty.activityTitle')}
             body={t('empty.activityBody')}
             ctaLabel={t('empty.activityCta')}
@@ -512,18 +580,109 @@ export default function ActivityScreen() {
           />
         )
       ) : (
-        <FlatList
+        <SectionList<Transaction, ActivitySection>
           testID="activity-flatlist"
-          data={groups}
-          keyExtractor={(item) => item.date}
-          renderItem={renderGroup}
-          initialNumToRender={12}
-          maxToRenderPerBatch={12}
+          sections={sections}
+          keyExtractor={(item) => item.id}
+          stickySectionHeadersEnabled
+          showsVerticalScrollIndicator={false}
+          initialNumToRender={16}
+          maxToRenderPerBatch={16}
           windowSize={9}
           removeClippedSubviews={Platform.OS !== 'web'}
           contentContainerStyle={{
-            gap: theme.spacing.lg,
             paddingBottom: tabScrollPadding,
+          }}
+          renderSectionHeader={({ section }) => {
+            const netMinor =
+              section.group.incomeMinor - section.group.expenseMinor;
+            return (
+              <View
+                style={[
+                  styles.sectionHeader,
+                  {
+                    backgroundColor: theme.colors.bg,
+                    paddingTop: theme.spacing.md,
+                    paddingBottom: theme.spacing.xs,
+                    paddingHorizontal: 2,
+                  },
+                ]}
+              >
+                <AppText
+                  variant="caption"
+                  color="textTertiary"
+                  style={styles.sectionDateText}
+                >
+                  {formatFriendlyDate(section.group.date, today).toUpperCase()}
+                </AppText>
+                <Money
+                  variant="caption"
+                  amountMinor={Math.abs(netMinor)}
+                  currency={settings.currency}
+                  prefix={netMinor > 0 ? '+' : netMinor < 0 ? '−' : ''}
+                  color={netMinor > 0 ? 'accent' : 'textSecondary'}
+                />
+              </View>
+            );
+          }}
+          renderItem={({ item: tx, index, section }) => {
+            const cat = tx.categoryId ? categoriesById.get(tx.categoryId) : undefined;
+            const catLabel = cat?.name ?? t('common.uncategorized');
+            const subtitleParts = [catLabel];
+            if (cat?.archivedAt) subtitleParts.push(t('categories.archivedBadge'));
+            subtitleParts.push(
+              tx.occurredTime
+                ? formatFriendlyTime(tx.occurredTime, use24Hour)
+                : formatShortDate(tx.occurredOn)
+            );
+            const isIncome = tx.type === 'income';
+            const isFirst = index === 0;
+            const isLast = index === section.data.length - 1;
+
+            return (
+              <View
+                style={[
+                  {
+                    backgroundColor: theme.colors.surface,
+                    borderTopLeftRadius: isFirst ? theme.radius.card : 0,
+                    borderTopRightRadius: isFirst ? theme.radius.card : 0,
+                    borderBottomLeftRadius: isLast ? theme.radius.card : 0,
+                    borderBottomRightRadius: isLast ? theme.radius.card : 0,
+                    overflow: 'hidden',
+                  },
+                  isFirst && theme.scheme === 'light' ? theme.cardShadow : null,
+                ]}
+              >
+                <ListRow
+                  testID={`activity-tx-${tx.id}`}
+                  title={tx.description.trim() || catLabel}
+                  subtitle={subtitleParts.join(' · ')}
+                  left={
+                    <IconTile
+                      icon={cat?.icon ?? 'circle-ellipsis'}
+                      colorKey={cat?.colorKey ?? 'gray'}
+                      size="md"
+                    />
+                  }
+                  right={
+                    <Money
+                      amountMinor={tx.amountMinor}
+                      currency={tx.currency}
+                      variant="bodyStrong"
+                      color={isIncome ? 'accent' : 'text'}
+                      prefix={isIncome ? '+' : '−'}
+                    />
+                  }
+                  showDivider={!isLast}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/transaction/[id]',
+                      params: { id: tx.id },
+                    })
+                  }
+                />
+              </View>
+            );
           }}
           onEndReachedThreshold={0.4}
           onEndReached={() => {
@@ -533,7 +692,7 @@ export default function ActivityScreen() {
           }}
           ListFooterComponent={
             hasMore ? (
-              <View style={{ paddingTop: theme.spacing.sm }}>
+              <View style={{ paddingTop: theme.spacing.md }}>
                 <Button
                   title={t('common.loadMore')}
                   variant="secondary"
@@ -547,323 +706,309 @@ export default function ActivityScreen() {
         />
       )}
 
-      {filterModalOpen ? (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => setFilterModalOpen(false)}
-        >
-          <View style={[styles.modalBackdrop, { padding: theme.spacing.xl }]}>
-            <Card
-              style={[
-                styles.modalCard,
-                { maxHeight: '85%', gap: theme.spacing.md },
-              ]}
-            >
-              <View style={styles.modalHeader}>
-                <AppText variant="title">{t('activity.filtersTitle')}</AppText>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t('common.close')}
-                  onPress={() => setFilterModalOpen(false)}
-                  style={{ minWidth: theme.touch.min, minHeight: theme.touch.min, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Ionicons name="close" size={22} color={theme.colors.text} />
-                </Pressable>
-              </View>
+      {/* Quick period selector sheet */}
+      <Sheet
+        visible={periodSheetOpen}
+        onClose={() => setPeriodSheetOpen(false)}
+        title={t('activity.choosePeriodTitle')}
+      >
+        <Surface padded={false}>
+          {(
+            [
+              ['all', t('activity.dateAll')],
+              ['today', t('activity.dateToday')],
+              ['this_week', t('activity.dateThisWeek')],
+              ['this_month', t('activity.dateThisMonth')],
+              ['last_month', t('activity.dateLastMonth')],
+              ['custom', t('activity.dateCustom')],
+            ] as const
+          ).map(([val, label], idx, arr) => (
+            <ListRow
+              key={val}
+              testID={`activity-period-opt-${val}`}
+              compact
+              title={label}
+              right={
+                datePreset === val ? (
+                  <AppIcon name="check" size={18} color={theme.colors.accent} />
+                ) : null
+              }
+              showDivider={idx < arr.length - 1}
+              onPress={() => {
+                setPeriodSheetOpen(false);
+                if (val === 'custom') {
+                  openFilterSheet();
+                  setDraftPreset('custom');
+                } else {
+                  setDatePreset(val);
+                  if (customFromIncl) setCustomFromIncl('');
+                  if (customToIncl) setCustomToIncl('');
+                }
+              }}
+            />
+          ))}
+        </Surface>
+      </Sheet>
 
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: theme.spacing.md }}>
-                <View style={{ gap: theme.spacing.xs }}>
-                  <AppText variant="label" color="textMuted">
-                    {t('activity.filterType')}
-                  </AppText>
-                  <SegmentedControl<'all' | TransactionType>
-                    value={draftType ?? 'all'}
-                    onChange={(val) => {
-                      const next = val === 'all' ? null : val;
-                      setDraftType(next);
-                    }}
-                    options={[
-                      { value: 'all', label: t('activity.filterTypeAll') },
-                      { value: 'expense', label: t('common.expense') },
-                      { value: 'income', label: t('common.income') },
-                    ]}
-                  />
-                </View>
-
-                <View style={{ gap: theme.spacing.xs }}>
-                  <AppText variant="label" color="textMuted">
-                    {t('activity.filterDateRange')}
-                  </AppText>
-                  <View style={[styles.wrapChips, { gap: theme.spacing.sm }]}>
-                    {(
-                      [
-                        ['all', t('activity.dateAll')],
-                        ['today', t('activity.dateToday')],
-                        ['this_week', t('activity.dateThisWeek')],
-                        ['this_month', t('activity.dateThisMonth')],
-                        ['last_month', t('activity.dateLastMonth')],
-                        ['custom', t('activity.dateCustom')],
-                      ] as const
-                    ).map(([presetVal, presetLabel]) => (
-                      <Chip
-                        key={presetVal}
-                        testID={`filter-date-${presetVal}`}
-                        label={presetLabel}
-                        selected={draftPreset === presetVal}
-                        onPress={() => {
-                          setDraftPreset(presetVal);
-                          setModalError(null);
-                        }}
-                      />
-                    ))}
-                  </View>
-
-                  {draftPreset === 'custom' ? (
-                    <View style={[styles.rangeInputsRow, { gap: theme.spacing.sm }]}>
-                      <View style={{ flex: 1, minWidth: 0, gap: theme.spacing.xs }}>
-                        <AppText variant="caption" color="textMuted">
-                          {t('activity.fromDateLabel')}
-                        </AppText>
-                        <TextInput
-                          testID="filter-custom-from"
-                          value={draftFrom}
-                          onChangeText={(txt) => {
-                            setDraftFrom(txt);
-                            if (modalError) setModalError(null);
-                          }}
-                          placeholder={t('common.dateFormatHint')}
-                          placeholderTextColor={theme.colors.textMuted}
-                          style={[
-                            styles.modalInput,
-                            {
-                              minHeight: theme.touch.min,
-                              borderRadius: theme.radius.md,
-                              borderColor: theme.colors.border,
-                              backgroundColor: theme.colors.surfaceAlt,
-                              paddingHorizontal: theme.spacing.md,
-                              color: theme.colors.text,
-                              fontFamily: theme.typography.body.fontFamily,
-                              fontSize: theme.typography.body.fontSize,
-                            },
-                          ]}
-                        />
-                      </View>
-                      <View style={{ flex: 1, minWidth: 0, gap: theme.spacing.xs }}>
-                        <AppText variant="caption" color="textMuted">
-                          {t('activity.toDateLabel')}
-                        </AppText>
-                        <TextInput
-                          testID="filter-custom-to"
-                          value={draftTo}
-                          onChangeText={(txt) => {
-                            setDraftTo(txt);
-                            if (modalError) setModalError(null);
-                          }}
-                          placeholder={t('common.dateFormatHint')}
-                          placeholderTextColor={theme.colors.textMuted}
-                          style={[
-                            styles.modalInput,
-                            {
-                              minHeight: theme.touch.min,
-                              borderRadius: theme.radius.md,
-                              borderColor: theme.colors.border,
-                              backgroundColor: theme.colors.surfaceAlt,
-                              paddingHorizontal: theme.spacing.md,
-                              color: theme.colors.text,
-                              fontFamily: theme.typography.body.fontFamily,
-                              fontSize: theme.typography.body.fontSize,
-                            },
-                          ]}
-                        />
-                      </View>
-                    </View>
-                  ) : null}
-                </View>
-
-                <View style={{ gap: theme.spacing.xs }}>
-                  <AppText variant="label" color="textMuted">
-                    {t('activity.filterAmountRange')}
-                  </AppText>
-                  <View style={[styles.rangeInputsRow, { gap: theme.spacing.sm }]}>
-                    <TextInput
-                      testID="filter-amount-min"
-                      value={draftMin}
-                      onChangeText={setDraftMin}
-                      placeholder={t('activity.minAmountLabel')}
-                      placeholderTextColor={theme.colors.textMuted}
-                      keyboardType="decimal-pad"
-                      style={[
-                        styles.modalInput,
-                        {
-                          flex: 1,
-                          minWidth: 0,
-                          minHeight: theme.touch.min,
-                          borderRadius: theme.radius.md,
-                          borderColor: theme.colors.border,
-                          backgroundColor: theme.colors.surfaceAlt,
-                          paddingHorizontal: theme.spacing.md,
-                          color: theme.colors.text,
-                          fontFamily: theme.typography.body.fontFamily,
-                          fontSize: theme.typography.body.fontSize,
-                        },
-                      ]}
-                    />
-                    <TextInput
-                      testID="filter-amount-max"
-                      value={draftMax}
-                      onChangeText={setDraftMax}
-                      placeholder={t('activity.maxAmountLabel')}
-                      placeholderTextColor={theme.colors.textMuted}
-                      keyboardType="decimal-pad"
-                      style={[
-                        styles.modalInput,
-                        {
-                          flex: 1,
-                          minWidth: 0,
-                          minHeight: theme.touch.min,
-                          borderRadius: theme.radius.md,
-                          borderColor: theme.colors.border,
-                          backgroundColor: theme.colors.surfaceAlt,
-                          paddingHorizontal: theme.spacing.md,
-                          color: theme.colors.text,
-                          fontFamily: theme.typography.body.fontFamily,
-                          fontSize: theme.typography.body.fontSize,
-                        },
-                      ]}
-                    />
-                  </View>
-                </View>
-
-                <View style={{ gap: theme.spacing.xs }}>
-                  <AppText variant="label" color="textMuted">
-                    {t('activity.filterCategory')}
-                  </AppText>
-                  <View style={[styles.wrapChips, { gap: theme.spacing.sm }]}>
-                    <Chip
-                      testID="filter-cat-all"
-                      label={t('activity.filterAllCategories')}
-                      selected={draftCategoryId === null}
-                      onPress={() => setDraftCategoryId(null)}
-                    />
-                    {allCategories
-                      .filter((c) => !draftType || c.kind === draftType)
-                      .map((cat) => (
-                        <Chip
-                          key={cat.id}
-                          testID={`filter-cat-${cat.id}`}
-                          label={cat.name}
-                          selected={draftCategoryId === cat.id}
-                          onPress={() => setDraftCategoryId(cat.id)}
-                        />
-                      ))}
-                  </View>
-                </View>
-
-                {modalError ? (
-                  <AppText variant="caption" color="danger">
-                    {modalError}
-                  </AppText>
-                ) : null}
-              </ScrollView>
-
-              <View style={[styles.modalActions, { gap: theme.spacing.sm }]}>
-                <Button
-                  title={t('activity.resetFilters')}
-                  variant="ghost"
-                  onPress={() => {
-                    resetAll();
-                    setFilterModalOpen(false);
-                  }}
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  testID="activity-apply-filters-btn"
-                  title={t('activity.applyFilters')}
-                  onPress={handleApplyModalFilters}
-                  style={{ flex: 1 }}
-                />
-              </View>
-            </Card>
+      {/* Filters bottom sheet */}
+      <Sheet
+        testID="activity-filters-sheet"
+        visible={filterSheetOpen}
+        onClose={() => setFilterSheetOpen(false)}
+        title={t('activity.filtersTitle')}
+        footer={
+          <View style={[styles.twoColRow, { gap: theme.spacing.sm }]}>
+            <Button
+              testID="filter-reset-btn"
+              title={t('activity.resetFilters')}
+              variant="secondary"
+              onPress={handleResetDraft}
+              style={styles.flexOne}
+            />
+            <Button
+              testID="filter-apply-btn"
+              title={t('activity.showResults', { count: draftCount ?? summary.count })}
+              variant="primary"
+              onPress={handleApplyFilters}
+              style={styles.applyBtn}
+            />
           </View>
-        </Modal>
-      ) : null}
+        }
+      >
+        {/* Type */}
+        <View style={{ gap: theme.spacing.xs }}>
+          <AppText variant="label" color="textSecondary">
+            {t('activity.filterType')}
+          </AppText>
+          <SegmentedControl<'all' | TransactionType>
+            testID="filter-type-segmented"
+            value={draftType ?? 'all'}
+            onChange={(val) => setDraftType(val === 'all' ? null : val)}
+            options={[
+              { value: 'all', label: t('activity.filterTypeAll') },
+              { value: 'expense', label: t('common.expense') },
+              { value: 'income', label: t('common.income') },
+            ]}
+          />
+        </View>
+
+        {/* Categories multi-select tiles */}
+        <View style={{ gap: theme.spacing.xs }}>
+          <AppText variant="label" color="textSecondary">
+            {t('activity.filterCategory')}
+          </AppText>
+          <View style={[styles.categoryGrid, { gap: theme.spacing.xs }]}>
+            {allCategories.map((c) => {
+              const selected = draftCategoryIds.includes(c.id);
+              return (
+                <Pressable
+                  key={c.id}
+                  testID={`filter-cat-${c.id}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => handleToggleDraftCategory(c.id)}
+                  style={({ pressed }) => [
+                    styles.categoryTileBtn,
+                    {
+                      backgroundColor: selected
+                        ? theme.colors.accentSoft
+                        : theme.colors.surfaceSunken,
+                      borderColor: selected ? theme.colors.accent : 'transparent',
+                      borderRadius: theme.radius.pill,
+                      paddingLeft: 6,
+                      paddingRight: theme.spacing.md,
+                      paddingVertical: 6,
+                      gap: theme.spacing.xs + 2,
+                      opacity: pressed && !reducedMotion ? 0.72 : 1,
+                    },
+                  ]}
+                >
+                  <IconTile
+                    icon={c.icon}
+                    colorKey={c.colorKey}
+                    size="sm"
+                    selected={selected}
+                  />
+                  <AppText
+                    variant="label"
+                    color={selected ? 'accent' : 'text'}
+                    numberOfLines={1}
+                  >
+                    {c.name}
+                  </AppText>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Date range presets + DateFields */}
+        <View style={{ gap: theme.spacing.xs }}>
+          <AppText variant="label" color="textSecondary">
+            {t('activity.filterDateRange')}
+          </AppText>
+          <View style={[styles.wrapChips, { gap: theme.spacing.xs }]}>
+            {(
+              [
+                ['all', t('activity.dateAll')],
+                ['today', t('activity.dateToday')],
+                ['this_week', t('activity.dateThisWeek')],
+                ['this_month', t('activity.dateThisMonth')],
+                ['last_month', t('activity.dateLastMonth')],
+                ['custom', t('activity.dateCustom')],
+              ] as const
+            ).map(([presetVal, presetLabel]) => (
+              <Chip
+                key={presetVal}
+                testID={`filter-date-${presetVal}`}
+                label={presetLabel}
+                selected={draftPreset === presetVal}
+                onPress={() => {
+                  setDraftPreset(presetVal);
+                  setSheetError(null);
+                }}
+              />
+            ))}
+          </View>
+
+          {draftPreset === 'custom' ? (
+            <View style={[styles.twoColRow, { gap: theme.spacing.sm, marginTop: theme.spacing.xs }]}>
+              <View style={[styles.flexOne, { gap: 4 }]}>
+                <AppText variant="caption" color="textSecondary">
+                  {t('activity.fromDateLabel')}
+                </AppText>
+                <DateField
+                  testID="filter-custom-from"
+                  value={draftFrom}
+                  today={today}
+                  onChange={(d) => {
+                    setDraftFrom(d);
+                    if (sheetError) setSheetError(null);
+                  }}
+                />
+              </View>
+              <View style={[styles.flexOne, { gap: 4 }]}>
+                <AppText variant="caption" color="textSecondary">
+                  {t('activity.toDateLabel')}
+                </AppText>
+                <DateField
+                  testID="filter-custom-to"
+                  value={draftTo}
+                  today={today}
+                  onChange={(d) => {
+                    setDraftTo(d);
+                    if (sheetError) setSheetError(null);
+                  }}
+                />
+              </View>
+            </View>
+          ) : null}
+        </View>
+
+        {/* Amount range */}
+        <View style={{ gap: theme.spacing.xs }}>
+          <AppText variant="label" color="textSecondary">
+            {t('activity.filterAmountRange')}
+          </AppText>
+          <View style={[styles.twoColRow, { gap: theme.spacing.sm }]}>
+            <View style={styles.flexOne}>
+              <Field
+                testID="filter-amount-min"
+                value={draftMin}
+                onChangeText={setDraftMin}
+                placeholder={t('activity.minAmountLabel')}
+                keyboardType="decimal-pad"
+              />
+            </View>
+            <View style={styles.flexOne}>
+              <Field
+                testID="filter-amount-max"
+                value={draftMax}
+                onChangeText={setDraftMax}
+                placeholder={t('activity.maxAmountLabel')}
+                keyboardType="decimal-pad"
+              />
+            </View>
+          </View>
+        </View>
+
+        {sheetError ? (
+          <AppText variant="caption" color="danger">
+            {sheetError}
+          </AppText>
+        ) : null}
+      </Sheet>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   searchBox: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
   },
   searchInput: {
     flex: 1,
     minWidth: 0,
+    paddingVertical: 8,
   },
-  clearIconBtn: {
+  summaryBar: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    rowGap: 6,
   },
-  filterBtn: {
+  periodPill: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  summaryRight: {
+    flexShrink: 1,
+  },
+  activeChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  sectionDateText: {
+    letterSpacing: 0.6,
+    fontWeight: '600',
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  categoryTileBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-  },
-  activeChipsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  groupTotals: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  totalPair: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    justifyContent: 'center',
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 420,
-    alignSelf: 'center',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
   },
   wrapChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
   },
-  rangeInputsRow: {
+  twoColRow: {
     flexDirection: 'row',
+    alignItems: 'center',
   },
-  modalInput: {
-    borderWidth: 1,
+  flexOne: {
+    flex: 1,
+    minWidth: 0,
   },
-  modalActions: {
-    flexDirection: 'row',
+  applyBtn: {
+    flex: 2,
   },
 });

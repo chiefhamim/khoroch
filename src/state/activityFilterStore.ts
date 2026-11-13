@@ -13,6 +13,7 @@ export interface ActivityFilterValues {
   search: string;
   type: TransactionType | null;
   categoryId: string | null;
+  categoryIds: string[];
   datePreset: ActivityDatePreset;
   customFromIncl: LocalDate | '';
   customToIncl: LocalDate | '';
@@ -24,6 +25,7 @@ export const DEFAULT_ACTIVITY_FILTERS: ActivityFilterValues = {
   search: '',
   type: null,
   categoryId: null,
+  categoryIds: [],
   datePreset: 'all',
   customFromIncl: '',
   customToIncl: '',
@@ -35,6 +37,7 @@ interface ActivityFilterStore extends ActivityFilterValues {
   setSearch: (search: string) => void;
   setType: (type: TransactionType | null) => void;
   setCategoryId: (categoryId: string | null) => void;
+  setCategoryIds: (categoryIds: string[]) => void;
   setDatePreset: (preset: ActivityDatePreset) => void;
   setCustomFromIncl: (date: string) => void;
   setCustomToIncl: (date: string) => void;
@@ -48,16 +51,40 @@ export const useActivityFilterStore = create<ActivityFilterStore>((set) => ({
   ...DEFAULT_ACTIVITY_FILTERS,
   setSearch: (search) => set({ search }),
   setType: (type) => set({ type }),
-  setCategoryId: (categoryId) => set({ categoryId }),
+  setCategoryId: (categoryId) =>
+    set({
+      categoryId,
+      categoryIds: categoryId ? [categoryId] : [],
+    }),
+  setCategoryIds: (categoryIds) =>
+    set({
+      categoryIds,
+      categoryId: categoryIds.length === 1 ? categoryIds[0] : null,
+    }),
   setDatePreset: (datePreset) => set({ datePreset }),
   setCustomFromIncl: (customFromIncl) => set({ customFromIncl: customFromIncl as LocalDate | '' }),
   setCustomToIncl: (customToIncl) => set({ customToIncl: customToIncl as LocalDate | '' }),
   setMinAmountText: (minAmountText) => set({ minAmountText }),
   setMaxAmountText: (maxAmountText) => set({ maxAmountText }),
-  applyExternalFilters: (patch) =>
+  applyExternalFilters: (patch) => {
+    const resolvedCategoryIds =
+      patch.categoryIds !== undefined
+        ? patch.categoryIds
+        : patch.categoryId
+          ? [patch.categoryId]
+          : [];
+    const resolvedCategoryId =
+      patch.categoryId !== undefined
+        ? patch.categoryId
+        : resolvedCategoryIds.length === 1
+          ? resolvedCategoryIds[0]
+          : null;
     set({
       ...DEFAULT_ACTIVITY_FILTERS,
       ...patch,
-    }),
+      categoryIds: resolvedCategoryIds,
+      categoryId: resolvedCategoryId,
+    });
+  },
   resetAll: () => set({ ...DEFAULT_ACTIVITY_FILTERS }),
 }));
