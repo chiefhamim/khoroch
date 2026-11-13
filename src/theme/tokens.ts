@@ -103,13 +103,6 @@ export const typography = {
     lineHeight: 14,
     fontFamily: 'Inter_500Medium',
   },
-  /** @deprecated Compatibility alias for v1 screens until Phase 12 cleanup; use `headline`. */
-  heading: {
-    fontSize: 17,
-    lineHeight: 24,
-    letterSpacing: -0.2,
-    fontFamily: 'Inter_600SemiBold',
-  },
 } as const;
 
 export type TypographyVariant = keyof typeof typography;
@@ -132,23 +125,6 @@ export interface ColorPalette {
   onDanger: string;
   dangerSoft: string;
   scrim: string;
-
-  /** @deprecated Legacy v1 token aliases removed once v1.1 screen rollout completes. */
-  surfaceAlt: string;
-  /** @deprecated Legacy v1 token alias; use `textSecondary`. */
-  textMuted: string;
-  /** @deprecated Legacy v1 token alias; use `accent`. */
-  primary: string;
-  /** @deprecated Legacy v1 token alias; use `accentSoft`. */
-  primarySoft: string;
-  /** @deprecated Legacy v1 token alias; use `onAccent`. */
-  onPrimary: string;
-  /** @deprecated Legacy v1 token alias; use `accent`. */
-  income: string;
-  /** @deprecated Legacy v1 token alias; use `danger`. */
-  expense: string;
-  /** @deprecated Legacy v1 token alias; use `separator`. */
-  border: string;
 }
 
 export const lightColors: ColorPalette = {
@@ -169,15 +145,6 @@ export const lightColors: ColorPalette = {
   onDanger: '#FFFFFF',
   dangerSoft: '#FDECEA',
   scrim: 'rgba(0, 0, 0, 0.35)',
-
-  surfaceAlt: '#EEEEF1',
-  textMuted: '#5C5F66',
-  primary: '#097A52',
-  primarySoft: '#E4F5EE',
-  onPrimary: '#FFFFFF',
-  income: '#097A52',
-  expense: '#CE281D',
-  border: '#E6E6EA',
 };
 
 export const darkColors: ColorPalette = {
@@ -198,15 +165,6 @@ export const darkColors: ColorPalette = {
   onDanger: '#0A0A0C',
   dangerSoft: '#2A1414',
   scrim: 'rgba(0, 0, 0, 0.6)',
-
-  surfaceAlt: '#1D1D21',
-  textMuted: '#A1A1AA',
-  primary: '#34D399',
-  primarySoft: '#10291F',
-  onPrimary: '#04241A',
-  income: '#34D399',
-  expense: '#F87171',
-  border: '#232327',
 };
 
 export const lightCardShadow: ViewStyle = {

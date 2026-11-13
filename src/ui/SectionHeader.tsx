@@ -20,7 +20,7 @@ export function SectionHeader({
 
   return (
     <View style={[styles.row, { minHeight: theme.touch.min - theme.spacing.md }]}>
-      <AppText variant="heading" style={styles.title}>
+      <AppText variant="headline" style={styles.title}>
         {title}
       </AppText>
       {right}
@@ -31,7 +31,7 @@ export function SectionHeader({
           onPress={onActionPress}
           style={[styles.actionBtn, { minHeight: theme.touch.min, paddingHorizontal: theme.spacing.sm }]}
         >
-          <AppText variant="label" color="primary">
+          <AppText variant="label" color="accent">
             {actionLabel}
           </AppText>
         </Pressable>

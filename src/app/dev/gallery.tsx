@@ -248,6 +248,7 @@ function GalleryBody({
                   value={switchVal}
                   onValueChange={setSwitchVal}
                   trackColor={{ true: theme.colors.accent, false: theme.colors.surfaceSunken }}
+                  thumbColor="#ffffff"
                 />
               }
             />

@@ -622,7 +622,7 @@ export function TransactionForm({
   const amountFontSize = isCompactHero ? 34 : 44;
   const amountLineHeight = isCompactHero ? 40 : 50;
   const symbolFontSize = Math.round(amountFontSize * 0.6);
-  const heroColor = amountText.length > 0 ? theme.colors.text : theme.colors.textMuted;
+  const heroColor = amountText.length > 0 ? theme.colors.text : theme.colors.textTertiary;
 
   const primaryLabel =
     submitLabel ?? (type === 'income' ? t('tx.saveIncomeCta') : t('tx.saveExpenseCta'));

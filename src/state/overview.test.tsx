@@ -25,14 +25,6 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
-jest.mock('@expo/vector-icons', () => {
-  const reactMod = jest.requireActual<typeof import('react')>('react');
-  const rnMod = jest.requireActual<typeof import('react-native')>('react-native');
-  const Icon = ({ name }: { name: string }) => reactMod.createElement(rnMod.Text, null, name);
-  Icon.glyphMap = {};
-  return { Ionicons: Icon };
-});
-
 describe('Overview Scenario A integration', () => {
   async function seedScenarioARepo(): Promise<MemoryRepo> {
     const repo = new MemoryRepo();

@@ -430,7 +430,7 @@ export default function SettingsScreen() {
               value={reminderActive}
               onValueChange={(val) => void handleToggleReminder(val)}
               trackColor={{ false: theme.colors.surfaceSunken, true: theme.colors.accent }}
-              thumbColor={theme.colors.surface}
+              thumbColor="#ffffff"
             />
           }
         />

@@ -1,86 +1,78 @@
-# Phone Verification Checklist (Android)
+# Phone Verification Checklist (Android — v1.1)
 
-Automated unit tests, RNTL component tests, and Playwright web Chromium tests cannot verify native Android SQLite persistence across app force-kills, OS notification alarms, native microphone capture, haptic feedback, or hardware cutouts. Run through this checklist on your physical Android phone in the morning.
+Automated unit tests, RNTL component tests, and Playwright web Chromium tests cannot verify native Android SQLite persistence across app force-kills, OS notification alarms, Material native date/clock dialogs, native microphone capture, haptic feedback, or hardware cutouts. Run through this checklist on your Galaxy S25 Ultra.
 
----
-
-## 0. Start the Dev Server
-
-1. Make sure your PC and Android phone are on the **same Wi-Fi network**.
-2. Install **Expo Go** from the Google Play Store.
-3. In `Desktop\budget-app`:
-   ```powershell
-   npx expo start
-   ```
-4. Scan the QR code with **Expo Go**.
+> **Protecting your real data:** Never uninstall (`adb uninstall`), run `pm clear`, or restore-wipe the app on your phone. Always upgrade over the top using `adb install -r` so your SQLite transactions, categories, and preferences stay intact.
 
 ---
 
-## 1. Core Flows & Force-Kill SQLite Persistence (Critical)
+## 0. Install Release APK or Start Dev Server
 
-1. Walk through all **6 onboarding steps** (Name, Currency `BDT ৳` + start day, Monthly budget e.g. `40000`, Categories, Daily reminder, Summary).
-2. Confirm **Overview** renders your name, remaining budget, and safe-to-spend/day.
-3. Tap **`+`** (or **Say or type it**) to add one **Expense** (e.g. `350` for Lunch) and one **Income** (e.g. `50000` Salary).
-4. **Kill Expo Go completely** from Android Recent Apps (swipe it away).
-5. Reopen Expo Go and open **Budget App**:
-   - [ ] Does it go straight to Overview (skipping onboarding)?
-   - [ ] Are both the Expense and Income still visible in **Activity**?
-   - [ ] Do **Overview** remaining budget (`Monthly budget - Expenses`) and Income total still match exact numbers?
+### Option A — Standalone Release APK (recommended, no PC needed to open)
+```powershell
+adb connect <phone-ip-or-tailscale>:<port>
+adb -s <device> install -r android\app\build\outputs\apk\release\app-release.apk
+```
+Stop any Metro bundler, swipe the app away, and cold-start **Budget App** from the launcher. Confirm it opens immediately with your real data intact and **Settings → About** reads **`Version 1.1.0 · Offline · No tracking`**.
 
----
-
-## 2. Local Daily Reminders & Deep Link (Items in `Needs phone test`)
-
-1. Open **Settings → Daily Check-in Reminder**.
-2. Toggle the reminder **ON**:
-   - [ ] Does the app show an explanation modal **before** the Android system notification permission prompt?
-3. **Test happy path (Allow permission):**
-   - [ ] Pick a time **1–2 minutes in the future** (using the custom `HH:MM` field and **Save**), wait for the notification.
-   - [ ] Verify the notification text is friendly and does **not** expose any Taka/dollar amounts on the lock screen.
-   - [ ] Tap the delivered notification → verify it opens directly to the **`/check-in`** screen!
-4. **Test zero-spend Check-in:**
-   - If testing on a day with 0 expenses, open **Daily Check-in** from Overview → tap **"Nothing spent today — mark reviewed"** → verify the **Reviewed** badge appears without creating any fake ৳0 transaction.
-5. **Test Permission Denied recovery:**
-   - Revoke notification permission in Android App Settings for Expo Go, return to **Settings** in Budget App, and try toggling the reminder back ON → verify it displays the non-crashing **"Enable in system settings"** button cleanly instead of nagging silently.
+### Option B — Live Metro Dev Client / Expo Go
+```powershell
+$env:CI="1"; npx expo start --port 8081
+```
+*(If plugged over Tailscale/ADB, forward port 8081 first: `adb -s <device> reverse tcp:8081 tcp:8081`.)*
 
 ---
 
-## 3. Voice Entry vs Expo Go Fallback
+## 1. Navigation & Home Dashboard
 
-1. On **Expo Go** (standard Play Store build):
-   - Open **Quick Entry** (Overview → *Quick entry* pill or `+` → *Say or type it*).
-   - [ ] Verify the screen does **not** crash on startup!
-   - [ ] Verify the **Mic button is hidden** automatically with a short note saying typed quick entry works offline.
-   - [ ] Type `"350 taka lunch"` → tap **Parse** → verify draft shows `৳ 350`, `Food & Dining`, `Lunch`, and **Overview stays unchanged until you tap Confirm**.
-   - [ ] Type `"Spent 500 on Uber and 200 on coffee"` → verify 2 drafts appear, edit one amount/description, then tap **Confirm & Save**.
-   - [ ] Type `"lunch"` → verify it asks `"How much?"` without saving; type `"hello"` → verify friendly empty-parse message.
-2. *(Optional — requires native Development Build via `npx expo run:android`, not Expo Go):*
-   - [ ] Verify Mic button appears, shows explanation before mic permission prompt, streams live transcript into the input box, and lets you review/confirm drafts.
+1. Verify bottom navigation shows **`Home · Activity · [ + ] · Budget · Insights`** with the floating green circle `+` centered (Settings is no longer a tab).
+2. Tap top-right avatar badge **`(H)`** on Home → confirm it pushes **Settings**, then navigate back.
+3. On Home:
+   - [ ] Check hero **Left to spend** amount, status pill (`On track` / `Watch` / `Over`), `Safe today | Spent | Income` row, and cycle date label (e.g. `10 Nov – 9 Dec` for cycle day `10`).
+   - [ ] Tap **`⋯`** on the hero card → verify formula explanation **Sheet** opens cleanly with crisp backdrop scrim.
+   - [ ] Switch chart inline between **`Day | Week | Month`** and confirm smooth bar highlight + axis labels ending on `Today`.
 
 ---
 
-## 4. Budget & Insights Sanity
+## 2. Add, Edit, Delete & Native Pickers
+
+1. Tap center **`+`** → confirm **Add transaction** opens with **no preselected category**, ordered `4×2` category tiles (most recent/frequent first + `All…`), and keypad docked above `Save expense`.
+2. Tap the Date pill (`Today`) and Time pill → confirm native **Android Material calendar & clock dialogs** open (do not save a fake entry unless you delete it afterwards).
+3. Tap the **`What was this for?`** description field → verify the numeric keypad hides automatically so your OS keyboard isn't cramped.
+4. Pick a category (or create a custom one inside `All…` → `+ New category`) and verify suggestion chips below the input match **only** that `(type, category)`.
+5. Optional temporary entry test *(clean up immediately)*: save one test entry named **`UI TEST – delete me`**, reopen it from Activity, tap top-right **`⋯`** → **Delete** → confirm two-step sheet removes it cleanly and shows the `Deleted` toast.
+6. Long-press center **`+`** (or tap **Say or type it** on Home) → verify **Quick Entry** parses `"350 lunch and 120 rickshaw"` into two editable draft cards without touching totals until confirmed.
+
+---
+
+## 3. Activity, Filters & Cycle-Aligned Insights
+
+1. Open **Activity**:
+   - [ ] Scroll past several days → verify sticky uppercase date headers + daily net totals (`−৳...` / `+৳...`) and `Category · 9:40 PM` subtitles.
+   - [ ] Tap **Filter** icon → open **Filters bottom sheet** → test Type segmented control, multi-select category tiles, Date presets / two `DateField`s, min/max amount, and `Show N results` footer.
+2. Open **Insights**:
+   - [ ] Tap top-right period dropdown (`This cycle`) → confirm 7-option bottom sheet opens cleanly.
+   - [ ] Verify the **Last complete cycle** card reads exact billing cycle dates (e.g. **`10 Oct – 9 Nov vs 10 Sep – 9 Oct`** for cycle start day `10`, not calendar month names).
+   - [ ] Scroll through `Averages`, `Biggest`, `Changes`, and `History` chart; tap any category row → verify Activity opens pre-filtered.
+
+---
+
+## 4. Budget, Settings, Categories & Daily Reminders
 
 1. Open **Budget**:
-   - [ ] Tap **Edit budget**, change monthly budget → confirm Overview & Budget both update immediately.
-   - [ ] Add a per-category budget (e.g. `Food & Dining`) → check **Allocated vs Remaining to allocate** banner.
-   - [ ] Try deleting/archiving a category via **Settings → Manage categories** → verify existing transactions keep displaying properly.
-2. Open **Insights**:
-   - With sample data loaded *(Settings → Developer tools → Load sample data ~150 items)*:
-   - [ ] Cycle presets (`This week`, `This month`, `Last month`, `3 months`, `6 months`, `This year`, `Custom`).
-   - [ ] Tap **Highest spending category** or a **Spending pattern** sentence → confirm it opens **Activity** already pre-filtered with matching active filter chips!
-   - *(Clean up afterwards via Settings → Clear sample data or Delete all data if needed.)*
+   - [ ] Verify hero `ProgressRing`, single `Edit` button, single `+ Add category budget` dashed row, and collapsible **Past cycles**.
+2. Open **Settings** (via Home avatar):
+   - [ ] Open **Name**, **Budget cycle starts** (`DayOfMonthGrid` 1–28 with live `Current cycle:` preview), and **Appearance** (3 visual swatch cards: `System`, `Light`, `Dark`).
+   - [ ] Verify **Reminders** shows Toggle switch, **Time** row (tapping opens Android native clock dialog), **`S M T W T F S`** circular day toggles, and **`[Every day]` / `[Sun–Thu]`** chips.
+   - [ ] If you test toggling reminder days or time, **revert it back to your preferred schedule** (e.g., Every day, `21:00` / `9:00 PM`) before leaving Settings.
+   - [ ] Confirm Appearance is set back to **System** when done checking Light & Dark themes.
+3. Open **Settings → Categories**:
+   - [ ] Switch `Expense | Income`, tap a category to verify the edit sheet (live preview, **13 color swatches**, **24 Lucide icons**, `Archive category` button), and check that **`Other`** / **`Other Income`** hide the archive button cleanly.
 
 ---
 
-## 5. Tactile, Accessibility & Hardware Layout Checks
+## 5. Offline Persistence, Check-in & Hardware Hygiene
 
-1. **Haptics:** Verify light tactile feedback triggers subtly on primary saves / Confirm & Save / Done actions without feeling jarring.
-2. **Dark Mode:** In **Settings → Appearance**, test **System**, **Light**, and **Dark** against your Android system theme toggle — verify readable contrast and crisp borders on all 5 tabs.
-3. **Large OS Text Scaling:** Go to **Android Settings → Display → Display size and text → increase Font size to Large / Largest**, reopen Budget App:
-   - [ ] Check Overview headline balance, 2×2 metric cards, Quick Entry cards, Insights cards, and Tab Bar labels for clipping or overlapping text.
-4. **Safe Areas & Cutouts:**
-   - [ ] Check top camera punch-hole / status bar padding on Overview, Add Transaction (`New`), Check-in, Quick Entry, and Category detail screens.
-   - [ ] Check bottom gesture bar / 3-button Android navigation bar does not overlap the bottom tab bar or modal Confirm/Save buttons.
-   - [ ] Open the keyboard inside **New Transaction** and **Quick Entry** and verify `KeyboardAvoidingView` keeps the amount/description inputs and Submit button reachable.
-5. **TalkBack *(quick spot-check)*:** Swipe through Overview balance, chart (`accessibilityLabel` narrative summary), Activity search/filters, and `+` button — verify every interactive control announces a clear role and label.
+1. **Force-kill persistence:** Completely swipe **Budget App** from Android Recent Apps, reopen it offline (Wi-Fi/mobile data off if desired), and confirm Home, Activity, Budgets, Insights, and Settings load with zero changes lost.
+2. **Notifications without amounts:** Verify check-in reminder copy on lock screen never shows any currency amounts and tapping it deep-links to `/check-in` (`Today` hero + `Spent | Income | Entries` + `Done for today`).
+3. **Display scaling & cutouts:** Check top status-bar punch-hole padding and bottom 3-button / gesture navigation clearance on Home, Add, Filters sheet, Budget, Insights, Settings, and Categories in both Light and Dark themes.

@@ -79,3 +79,12 @@ Format:
   1. Persist `ReminderSettings.days` as sorted unique `0..6` integers (`0 = Sun .. 6 = Sat`), map legacy `'everyday' -> [0..6]` and `'weekdays' -> [1..5]` (Mon–Fri, matching `D-005`) via `normalizeReminderDays()`, keep `SUN_THU_REMINDER_DAYS = [0..4]` for the `Sun–Thu` preset chip per `DESIGN.md §6.6`, and adapt `d + 1` / `w - 1` at `DayToggles` and `buildReminderTriggerSpecs()`.
   2. Use `animationType="none"` on Web in `Sheet.tsx` (`fade` preserved on native Android/iOS unless `reducedMotion`) so sheets appear opaque immediately without bleed-through from underlying screens or toasts.
 - Easy to reverse? Yes — helpers in `src/domain/types.ts` and one platform condition in `src/ui/Sheet.tsx`.
+
+## D-008 — Real-device Android Fabric fixes & Windows CMake path limit  (Phase 13, 2026-11-13)
+- Question: Full phone QA on the Galaxy S25 Ultra (`v1.1.0` release APK) uncovered four platform-specific issues not visible on Web: (1) Activity `SectionList` rendered zero rows unfiltered and crashed natively (`java.lang.IndexOutOfBoundsException: index=8 count=7` in `ReactClippingViewManager.addView` / `SurfaceMountingManager.addViewAt`) on filter reset; (2) compact `SegmentedControl size="sm"` beside `"Spending"` on Home stretched via `flex: 1` and clipped `"Month"`; (3) dark-mode `Switch` thumbs (`theme.colors.surface` = `#141518`) blended into tracks and disabled dark primary buttons lacked contrast; (4) Windows `MAX_PATH` broke native `assembleRelease` CMake object paths.
+- Chose:
+  1. Set `style={styles.flexOne}` and `removeClippedSubviews={false}` on Activity `SectionList` (`src/app/(tabs)/activity.tsx`).
+  2. Scope `flex: 1` in `SegmentedControl` to `!isCompact` (`optionFill`), add `flexShrink: 1` on `container`/`option`, `numberOfLines={1}` on labels, and `gap: 8` on Home's `sectionRow` (`src/ui/SegmentedControl.tsx`, `src/app/(tabs)/index.tsx`).
+  3. Set `Switch` `thumbColor="#ffffff"` across Settings, Categories, Onboarding Reminder, and Dev Gallery; render disabled dark `variant="primary"` `Button`s with `accentSoft` fill and `'accent'` label at `opacity: 0.72` (`src/ui/Button.tsx`).
+  4. Use a scratch Gradle init script (`CMAKE_OBJECT_PATH_MAX=255` on `:app`, `225` on libraries, short `android/b/<slug>` staging dir removed afterward) for Windows `assembleRelease` without dirtying tracked Android config files.
+- Easy to reverse? Yes — localized component style/prop changes and standalone scratch Gradle init script.

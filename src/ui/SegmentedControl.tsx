@@ -61,6 +61,7 @@ export function SegmentedControl<T extends string>({
             }}
             style={({ pressed }) => [
               styles.option,
+              !isCompact && styles.optionFill,
               active && theme.scheme === 'light' ? theme.cardShadow : null,
               {
                 minHeight: itemMinHeight,
@@ -76,6 +77,7 @@ export function SegmentedControl<T extends string>({
             <AppText
               variant={isCompact ? 'caption' : 'label'}
               color={active ? 'text' : 'textSecondary'}
+              numberOfLines={1}
             >
               {opt.label}
             </AppText>
@@ -90,10 +92,14 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexShrink: 1,
   },
   option: {
-    flex: 1,
+    flexShrink: 1,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  optionFill: {
+    flex: 1,
   },
 });

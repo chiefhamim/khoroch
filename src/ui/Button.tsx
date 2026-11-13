@@ -37,9 +37,14 @@ export function Button({
   const { theme, reducedMotion } = useTheme();
   const isDisabled = disabled || loading;
 
+  const useDarkDisabledPrimary =
+    variant === 'primary' && isDisabled && theme.scheme === 'dark';
+
   const backgroundColor =
     variant === 'primary'
-      ? theme.colors.accent
+      ? useDarkDisabledPrimary
+        ? theme.colors.accentSoft
+        : theme.colors.accent
       : variant === 'secondary'
         ? theme.colors.surfaceRaised
         : variant === 'danger'
@@ -53,7 +58,9 @@ export function Button({
 
   const textColor =
     variant === 'primary'
-      ? 'onAccent'
+      ? useDarkDisabledPrimary
+        ? 'accent'
+        : 'onAccent'
       : variant === 'danger'
         ? 'onDanger'
         : variant === 'dangerSoft'
@@ -90,7 +97,13 @@ export function Button({
           backgroundColor,
           borderColor,
           borderWidth: variant === 'secondary' ? 1 : 0,
-          opacity: isDisabled ? 0.5 : pressed && !reducedMotion ? 0.84 : 1,
+          opacity: isDisabled
+            ? useDarkDisabledPrimary
+              ? 0.72
+              : 0.5
+            : pressed && !reducedMotion
+              ? 0.84
+              : 1,
         },
         style,
       ]}

@@ -1,25 +1,28 @@
-# Budget App
+# Budget App (v1.1.0)
 
-A calm, offline-first personal budget & expense companion built with **Expo SDK 58**, **React Native 0.88**, **TypeScript 6**, **Expo Router**, and **expo-sqlite**.
+A calm, offline-first personal budget & expense companion built with **Expo SDK 58**, **React Native 0.88**, **TypeScript 6**, **Expo Router**, **Lucide Icons**, and **expo-sqlite**.
 
-Know where your money goes, log expenses or income in under 10 seconds (by tapping or typing/saying `"350 taka lunch"`), see your safe-to-spend-today limit, and explore month-to-date comparisons and spending insights — with zero cloud tracking or recurring API fees in v1.
+Know where your money goes, log expenses or income in under 10 seconds (by tapping or typing/saying `"350 taka lunch"`), see your safe-to-spend-today pace aligned to your personal billing cycle, and explore period-to-period comparisons — with zero cloud tracking or recurring API fees.
 
 - **Humans:** read [START-HERE.md](START-HERE.md) and walk [docs/PHONE-TEST.md](docs/PHONE-TEST.md) on your phone.
-- **Coding agents:** read [AGENTS.md](AGENTS.md) first, then [docs/PROGRESS.md](docs/PROGRESS.md).
+- **Coding agents:** read [AGENTS.md](AGENTS.md) first, then [docs/PROGRESS.md](docs/PROGRESS.md) and [docs/ui-overhaul/DESIGN.md](docs/ui-overhaul/DESIGN.md).
 
 ---
 
-## Features in v1
+## Features in v1.1
 
-- **Overview dashboard:** Remaining monthly budget, spent vs budget progress bar, today's safe-to-spend pace, quick 2×2 key metrics (Spent, Income, Daily avg, Largest expense with `ⓘ` formula popups), interactive SVG Daily/Weekly/Monthly spending chart, Top categories breakdown, Recent activity, and 1-tap shortcuts to Quick Entry and Daily Check-in.
-- **Fast transaction logging & Quick Entry:** Manual keypad form (`+` FAB) and local Quick Entry parser (`"350 taka lunch"`, `"২৫০ টাকা রিকশা"`, `"Spent 500 on Uber and 200 on coffee"`, `"50000 salary"`). Always presents editable drafts for explicit confirmation before saving; never guesses missing amounts or categories. Microphone input appears automatically on development builds (`expo-speech-recognition`) and hides gracefully in Expo Go.
-- **Activity search & filters:** Keyset-paginated (`LIMIT 30`) `FlatList` grouped by local calendar date with live daily totals, 250ms debounced description/note search, multi-criteria Filters modal (type, category, date range presets + custom dates, min/max amount), removable active-filter chips, and edit/soft-delete detail screen.
-- **Budgets:** Monthly overall budget (`monthStartDay` 1–28), per-category budgets, unallocated summary badge, copy-forward when entering a new period, and category drill-down.
-- **Insights:** 7 period presets (`This week`, `This month`, `Last month`, `3 months`, `6 months`, `This year`, `Custom`), equivalent-day MTD comparison, complete-months comparison, 4 spending averages, top/most-frequent/most-expensive cards, MTD category changes, gated spending pattern sentences (shown only once enough data exists), interactive monthly SVG history chart (`accessibilityLabel` narrative summary), and 1-tap drilldown from any insight to pre-filtered Activity.
-- **Daily Check-in & Local Reminders:** Evening notification reminder (`expo-notifications`, everyday or weekdays, non-sensitive copy without amounts) deep-linking to `/check-in`, plus explicit zero-spend `"Done for today"` day review without fake transactions.
-- **Privacy & Design:** 100% local SQLite storage with parameterized queries, integer minor-unit money math, WCAG AA light & dark palettes, reduced-motion respect, and full accessibility labels/roles.
+- **Calm Home dashboard:** Hero **Left to spend** card with `On track` / `Watch` / `Over` pill, progress bar, `Safe today | Spent | Income` strip, no-budget inline CTA, new-cycle banner into Insights, inline `Day | Week | Month` bar chart, Top categories breakdown, Recent activity rows, and avatar `(H)` shortcut to Settings.
+- **v2 Navigation shell:** Clean 5-slot bottom bar (`Home · Activity · [ + ] · Budget · Insights`) with a centered accent `+` button (`tap` → Add transaction, `long-press` → Quick Entry), while **Settings** and **Categories** live as pushed stack routes.
+- **Fast Add, Edit & Quick Entry:**
+  - Hero amount display (`tabular-nums`), pinned custom keypad that hides automatically while typing descriptions/notes, native Android calendar & clock dialogs (`DateField` / `TimeField` with `Add time` support), `4×2` category grid ordered by recency + frequency (never preselected) with `"All…"` sheet & inline `+ New category`, strict per-`(type, category)` suggestion chips, two-step Delete bottom sheet, and subtle confirmation toasts.
+  - Local Quick Entry parser (`"350 taka lunch"`, `"২৫০ টাকা রিকশা"`, `"Spent 500 on Uber and 200 on coffee"`, `"50000 salary"`) producing editable draft cards before saving; mic capture auto-hides gracefully when native speech isn't present.
+- **Activity search & Filters sheet:** Keyset-paginated `SectionList` grouped by local calendar date with sticky date + net headers (`+`/`−`), wrapped period chip (`All dates`, `Today`, `This week`, `This cycle`, `Last cycle`, `Custom`) + live `Spent · Income` line, debounced search, and multi-criteria Filters bottom sheet (Type, multi-select category tiles, date presets + two `DateField`s, min/max amount, Reset / Show N results).
+- **Budgets:** Circular `ProgressRing` hero, `Edit` sheet with keypad, single `+ Add category budget` row, unallocated amount indicator, and collapsible **Past cycles** formatted via `formatCycleLabel` (e.g. `10 Oct – 9 Nov`).
+- **Insights:** Period dropdown sheet (`This week`, `This cycle`, `Last cycle`, `3 cycles`, `6 cycles`, `This year`, `Custom`), plain-language comparison (`"You've spent ... so far"` with two scaled bars), Last complete cycle card (`10 Oct – 9 Nov vs 10 Sep – 9 Oct`), gated spending pattern observations, `2×2` Averages, Biggest + Changes lists, and multi-cycle SVG bar chart with 1-tap drilldown into pre-filtered Activity.
+- **Settings, Categories & Daily Check-in:** Grouped Settings sections (`GENERAL`, `REMINDERS`, `DATA`, `ABOUT`), interactive 1–28 `DayOfMonthGrid` with live `Current cycle:` preview, 3 visual Appearance swatches (`System` / `Light` / `Dark`), custom reminder days (`days: number[]` with `Every day` / `Sun–Thu` presets & native clock dialog without lock-screen amounts), 3-column Lucide Category tile grid with 13 pastel colors × 24 icons (protecting `other` / `other_income` from archival), and `Today` Check-in review screen.
+- **Privacy & Design:** 100% local SQLite storage with additive schema migrations (`v1` → `v2`), integer minor-unit math, WCAG AA light & dark palettes verified by unit tests, reduced-motion respect, haptics, and full accessibility labels/roles.
 
-For items intentionally deferred to v2 (accounts/transfers, recurring transactions, CSV export, cloud Gemini AI proxy, encryption/app lock, full Bangla UI translation), see [docs/SPEC.md](docs/SPEC.md) (`DECISIONS` block) and [docs/COSTS.md](docs/COSTS.md).
+For items deferred to v2 (accounts/transfers, recurring transactions, CSV export, cloud Gemini AI proxy, encryption/app lock, full Bangla UI translation), see [docs/SPEC.md](docs/SPEC.md) (`DECISIONS` block) and [docs/COSTS.md](docs/COSTS.md).
 
 ---
 
@@ -27,14 +30,14 @@ For items intentionally deferred to v2 (accounts/transfers, recurring transactio
 
 ### Prerequisites
 - Node.js + npm
-- **Expo Go** on Android (or an Android/iOS development build for native microphone speech recognition)
+- Android SDK + Java 21 (for standalone release APK builds) or **Expo Go** on Android
 
 ### Commands
 
 ```bash
 npm install
 
-# Start Metro bundler (scan the QR code with Expo Go on Android)
+# Start Metro bundler
 npx expo start
 
 # Run in Chrome web preview
@@ -44,9 +47,11 @@ npm run web
 npm run typecheck
 npx expo lint
 npm test
-```
 
-If you edit files inside Android/iOS native modules or config plugins (`expo-notifications`, `expo-speech-recognition`), build a development client rather than Expo Go to exercise device mic capture.
+# Standalone signed-with-debug-key release APK (keeps user data via adb install -r)
+npx expo prebuild -p android
+cd android && ./gradlew assembleRelease
+```
 
 ---
 
@@ -56,29 +61,28 @@ If you edit files inside Android/iOS native modules or config plugins (`expo-not
 budget-app/
 ├── src/
 │   ├── app/                  # Expo Router screens
-│   │   ├── (tabs)/           # Bottom tabs: overview (index), activity, budget, insights, settings
+│   │   ├── (tabs)/           # 5-slot V2TabBar: index (Home), activity, budget, insights + [+]
 │   │   ├── onboarding/       # 6-step first-run wizard (welcome, prefs, budget, categories, reminder, done)
 │   │   ├── category/         # Period breakdown per category ([id].tsx)
-│   │   ├── settings/         # Category management & archive (categories.tsx)
+│   │   ├── settings/         # Pushed Settings (index.tsx) & Categories 3-col grid (categories.tsx)
 │   │   ├── transaction/      # Create (new.tsx) and edit/delete ([id].tsx) screens
+│   │   ├── dev/              # __DEV__ v2 Component gallery (gallery.tsx)
 │   │   ├── quick-entry.tsx   # Natural-language / voice draft parser & confirmation
 │   │   ├── check-in.tsx      # Daily evening summary & review confirmation
 │   │   └── _layout.tsx       # Root providers, onboarding gate, notification resync & deep-link
-│   ├── data/                 # StorageRepository interface, SQLite repo + migrations, MemoryRepo, sampleData
-│   ├── domain/               # Pure business logic: money, dates, period, calc, insights, categories, validation
+│   ├── data/                 # StorageRepository, SQLite repo + additive v2 migration, MemoryRepo, sampleData
+│   ├── domain/               # Pure logic: money, dates, period/cycle labels, calc, insights, categories, validation
 │   ├── i18n/                 # Typed translation keys (en.ts, structure ready for bn in v2)
-│   ├── notifications/        # Local reminder trigger builder & guarded expo-notifications scheduler
-│   ├── state/                # AppContext, Zustand filter/onboarding/dataVersion stores, reactive hooks
-│   ├── theme/                # Design tokens (4pt grid, typography, light/dark WCAG AA palettes) & ThemeProvider
-│   ├── ui/                   # Reusable accessible components (AmountPad, SpendingChart, Card, ListRow, etc.)
+│   ├── notifications/        # Weekly multi-day reminder scheduler & legacy reminder converter
+│   ├── state/                # AppContext, Zustand stores, reactive dashboard/transaction hooks
+│   ├── theme/                # v2 Design tokens (4pt grid, typography, light/dark WCAG AA palettes, categoryColors)
+│   ├── ui/                   # v2 UI primitives (Surface, IconTile, Sheet, Keypad, DateField, TimeField, SpendingChart, etc.)
 │   └── voice/                # Local bilingual-digit parser & guarded expo-speech-recognition wrapper
 └── docs/
-    ├── SPEC.md               # Product specification & authoritative v1 DECISIONS
-    ├── ARCHITECTURE.md       # System structure, DB schema, calc API, design tokens
-    ├── TEST-CASES.md         # Canonical fixtures for math & voice parsing
-    ├── PROGRESS.md           # Implementation checklist, verification log & Morning summary
-    ├── DECISIONS-LOG.md      # Implementation choices logged during the build
-    ├── COSTS.md              # Local vs optional v2 cloud cost breakdown (SPEC §19.3)
-    ├── PHONE-TEST.md         # Step-by-step Android device testing checklist
-    └── screenshots/          # Web preview screenshots inspected across Phases 1–5
+    ├── SPEC.md               # Product specification & authoritative DECISIONS
+    ├── ARCHITECTURE.md       # System structure, DB schema, calc API
+    ├── PROGRESS.md           # Checklist, verification log & v1.1 summary
+    ├── DECISIONS-LOG.md      # Implementation choices (D-001 – D-007)
+    ├── PHONE-TEST.md         # Android verification checklist (v1.1)
+    └── ui-overhaul/          # v1.1 DESIGN.md, mockup.html, compare.html, before/ & after/ captures
 ```

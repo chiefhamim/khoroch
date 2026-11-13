@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Budget App v1.1 — Complete Before &amp; After UI Comparison (Phases 7–13)</title>
+<style>
+  :root {
+    --page-bg: #eef0f3;
+    --card-bg: #ffffff;
+    --surface-2: #f6f7f9;
+    --border: #dfe3e8;
+    --text: #0b0b0d;
+    --text-2: #5c5f66;
+    --accent: #097a52;
+    --accent-soft: #e4f5ee;
+    --badge-before-bg: #f1f3f5;
+    --badge-before-fg: #495057;
+    --shadow: 0 2px 10px rgba(11, 11, 13, 0.06);
+  }
+  [data-theme="dark"] {
+    --page-bg: #08080a;
+    --card-bg: #151518;
+    --surface-2: #101013;
+    --border: #25252b;
+    --text: #f4f4f5;
+    --text-2: #a1a1aa;
+    --accent: #34d399;
+    --accent-soft: #10291f;
+    --badge-before-bg: #232329;
+    --badge-before-fg: #c2c4cc;
+    --shadow: none;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+    padding-bottom: 72px;
+  }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .title-block h1 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+  .title-block p {
+    font-size: 13px;
+    color: var(--text-2);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+  .pill-group {
+    display: inline-flex;
+    flex-wrap: wrap;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 2px;
+  }
+  button.ctrl {
+    border: 0;
+    background: transparent;
+    color: var(--text-2);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 6px 12px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  button.ctrl.active {
+    background: var(--card-bg);
+    color: var(--text);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  .wrap {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .summary-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+  }
+  .stat-card .k {
+    font-size: 12px;
+    color: var(--text-2);
+    font-weight: 500;
+  }
+  .stat-card .v {
+    margin-top: 4px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    letter-spacing: 0.1px;
+  }
+  .badge.done { background: var(--accent-soft); color: var(--accent); }
+  .badge.before { background: var(--badge-before-bg); color: var(--badge-before-fg); }
+
+  .section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+  .section.hidden { display: none; }
+  .section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+  .section-head h2 {
+    font-size: 17px;
+    font-weight: 600;
+  }
+  .section-desc {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-bottom: 16px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 16px;
+  }
+  .shot {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .shot-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .shot-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .shot-sub {
+    font-size: 11px;
+    color: var(--text-2);
+  }
+  .shot img {
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    cursor: zoom-in;
+    display: block;
+    background: #000;
+  }
+  .variant-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .variant-pair.single {
+    grid-template-columns: 1fr;
+  }
+  .variant-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .variant-label {
+    font-size: 11px;
+    color: var(--text-2);
+    text-align: center;
+    font-weight: 500;
+  }
+  .lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    background: rgba(0, 0, 0, 0.82);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .lightbox.open { display: flex; }
+  .lightbox-inner {
+    max-width: 92vw;
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+  .lightbox img {
+    max-width: 100%;
+    max-height: 82vh;
+    border-radius: 16px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  }
+  .lightbox-cap {
+    color: #f4f4f5;
+    font-size: 13px;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="title-block">
+      <h1>Budget App v1.1 UI Overhaul — Before &amp; After</h1>
+      <p>Complete v1.1 overhaul across Phases 7–13 (click any screenshot to zoom)</p>
+    </div>
+    <div class="controls">
+      <div class="pill-group" id="phaseFilter">
+        <button class="ctrl active" data-filter="all">All</button>
+        <button class="ctrl" data-filter="home">Home &amp; Budget</button>
+        <button class="ctrl" data-filter="activity">Activity &amp; Insights</button>
+        <button class="ctrl" data-filter="entry">Add / Edit / Quick</button>
+        <button class="ctrl" data-filter="settings">Settings / Cats / Onboarding</button>
+        <button class="ctrl" data-filter="gallery">Component Gallery</button>
+      </div>
+      <div class="pill-group" id="afterMode">
+        <button class="ctrl active" data-after="both">Light + Dark</button>
+        <button class="ctrl" data-after="light">Light only</button>
+        <button class="ctrl" data-after="dark">Dark only</button>
+      </div>
+      <div class="pill-group" id="pageTheme">
+        <button class="ctrl active" data-ui="light">Page Light</button>
+        <button class="ctrl" data-ui="dark">Page Dark</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="summary-strip">
+      <div class="stat-card">
+        <div class="k">Phase 7 · Foundations (`0b4452a`)</div>
+        <div class="v"><span class="badge done">Done</span> 22 v2 primitives, Lucide, SQLite v2</div>
+      </div>
+      <div class="stat-card">
+        <div class="k">Phase 8 · Navigation (`8762b7e`)</div>
+        <div class="v"><span class="badge done">Done</span> 5-slot bar, center `+`, Settings stack</div>
+      </div>
+      <div class="stat-card">
+        <div class="k">Phase 9 · Entry (`5a8a517`)</div>
+        <div class="v"><span class="badge done">Done</span> Hero keypad, no preselect, sheets</div>
+      </div>
+      <div class="stat-card">
+        <div class="k">Phase 10 · Home &amp; Budget (`7183f2a`)</div>
+        <div class="v"><span class="badge done">Done</span> Left to spend, ring, chart, cycle labels</div>
+      </div>
+      <div class="stat-card">
+        <div class="k">Phase 11 · Activity &amp; Insights (`3f15425`)</div>
+        <div class="v"><span class="badge done">Done</span> Sticky headers, filter sheet, cycle cards</div>
+      </div>
+      <div class="stat-card">
+        <div class="k">Phase 12–13 · Settings &amp; Release (`c20d3b9`+)</div>
+        <div class="v"><span class="badge done">Done</span> Clock dialog, 13-color tiles, 1.1.0 APK</div>
+      </div>
+    </section>
+
+    <!-- HOME & BUDGET -->
+    <section class="section" data-section="home">
+      <div class="section-head">
+        <h2>Home &amp; Budget (Before v1 vs After v1.1)</h2>
+        <span class="badge done">Phases 8 &amp; 10 &amp; 13 · 360 / 390 / 430</span>
+      </div>
+      <p class="section-desc">
+        Replaced v1 "No budget set" bulk cards, 2×2 info grid, and overlapping floating FAB with hero "Left to spend", inline Day|Week|Month chart, new-cycle banner, ProgressRing, and single "+ Add category budget" row.
+      </p>
+      <div class="grid">
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">v1 Before · Overview</span>
+            <span class="badge before">Before</span>
+          </div>
+          <img src="before/01-overview.png" alt="v1 Overview before overhaul">
+          <span class="shot-sub">v1 stacked cards, 2×2 metrics, floating FAB</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Home (360px Light &amp; Dark)</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Light</span>
+              <img src="after/phase-13/home-light-360.png" alt="v1.1 Home 360px Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark</span>
+              <img src="after/phase-13/home-dark-360.png" alt="v1.1 Home 360px Dark">
+            </div>
+          </div>
+          <span class="shot-sub">Hero card, On track pill, new-cycle banner, inline switcher</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">v1 Before · Overview Chart &amp; Recent</span>
+            <span class="badge before">Before</span>
+          </div>
+          <img src="before/02-overview-scroll1.png" alt="v1 Overview scrolled before">
+          <span class="shot-sub">Old FAB overlaps amount column on scrolled rows</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Home Scrolled &amp; Wide (430px)</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">430px Light</span>
+              <img src="after/phase-13/home-light-430.png" alt="v1.1 Home 430px Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Recent Dark</span>
+              <img src="after/phase-10/home-scroll-dark-360.png" alt="v1.1 Home scrolled Dark">
+            </div>
+          </div>
+          <span class="shot-sub">Zero FAB overlap; Lucide icon tiles &amp; colored category bars</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">v1 Before · Budget</span>
+            <span class="badge before">Before</span>
+          </div>
+          <img src="before/06-budget.png" alt="v1 Budget before overhaul">
+          <span class="shot-sub">Duplicate "Add category" buttons + empty box card</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Budget Ring &amp; Editor</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">390px Light</span>
+              <img src="after/phase-13/budget-light-390.png" alt="v1.1 Budget Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark</span>
+              <img src="after/phase-13/budget-dark-360.png" alt="v1.1 Budget Dark">
+            </div>
+          </div>
+          <span class="shot-sub">ProgressRing hero, single "+ Add category budget" row</span>
+        </article>
+      </div>
+    </section>
+
+    <!-- ACTIVITY & INSIGHTS -->
+    <section class="section" data-section="activity">
+      <div class="section-head">
+        <h2>Activity &amp; Insights (Before v1 vs After v1.1)</h2>
+        <span class="badge done">Phases 11 &amp; 13</span>
+      </div>
+      <p class="section-desc">
+        Grouped Activity surfaces with sticky net-total headers, neutral/accent hierarchy, and Filters bottom sheet. Insights now uses plain-language cycle summaries ("10 Oct – 9 Nov vs 10 Sep – 9 Oct") instead of calendar months or comparison jargon.
+      </p>
+      <div class="grid">
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">v1 Before · Activity</span>
+            <span class="badge before">Before</span>
+          </div>
+          <img src="before/05-activity.png" alt="v1 Activity before">
+          <span class="shot-sub">No period dropdown, missing live totals summary</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Activity Feed</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Light</span>
+              <img src="after/phase-13/activity-light-360.png" alt="v1.1 Activity Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark</span>
+              <img src="after/phase-13/activity-dark-360.png" alt="v1.1 Activity Dark">
+            </div>
+          </div>
+          <span class="shot-sub">Search pill, period chip, sticky date + net header</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Filters Sheet</span>
+            <span class="badge done">After · Phase 11</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Light</span>
+              <img src="after/phase-13/filters-light-360.png" alt="v1.1 Filters sheet Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark</span>
+              <img src="after/phase-13/filters-dark-360.png" alt="v1.1 Filters sheet Dark">
+            </div>
+          </div>
+          <span class="shot-sub">Multi-select categories, presets + pinned Apply footer</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">v1 Before · Insights</span>
+            <span class="badge before">Before</span>
+          </div>
+          <img src="before/07-insights.png" alt="v1 Insights before">
+          <span class="shot-sub">Old "prior comparison window" &amp; wrong "Oct 2026" labels</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Insights Cycles</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">430px Light</span>
+              <img src="after/phase-13/insights-light-430.png" alt="v1.1 Insights Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">360px Dark</span>
+              <img src="after/phase-13/insights-dark-360.png" alt="v1.1 Insights Dark">
+            </div>
+          </div>
+          <span class="shot-sub">"10 Oct – 9 Nov vs 10 Sep – 9 Oct" via formatCycleLabel</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Period Sheet &amp; History</span>
+            <span class="badge done">After · Phase 11</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Period Sheet Light</span>
+              <img src="after/phase-11/insights-period-sheet-light-360.png" alt="Insights period sheet Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">History Chart Dark</span>
+              <img src="after/phase-11/insights-scroll-dark-360.png" alt="Insights history Dark">
+            </div>
+          </div>
+          <span class="shot-sub">7 presets including "This cycle" &amp; cycle SVG bar chart</span>
+        </article>
+      </div>
+    </section>
+
+    <!-- ADD / EDIT / QUICK ENTRY -->
+    <section class="section" data-section="entry">
+      <div class="section-head">
+        <h2>Add / Edit Transaction &amp; Quick Entry</h2>
+        <span class="badge done">Phases 9 &amp; 13</span>
+      </div>
+      <p class="section-desc">
+        v2 hero amount + pinned keypad that hides when typing descriptions, zero preselected category, strict per-(type, category) suggestion chips, native calendar/clock pickers, and two-step Edit delete confirmation sheet.
+      </p>
+      <div class="grid">
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">v1 Before · Add &amp; Date Dialog</span>
+            <span class="badge before">Before</span>
+          </div>
+          <img src="before/09-add.png" alt="v1 Add screen before">
+          <span class="shot-sub">Preselected Food, leaked Income suggestions, flat rows</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Add Initial</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Light</span>
+              <img src="after/phase-13/add-light-360.png" alt="v1.1 Add Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark</span>
+              <img src="after/phase-13/add-dark-360.png" alt="v1.1 Add Dark">
+            </div>
+          </div>
+          <span class="shot-sub">Ordered 4×2 category grid + Save CTA pinned</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Transaction Detail / Edit</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Light</span>
+              <img src="after/phase-13/tx-detail-light-360.png" alt="v1.1 Edit Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark</span>
+              <img src="after/phase-13/tx-detail-dark-360.png" alt="v1.1 Edit Dark">
+            </div>
+          </div>
+          <span class="shot-sub">Edit values + header `⋯` actions &amp; Delete confirm sheet</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Quick Entry Drafts</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Light</span>
+              <img src="after/phase-13/quick-entry-light-360.png" alt="v1.1 Quick Entry Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark</span>
+              <img src="after/phase-13/quick-entry-dark-360.png" alt="v1.1 Quick Entry Dark">
+            </div>
+          </div>
+          <span class="shot-sub">Natural-language &amp; multi-item drafts parsed locally</span>
+        </article>
+      </div>
+    </section>
+
+    <!-- SETTINGS / CATEGORIES / ONBOARDING / CHECK-IN -->
+    <section class="section" data-section="settings">
+      <div class="section-head">
+        <h2>Settings, Categories, Check-in &amp; Onboarding</h2>
+        <span class="badge done">Phases 12 &amp; 13</span>
+      </div>
+      <p class="section-desc">
+        Settings promoted to a clean stack route reached from Home `(H)`. Features DayOfMonthGrid + live cycle preview, 3 visual Appearance swatches, `days: number[]` toggles + clock dialog, 13-color/24-icon Categories grid, v2 Check-in, and OnboardingHeader.
+      </p>
+      <div class="grid">
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">v1 Before · Settings</span>
+            <span class="badge before">Before</span>
+          </div>
+          <img src="before/08-settings.png" alt="v1 Settings before">
+          <span class="shot-sub">`- 10 +` stepper, old 24h pills, lived inside tab bar</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Settings Grouped Stack</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Top Light</span>
+              <img src="after/phase-12/settings-top-light-360.png" alt="Settings top Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Reminders Dark</span>
+              <img src="after/phase-13/settings-dark-360.png" alt="Settings Reminders Dark">
+            </div>
+          </div>
+          <span class="shot-sub">Back header, `(H)` profile row, DayToggles + Every day / Sun–Thu</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Cycle &amp; Appearance Sheets</span>
+            <span class="badge done">After · Phase 12</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Cycle Grid Light</span>
+              <img src="after/phase-12/settings-cycle-sheet-light-360.png" alt="Cycle sheet Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Theme Swatches Dark</span>
+              <img src="after/phase-12/settings-appearance-sheet-dark-360.png" alt="Appearance sheet Dark">
+            </div>
+          </div>
+          <span class="shot-sub">1–28 DayOfMonthGrid + live preview &amp; System/Light/Dark cards</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Categories 3-Col Tile Grid</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Light Grid</span>
+              <img src="after/phase-12/categories-grid-light-360.png" alt="Categories grid Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark Grid</span>
+              <img src="after/phase-13/categories-dark-360.png" alt="Categories grid Dark">
+            </div>
+          </div>
+          <span class="shot-sub">13-color pastel Lucide tiles + crisp labels on 360px</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Category Edit Sheet</span>
+            <span class="badge done">After · Phase 12</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Light</span>
+              <img src="after/phase-12/categories-edit-sheet-light-360.png" alt="Edit category Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark</span>
+              <img src="after/phase-12/categories-edit-sheet-dark-360.png" alt="Edit category Dark">
+            </div>
+          </div>
+          <span class="shot-sub">Live preview, 13 swatches, 24 icons, Archive guard on Other</span>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">After · Check-in &amp; Onboarding</span>
+            <span class="badge done">After · v1.1</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Check-in Light</span>
+              <img src="after/phase-13/check-in-light-360.png" alt="Check-in Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Onboarding Step 5 Dark</span>
+              <img src="after/phase-12/onboarding-5-dark-360.png" alt="Onboarding Step 5 Dark">
+            </div>
+          </div>
+          <span class="shot-sub">Today stat strip + Done for today, OnboardingHeader dots</span>
+        </article>
+      </div>
+    </section>
+
+    <!-- PHASE 7: V2 DESIGN SYSTEM GALLERY -->
+    <section class="section" data-section="gallery">
+      <div class="section-head">
+        <h2>Phase 7 — v2 Design System Component Gallery</h2>
+        <span class="badge done">Done · Light + Dark</span>
+      </div>
+      <p class="section-desc">
+        All 22 v2 primitives built before screen migration: Surface, ProgressRing, Money (tabular numerals), DateField/TimeField, Keypad, DayToggles, DayOfMonthGrid, SettingsGroup, Banner, ToastView, and Lucide icon tiles.
+      </p>
+      <div class="grid">
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">Gallery · Top (ProgressRing, Tiles, Inputs)</span>
+            <span class="badge done">Phase 7</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Light</span>
+              <img src="after/phase-7/gallery-light-top.png" alt="Phase 7 gallery top Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark</span>
+              <img src="after/phase-7/gallery-dark-top.png" alt="Phase 7 gallery top Dark">
+            </div>
+          </div>
+        </article>
+
+        <article class="shot">
+          <div class="shot-head">
+            <span class="shot-title">Gallery · Bottom (Keypad, DayToggles, Toast)</span>
+            <span class="badge done">Phase 7</span>
+          </div>
+          <div class="variant-pair after-pair">
+            <div class="variant-col" data-scheme="light">
+              <span class="variant-label">Light</span>
+              <img src="after/phase-7/gallery-light-bottom.png" alt="Phase 7 gallery bottom Light">
+            </div>
+            <div class="variant-col" data-scheme="dark">
+              <span class="variant-label">Dark</span>
+              <img src="after/phase-7/gallery-dark-bottom.png" alt="Phase 7 gallery bottom Dark">
+            </div>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <div class="lightbox" id="lightbox" aria-hidden="true">
+    <div class="lightbox-inner">
+      <img id="lightboxImg" src="" alt="">
+      <div class="lightbox-cap" id="lightboxCap"></div>
+    </div>
+  </div>
+
+<script>
+  const filterBtns = document.querySelectorAll('#phaseFilter button');
+  const sections = document.querySelectorAll('.section[data-section]');
+  filterBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      filterBtns.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      const f = btn.dataset.filter;
+      sections.forEach((sec) => {
+        sec.classList.toggle('hidden', f !== 'all' && sec.dataset.section !== f);
+      });
+    });
+  });
+
+  const afterBtns = document.querySelectorAll('#afterMode button');
+  afterBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      afterBtns.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      const mode = btn.dataset.after;
+      document.querySelectorAll('.after-pair').forEach((pair) => {
+        pair.classList.toggle('single', mode !== 'both');
+        pair.querySelectorAll('.variant-col').forEach((col) => {
+          col.style.display = mode === 'both' || col.dataset.scheme === mode ? 'flex' : 'none';
+        });
+      });
+    });
+  });
+
+  const uiBtns = document.querySelectorAll('#pageTheme button');
+  uiBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      uiBtns.forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.documentElement.setAttribute('data-theme', btn.dataset.ui);
+    });
+  });
+
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  const lightboxCap = document.getElementById('lightboxCap');
+  document.querySelectorAll('.shot img').forEach((img) => {
+    img.addEventListener('click', () => {
+      lightboxImg.src = img.src;
+      lightboxImg.alt = img.alt;
+      lightboxCap.textContent = img.alt;
+      lightbox.classList.add('open');
+      lightbox.setAttribute('aria-hidden', 'false');
+    });
+  });
+  lightbox.addEventListener('click', () => {
+    lightbox.classList.remove('open');
+    lightbox.setAttribute('aria-hidden', 'true');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && lightbox.classList.contains('open')) {
+      lightbox.classList.remove('open');
+    }
+  });
+</script>
+</body>
+</html>

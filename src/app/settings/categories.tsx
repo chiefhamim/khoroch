@@ -455,7 +455,7 @@ export default function CategoriesScreen() {
             value={isSelectedInput}
             onValueChange={setIsSelectedInput}
             trackColor={{ false: theme.colors.surfaceSunken, true: theme.colors.accent }}
-            thumbColor={theme.colors.surface}
+            thumbColor="#ffffff"
           />
         </View>
       </Sheet>

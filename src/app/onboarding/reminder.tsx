@@ -96,7 +96,7 @@ export default function OnboardingReminderScreen() {
                 value={reminderEnabled}
                 onValueChange={setReminderEnabled}
                 trackColor={{ false: theme.colors.surfaceSunken, true: theme.colors.accent }}
-                thumbColor={theme.colors.surface}
+                thumbColor="#ffffff"
               />
             }
           />

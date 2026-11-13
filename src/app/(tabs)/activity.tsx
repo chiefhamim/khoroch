@@ -582,6 +582,7 @@ export default function ActivityScreen() {
       ) : (
         <SectionList<Transaction, ActivitySection>
           testID="activity-flatlist"
+          style={styles.flexOne}
           sections={sections}
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled
@@ -589,7 +590,8 @@ export default function ActivityScreen() {
           initialNumToRender={16}
           maxToRenderPerBatch={16}
           windowSize={9}
-          removeClippedSubviews={Platform.OS !== 'web'}
+          // Fabric on Android throws IndexOutOfBoundsException in ReactClippingViewManager when clipped subviews update
+          removeClippedSubviews={false}
           contentContainerStyle={{
             paddingBottom: tabScrollPadding,
           }}

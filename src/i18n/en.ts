@@ -471,7 +471,6 @@ export const en = {
   'categoryDetail.loadError': 'Could not load category transactions.',
   'categories.loadError': 'Could not load categories.',
   'categories.errorSaveFailed': 'Could not save category changes. Please try again.',
-  'metricCard.about': 'About {label}',
 } as const;
 
 export type TranslationKey = keyof typeof en;
