@@ -27,15 +27,10 @@ import { Screen } from '@/ui/Screen';
 import { SectionHeader } from '@/ui/SectionHeader';
 import { SpendingChart } from '@/ui/SpendingChart';
 
-function buildGreeting(hour: number, name: string): string {
-  const base =
-    hour < 12
-      ? t('overview.goodMorning')
-      : hour < 17
-        ? t('overview.goodAfternoon')
-        : t('overview.goodEvening');
-  const trimmed = name.trim();
-  return trimmed.length > 0 ? `${base}, ${trimmed}` : base;
+function buildGreeting(hour: number): string {
+  if (hour < 12) return t('overview.goodMorning');
+  if (hour < 17) return t('overview.goodAfternoon');
+  return t('overview.goodEvening');
 }
 
 export interface OverviewContentProps {
@@ -68,8 +63,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const [infoDialog, setInfoDialog] = useState<{ title: string; body: string } | null>(null);
 
   const hour = hourOverride ?? new Date().getHours();
-  const greeting = buildGreeting(hour, settings.name);
+  const greeting = buildGreeting(hour);
+  const trimmedName = settings.name.trim();
+  const avatarInitial = trimmedName.length > 0 ? trimmedName[0].toUpperCase() : 'Y';
   const readableDate = formatWeekdayShortDate(today);
+  const subtitleLine =
+    trimmedName.length > 0 ? `${trimmedName} · ${readableDate}` : readableDate;
 
   if (error && !loading) {
     return (
@@ -120,34 +119,37 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
 
   return (
     <Screen scroll bottomSpacer>
-      {/* Greeting & Date + Settings shortcut */}
+      {/* Greeting & Date + Avatar -> Settings */}
       <View style={styles.headerRow}>
         <View style={styles.headerText}>
           <AppText variant="title" numberOfLines={1}>
             {greeting}
           </AppText>
-          <AppText variant="caption" color="textMuted">
-            {readableDate}
+          <AppText variant="label" color="textSecondary" numberOfLines={1}>
+            {subtitleLine}
           </AppText>
         </View>
         <Pressable
           testID="overview-settings-shortcut"
           accessibilityRole="button"
           accessibilityLabel={t('tabs.settings')}
-          onPress={() => router.push('/(tabs)/settings')}
+          hitSlop={6}
+          onPress={() => router.push('/settings' as never)}
           style={({ pressed }) => [
-            styles.settingsBtn,
+            styles.avatarBtn,
             {
-              width: theme.touch.min,
-              height: theme.touch.min,
-              borderRadius: theme.radius.pill,
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-              opacity: pressed && !reducedMotion ? 0.75 : 1,
+              backgroundColor: theme.colors.accentSoft,
+              transform: [{ scale: pressed && !reducedMotion ? 0.97 : 1 }],
+              opacity: pressed ? 0.85 : 1,
             },
           ]}
         >
-          <Ionicons name="settings-outline" size={20} color={theme.colors.text} />
+          <AppText
+            variant="bodyStrong"
+            style={{ color: theme.colors.accent, fontWeight: '600' }}
+          >
+            {avatarInitial}
+          </AppText>
         </Pressable>
       </View>
 
@@ -561,8 +563,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  settingsBtn: {
-    borderWidth: 1,
+  avatarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },

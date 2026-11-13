@@ -146,6 +146,7 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
   info: Info,
   bell: Bell,
   list: List,
+  'pie-chart': ChartPie,
   'chart-pie': ChartPie,
   'chart-column': ChartColumn,
   settings: Settings,

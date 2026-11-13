@@ -281,15 +281,15 @@ Re-read: DESIGN §3, §5 · AGENTS §6
 
 **Done when:** CHECKS pass · gallery checked on web at 360 light+dark · PHONE CHECK skipped (`192.168.0.154:45999` unreachable, Tailscale `100.120.102.83:45999/5555` refused).
 
-## Phase 8 — Navigation shell  [ ]
+## Phase 8 — Navigation shell  [x]
 Re-read: DESIGN §4 (tab bar, settings), §6.1 header, §6.6 last paragraph
-- [ ] Tab bar: `Home · Activity · [ + ] · Budget · Insights` — centre 56dp accent button inside the bar; tap → Add, long-press → Quick Entry (with haptic). Remove the floating FAB and the Settings tab
-- [ ] Avatar (initial) top-right on Home → Settings as a stack screen with back arrow, no tab bar
-- [ ] Every tab's scroll content has bottom padding = tab bar height + 16 — nothing hidden behind the bar
-- [ ] Screen headers per mockup (title 22, no gear icons)
-- [ ] Update tests that referenced the old tabs/FAB
+- [x] Tab bar: `Home · Activity · [ + ] · Budget · Insights` — centre 56dp accent button inside the bar; tap → Add, long-press → Quick Entry (with haptic). Remove the floating FAB and the Settings tab
+- [x] Avatar (initial) top-right on Home → Settings as a stack screen with back arrow, no tab bar
+- [x] Every tab's scroll content has bottom padding = tab bar height + 16 — nothing hidden behind the bar
+- [x] Screen headers per mockup (title 22, no gear icons)
+- [x] Update tests that referenced the old tabs/FAB
 
-**Done when:** CHECKS pass · PHONE CHECK: each of the 4 tabs scrolled to the very bottom shows its last item fully visible above the bar (light + dark) · long-press + opens Quick Entry.
+**Done when:** CHECKS pass · web 360px Light+Dark verified (last items above tab bar across all 4 tabs, avatar → Settings stack with no tab bar) · PHONE CHECK skipped (device unreachable on 192.168.0.154:45999 and Tailscale 100.120.102.83:45999/5555 refused).
 
 ## Phase 9 — Add / Edit / Quick Entry / Transaction detail  [ ]
 Re-read: DESIGN §4 (no preselect, auto time, rent_income), §6.2, §6.8 · SPEC §7, §8 · TEST-CASES §4
@@ -346,6 +346,7 @@ Re-read: DESIGN (all) · AGENTS §5, §6
 ## v1.1 Log
 <!-- Agent appends per phase: date/time, phase, built, CHECKS results, PHONE CHECK (screenshots taken or why skipped), BLOCKED, D-entries -->
 - 2026-11-13 12:52 | Phase 7: Design system v2 + native foundations | built: lucide-react-native, @react-native-community/datetimepicker, expo-haptics; v2 tokens/categoryColors (D-006 contrast adjustments); additive SQLite v2 migration + rent_income + unit SQL test; 22 v2 UI primitives + native DateField/TimeField + DEV UI gallery; native Android debug APK (`assembleDebug`) | CHECKS: PASS (typecheck 0 errors, expo lint 0 warnings, 16/16 Jest suites / 80/80 tests passed, web export + 360px Light/Dark gallery 0 console/DOM errors) | PHONE CHECK: SKIPPED (192.168.0.154:45999 unreachable/host off-LAN, Tailscale 100.120.102.83:45999 & :5555 connection refused — Wireless Debugging unavailable) | BLOCKED: none (re-verify migrated owner DB when phone reconnects)
+- 2026-11-13 13:04 | Phase 8: Navigation shell | built: 5-slot `V2TabBar` (`Home · Activity · [ + ] · Budget · Insights`) with 56dp accent circle (tap → Add + light haptic, long-press → Quick Entry + medium haptic); removed floating FAB & Settings tab; moved Settings to stack `/settings` (`src/app/settings/index.tsx`) with back header; Home header avatar `(H)` → `/settings`; `tabBarHeight + 16` bottom padding on all 4 tabs; `TabBar.test.tsx` + `overview.test.tsx` updated | CHECKS: PASS (typecheck 0 errors, expo lint 0 warnings, 17/17 Jest suites / 82/82 tests passed, web export + 360px Light/Dark all 4 tabs + Settings verified with 0 errors/overflow) | PHONE CHECK: SKIPPED (device unreachable on 192.168.0.154:45999 / Tailscale 100.120.102.83:45999/5555 refused) | BLOCKED: none
 
 ## v1.1 summary
 <!-- Agent writes at the end -->

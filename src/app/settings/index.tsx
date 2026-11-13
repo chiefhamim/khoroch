@@ -28,6 +28,7 @@ import { Button } from '@/ui/Button';
 import { Card } from '@/ui/Card';
 import { Chip } from '@/ui/Chip';
 import { ConfirmModal } from '@/ui/ConfirmModal';
+import { IconButton } from '@/ui/IconButton';
 import { ListRow } from '@/ui/ListRow';
 import { Screen } from '@/ui/Screen';
 import { SectionHeader } from '@/ui/SectionHeader';
@@ -238,8 +239,17 @@ export default function SettingsScreen() {
   };
 
   return (
-    <Screen scroll bottomSpacer>
-      <AppText variant="title">{t('settings.title')}</AppText>
+    <Screen scroll edges={['top', 'left', 'right', 'bottom']}>
+      <View style={styles.headerRow}>
+        <IconButton
+          testID="settings-back"
+          icon="arrow-left"
+          variant="surface"
+          accessibilityLabel={t('common.back')}
+          onPress={() => router.back()}
+        />
+        <AppText variant="title">{t('settings.title')}</AppText>
+      </View>
 
       {actionError ? (
         <Card tone="alt">
@@ -621,6 +631,11 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   labelRow: {
     flexDirection: 'row',
     alignItems: 'center',

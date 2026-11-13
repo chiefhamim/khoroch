@@ -71,13 +71,13 @@ powercfg /change standby-timeout-ac 30
 What's planned: `docs/ui-overhaul/DESIGN.md`. Open `docs/ui-overhaul/mockup.html` in your browser to see the target look in light and dark.
 
 **Phone prep (so AGY can build, install and screenshot on your S25 Ultra):**
-1. Plug the phone in. Turn on **Developer options → Stay awake** so the screen doesn't lock while charging. AGY skips phone checks if the phone locks.
-2. Turn on **Wireless debugging** and note the IP:port (it changes whenever you toggle it).
+1. Plug the phone into a charger. Turn on **Developer options → Stay awake** so the screen doesn't lock while charging. AGY skips phone checks if the phone locks.
+2. **On mobile data, connect over Tailscale.** Plug the phone into the PC by USB once, then run `adb tcpip 5555` and `adb connect 100.120.102.83:5555`, then unplug. This lasts until the phone restarts; run `adb usb` to turn it off afterwards. **On home Wi-Fi**, you can use Wireless debugging instead and paste its IP:port.
 3. Your real data stays safe: AGY's rules forbid uninstalling, clearing data, or destructive migrations, and builds install over the top with `install -r`.
 
 **Paste this into AGY** (replace the address if it changed):
 ```
-Phone: PHONE=192.168.0.154:45999
+Phone: PHONE=100.120.102.83:5555   (over Tailscale; slow relay, be patient with installs)
 
 Read AGENTS.md (especially §6, the phone rules), then docs/PROGRESS.md, docs/ui-overhaul/DESIGN.md,
 and open docs/ui-overhaul/mockup.html in the browser.

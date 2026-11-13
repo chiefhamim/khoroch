@@ -33,7 +33,7 @@ import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
 import { ListRow } from '@/ui/ListRow';
 import { Money } from '@/ui/Money';
-import { Screen } from '@/ui/Screen';
+import { Screen, useTabScrollPadding } from '@/ui/Screen';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 
 const WEEKDAYS = ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'] as const;
@@ -87,6 +87,7 @@ export default function ActivityScreen() {
   const { settings } = useAppContext();
   const { theme } = useTheme();
   const router = useRouter();
+  const tabScrollPadding = useTabScrollPadding();
 
   const {
     search,
@@ -522,7 +523,7 @@ export default function ActivityScreen() {
           removeClippedSubviews={Platform.OS !== 'web'}
           contentContainerStyle={{
             gap: theme.spacing.lg,
-            paddingBottom: theme.spacing.xxxl * 3,
+            paddingBottom: tabScrollPadding,
           }}
           onEndReachedThreshold={0.4}
           onEndReached={() => {

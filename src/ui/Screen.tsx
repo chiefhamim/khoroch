@@ -7,8 +7,24 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/useTheme';
+
+export const TAB_BAR_CONTENT_HEIGHT = 66;
+export const TAB_SCROLL_EXTRA_GAP = 16;
+
+export function computeTabBarHeight(bottomInset: number): number {
+  return TAB_BAR_CONTENT_HEIGHT + Math.max(bottomInset, 10);
+}
+
+export function useTabBarHeight(): number {
+  const insets = useSafeAreaInsets();
+  return computeTabBarHeight(insets?.bottom ?? 0);
+}
+
+export function useTabScrollPadding(): number {
+  return useTabBarHeight() + TAB_SCROLL_EXTRA_GAP;
+}
 
 export interface ScreenProps {
   children: React.ReactNode;
@@ -30,6 +46,7 @@ export function Screen({
   bottomSpacer = false,
 }: ScreenProps) {
   const { theme } = useTheme();
+  const tabScrollPadding = useTabScrollPadding();
 
   const inner = scroll ? (
     <ScrollView
@@ -37,9 +54,9 @@ export function Screen({
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={[
         {
-          paddingHorizontal: theme.spacing.xl,
+          paddingHorizontal: theme.geometry.screenMargin,
           paddingTop: theme.spacing.lg,
-          paddingBottom: bottomSpacer ? theme.spacing.xxxl * 3 : theme.spacing.xxl,
+          paddingBottom: bottomSpacer ? tabScrollPadding : theme.spacing.xxl,
           gap: theme.spacing.lg,
         },
         contentContainerStyle,
@@ -52,7 +69,7 @@ export function Screen({
       style={[
         styles.flex,
         {
-          paddingHorizontal: theme.spacing.xl,
+          paddingHorizontal: theme.geometry.screenMargin,
           paddingTop: theme.spacing.lg,
           paddingBottom: theme.spacing.xl,
         },

@@ -23,6 +23,12 @@ export function hapticLight(): void {
   h.impactAsync(h.ImpactFeedbackStyle.Light).catch(() => {});
 }
 
+export function hapticMedium(): void {
+  const h = getHaptics();
+  if (!h) return;
+  h.impactAsync(h.ImpactFeedbackStyle.Medium).catch(() => {});
+}
+
 export function hapticSuccess(): void {
   const h = getHaptics();
   if (!h) return;

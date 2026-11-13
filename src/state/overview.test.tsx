@@ -154,7 +154,10 @@ describe('Overview Scenario A integration', () => {
       expect(view.getByText('৳ 23,550')).toBeTruthy();
     });
 
-    expect(view.getByText('Good evening, Hamim')).toBeTruthy();
+    expect(view.getByText('Good evening')).toBeTruthy();
+    expect(view.getByText('Hamim · Fri, 13 Nov 2026')).toBeTruthy();
+    expect(view.getByTestId('overview-settings-shortcut')).toBeTruthy();
+    expect(view.getByText('H')).toBeTruthy();
     expect(view.getAllByText('৳ 16,450').length).toBeGreaterThanOrEqual(1);
     expect(view.getByText('41.1% used')).toBeTruthy();
     expect(view.getByText('৳ 1,265.38')).toBeTruthy();

@@ -1,12 +1,13 @@
 export const en = {
   // Navigation & Tabs
-  'tabs.overview': 'Overview',
+  'tabs.overview': 'Home',
   'tabs.activity': 'Activity',
   'tabs.budget': 'Budget',
   'tabs.insights': 'Insights',
   'tabs.settings': 'Settings',
   'tabs.add': 'Add',
   'tabs.addAccessibility': 'Add transaction',
+  'tabs.addHint': 'Tap to add a transaction, or long press for Quick Entry',
 
   // Common
   'common.save': 'Save',
