@@ -13,7 +13,8 @@ You are working **unattended overnight. The user is asleep.** Nobody will answer
 | `docs/TEST-CASES.md` | Exact numeric test cases for money/calc/parser | Phases 1, 3, 4, 5 |
 | `docs/PROGRESS.md` | Phase checklist + your log. **Your memory.** | Start of session, start and end of every phase |
 | `docs/DECISIONS-LOG.md` | Decisions YOU made without the user | Append whenever you choose something not in SPEC |
-| `docs/ui-overhaul/DESIGN.md` + `mockup.html` | **v1.1 UI overhaul spec** (overrides SPEC §3 visuals + ARCHITECTURE §6 tokens) | Every phase from Phase 7 on |
+| `docs/ui-overhaul/DESIGN.md` + `mockup.html` | **v1.1 UI overhaul spec** (overrides SPEC §3 visuals + ARCHITECTURE §6 tokens) | Phases 7–13 |
+| `docs/v1.2/PLAN.md` + `TEST-CASES-v1.2.md` + `mockup.html` | **v1.2 money notebook spec** (wallets, transfers, dues, backup, themes, sharing, security fixes). Overrides v1.1 DESIGN where they conflict | Every phase from Phase 14 on |
 
 ## 1. The loop (follow exactly)
 
@@ -86,6 +87,15 @@ Rules:
 - Expo Go only has its bundled native modules. Prefer modules that work in Expo Go. Anything needing a development build must degrade gracefully (see SPEC DECISIONS → voice).
 - `@/*` resolves to `src/*` (tsconfig paths).
 
+## 4b. STRICT RULE: NO ELLIPSIS DOTS, ANYWHERE (the owner's hard rule)
+
+The owner hates ellipsis dots. **Breaking this rule fails the phase.**
+- **Never** use `...` (three periods) or `…` (U+2026) in any user-visible text: labels, buttons ("Share", not "Share…"), placeholders ("What was this for?", not "Type here…"), loading states ("Loading", or better a skeleton), empty states, toasts, notifications, share output, or i18n strings.
+- **No truncation ellipsis.** React Native `<Text numberOfLines>` adds "…" by default. Always pass `ellipsizeMode="clip"` and fade the edge, or wrap the text, or show the full text. Lists must wrap long names onto a second line rather than truncate.
+- **No three-dot icons:** no `more-horizontal`, `more-vertical`, `ellipsis`, `circle-ellipsis` or "•••" overflow menus. Use a labelled button ("Edit", "Options", "Delete") or a long-press with a visible hint. The "Other" category uses the `shapes` icon.
+- **No dotted lines, dot leaders or animated "typing/loading" dots.** Separators are solid hairlines.
+- Enforce it with a test: `src/__tests__/no-ellipsis.test.ts` scans `src/**/*.{ts,tsx}` and `src/i18n/*` for `...` inside string literals/JSX text, `…`, and the banned icon names, and fails on any hit. (Spread syntax `...obj` in code is fine; the test must only check string/JSX text.)
+
 ## 5. Quality bar reminders (from SPEC, the ones agents usually skip)
 - Every button, filter, toggle on screen must work. If it cannot work yet, it must not be on screen.
 - Spacing only from tokens (`src/theme/tokens.ts`). No magic numbers in StyleSheets except `0`, `1` (hairlines), and flex values.
@@ -124,5 +134,13 @@ Launch: `adb -s $PHONE shell monkey -p com.hamim.budgetapp -c android.intent.cat
 **Screenshots:** don't use `adb exec-out screencap > file` in PowerShell, because it corrupts the PNG. Use:
 `adb -s $PHONE shell screencap -p /sdcard/ui.png; adb -s $PHONE pull /sdcard/ui.png docs\ui-overhaul\after\phase-N\<screen>-<theme>.png`
 Then **look at every screenshot** and compare it with `mockup.html`.
+
+## 7. Dev app vs the owner's app (v1.2 onward)
+
+- Two apps live on the phone: **`com.hamim.budgetapp`** (the owner's real data) and **`com.hamim.budgetapp.dev`** ("Budget Dev", created in Phase 14 via `APP_VARIANT=dev`).
+- **All phone testing uses the dev app:** sample data, e2e, Maestro, delete-all, backup/import, app-lock, screenshots. Its package name goes into every `monkey -p`, `install` and `pm` command. Double-check the package before running any command.
+- The owner's app is touched **only in Phase 25**, with `install -r` of a release build signed with the **current** key, after the dev app has proven the migrations work.
+- **Never build the owner's app with `BUDGET_RELEASE_SIGNING=new`.** Switching keys requires an uninstall, which is the owner's job and follows `docs/v1.2/KEY-SWITCH.md`.
+- Never commit keystores, passwords or `gradle.properties` from the user profile.
 
 **Tapping:** the screen is 1440×3120 px at density 560 (1 dp = 3.5 px). Find elements with `adb -s $PHONE shell uiautomator dump /sdcard/ui.xml` and pull it, then tap the centre of the element's bounds (`adb shell input tap x y`). Don't guess coordinates. Switch themes through the app's own Settings → Appearance, and set it back to **System** when done.

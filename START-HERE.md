@@ -92,6 +92,31 @@ BLOCKED and move on. Never wipe or risk the data on my phone. Stop when every ph
 blocked, then write the v1.1 summary at the bottom of docs/PROGRESS.md.
 ```
 
+## 3c. v1.2 money notebook: how to kick it off
+
+What's planned: `docs/v1.2/PLAN.md` (wallets, transfers, dues, themes, sharing, backup, plus the day-to-day features in §8: cash count, bazar lists, bills, reminders, payday split, occasions, widgets). To see the target look, open `docs/v1.2/mockup.html` in your browser (the refined flat version; the gradient draft is kept only for reference). 12 phases (14–25), so expect it to take more than one night: if it stops, paste the same prompt again and it resumes.
+
+What AGY will do with your phone: it installs a **separate "Budget Dev" app** for all its testing (sample data, wiping, backup tests), so your real app isn't touched until the last phase. In that phase it updates your real app in place (data kept) and leaves wallet setup to you.
+
+**Paste this into AGY** (update the phone address if it changed: Wi-Fi debugging port, or Tailscale `100.120.102.83:5555`):
+```
+Phone: PHONE=192.168.0.154:40513
+
+Read AGENTS.md (especially §6 phone rules and §7 dev app vs owner's app), then docs/PROGRESS.md,
+docs/v1.2/PLAN.md, docs/v1.2/TEST-CASES-v1.2.md, and open docs/v1.2/mockup.html in the browser.
+
+Start at the first unfinished phase in docs/PROGRESS.md (Phase 14, v1.2) and keep going through
+Phase 25, following AGENTS.md exactly (§4b: no ellipsis dots anywhere). At the start of each phase,
+re-read the listed sections and look at the mockup again; do not bring back gradients, glow,
+shadows or a floating tab bar. All phone testing happens on the dev app (com.hamim.budgetapp.dev); my
+real app is only updated in Phase 25 with install -r. Verify "Done when" by actually running the
+checks, and commit after each phase.
+
+Don't ask me anything; log decisions in docs/DECISIONS-LOG.md. If something fails 3 times, mark it
+BLOCKED and move on. Never wipe or risk my real data. Stop when every phase is done or blocked,
+then write the v1.2 summary at the bottom of docs/PROGRESS.md.
+```
+
 ## 4. What's deliberately NOT in v1
 No cloud AI (Gemini/Hydrogen), no accounts/transfers, no recurring, no export/backup, no encryption/app lock, no Bangla UI. These are listed in SPEC → DECISIONS → "NOT in v1". Voice uses a local parser, so "350 taka lunch" works offline and costs nothing. The mic button only appears on a development build (Expo Go doesn't include speech recognition), and typing the same sentence works everywhere.
 

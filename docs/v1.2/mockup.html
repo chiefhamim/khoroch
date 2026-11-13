@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Budget App v1.2 Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Hind+Siliguri:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  /* v1.2 refined: same structure as the first draft, with the generic fintech parts removed.
+     No gradients, no glow, no glass, no drop shadows, no tinted icon tiles, no floating bars.
+     Depth comes from one solid card, hairlines and type weight. AGENTS.md 4b applies. */
+  [data-theme="light"]{
+    --bg:#F6F5F1; --surface:#FFFFFF; --sunken:#EEEDE8; --line:#E5E2DB;
+    --text:#16150F; --text2:#5F5C54; --text3:#8F8C84;
+    --accent:#0B6B4B; --onAccent:#FFFFFF;
+    --in:#0B7A55; --warn:#B45309; --danger:#B42318; --warnBg:#FBF1E4;
+    --hero:#123227; --heroText:#F3F6F4; --heroText2:rgba(243,246,244,.62); --heroLine:rgba(243,246,244,.14); --heroBar:#5FD3A3;
+  }
+  [data-theme="dark"]{
+    --bg:#0B0B0C; --surface:#151517; --sunken:#1C1C1F; --line:#26262A;
+    --text:#F2F1EE; --text2:#A6A39C; --text3:#6F6D68;
+    --accent:#4CCB97; --onAccent:#04231A;
+    --in:#4CCB97; --warn:#F2B04A; --danger:#F08A7E; --warnBg:#2A2013;
+    --hero:#13241D; --heroText:#F3F6F4; --heroText2:rgba(243,246,244,.58); --heroLine:rgba(243,246,244,.12); --heroBar:#4CCB97;
+  }
+  :root{ --bkash:#E2136E; --nagad:#F15A22; --upay:#0F4C9C; --cash:#2F9E44; --bank:#1E3A8A; --card:#334155;
+         --c-food:#D9480F; --c-bills:#C77700; --c-move:#1971C2; --c-subs:#0C8599; --c-shop:#C2255C; --c-people:#6741D9; --c-give:#5C7A2E; --c-home:#795548; --c-groc:#2B8A3E; }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#E9E8E3;color:#222;font-family:"Plus Jakarta Sans",system-ui,sans-serif;padding:32px 16px 64px}
+  h1{font-size:24px;font-weight:800;letter-spacing:-.5px;max-width:1180px;margin:0 auto 6px}
+  .intro{font-size:14px;color:#55534C;max-width:1180px;margin:0 auto 4px;line-height:1.6}
+  .intro ul{margin:10px 0 0 18px}
+  h2.rowtitle{font-size:15px;font-weight:700;max-width:1180px;margin:34px auto 14px;color:#33322D}
+  .row{display:flex;flex-wrap:wrap;gap:30px 24px;justify-content:center;max-width:1180px;margin:0 auto;padding:24px 0;border-radius:28px}
+  #dark{background:#050506}
+  .cell{width:360px}
+  .cap{font-size:13px;line-height:1.5;margin-top:12px;color:#55534C}
+  #dark .cap{color:#A3A19B}
+  .cap b{display:block;font-size:14px;color:#1E1D19}
+  #dark .cap b{color:#EDEBE6}
+
+  .phone{width:360px;height:780px;border-radius:40px;background:var(--bg);color:var(--text);position:relative;overflow:hidden;
+         border:8px solid #111;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+  .status{height:30px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:12px;font-weight:600}
+  .scroll{position:absolute;top:30px;left:0;right:0;bottom:64px;overflow:hidden;padding:8px 20px 0}
+  .nobar .scroll{bottom:0}
+
+  /* type */
+  .tk{font-family:"Hind Siliguri",sans-serif;font-weight:600;font-size:.74em;margin-right:.06em;position:relative;top:-.04em}
+  .hero{font-size:40px;line-height:44px;font-weight:700;letter-spacing:-1.4px}
+  .title{font-size:24px;line-height:30px;font-weight:700;letter-spacing:-.6px}
+  .headline{font-size:16px;line-height:22px;font-weight:700;letter-spacing:-.2px}
+  .strong{font-size:15px;line-height:20px;font-weight:600;letter-spacing:-.1px}
+  .label{font-size:13px;line-height:18px;font-weight:500;color:var(--text2)}
+  .over{font-size:11.5px;line-height:15px;font-weight:700;color:var(--text3);letter-spacing:.6px;text-transform:uppercase}
+  .bn{font-family:"Hind Siliguri";font-weight:500}
+  .in{color:var(--in)} .t2{color:var(--text2)} .t3{color:var(--text3)} .warn{color:var(--warn)} .acc{color:var(--accent)}
+  .between{display:flex;justify-content:space-between;align-items:center}
+  svg.lucide{width:20px;height:20px;stroke-width:1.75}
+
+  /* surfaces: flat, hairline, no shadow */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:4px 16px}
+  .heroCard{background:var(--hero);color:var(--heroText);border-radius:22px;padding:20px}
+  .heroCard .label{color:var(--heroText2)}
+  .split{display:grid;grid-template-columns:1fr 1fr;margin-top:16px;border-top:1px solid var(--heroLine);padding-top:12px}
+  .split>div+div{border-left:1px solid var(--heroLine);padding-left:14px}
+  .split .v{font-size:17px;font-weight:700;margin-top:1px}
+  .bar{height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--text);border-radius:3px}
+  .heroCard .bar{background:var(--heroLine)} .heroCard .bar i{background:var(--heroBar)}
+  .avatar{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:15px;border:1px solid var(--line);background:var(--surface);color:var(--text);flex:0 0 auto}
+  .iconbtn{width:38px;height:38px;border-radius:50%;border:1px solid var(--line);display:grid;place-items:center;color:var(--text2)}
+
+  /* rows */
+  .r{display:flex;align-items:center;gap:12px;padding:11px 0}
+  .r+.r{border-top:1px solid var(--line)}
+  .r .mid{flex:1;min-width:0}
+  .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:0 0 auto;background:var(--sunken);color:var(--c,var(--text2))}
+  .ic svg.lucide{width:18px;height:18px}
+  .mono{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;font-size:11.5px;font-weight:800;color:#fff;background:var(--b);flex:0 0 auto}
+  .mono svg.lucide{width:16px;height:16px}
+  .sub{font-size:12.5px;color:var(--text2);margin-top:1px}
+  .amt{font-size:15px;font-weight:700;text-align:right;white-space:nowrap}
+  .amt small{display:block;font-size:11.5px;font-weight:500;color:var(--text3)}
+  .dayh{display:flex;justify-content:space-between;margin:18px 2px 8px}
+
+  /* tab bar: flush, hairline, not floating */
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:64px;background:var(--bg);border-top:1px solid var(--line);
+          display:grid;grid-template-columns:repeat(5,1fr);align-items:center}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--text3)}
+  .tab.on{color:var(--text)}
+  .tab svg.lucide{width:21px;height:21px}
+  .plus{width:46px;height:46px;border-radius:14px;background:var(--text);color:var(--bg);display:grid;place-items:center;margin:0 auto}
+  .plus svg.lucide{width:22px;height:22px;stroke-width:2.4}
+
+  /* controls */
+  .seg{display:flex;background:var(--sunken);border-radius:11px;padding:3px}
+  .seg span{flex:1;text-align:center;font-size:12.5px;font-weight:700;padding:7px 10px;border-radius:8px;color:var(--text2);white-space:nowrap}
+  .seg span.on{background:var(--surface);color:var(--text);box-shadow:inset 0 0 0 1px var(--line)}
+  .under{display:flex;gap:18px;border-bottom:1px solid var(--line)}
+  .under span{font-size:13.5px;font-weight:600;color:var(--text3);padding:0 0 9px;white-space:nowrap}
+  .under span.on{color:var(--text);box-shadow:inset 0 -2px 0 var(--text)}
+  .btn{height:50px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:700;background:var(--text);color:var(--bg);white-space:nowrap}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  .btn.sm{height:40px;font-size:13.5px;border-radius:12px}
+  .opt{display:flex;align-items:center;justify-content:space-between;padding:13px 0;font-size:14.5px;font-weight:500;gap:12px}
+  .opt+.opt{border-top:1px solid var(--line)}
+  .tog{width:42px;height:25px;border-radius:99px;background:var(--accent);position:relative;flex:0 0 auto}
+  .tog::after{content:"";position:absolute;right:3px;top:3px;width:19px;height:19px;border-radius:50%;background:#fff}
+  .tog.off{background:var(--line)} .tog.off::after{right:auto;left:3px}
+  .stepper{display:flex;align-items:center;gap:12px;font-size:16px;font-weight:700}
+  .stepper b{width:30px;height:30px;border-radius:9px;border:1px solid var(--line);display:grid;place-items:center;color:var(--text2);font-weight:600}
+  .chk{width:22px;height:22px;border-radius:7px;border:1.5px solid var(--text3);display:grid;place-items:center;flex:0 0 auto}
+  .chk.on{background:var(--text);border-color:var(--text);color:var(--bg)}
+  .chk svg.lucide{width:14px;height:14px;stroke-width:3}
+  .done .strong{color:var(--text2)}
+  .tag{font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;background:var(--sunken);color:var(--text2);white-space:nowrap}
+  .notice{display:flex;gap:10px;align-items:flex-start;background:var(--warnBg);border-radius:14px;padding:12px 14px;font-size:13.5px;line-height:1.45}
+  .notice svg.lucide{color:var(--warn);flex:0 0 auto;margin-top:1px}
+
+  /* add keypad: flush sheet */
+  .keypad{position:absolute;left:0;right:0;bottom:0;padding:12px 16px 16px;background:var(--surface);border-top:1px solid var(--line)}
+  .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-bottom:10px}
+  .keys b{height:44px;border-radius:12px;display:grid;place-items:center;font-size:21px;font-weight:600}
+  .cats{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+  .cat{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--text2);padding:8px 0;border-radius:12px;text-align:center;border:1px solid transparent}
+  .cat svg.lucide{color:var(--c);width:22px;height:22px}
+  .cat.sel{background:var(--surface);border-color:var(--text);color:var(--text)}
+
+  /* envelopes */
+  .envs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .env{border:1px solid var(--line);background:var(--surface);border-radius:14px;padding:12px}
+  .env .v{font-size:17px;font-weight:700;margin-top:2px}
+
+  /* reminder bubble */
+  .bub{background:var(--surface);border:1px solid var(--line);border-radius:16px 16px 16px 4px;padding:12px 14px;font-family:"Hind Siliguri";font-size:15px;line-height:1.55;font-weight:500}
+
+  /* theme */
+  .swatches{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+  .sw{aspect-ratio:1;border-radius:14px;background:var(--a);position:relative}
+  .sw.on{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--text)}
+  .sw.on::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:800}
+  .modes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .mode{border-radius:12px;padding:8px;text-align:center;font-size:11.5px;font-weight:600;color:var(--text2);border:1px solid var(--line)}
+  .mode i{display:block;height:44px;border-radius:8px;margin-bottom:6px;border:1px solid var(--line)}
+  .mode.on{color:var(--text);border:1.5px solid var(--text)}
+
+  /* share */
+  .sharecard{border-radius:20px;padding:20px;background:var(--hero);color:var(--heroText)}
+  .sbar{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:14px 0 10px;gap:2px}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:12px;color:var(--heroText2)}
+  .legend span{display:flex;align-items:center;gap:6px}
+  .legend i{width:8px;height:8px;border-radius:2px;display:inline-block}
+
+  /* home screen */
+  .homescreen{background:#2F3A33}
+  [data-theme="dark"] .homescreen{background:#121714}
+  .clock{color:#F2F1EE;font-size:60px;font-weight:300;letter-spacing:-2px;margin:30px 0 0 24px;line-height:1}
+  .wdate{color:#DCDAD3;font-size:14px;margin:6px 0 0 26px}
+  .wdg{margin:0 14px;border-radius:22px;background:var(--surface);color:var(--text);padding:14px 16px}
+  .notif{margin:0 14px;border-radius:20px;background:var(--surface);color:var(--text);padding:12px 14px;font-size:13px;line-height:1.4}
+  .dock{position:absolute;bottom:26px;left:0;right:0;display:flex;justify-content:space-around;padding:0 22px}
+  .dock i{width:50px;height:50px;border-radius:16px;background:rgba(255,255,255,.14);display:block}
+  .dock i.me{background:var(--hero);display:grid;place-items:center;color:#fff;font-family:"Hind Siliguri";font-weight:700;font-size:22px;font-style:normal}
+</style>
+</head>
+<body>
+<h1>Budget App v1.2: money notebook, refined</h1>
+<div class="intro">Same structure as the first v1.2 draft (wallets, dues, ledger, themes, sharing), plus the seven day-to-day features. Changes from the first draft:
+  <ul>
+    <li>The balance card is one solid colour. No gradient, no glow ring, no glass tiles, no shadow.</li>
+    <li>Category icons sit on a neutral tile and carry the colour themselves, instead of the rainbow of tinted squares every finance app has.</li>
+    <li>Wallets are a plain list with real balances, not a sideways carousel of cards.</li>
+    <li>Fewer pills. Filters are underlined words, and details on the Add screen are rows you tap.</li>
+    <li>The tab bar sits flat at the bottom with a hairline, not floating.</li>
+    <li>No masked card numbers, no three-dot menus, no ellipsis anywhere (AGENTS.md 4b).</li>
+  </ul>
+</div>
+
+<template id="screens">
+
+<!-- 1 HOME -->
+<div class="cell"><div class="phone"><div class="status"><span>7:52 pm</span><span>52%</span></div>
+  <div class="scroll">
+    <div class="between" style="margin:6px 0 16px">
+      <div><div class="label">Friday, 13 November</div><div class="title">Evening, Hamim</div></div>
+      <div class="avatar">H</div>
+    </div>
+    <div class="heroCard">
+      <div class="label">Across 4 wallets</div>
+      <div class="hero" style="margin-top:4px"><span class="tk">৳</span>48,350</div>
+      <div class="split">
+        <div><div class="label">In this month</div><div class="v"><span class="tk">৳</span>29,000</div></div>
+        <div><div class="label">Out this month</div><div class="v"><span class="tk">৳</span>4,620</div></div>
+      </div>
+      <div class="between label" style="margin:14px 0 6px;font-size:12.5px"><span>38% of budget used</span><span><span class="tk">৳</span>440 a day is safe</span></div>
+      <div class="bar"><i style="width:38%"></i></div>
+    </div>
+    <div class="notice" style="margin-top:12px"><i data-lucide="banknote"></i><div><b>Count your cash before bed.</b><br><span class="t2">Cash should be <span class="tk">৳</span>2,300 after today.</span></div></div>
+    <div class="dayh"><span class="headline">Wallets</span><span class="label acc" style="font-weight:600">Manage</span></div>
+    <div class="card">
+      <div class="r"><div class="mono" style="--b:var(--bkash)">bK</div><div class="mid strong">bKash</div><div class="amt"><span class="tk">৳</span>12,450</div></div>
+      <div class="r"><div class="mono" style="--b:var(--nagad)">N</div><div class="mid strong">Nagad</div><div class="amt"><span class="tk">৳</span>3,100</div></div>
+      <div class="r"><div class="mono" style="--b:var(--cash)"><i data-lucide="wallet"></i></div><div class="mid strong">Cash</div><div class="amt"><span class="tk">৳</span>2,300</div></div>
+      <div class="r"><div class="mono" style="--b:var(--bank)"><i data-lucide="landmark"></i></div><div class="mid strong">City Bank</div><div class="amt"><span class="tk">৳</span>30,500</div></div>
+    </div>
+    <div class="between" style="margin-top:14px;font-size:13.5px"><span>Rafi owes you <b class="in"><span class="tk">৳</span>1,500</b></span><span class="t2">You owe Shuvo <b style="color:var(--text)"><span class="tk">৳</span>300</b></span></div>
+  </div>
+  <div class="tabbar" data-on="Home"></div>
+</div>
+<div class="cap"><b>1 · Home</b>One solid card for the overall picture, then a nudge for tonight, the real wallet balances, and who owes what. Everything is a written word or a number.</div></div>
+
+<!-- 2 ADD -->
+<div class="cell"><div class="phone nobar"><div class="status"><span>1:20 pm</span><span>58%</span></div>
+  <div class="scroll">
+    <div class="between" style="margin:2px 0 18px"><div class="iconbtn"><i data-lucide="x"></i></div><div class="seg" style="width:236px"><span class="on">Out</span><span>In</span><span>Transfer</span></div><div style="width:38px"></div></div>
+    <div style="text-align:center" class="hero"><span class="tk">৳</span>350</div>
+    <div style="text-align:center;font-size:14px;font-weight:600;margin:6px 0 14px" class="t2">Lunch with Rafi</div>
+    <div class="card" style="padding:0 14px">
+      <div class="r" style="padding:9px 0"><div class="mono" style="--b:var(--bkash);width:24px;height:24px;font-size:9.5px;border-radius:7px">bK</div><div class="mid label">From</div><div class="strong">bKash</div></div>
+      <div class="r" style="padding:9px 0"><i data-lucide="calendar" class="t3"></i><div class="mid label">When</div><div class="strong">Today, 1:20 pm</div></div>
+    </div>
+    <div class="cats" style="margin-top:10px">
+      <div class="cat sel" style="--c:var(--c-food)"><i data-lucide="utensils"></i>Food</div>
+      <div class="cat" style="--c:var(--c-groc)"><i data-lucide="shopping-basket"></i>Bazar</div>
+      <div class="cat" style="--c:var(--c-move)"><i data-lucide="bus"></i>Transport</div>
+      <div class="cat" style="--c:var(--c-bills)"><i data-lucide="zap"></i>Bills</div>
+    </div>
+  </div>
+  <div class="keypad">
+    <div class="keys"><b>1</b><b>2</b><b>3</b><b>4</b><b>5</b><b>6</b><b>7</b><b>8</b><b>9</b><b>.</b><b>0</b><b><i data-lucide="delete"></i></b></div>
+    <div class="btn">Save <span class="tk">৳</span>350 from bKash</div>
+  </div>
+</div>
+<div class="cap"><b>2 · Add</b>The amount is the only big thing. Wallet and time are two quiet rows. Four likely categories show by default, learned from the time of day; the rest are one swipe away.</div></div>
+
+<!-- 3 LEDGER -->
+<div class="cell"><div class="phone"><div class="status"><span>9:41 pm</span><span>50%</span></div>
+  <div class="scroll">
+    <div class="between" style="margin:6px 0 14px"><div class="title">Ledger</div><div class="iconbtn"><i data-lucide="search"></i></div></div>
+    <div class="under"><span class="on">All</span><span>bKash</span><span>Nagad</span><span>Cash</span><span>Bank</span></div>
+    <div class="dayh"><span class="over">Today</span><span class="over">−<span class="tk">৳</span>1,355</span></div>
+    <div class="card">
+      <div class="r"><div class="ic" style="--c:var(--c-food)"><i data-lucide="utensils"></i></div><div class="mid"><div class="strong">Fuchka with Mitu</div><div class="sub">Cash · 7:50 pm</div></div><div class="amt">−<span class="tk">৳</span>120</div></div>
+      <div class="r"><div class="ic" style="--c:var(--c-groc)"><i data-lucide="shopping-basket"></i></div><div class="mid"><div class="strong">Friday bazar</div><div class="sub">Cash · 8 items · Karwan Bazar</div></div><div class="amt">−<span class="tk">৳</span>1,170</div></div>
+      <div class="r"><div class="ic" style="--c:var(--c-give)"><i data-lucide="heart-handshake"></i></div><div class="mid"><div class="strong">Masjid donation</div><div class="sub">Cash · after Jummah</div></div><div class="amt">−<span class="tk">৳</span>20</div></div>
+    </div>
+    <div class="dayh"><span class="over">Mon, 9 Nov</span><span class="over in">+<span class="tk">৳</span>18,400</span></div>
+    <div class="card">
+      <div class="r"><div class="ic" style="--c:var(--c-move)"><i data-lucide="arrow-left-right"></i></div><div class="mid"><div class="strong">bKash to Cash</div><div class="sub">Cash out · fee <span class="tk">৳</span>18.50</div></div><div class="amt"><span class="tk">৳</span>1,000<small>transfer</small></div></div>
+      <div class="r"><div class="ic" style="--c:var(--c-subs)"><i data-lucide="repeat"></i></div><div class="mid"><div class="strong">Google AI Pro</div><div class="sub">Visa ending 42</div></div><div class="amt">−<span class="tk">৳</span>600</div></div>
+      <div class="r"><div class="ic" style="--c:var(--c-people)"><i data-lucide="hand-coins"></i></div><div class="mid"><div class="strong">Lent to Rafi</div><div class="sub">bKash · bike repair</div></div><div class="amt">−<span class="tk">৳</span>2,000</div></div>
+      <div class="r"><div class="ic" style="--c:var(--in)"><i data-lucide="banknote"></i></div><div class="mid"><div class="strong">Salary</div><div class="sub">City Bank · 10:00 am</div></div><div class="amt in">+<span class="tk">৳</span>23,000</div></div>
+    </div>
+  </div>
+  <div class="tabbar" data-on="Ledger"></div>
+</div>
+<div class="cap"><b>3 · Ledger</b>Wallet filters are plain underlined words. Every row says which wallet and, when it matters, why. Transfers show their fee instead of hiding it.</div></div>
+
+<!-- 4 CLOSE THE DAY -->
+<div class="cell"><div class="phone nobar"><div class="status"><span>10:14 pm</span><span>46%</span></div>
+  <div class="scroll">
+    <div class="between" style="margin:2px 0 14px"><div class="iconbtn"><i data-lucide="x"></i></div><span class="label">Close today</span><div style="width:38px"></div></div>
+    <div class="title">Count your cash</div>
+    <div class="label" style="margin:4px 0 14px">Tap in the notes in your wallet. About thirty seconds.</div>
+    <div class="card">
+      <div class="r"><div class="mid strong"><span class="tk">৳</span>500</div><div class="stepper"><b>−</b>1<b>+</b></div><div class="amt" style="width:56px">500</div></div>
+      <div class="r"><div class="mid strong"><span class="tk">৳</span>200</div><div class="stepper"><b>−</b>1<b>+</b></div><div class="amt" style="width:56px">200</div></div>
+      <div class="r"><div class="mid strong"><span class="tk">৳</span>100</div><div class="stepper"><b>−</b>1<b>+</b></div><div class="amt" style="width:56px">100</div></div>
+      <div class="r"><div class="mid strong"><span class="tk">৳</span>50</div><div class="stepper"><b>−</b>1<b>+</b></div><div class="amt" style="width:56px">50</div></div>
+      <div class="r"><div class="mid strong"><span class="tk">৳</span>20</div><div class="stepper"><b>−</b>2<b>+</b></div><div class="amt" style="width:56px">40</div></div>
+      <div class="r"><div class="mid strong"><span class="tk">৳</span>10</div><div class="stepper"><b>−</b>2<b>+</b></div><div class="amt" style="width:56px">20</div></div>
+      <div class="r"><div class="mid strong">Coins</div><div class="stepper"><b>−</b>5<b>+</b></div><div class="amt" style="width:56px">5</div></div>
+    </div>
+    <div class="between" style="margin:14px 2px 4px"><span class="label">You counted</span><span class="headline"><span class="tk">৳</span>915</span></div>
+    <div class="between" style="margin:0 2px 12px"><span class="label">The app expects</span><span class="headline t2"><span class="tk">৳</span>965</span></div>
+    <div class="notice"><i data-lucide="circle-alert"></i><div><b><span class="tk">৳</span>50 short.</b> <span class="t2">Maybe a rickshaw or tea you didn't write down.</span></div></div>
+    <div style="display:grid;gap:8px;margin-top:12px">
+      <div class="btn">Write <span class="tk">৳</span>50 as "lost track"</div>
+      <div class="btn ghost">I forgot one, add it</div>
+    </div>
+  </div>
+</div>
+<div class="cap"><b>4 · Close the day</b>The most useful feature for someone who loses track. Count the real notes, compare with the app, settle the difference honestly. A month of "lost track" says more than any chart.</div></div>
+
+<!-- 5 BAZAR LIST -->
+<div class="cell"><div class="phone"><div class="status"><span>11:32 am</span><span>71%</span></div>
+  <div class="scroll">
+    <div class="between" style="margin:6px 0 2px"><div class="title">Friday bazar</div><span class="tag">Cash</span></div>
+    <div class="label" style="margin-bottom:14px">Karwan Bazar · <span class="bn">বাজারের ফর্দ</span></div>
+    <div class="card">
+      <div class="r done"><div class="chk on"><i data-lucide="check"></i></div><div class="mid"><div class="strong">Miniket rice</div><div class="sub">5 kg</div></div><div class="amt"><span class="tk">৳</span>380</div></div>
+      <div class="r done"><div class="chk on"><i data-lucide="check"></i></div><div class="mid"><div class="strong">Onion</div><div class="sub warn">2 kg · up <span class="tk">৳</span>10 a kg since last week</div></div><div class="amt"><span class="tk">৳</span>220</div></div>
+      <div class="r done"><div class="chk on"><i data-lucide="check"></i></div><div class="mid"><div class="strong">Potato</div><div class="sub">3 kg</div></div><div class="amt"><span class="tk">৳</span>150</div></div>
+      <div class="r done"><div class="chk on"><i data-lucide="check"></i></div><div class="mid"><div class="strong">Eggs</div><div class="sub">1 dozen</div></div><div class="amt"><span class="tk">৳</span>150</div></div>
+      <div class="r done"><div class="chk on"><i data-lucide="check"></i></div><div class="mid"><div class="strong">Rui fish</div><div class="sub">1 kg</div></div><div class="amt"><span class="tk">৳</span>270</div></div>
+      <div class="r"><div class="chk"></div><div class="mid"><div class="strong">Green chilli</div><div class="sub">250 g</div></div><div class="amt t3"><span class="tk">৳</span>30</div></div>
+      <div class="r"><div class="chk"></div><div class="mid"><div class="strong">Masoor dal</div><div class="sub">1 kg</div></div><div class="amt t3"><span class="tk">৳</span>140</div></div>
+    </div>
+    <div class="between label" style="margin:12px 2px"><span>Bought <b style="color:var(--text)"><span class="tk">৳</span>1,170</b> of <span class="tk">৳</span>1,340 planned</span><span>2 left</span></div>
+    <div class="btn">Save as one entry · <span class="tk">৳</span>1,170</div>
+  </div>
+  <div class="tabbar" data-on="Plan"></div>
+</div>
+<div class="cap"><b>5 · Bazar list</b>Write it at home, tick and price it at the shop, save it as one Groceries entry. The list stays attached to that entry. It remembers last week's prices, so you notice when onions go up.</div></div>
+
+<!-- 6 BILLS -->
+<div class="cell"><div class="phone"><div class="status"><span>9:05 am</span><span>88%</span></div>
+  <div class="scroll">
+    <div class="title" style="margin-top:6px">November bills</div>
+    <div class="between label" style="margin:6px 0 8px"><span>4 of 7 paid</span><span><b style="color:var(--text)"><span class="tk">৳</span>2,980</b> still to pay</span></div>
+    <div class="bar"><i style="width:83%"></i></div>
+    <div class="dayh"><span class="over">Due soon</span></div>
+    <div class="card">
+      <div class="r"><div class="ic" style="--c:var(--c-bills)"><i data-lucide="zap"></i></div><div class="mid"><div class="strong">DESCO electricity</div><div class="sub warn">18 Nov · in 5 days · usually <span class="tk">৳</span>1,400</div></div><div class="btn sm" style="padding:0 12px;height:34px;font-size:12.5px">Paid</div></div>
+      <div class="r"><div class="ic" style="--c:var(--c-bills)"><i data-lucide="flame"></i></div><div class="mid"><div class="strong">Titas gas</div><div class="sub">20 Nov · double burner</div></div><div class="amt"><span class="tk">৳</span>1,080</div></div>
+      <div class="r"><div class="ic" style="--c:var(--c-subs)"><i data-lucide="smartphone"></i></div><div class="mid"><div class="strong">Mobile recharge</div><div class="sub">25 Nov · GP from Nagad</div></div><div class="amt"><span class="tk">৳</span>500</div></div>
+    </div>
+    <div class="dayh"><span class="over">Paid</span></div>
+    <div class="card">
+      <div class="r done"><div class="ic" style="--c:var(--c-home)"><i data-lucide="house"></i></div><div class="mid"><div class="strong">House rent</div><div class="sub">5 Nov · bank transfer</div></div><div class="amt t2"><span class="tk">৳</span>9,000<small class="in">paid</small></div></div>
+      <div class="r done"><div class="ic" style="--c:var(--c-home)"><i data-lucide="user-round"></i></div><div class="mid"><div class="strong">Maid, Rahima khala</div><div class="sub">1 Nov · cash</div></div><div class="amt t2"><span class="tk">৳</span>3,000<small class="in">paid</small></div></div>
+      <div class="r done"><div class="ic" style="--c:var(--c-subs)"><i data-lucide="wifi"></i></div><div class="mid"><div class="strong">Internet, Link3</div><div class="sub">9 Nov · bKash pay bill</div></div><div class="amt t2"><span class="tk">৳</span>2,000<small class="in">paid</small></div></div>
+      <div class="r done"><div class="ic" style="--c:var(--c-subs)"><i data-lucide="sparkles"></i></div><div class="mid"><div class="strong">Google AI Pro</div><div class="sub">9 Nov · card</div></div><div class="amt t2"><span class="tk">৳</span>600<small class="in">paid</small></div></div>
+    </div>
+  </div>
+  <div class="tabbar" data-on="Plan"></div>
+</div>
+<div class="cap"><b>6 · Monthly bills</b>The same seven things every month. "Paid" writes the entry from the wallet you pick. Bills that vary, like electricity, remember what they usually cost. No recurring-rule setup screen.</div></div>
+
+<!-- 7 PEOPLE -->
+<div class="cell"><div class="phone"><div class="status"><span>6:20 pm</span><span>52%</span></div>
+  <div class="scroll">
+    <div class="between" style="margin:2px 0 14px"><div class="iconbtn"><i data-lucide="arrow-left"></i></div><span class="label">People</span><div style="width:38px"></div></div>
+    <div style="display:flex;align-items:center;gap:12px"><div class="avatar" style="width:48px;height:48px;font-size:18px">R</div><div><div class="title">Rafi</div><div class="label">owes you since 9 Nov</div></div><div class="hero in" style="margin-left:auto;font-size:28px"><span class="tk">৳</span>1,500</div></div>
+    <div class="card" style="margin-top:16px">
+      <div class="r"><div class="ic" style="--c:var(--c-people)"><i data-lucide="arrow-up-right"></i></div><div class="mid"><div class="strong">Lent for bike repair</div><div class="sub">9 Nov · bKash</div></div><div class="amt"><span class="tk">৳</span>2,000</div></div>
+      <div class="r"><div class="ic" style="--c:var(--in)"><i data-lucide="arrow-down-left"></i></div><div class="mid"><div class="strong">Paid some back</div><div class="sub">11 Nov · cash</div></div><div class="amt in"><span class="tk">৳</span>500</div></div>
+    </div>
+    <div class="between" style="margin:18px 2px 8px"><span class="headline">Remind him</span><div class="seg" style="width:150px"><span>English</span><span class="on bn">বাংলা</span></div></div>
+    <div class="bub">রাফি ভাই, সালাম। ৯ নভেম্বরের ৳১,৫০০ টাকার কথা মনে করিয়ে দিলাম। তাড়া নেই, সুবিধামতো দিও।</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px">
+      <div class="btn ghost sm">WhatsApp</div><div class="btn ghost sm">Messenger</div><div class="btn ghost sm">Copy</div>
+    </div>
+    <div class="btn" style="margin-top:8px">Settle up</div>
+  </div>
+  <div class="tabbar" data-on="People"></div>
+</div>
+<div class="cap"><b>7 · People and dues</b>Lending to friends is where money quietly disappears. Each person has a short history, and a reminder in Bangla or English that doesn't sound like a debt collector.</div></div>
+
+<!-- 8 PAYDAY -->
+<div class="cell"><div class="phone"><div class="status"><span>2:41 pm</span><span>77%</span></div>
+  <div class="scroll">
+    <div class="over" style="margin-top:8px">1 December · payday</div>
+    <div class="title" style="margin-top:2px">Salary is in</div>
+    <div class="label" style="margin:2px 0 14px"><b class="in" style="font-size:15px">+<span class="tk">৳</span>23,000</b> into City Bank. Split it the way you did last month.</div>
+    <div class="envs">
+      <div class="env"><div class="label">Rent</div><div class="v"><span class="tk">৳</span>9,000</div></div>
+      <div class="env"><div class="label">Bazar</div><div class="v"><span class="tk">৳</span>5,000</div></div>
+      <div class="env"><div class="label">Bills</div><div class="v"><span class="tk">৳</span>3,000</div></div>
+      <div class="env"><div class="label">Send home to Ammu</div><div class="v"><span class="tk">৳</span>3,000</div></div>
+      <div class="env"><div class="label">Savings</div><div class="v"><span class="tk">৳</span>2,000</div></div>
+      <div class="env"><div class="label">Free to spend</div><div class="v"><span class="tk">৳</span>1,000</div></div>
+    </div>
+    <div class="between" style="margin:16px 2px 6px"><span class="label">Placed</span><span class="headline"><span class="tk">৳</span>23,000 of <span class="tk">৳</span>23,000</span></div>
+    <div class="bar"><i style="width:100%;background:var(--in)"></i></div>
+    <div class="label" style="margin:12px 2px 14px">Remind me to send Ammu's money by bKash on the 2nd.</div>
+    <div class="btn">Start December</div>
+  </div>
+  <div class="tabbar" data-on="Plan"></div>
+</div>
+<div class="cap"><b>8 · Payday split</b>The budget is set on the one day people actually think about money. Envelopes (খাম) need no explanation. During the month, spending comes out of the matching envelope.</div></div>
+
+<!-- 9 OCCASION -->
+<div class="cell"><div class="phone"><div class="status"><span>8:10 pm</span><span>40%</span></div>
+  <div class="scroll">
+    <div class="over" style="margin-top:8px">Occasion</div>
+    <div class="title" style="margin-top:2px">Mitu's wedding</div>
+    <div class="label">Tangail · 18 December</div>
+    <div class="heroCard" style="margin-top:14px;padding:16px 18px">
+      <div class="split" style="grid-template-columns:1fr 1fr 1fr;margin-top:0;border-top:0;padding-top:0">
+        <div><div class="label">Set aside</div><div class="v"><span class="tk">৳</span>12,000</div></div>
+        <div><div class="label">Spent</div><div class="v"><span class="tk">৳</span>9,600</div></div>
+        <div><div class="label">Left</div><div class="v" style="color:var(--heroBar)"><span class="tk">৳</span>2,400</div></div>
+      </div>
+      <div class="bar" style="margin-top:14px"><i style="width:80%"></i></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="r"><div class="ic" style="--c:var(--c-shop)"><i data-lucide="gift"></i></div><div class="mid"><div class="strong">Gift for the couple</div><div class="sub">2 Dec · bank transfer</div></div><div class="amt"><span class="tk">৳</span>5,000</div></div>
+      <div class="r"><div class="ic" style="--c:var(--c-shop)"><i data-lucide="shirt"></i></div><div class="mid"><div class="strong">Panjabi for the holud</div><div class="sub">6 Dec · card · Aarong</div></div><div class="amt"><span class="tk">৳</span>3,200</div></div>
+      <div class="r"><div class="ic" style="--c:var(--c-move)"><i data-lucide="bus"></i></div><div class="mid"><div class="strong">Bus to Tangail, 2 seats</div><div class="sub">15 Dec · bKash</div></div><div class="amt"><span class="tk">৳</span>1,400</div></div>
+    </div>
+    <div class="card" style="margin-top:12px"><div class="opt"><div><div>Keep out of my monthly budget</div><div class="sub">December won't look like a failure</div></div><div class="tog"></div></div></div>
+    <div class="label" style="margin:12px 2px">Other occasions: Eid ul-Fitr, Cox's Bazar trip</div>
+  </div>
+  <div class="tabbar" data-on="Plan"></div>
+</div>
+<div class="cap"><b>9 · Occasions</b>Weddings, Eid, a trip, a hospital week. They blow up a normal month and make people stop tracking. Each gets its own amount and list, and can stay out of the monthly budget.</div></div>
+
+<!-- 10 THEME -->
+<div class="cell"><div class="phone nobar"><div class="status"><span>9:41 pm</span><span>52%</span></div>
+  <div class="scroll">
+    <div style="display:flex;align-items:center;gap:10px;margin:4px 0 18px"><div class="iconbtn"><i data-lucide="arrow-left"></i></div><span class="title">Appearance</span></div>
+    <div class="label" style="margin-bottom:10px">Colour</div>
+    <div class="swatches">
+      <div class="sw on" style="--a:#123227"></div><div class="sw" style="--a:#1B2F5C"></div><div class="sw" style="--a:#43245E"></div><div class="sw" style="--a:#7A2E12"></div><div class="sw" style="--a:#26262A"></div>
+    </div>
+    <div class="label" style="margin:8px 2px 20px;font-size:12px">Forest · Ocean · Plum · Saffron · Graphite</div>
+    <div class="label" style="margin-bottom:10px">Mode</div>
+    <div class="modes">
+      <div class="mode on"><i style="background:linear-gradient(90deg,#F6F5F1 50%,#0B0B0C 50%)"></i>System</div>
+      <div class="mode"><i style="background:#F6F5F1"></i>Light</div>
+      <div class="mode"><i style="background:#151517"></i>Dark</div>
+      <div class="mode"><i style="background:#000"></i>Black</div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="opt">Hide amounts when the app opens<div class="tog off"></div></div>
+      <div class="opt">Show poisha<div class="tog off"></div></div>
+      <div class="opt"><span>Short numbers (<span class="tk">৳</span>48.4k)</span><div class="tog off"></div></div>
+      <div class="opt">Week starts on<span class="label">Saturday</span></div>
+      <div class="opt">Evening reminder<span class="label">9:30 pm</span></div>
+    </div>
+  </div>
+</div>
+<div class="cap"><b>10 · Make it yours</b>Five solid colours (no gradients) and four modes, plus the settings people actually change.</div></div>
+
+<!-- 11 SHARE -->
+<div class="cell"><div class="phone nobar"><div class="status"><span>9:41 pm</span><span>52%</span></div>
+  <div class="scroll">
+    <div style="display:flex;align-items:center;gap:10px;margin:4px 0 18px"><div class="iconbtn"><i data-lucide="x"></i></div><span class="title">Share</span></div>
+    <div class="sharecard">
+      <div class="label" style="color:var(--heroText2)">Hamim · November 2026</div>
+      <div class="title" style="margin-top:6px">Spent <span class="tk">৳</span>4,620</div>
+      <div class="sbar"><i style="width:43%;background:#F2B04A"></i><i style="width:30%;background:#5FD3A3"></i><i style="width:14%;background:#7FB2F0"></i><i style="width:13%;background:#C9C6BE"></i></div>
+      <div class="legend"><span><i style="background:#F2B04A"></i>Bills 43%</span><span><i style="background:#5FD3A3"></i>Bazar 30%</span><span><i style="background:#7FB2F0"></i>Transport 14%</span><span><i style="background:#C9C6BE"></i>Other 13%</span></div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <div class="opt">Show amounts<div class="tog"></div></div>
+      <div class="opt">Show wallets and balances<div class="tog off"></div></div>
+      <div class="opt">Include the entry list<div class="tog off"></div></div>
+    </div>
+    <div class="label" style="margin:16px 2px 8px">Send as</div>
+    <div class="seg"><span class="on">Image</span><span>PDF</span><span>Spreadsheet</span></div>
+    <div class="btn" style="margin-top:16px">Share</div>
+  </div>
+</div>
+<div class="cap"><b>11 · Share a snapshot</b>Private by default: balances and the entry list are off until you switch them on. Useful for showing family where the month went.</div></div>
+
+<!-- 12 WIDGETS -->
+<div class="cell"><div class="phone homescreen nobar"><div class="status" style="color:#ECEAE4"><span>9:30 pm</span><span>38%</span></div>
+  <div class="clock">9:30</div>
+  <div class="wdate">Friday, 13 November</div>
+  <div class="notif" style="margin-top:22px">
+    <div class="between" style="font-size:11.5px"><span class="t3">Budget</span><span class="t3">now</span></div>
+    <div style="font-weight:700;margin-top:3px">Close today?</div>
+    <div class="t2">5 entries today. Count your cash before bed.</div>
+  </div>
+  <div class="wdg" style="margin-top:12px">
+    <div class="between"><span class="label">Spent today</span><span class="label">Cash <span class="tk">৳</span>2,300</span></div>
+    <div class="title" style="margin-top:2px"><span class="tk">৳</span>1,355</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:6px;margin-top:10px">
+      <div class="btn sm" style="height:36px">Out</div><div class="btn ghost sm" style="height:36px">In</div><div class="btn ghost sm" style="height:36px">Bazar list</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 14px 0">
+    <div class="wdg" style="margin:0"><div class="label">Rafi owes</div><div class="headline in" style="font-size:19px"><span class="tk">৳</span>1,500</div><div class="label" style="font-size:11.5px">4 days</div></div>
+    <div class="wdg" style="margin:0"><div class="label">Next bill</div><div class="headline">DESCO</div><div class="label" style="font-size:11.5px">18 Nov</div></div>
+  </div>
+  <div class="dock"><i></i><i></i><i class="me">৳</i><i></i><i></i></div>
+</div>
+<div class="cap"><b>12 · Home screen</b>Writing an entry must take less effort than forgetting it. Quick Out and In, the bazar list, and one evening nudge. Notifications never show amounts.</div></div>
+
+</template>
+
+<h2 class="rowtitle">Light</h2><div class="row" id="light" data-theme="light"></div>
+<h2 class="rowtitle">Dark</h2><div class="row" id="dark" data-theme="dark"></div>
+<script>
+  const tabs = [['house','Home'],['scroll-text','Ledger'],null,['target','Plan'],['users','People']];
+  const tpl = document.getElementById('screens');
+  for (const id of ['light','dark']) document.getElementById(id).appendChild(tpl.content.cloneNode(true));
+  document.querySelectorAll('.tabbar').forEach(t => {
+    t.innerHTML = tabs.map(x => x ? `<div class="tab ${x[1] === t.dataset.on ? 'on' : ''}"><i data-lucide="${x[0]}"></i>${x[1]}</div>`
+                                  : '<div><div class="plus"><i data-lucide="plus"></i></div></div>').join('');
+  });
+  document.querySelectorAll('.btn').forEach(b => { if (b.querySelector('.tk')) b.innerHTML = '<span>' + b.innerHTML + '</span>'; });
+  if (window.lucide) window.lucide.createIcons();
+</script>
+</body>
+</html>

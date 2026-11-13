@@ -8,6 +8,15 @@
 
 ## DECISIONS (override everything below)
 
+### v1.2 money notebook (added 2026-11-13, after v1.1 shipped)
+`docs/v1.2/PLAN.md` is authoritative and **moves these from "NOT in v1" into scope:**
+- payment accounts as **wallets** (Cash / bKash / Nagad / Upay / Rocket / Bank / Card), transfers with fees, and people & dues (lend/borrow)
+- **backup export/import**, plus CSV/PDF/image sharing via the Android share sheet
+- app lock
+- user themes (accents, Black mode)
+
+**Still out of scope:** cloud AI, any backend/sync or live shared books, SQLCipher encryption (v1.3), recurring transactions, refunds, Bangla UI translation. Money rules for wallets, transfers and dues are in PLAN §4, with expected numbers in `docs/v1.2/TEST-CASES-v1.2.md`.
+
 ### v1.1 UI overhaul (added 2026-11-13, after v1.0 shipped)
 `docs/ui-overhaul/DESIGN.md` is authoritative for all visuals, layout and the behaviour changes in its §4. It overrides: SPEC §3 (visual direction), §4 (navigation is now 4 tabs + centre Add, and Settings opens from the Home avatar), ARCHITECTURE §6 (tokens), D-002 (floating +), and D-005 (weekday reminders become per-day toggles). It adds the `rent_income` category, auto-filled time, no preselected category in Add, and cycle-aware period labels. Everything else below still applies (money rules, v1 scope, no cloud).
 
