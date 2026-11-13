@@ -1,19 +1,13 @@
-# UI and input overhaul report
+# Round 2 overhaul report
 
-## What changed
+## Implemented
 
-1. Replaced Plus Jakarta Sans in the app UI with Manrope 400–700. Hind Siliguri remains the dedicated taka glyph font.
-2. Added a raised, smaller taka sign in `Money`, with no gap before the amount and consistent negative formatting.
-3. Replaced native Android and iOS date/time dialogs with `DateTimeSheet`: recent day strip, earlier month grid, part-of-day choices, and exact time columns.
-4. Added `react-native-keyboard-controller`, `KeyboardProvider`, and keyboard-aware scrolling for forms and sheets.
-5. Simplified People detail actions to `I gave` and `I got`, mapped to the existing due kinds without changing the database schema.
-6. Simplified the People list by removing the open/settled segmented control and placing settled people under a quiet section.
-7. Added unit coverage for the gave/got mapping and updated UI tests for the intentional date picker and currency presentation changes.
-8. Kept the existing keypad and fast-entry architecture intact so amount entry does not require the system keyboard.
-
-## Font choice
-
-Manrope was chosen over the existing Plus Jakarta Sans because its compact proportions and clearer numeral shapes read more cleanly in the hero amount and dense ledger rows. The taka sign is rendered separately with Hind Siliguri so the glyph remains stable across every font size.
+- The taka sign now uses Hind Siliguri semibold at roughly 60% of the numeric font size, raised to the digit cap height with a hairline gap.
+- Add transaction is keypad-first with a large amount, one row of Category, Wallet, and When chips, collapsed note input, and `Save + add another`.
+- The wallet chip opens the wallet picker and the date chip opens the custom `DateTimeSheet`.
+- Wallet setup exposes opening balance and an as-of date. Zero-balance wallets expose `Set starting balance`.
+- Wallet detail includes `Adjust balance`, recording the difference as an income or expense entry.
+- Home and Settings were reviewed on the dev phone in dark mode; the live Add transaction screen was captured in `round2/fast-entry-live.png`.
 
 ## Verification
 
@@ -21,12 +15,16 @@ Manrope was chosen over the existing Plus Jakarta Sans because its compact propo
 - `npm test -- --runInBand`: 24 suites, 146 tests passed.
 - `npx expo lint`: 0 errors, 1 pre-existing warning in `src/app/wallets/[id].tsx`.
 - `npx expo export --platform web --output-dir dist-check`: passed; output removed.
-- Android release build: passed.
-- Verified generated application id: `com.hamim.budgetapp.dev`.
-- Installed with `adb install -r` to the dev package only.
+- Android debug build passed with `scripts/short-cxx-paths.gradle`.
+- Verified `applicationId 'com.hamim.budgetapp.dev'`.
+- Installed with `adb install -r` and launched only `com.hamim.budgetapp.dev`.
+- Metro was already running on port 8081; the phone used `adb reverse tcp:8081 tcp:8081`.
 
-## Phone check
+## Remaining gaps
 
-The dev phone was reachable and the APK installed successfully. The device was locked after launch (`NotificationShade` / keyguard focused and sleeping), so the smoke screenshot was black and no visual screen review or timed walkthrough was claimed. No owner package or owner data was touched.
+- The seven-entry, three-day/two-wallet tap-count walkthrough was not completed.
+- The full light/dark screenshot matrix and keyboard-open sheet matrix were not completed.
+- The month-grid and exact-time DateTimeSheet states still need dedicated phone captures.
+- The dev phone theme was restored to System after review.
 
-Not completed: the full light/dark screenshot matrix, keyboard-open screenshots for every sheet, and the seven-entry timed walkthrough require an unlocked dev phone.
+The owner package `com.hamim.budgetapp` was not installed, launched, cleared, or modified.

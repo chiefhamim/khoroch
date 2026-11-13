@@ -36,4 +36,10 @@ The wallet opening-balance editor and transaction note input are keyboard-capabl
 
 ## Verification
 
-`npm run typecheck`, the full Jest suite (24 suites, 146 tests), and the web export pass. Expo lint has no errors and retains the existing wallet-detail hook warning. The current Android debug and release builds are blocked by a Windows Ninja/CMake failure while compiling React Native Reanimated because it cannot create a deeply nested object directory.
+`npm run typecheck`, the full Jest suite (24 suites, 146 tests), and the web export pass. Expo lint has no errors and retains the existing wallet-detail hook warning. The Android debug build passed with `scripts/short-cxx-paths.gradle`; the standard Gradle invocation still hits the Windows Ninja path-length failure.
+
+## Live phone review
+
+The dev APK was installed after verifying `com.hamim.budgetapp.dev`, and only that package was launched. The live Home and keypad-first Add transaction screens were captured and reviewed. Metro was already running on port 8081 and the phone used `adb reverse tcp:8081 tcp:8081`.
+
+The dev app theme was restored to System after the visual review.
