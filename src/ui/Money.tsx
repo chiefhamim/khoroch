@@ -46,10 +46,10 @@ export interface TakaSignMetrics {
 export function getTakaSignMetrics(numberFontSize: number): TakaSignMetrics {
   return {
     fontFamily: TAKA_FONT_FAMILY,
-    fontSize: Math.max(8, Math.round(numberFontSize * 0.52)),
+    fontSize: Math.max(8, Math.round(numberFontSize * 0.6)),
     opacity: 1,
-    baselineNudge: -Math.round(numberFontSize * 0.18),
-    spacerWidth: 0,
+    baselineNudge: -Math.round(numberFontSize * 0.2),
+    spacerWidth: 1,
   };
 }
 
@@ -73,6 +73,7 @@ function TakaSign({ numberFontSize, symbol, color, testID }: TakaSignProps) {
         color,
         position: 'relative',
         top: metrics.baselineNudge,
+        marginRight: metrics.spacerWidth,
         includeFontPadding: false,
       }}
     >
@@ -82,7 +83,7 @@ function TakaSign({ numberFontSize, symbol, color, testID }: TakaSignProps) {
 }
 
 /**
- * Formats integer minor units with a dedicated Hind Siliguri `TakaSign` (0.72x, 0.8 opacity,
+ * Formats integer minor units with a dedicated Hind Siliguri `TakaSign` (0.6x,
  * baseline-tuned across 12/15/17/28/40 size buckets), tabular numerals, omitted `.00` unless
  * `showDecimals` is enabled, optional `compact` `k`/`M` cards display, and `Hidden` masking.
  */
