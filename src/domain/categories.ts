@@ -1,36 +1,39 @@
-import type { Category, TransactionType } from './types';
+import type { Category, CategoryColorKey, TransactionType } from './types';
 
 export interface DefaultCategoryDef {
   id: string;
   name: string;
   icon: string;
+  v1Icon: string;
+  colorKey: CategoryColorKey;
   kind: TransactionType;
   sortOrder: number;
 }
 
 export const DEFAULT_EXPENSE_CATEGORIES: readonly DefaultCategoryDef[] = [
-  { id: 'food_dining', name: 'Food & Dining', icon: 'restaurant', kind: 'expense', sortOrder: 1 },
-  { id: 'groceries', name: 'Groceries', icon: 'cart', kind: 'expense', sortOrder: 2 },
-  { id: 'transportation', name: 'Transportation', icon: 'car', kind: 'expense', sortOrder: 3 },
-  { id: 'shopping', name: 'Shopping', icon: 'bag-handle', kind: 'expense', sortOrder: 4 },
-  { id: 'housing_rent', name: 'Housing & Rent', icon: 'home', kind: 'expense', sortOrder: 5 },
-  { id: 'utilities', name: 'Utilities', icon: 'flash', kind: 'expense', sortOrder: 6 },
-  { id: 'health', name: 'Health', icon: 'medkit', kind: 'expense', sortOrder: 7 },
-  { id: 'entertainment', name: 'Entertainment', icon: 'film', kind: 'expense', sortOrder: 8 },
-  { id: 'education', name: 'Education', icon: 'school', kind: 'expense', sortOrder: 9 },
-  { id: 'travel', name: 'Travel', icon: 'airplane', kind: 'expense', sortOrder: 10 },
-  { id: 'subscriptions', name: 'Subscriptions', icon: 'repeat', kind: 'expense', sortOrder: 11 },
-  { id: 'personal_care', name: 'Personal Care', icon: 'sparkles', kind: 'expense', sortOrder: 12 },
-  { id: 'family', name: 'Family', icon: 'people', kind: 'expense', sortOrder: 13 },
-  { id: 'gifts', name: 'Gifts', icon: 'gift', kind: 'expense', sortOrder: 14 },
-  { id: 'other', name: 'Other', icon: 'ellipsis-horizontal', kind: 'expense', sortOrder: 15 },
+  { id: 'food_dining', name: 'Food & Dining', icon: 'utensils', v1Icon: 'restaurant', colorKey: 'orange', kind: 'expense', sortOrder: 1 },
+  { id: 'groceries', name: 'Groceries', icon: 'shopping-basket', v1Icon: 'cart', colorKey: 'green', kind: 'expense', sortOrder: 2 },
+  { id: 'transportation', name: 'Transportation', icon: 'car', v1Icon: 'car', colorKey: 'blue', kind: 'expense', sortOrder: 3 },
+  { id: 'shopping', name: 'Shopping', icon: 'shopping-bag', v1Icon: 'bag-handle', colorKey: 'pink', kind: 'expense', sortOrder: 4 },
+  { id: 'housing_rent', name: 'Housing & Rent', icon: 'house', v1Icon: 'home', colorKey: 'violet', kind: 'expense', sortOrder: 5 },
+  { id: 'utilities', name: 'Utilities', icon: 'zap', v1Icon: 'flash', colorKey: 'amber', kind: 'expense', sortOrder: 6 },
+  { id: 'health', name: 'Health', icon: 'heart-pulse', v1Icon: 'medkit', colorKey: 'red', kind: 'expense', sortOrder: 7 },
+  { id: 'entertainment', name: 'Entertainment', icon: 'clapperboard', v1Icon: 'film', colorKey: 'grape', kind: 'expense', sortOrder: 8 },
+  { id: 'education', name: 'Education', icon: 'graduation-cap', v1Icon: 'school', colorKey: 'indigo', kind: 'expense', sortOrder: 9 },
+  { id: 'travel', name: 'Travel', icon: 'plane', v1Icon: 'airplane', colorKey: 'cyan', kind: 'expense', sortOrder: 10 },
+  { id: 'subscriptions', name: 'Subscriptions', icon: 'repeat', v1Icon: 'repeat', colorKey: 'teal', kind: 'expense', sortOrder: 11 },
+  { id: 'personal_care', name: 'Personal Care', icon: 'sparkles', v1Icon: 'sparkles', colorKey: 'pink', kind: 'expense', sortOrder: 12 },
+  { id: 'family', name: 'Family', icon: 'users', v1Icon: 'people', colorKey: 'lime', kind: 'expense', sortOrder: 13 },
+  { id: 'gifts', name: 'Gifts', icon: 'gift', v1Icon: 'gift', colorKey: 'grape', kind: 'expense', sortOrder: 14 },
+  { id: 'other', name: 'Other', icon: 'circle-ellipsis', v1Icon: 'ellipsis-horizontal', colorKey: 'gray', kind: 'expense', sortOrder: 15 },
 ];
 
 export const DEFAULT_INCOME_CATEGORIES: readonly DefaultCategoryDef[] = [
-  { id: 'salary', name: 'Salary', icon: 'cash', kind: 'income', sortOrder: 101 },
-  { id: 'business', name: 'Business / Freelance', icon: 'briefcase', kind: 'income', sortOrder: 102 },
-  { id: 'gift_received', name: 'Gift Received', icon: 'gift', kind: 'income', sortOrder: 103 },
-  { id: 'other_income', name: 'Other Income', icon: 'wallet', kind: 'income', sortOrder: 104 },
+  { id: 'salary', name: 'Salary', icon: 'banknote', v1Icon: 'cash', colorKey: 'teal', kind: 'income', sortOrder: 101 },
+  { id: 'rent_income', name: 'Rent income', icon: 'building-2', v1Icon: 'building-2', colorKey: 'violet', kind: 'income', sortOrder: 102 },
+  { id: 'business', name: 'Business / Freelance', icon: 'briefcase', v1Icon: 'briefcase', colorKey: 'blue', kind: 'income', sortOrder: 103 },
+  { id: 'gift_received', name: 'Gift Received', icon: 'hand-heart', v1Icon: 'gift', colorKey: 'gray', kind: 'income', sortOrder: 104 },
+  { id: 'other_income', name: 'Other Income', icon: 'circle-plus', v1Icon: 'wallet', colorKey: 'gray', kind: 'income', sortOrder: 105 },
 ];
 
 export const DEFAULT_CATEGORIES: readonly DefaultCategoryDef[] = [
@@ -38,11 +41,16 @@ export const DEFAULT_CATEGORIES: readonly DefaultCategoryDef[] = [
   ...DEFAULT_INCOME_CATEGORIES,
 ];
 
+export const DEFAULT_CATEGORY_BY_ID: Readonly<Record<string, DefaultCategoryDef>> = Object.fromEntries(
+  DEFAULT_CATEGORIES.map((def) => [def.id, def])
+);
+
 export function buildDefaultCategories(nowMs: number, selectedIds?: ReadonlySet<string>): Category[] {
   return DEFAULT_CATEGORIES.map((def) => ({
     id: def.id,
     name: def.name,
     icon: def.icon,
+    colorKey: def.colorKey,
     kind: def.kind,
     sortOrder: def.sortOrder,
     isSelected: selectedIds ? selectedIds.has(def.id) : true,
@@ -156,6 +164,9 @@ export const CATEGORY_KEYWORDS: readonly CategoryKeywordRule[] = [
   { keyword: 'gift', categoryId: 'gifts', label: 'Gift', kind: 'expense' },
 
   // income
+  { keyword: 'rent income', categoryId: 'rent_income', label: 'Rent income', kind: 'income' },
+  { keyword: 'rental income', categoryId: 'rent_income', label: 'Rental income', kind: 'income' },
+  { keyword: 'tenant', categoryId: 'rent_income', label: 'Tenant rent', kind: 'income' },
   { keyword: 'salary', categoryId: 'salary', label: 'Salary', kind: 'income' },
   { keyword: 'freelance', categoryId: 'business', label: 'Freelance', kind: 'income' },
   { keyword: 'business', categoryId: 'business', label: 'Business', kind: 'income' },

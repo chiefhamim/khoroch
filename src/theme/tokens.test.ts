@@ -15,40 +15,47 @@ function contrastRatio(fg: string, bg: string): number {
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
+type SurfaceKey = 'bg' | 'surface' | 'surfaceRaised';
+type TextRoleKey = 'text' | 'textSecondary' | 'textTertiary' | 'accent' | 'warning' | 'danger';
+
 function assertPaletteContrast(name: string, p: ColorPalette): void {
-  const backgrounds: (keyof ColorPalette)[] = ['bg', 'surface', 'surfaceAlt'];
-  const foregrounds: (keyof ColorPalette)[] = [
+  const surfaces: SurfaceKey[] = ['bg', 'surface', 'surfaceRaised'];
+  const textRoles: TextRoleKey[] = [
     'text',
-    'textMuted',
-    'primary',
-    'income',
-    'expense',
+    'textSecondary',
+    'textTertiary',
+    'accent',
     'warning',
     'danger',
   ];
 
-  for (const bg of backgrounds) {
-    for (const fg of foregrounds) {
+  for (const bg of surfaces) {
+    for (const fg of textRoles) {
       const ratio = contrastRatio(p[fg], p[bg]);
       if (ratio < 4.5) {
-        throw new Error(`${name}: ${fg} (${p[fg]}) on ${bg} (${p[bg]}) contrast ${ratio.toFixed(2)} < 4.5`);
+        throw new Error(
+          `${name}: ${fg} (${p[fg]}) on ${bg} (${p[bg]}) contrast ${ratio.toFixed(2)} < 4.5`
+        );
       }
     }
   }
 
-  expect(contrastRatio(p.text, p.primarySoft)).toBeGreaterThanOrEqual(4.5);
-  expect(contrastRatio(p.textMuted, p.primarySoft)).toBeGreaterThanOrEqual(4.5);
-  expect(contrastRatio(p.primary, p.primarySoft)).toBeGreaterThanOrEqual(4.5);
-  expect(contrastRatio(p.onPrimary, p.primary)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.text, p.accentSoft)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.textSecondary, p.accentSoft)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.accent, p.accentSoft)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.warning, p.accentSoft)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.danger, p.dangerSoft)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.text, p.dangerSoft)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.onAccent, p.accent)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(p.onDanger, p.danger)).toBeGreaterThanOrEqual(4.5);
 }
 
-describe('theme token WCAG AA contrast', () => {
-  it('ensures light palette passes >= 4.5:1 across all surfaces', () => {
+describe('theme v2 token WCAG AA contrast', () => {
+  it('ensures every light text role passes >= 4.5:1 across bg, surface, surfaceRaised, and soft surfaces', () => {
     assertPaletteContrast('light', lightColors);
   });
 
-  it('ensures dark palette passes >= 4.5:1 across all surfaces', () => {
+  it('ensures every dark text role passes >= 4.5:1 across bg, surface, surfaceRaised, and soft surfaces', () => {
     assertPaletteContrast('dark', darkColors);
   });
 });

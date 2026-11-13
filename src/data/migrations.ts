@@ -1,9 +1,9 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { buildDefaultCategories } from '@/domain/categories';
+import { buildDefaultCategories, DEFAULT_CATEGORIES } from '@/domain/categories';
 
-export const LATEST_SCHEMA_VERSION = 1;
+export const LATEST_SCHEMA_VERSION = 2;
 
-const SCHEMA_V1_SQL = `
+export const SCHEMA_V1_SQL = `
 CREATE TABLE IF NOT EXISTS categories (
   id          TEXT PRIMARY KEY,
   name        TEXT NOT NULL,
@@ -52,13 +52,26 @@ CREATE TABLE IF NOT EXISTS day_reviews (
 );
 `;
 
-export async function seedDefaultCategoriesSqlite(db: SQLiteDatabase, nowMs: number = Date.now()): Promise<void> {
+export async function seedDefaultCategoriesSqlite(
+  db: SQLiteDatabase,
+  nowMs: number = Date.now()
+): Promise<void> {
   const defaults = buildDefaultCategories(nowMs);
   for (const cat of defaults) {
     await db.runAsync(
-      `INSERT OR IGNORE INTO categories (id, name, icon, kind, sort_order, is_selected, archived_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [cat.id, cat.name, cat.icon, cat.kind, cat.sortOrder, cat.isSelected ? 1 : 0, cat.archivedAt, cat.createdAt]
+      `INSERT OR IGNORE INTO categories (id, name, icon, color_key, kind, sort_order, is_selected, archived_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        cat.id,
+        cat.name,
+        cat.icon,
+        cat.colorKey,
+        cat.kind,
+        cat.sortOrder,
+        cat.isSelected ? 1 : 0,
+        cat.archivedAt,
+        cat.createdAt,
+      ]
     );
   }
 }
@@ -81,9 +94,37 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
   if (version < 1) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(SCHEMA_V1_SQL);
-      await seedDefaultCategoriesSqlite(db, Date.now());
       await db.execAsync('PRAGMA user_version = 1;');
     });
     version = 1;
+  }
+
+  if (version < 2) {
+    await db.withTransactionAsync(async () => {
+      const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(categories)');
+      const hasColorKey = columns.some((c) => c.name === 'color_key');
+      if (!hasColorKey) {
+        await db.execAsync('ALTER TABLE categories ADD COLUMN color_key TEXT;');
+      }
+
+      await seedDefaultCategoriesSqlite(db, Date.now());
+
+      for (const def of DEFAULT_CATEGORIES) {
+        await db.runAsync(
+          `UPDATE categories
+           SET color_key = COALESCE(NULLIF(color_key, ''), ?),
+               icon = CASE WHEN icon = ? OR icon IS NULL OR icon = '' THEN ? ELSE icon END
+           WHERE id = ?`,
+          [def.colorKey, def.v1Icon, def.icon, def.id]
+        );
+      }
+
+      await db.runAsync(
+        `UPDATE categories SET color_key = 'gray' WHERE color_key IS NULL OR color_key = ''`
+      );
+
+      await db.execAsync('PRAGMA user_version = 2;');
+    });
+    version = 2;
   }
 }

@@ -140,3 +140,60 @@ export function formatPeriodRange(start: LocalDate, endExcl: LocalDate): string 
   const endIncl = addDays(endExcl, -1);
   return `${formatShortDate(start)} – ${formatShortDate(endIncl)}`;
 }
+
+/**
+ * Formats a LocalDate for pills and headers: "Today", "Yesterday", or "Wed, 11 Nov"
+ * (appending the year if it differs from `today`'s year).
+ */
+export function formatFriendlyDate(
+  date: LocalDate,
+  today: LocalDate = todayLocalDate()
+): string {
+  if (date === today) return 'Today';
+  if (date === addDays(today, -1)) return 'Yesterday';
+  const { year, month, day } = parseLocalDate(date);
+  const { year: todayYear } = parseLocalDate(today);
+  const epochDay = toEpochDay(date);
+  const weekdayIdx = ((epochDay % 7) + 7) % 7;
+  const base = `${SHORT_WEEKDAYS[weekdayIdx]}, ${day} ${SHORT_MONTHS[month - 1]}`;
+  return year === todayYear ? base : `${base} ${year}`;
+}
+
+export function currentLocalTime(now: Date = new Date()): string {
+  const h = String(now.getHours()).padStart(2, '0');
+  const m = String(now.getMinutes()).padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+export function isDevice24HourClock(): boolean {
+  try {
+    const resolved = Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions();
+    if (resolved.hourCycle === 'h23' || resolved.hourCycle === 'h24') return true;
+    if (resolved.hourCycle === 'h11' || resolved.hourCycle === 'h12') return false;
+    return resolved.hour12 === false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Formats an 'HH:mm' local time string into 24-hour ("13:20") or 12-hour ("1:20 PM").
+ */
+export function formatFriendlyTime(
+  time: string,
+  use24Hour: boolean = isDevice24HourClock()
+): string {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(time.trim());
+  if (!match) return time;
+  const hour = Number.parseInt(match[1], 10);
+  const minute = Number.parseInt(match[2], 10);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return time;
+
+  const minStr = String(minute).padStart(2, '0');
+  if (use24Hour) {
+    return `${String(hour).padStart(2, '0')}:${minStr}`;
+  }
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${hour12}:${minStr} ${period}`;
+}

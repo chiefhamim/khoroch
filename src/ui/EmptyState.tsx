@@ -1,71 +1,86 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { Card } from './Card';
 
 export interface EmptyStateProps {
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: AppIconName;
   title: string;
   body: string;
   ctaLabel?: string;
   onCtaPress?: () => void;
+  testID?: string;
 }
 
+const LEGACY_ICON_MAP: Record<string, AppIconName> = {
+  'wallet-outline': 'wallet',
+  'receipt-outline': 'list',
+  'analytics-outline': 'trending-up',
+  'search-outline': 'search',
+};
+
 export function EmptyState({
-  icon = 'wallet-outline',
+  icon = 'wallet',
   title,
   body,
   ctaLabel,
   onCtaPress,
+  testID,
 }: EmptyStateProps) {
   const { theme } = useTheme();
-
-  const iconBoxSize = theme.touch.min + theme.spacing.sm;
+  const resolvedIcon = LEGACY_ICON_MAP[icon] ?? icon;
 
   return (
-    <Card style={{ alignItems: 'center', gap: theme.spacing.md }}>
+    <View testID={testID} style={[styles.wrap, { paddingVertical: theme.spacing.xxl, gap: theme.spacing.md }]}>
       <View
         style={[
-          styles.iconCircle,
+          styles.badge,
           {
-            width: iconBoxSize,
-            height: iconBoxSize,
-            backgroundColor: theme.colors.primarySoft,
+            width: 56,
+            height: 56,
             borderRadius: theme.radius.pill,
+            backgroundColor: theme.colors.accentSoft,
           },
         ]}
       >
-        <Ionicons name={icon} size={28} color={theme.colors.primary} />
+        <AppIcon name={resolvedIcon} size={26} color={theme.colors.accent} />
       </View>
-      <AppText variant="title" style={styles.center}>
-        {title}
-      </AppText>
-      <AppText variant="body" color="textMuted" style={styles.center}>
-        {body}
-      </AppText>
+      <View style={{ gap: theme.spacing.xs, alignItems: 'center' }}>
+        <AppText variant="headline" style={styles.center}>
+          {title}
+        </AppText>
+        <AppText variant="body" color="textSecondary" style={[styles.center, styles.body]}>
+          {body}
+        </AppText>
+      </View>
       {ctaLabel && onCtaPress ? (
         <Button
           title={ctaLabel}
+          size="md"
           onPress={onCtaPress}
-          style={[styles.cta, { marginTop: theme.spacing.xs }]}
+          style={{ marginTop: theme.spacing.xs, paddingHorizontal: theme.spacing.xxl }}
         />
       ) : null}
-    </Card>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  iconCircle: {
+  wrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  badge: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   center: {
     textAlign: 'center',
   },
-  cta: {
-    alignSelf: 'stretch',
+  body: {
+    maxWidth: 300,
   },
 });

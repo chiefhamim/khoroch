@@ -554,6 +554,12 @@ export default function SettingsScreen() {
               disabled={busy}
               onPress={() => void handleClearSample()}
             />
+            <Button
+              testID="settings-open-gallery"
+              title="Open UI Gallery (v2)"
+              variant="ghost"
+              onPress={() => router.push('/dev/gallery' as never)}
+            />
             {settings.sampleDataLoaded ? (
               <AppText variant="caption" color="primary">
                 {t('settings.sampleLoadedNote')}

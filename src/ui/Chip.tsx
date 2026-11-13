@@ -1,13 +1,16 @@
 import React from 'react';
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
 
 export interface ChipProps {
   label: string;
   selected?: boolean;
-  icon?: keyof typeof Ionicons.glyphMap;
+  icon?: AppIconName;
+  rightIcon?: AppIconName;
+  left?: React.ReactNode;
+  variant?: 'surface' | 'sunken';
   onPress: () => void;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
@@ -18,6 +21,9 @@ export function Chip({
   label,
   selected = false,
   icon,
+  rightIcon,
+  left,
+  variant = 'surface',
   onPress,
   accessibilityLabel,
   style,
@@ -25,37 +31,61 @@ export function Chip({
 }: ChipProps) {
   const { theme, reducedMotion } = useTheme();
 
+  const backgroundColor = selected
+    ? theme.colors.accentSoft
+    : variant === 'sunken'
+      ? theme.colors.surfaceSunken
+      : theme.colors.surface;
+
+  const borderColor = selected
+    ? theme.colors.accent
+    : variant === 'sunken'
+      ? 'transparent'
+      : theme.colors.separator;
+
+  const fgColor = selected ? theme.colors.accent : theme.colors.text;
+
   return (
     <Pressable
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ selected }}
+      hitSlop={4}
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
         {
           minHeight: theme.touch.min,
-          borderRadius: theme.radius.pill,
+          borderRadius: theme.radius.chip,
           paddingHorizontal: theme.spacing.lg,
           gap: theme.spacing.sm,
-          backgroundColor: selected ? theme.colors.primarySoft : theme.colors.surface,
-          borderColor: selected ? theme.colors.primary : theme.colors.border,
+          backgroundColor,
+          borderColor,
           opacity: pressed && !reducedMotion ? 0.85 : 1,
         },
         style,
       ]}
     >
-      {icon ? (
-        <Ionicons
+      {left ? (
+        <View style={styles.side}>{left}</View>
+      ) : icon ? (
+        <AppIcon
           name={icon}
-          size={18}
-          color={selected ? theme.colors.primary : theme.colors.textMuted}
+          size={17}
+          color={selected ? theme.colors.accent : theme.colors.textSecondary}
         />
       ) : null}
-      <AppText variant="label" color={selected ? 'primary' : 'text'}>
+      <AppText variant="label" style={{ color: fgColor }} numberOfLines={1}>
         {label}
       </AppText>
+      {rightIcon ? (
+        <AppIcon
+          name={rightIcon}
+          size={15}
+          color={selected ? theme.colors.accent : theme.colors.textSecondary}
+        />
+      ) : null}
     </Pressable>
   );
 }
@@ -64,6 +94,10 @@ const styles = StyleSheet.create({
   chip: {
     borderWidth: 1,
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  side: {
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -4,6 +4,8 @@ Legend: `[ ]` not started · `[~]` in progress · `[x]` done and verified · `BL
 Rules: `AGENTS.md`. At the start of **every** phase re-read AGENTS.md + SPEC DECISIONS + the sections listed. Don't rely on memory.
 You may tick boxes, add `BLOCKED:` notes under tasks, and append to the Log. Don't delete or reword tasks or "Done when" lines.
 
+> **v1.0 (Phases 0–6) is done.** The current work is **v1.1 UI OVERHAUL, Phases 7–13, at the bottom of this file.** Their spec is `docs/ui-overhaul/DESIGN.md` (+ `mockup.html`). Phone rules: AGENTS.md §6.
+
 Standard checks (referred to below as **CHECKS**):
 `npm run typecheck` → 0 errors · `npx expo lint` → 0 errors · `npm test` → all pass, 0 skipped · `npx expo export --platform web --output-dir dist-check` → succeeds
 
@@ -254,3 +256,96 @@ Do **not** start v2 items. Instead: re-run all CHECKS, hunt for bugs (edge cases
 ### Known bugs / rough edges
 - None observed in automated tests or headless Chromium checks; `expo-notifications` alarm delivery, notification deep-link wakeup, native `expo-speech-recognition` microphone capture, and native Android force-kill SQLite persistence could not run without a physical Android device and are documented step by step in `docs/PHONE-TEST.md`.
 - Design choices made unattended are recorded as **D-001 through D-005** in `docs/DECISIONS-LOG.md` (notably WCGA-adjusted light/dark foreground shades in `D-001`, 5-tab + floating `+` FAB in `D-002`, protecting fallback categories `other`/`other_income` in `D-003`, 1-decimal percentage display in `D-004`, and Mon–Fri weekdays repeat + lazy Expo Go speech guard in `D-005`).
+
+
+---
+---
+
+# v1.1 UI OVERHAUL — Phases 7–13
+
+Spec: **`docs/ui-overhaul/DESIGN.md`** (audit §1, principles §2, tokens §3, behaviour changes §4, components §5, screen layouts §6). Visual reference: `docs/ui-overhaul/mockup.html` (open it in your browser at the start of every phase). Before-screenshots: `docs/ui-overhaul/before/`.
+At the start of every phase re-read: AGENTS.md (esp. §6 phone rules), DESIGN.md §2 + §3 + §4, the sections listed for the phase, and look at the mockup.
+
+**PHONE CHECK** (referred to below): if the phone is reachable (AGENTS §6), install the current build and take screenshots of the screens touched in this phase, in **light and dark** (switch via the app's own Appearance setting, then set it back to System), into `docs/ui-overhaul/after/phase-N/`. Look at each screenshot and fix what's wrong. If the phone is not reachable or is locked, do the web check at 360/390/430 instead and write "PHONE CHECK skipped: <reason>" in the Log. Never block on the phone.
+
+## Phase 7 — Design system v2 + native foundations  [x]
+Re-read: DESIGN §3, §5 · AGENTS §6
+- [x] `npx expo install lucide-react-native @react-native-community/datetimepicker expo-haptics` (lucide fallback rule in DESIGN §3)
+- [x] `tokens.ts` → v2 colours, typography, radius, geometry; `tokens.test.ts` contrast checks updated for every text role × {bg, surface, surfaceRaised}
+- [x] `src/theme/categoryColors.ts` (13 colour keys, light/dark) + default category → colorKey + lucide icon map
+- [x] DB migration **v2, additive only**: `ALTER TABLE categories ADD COLUMN color_key TEXT`; backfill colour + icon for defaults; insert `rent_income` if missing; no table drops/recreates. Test: a v1-shaped DB with transactions migrates to v2 with every row intact (memoryRepo + migration-SQL test)
+- [x] All components in DESIGN §5 built/restyled (`Surface`, `Button`, `IconButton`, `IconTile`, `Money` v2, `ListRow`, `SettingsGroup/Row`, `Sheet`, `SegmentedControl`, `Chip`, `Field`, `DateField`, `TimeField`, `DayToggles`, `DayOfMonthGrid`, `ProgressBar`, `ProgressRing`, `Keypad`, `EmptyState`, `Banner`, `Toast`)
+- [x] `DateField`/`TimeField` open the native Material dialogs on Android (`DateTimePickerAndroid.open`), `<input type=date|time>` on web; display "Today"/"Yesterday"/"Wed, 11 Nov" and device 12/24h time — with unit tests for the display helpers
+- [x] `src/app/dev/gallery.tsx` (`__DEV__` only) showing every component, both themes
+- [x] Native rebuild succeeded (`assembleDebug`, `app-debug.apk` built cleanly after `expo prebuild -p android`). Phone install & live check **SKIPPED** (phone unreachable on `192.168.0.154:45999` and Tailscale `100.120.102.83:45999/5555` refused) — verify migrated DB intact when phone reconnects.
+
+**Done when:** CHECKS pass · gallery checked on web at 360 light+dark · PHONE CHECK skipped (`192.168.0.154:45999` unreachable, Tailscale `100.120.102.83:45999/5555` refused).
+
+## Phase 8 — Navigation shell  [ ]
+Re-read: DESIGN §4 (tab bar, settings), §6.1 header, §6.6 last paragraph
+- [ ] Tab bar: `Home · Activity · [ + ] · Budget · Insights` — centre 56dp accent button inside the bar; tap → Add, long-press → Quick Entry (with haptic). Remove the floating FAB and the Settings tab
+- [ ] Avatar (initial) top-right on Home → Settings as a stack screen with back arrow, no tab bar
+- [ ] Every tab's scroll content has bottom padding = tab bar height + 16 — nothing hidden behind the bar
+- [ ] Screen headers per mockup (title 22, no gear icons)
+- [ ] Update tests that referenced the old tabs/FAB
+
+**Done when:** CHECKS pass · PHONE CHECK: each of the 4 tabs scrolled to the very bottom shows its last item fully visible above the bar (light + dark) · long-press + opens Quick Entry.
+
+## Phase 9 — Add / Edit / Quick Entry / Transaction detail  [ ]
+Re-read: DESIGN §4 (no preselect, auto time, rent_income), §6.2, §6.8 · SPEC §7, §8 · TEST-CASES §4
+- [ ] Add/Edit layout exactly per DESIGN §6.2: amount hero, note toggle, Date/Time chips → native dialogs, 4-col category grid (most-used first, "All…" sheet with every category + "New category"), description with suggestions filtered by type + category, keypad pinned bottom, Save pinned
+- [ ] No preselected category; Save disabled until amount > 0 and category chosen; time auto-filled with now
+- [ ] Haptics: light on keypad, success on save; Toast "Saved"
+- [ ] Edit: `⋯` menu → Delete with confirm sheet
+- [ ] Quick Entry restyle (DESIGN §6.8); drafts use IconTile + DateField/TimeField
+- [ ] Tests: Save disabled without category; date/time callbacks update state; suggestions filtered; double-tap still saves once
+
+**Done when:** CHECKS pass · PHONE CHECK: Add screen in both themes; the date chip opens the Material **calendar** dialog and the time chip opens the Material **clock** dialog (screenshot both); one test transaction named `UI TEST – delete me` saved, seen in Activity, then deleted (AGENTS §6).
+
+## Phase 10 — Home + Budget  [ ]
+Re-read: DESIGN §4 (cycle labels, new-cycle hint), §6.1, §6.4 · SPEC §6, §10, §17
+- [ ] `formatCycleLabel(period, monthStartDay)` in `src/domain` — month name when msd = 1, otherwise "10 Oct – 9 Nov"; tests incl. year boundary
+- [ ] `shouldShowNewCycleHint` (elapsed ≤ 7 and previous cycle spent > 0) + tests
+- [ ] Chart axis: ≤ 5 labels, never two labels closer than 3 days, last label "Today" when today is in range; tests for the tick picker
+- [ ] Home per §6.1 (hero card with 3-column strip, banner, 2 small actions, chart, top categories with colour bars, recent). No-budget state = compact inline row
+- [ ] Budget per §6.4 (ProgressRing, one Edit, category rows with status-coloured bars, ONE dashed "Add category budget" row, unallocated, past cycles collapsible)
+- [ ] All numbers still from `calc.ts` (Scenario A overview test updated to new layout and still asserts ৳ 23,550 / ৳ 16,450 / ৳ 1,308.33 etc.)
+
+**Done when:** CHECKS pass · web 360/390/430 light+dark with sample data · PHONE CHECK with the owner's real data: Home shows the new-cycle banner ("New cycle started 10 Nov · Last cycle ৳4,600" — true for 13–16 Nov 2026), Budget screen both themes, no duplicate CTAs anywhere.
+
+## Phase 11 — Activity + Insights  [ ]
+Re-read: DESIGN §6.3, §6.5 · SPEC §11, §13
+- [ ] Activity per §6.3: search + filter icon with count badge, period chip + summary line, sticky date headers with net, 64dp rows with "Category · 9:40 PM", expense neutral / income accent
+- [ ] Filters bottom sheet (type, category tiles multi-select, presets + Custom range via two DateFields, min/max, Reset / Show N results)
+- [ ] Insights per §6.5: period dropdown → sheet (7 options), plain-language headline comparison with two bars, compact averages, biggest list, changes list, history chart — all labels via `formatCycleLabel`
+- [ ] Copy: remove every "comparison window" / jargon string from `en.ts`; empty states per DESIGN §2.6
+
+**Done when:** CHECKS pass · PHONE CHECK: Insights complete-cycle card reads "10 Oct – 9 Nov" (not "Oct 2026") for the owner's data; Activity + Filters sheet in both themes.
+
+## Phase 12 — Settings, Categories, Reminders, Onboarding, Check-in  [ ]
+Re-read: DESIGN §4 (reminder days), §6.6, §6.7, §6.8 · SPEC §5, §12, §16
+- [ ] Settings grouped list per §6.6; sheets for name, cycle start (DayOfMonthGrid + live preview of the current cycle), appearance (3 preview swatches)
+- [ ] Reminders: switch, Time row → native clock dialog, DayToggles + presets [Every day] [Sun–Thu]; settings stored as `days: number[]`; old `everyday`/`weekdays` values converted on read; scheduler schedules one weekly trigger per selected day — tests for conversion and trigger list
+- [ ] Categories screen per §6.7: tile grid, edit sheet with name, 13 swatches, icon grid, archive (protected ones hide archive)
+- [ ] Onboarding + Check-in restyled (§6.8)
+- [ ] App version → 1.1.0 in `app.json`
+
+**Done when:** CHECKS pass · PHONE CHECK: Settings both themes, the time row opens the Material clock dialog, cycle-start sheet, categories edit sheet. Reminder change on phone is reverted to the owner's original (every day, 21:00) after testing.
+
+## Phase 13 — Device QA + release build  [ ]
+Re-read: DESIGN (all) · AGENTS §5, §6
+- [ ] Full sweep on the phone: every screen (Home, Add, Quick Entry, Activity, Filters, Transaction detail, Budget, Insights, Settings, Categories, Check-in, Onboarding via the gallery or web) in light and dark; compare with mockup; fix misalignment, overflow, clipped text, weak contrast
+- [ ] Web sweep at 360/390/430 for the same screens
+- [ ] Release build (`assembleRelease`), `adb install -r`, stop Metro, cold-start the app: it opens without the PC and the owner's data is intact
+- [ ] Appearance setting on the phone set back to **System**
+- [ ] README + `docs/PHONE-TEST.md` updated for v1.1
+- [ ] Write the **v1.1 summary** below (what changed, before/after screenshot pairs, BLOCKED items, anything the owner should try)
+
+**Done when:** CHECKS pass · release build installed and cold-started on the phone · v1.1 summary written.
+
+## v1.1 Log
+<!-- Agent appends per phase: date/time, phase, built, CHECKS results, PHONE CHECK (screenshots taken or why skipped), BLOCKED, D-entries -->
+- 2026-11-13 12:52 | Phase 7: Design system v2 + native foundations | built: lucide-react-native, @react-native-community/datetimepicker, expo-haptics; v2 tokens/categoryColors (D-006 contrast adjustments); additive SQLite v2 migration + rent_income + unit SQL test; 22 v2 UI primitives + native DateField/TimeField + DEV UI gallery; native Android debug APK (`assembleDebug`) | CHECKS: PASS (typecheck 0 errors, expo lint 0 warnings, 16/16 Jest suites / 80/80 tests passed, web export + 360px Light/Dark gallery 0 console/DOM errors) | PHONE CHECK: SKIPPED (192.168.0.154:45999 unreachable/host off-LAN, Tailscale 100.120.102.83:45999 & :5555 connection refused — Wireless Debugging unavailable) | BLOCKED: none (re-verify migrated owner DB when phone reconnects)
+
+## v1.1 summary
+<!-- Agent writes at the end -->

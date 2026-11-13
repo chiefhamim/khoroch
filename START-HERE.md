@@ -66,6 +66,32 @@ Turn sleep back on (30 minutes is the usual desktop default; use your own number
 powercfg /change standby-timeout-ac 30
 ```
 
+## 3b. v1.1 UI overhaul: how to kick it off
+
+What's planned: `docs/ui-overhaul/DESIGN.md`. Open `docs/ui-overhaul/mockup.html` in your browser to see the target look in light and dark.
+
+**Phone prep (so AGY can build, install and screenshot on your S25 Ultra):**
+1. Plug the phone in. Turn on **Developer options → Stay awake** so the screen doesn't lock while charging. AGY skips phone checks if the phone locks.
+2. Turn on **Wireless debugging** and note the IP:port (it changes whenever you toggle it).
+3. Your real data stays safe: AGY's rules forbid uninstalling, clearing data, or destructive migrations, and builds install over the top with `install -r`.
+
+**Paste this into AGY** (replace the address if it changed):
+```
+Phone: PHONE=192.168.0.154:45999
+
+Read AGENTS.md (especially §6, the phone rules), then docs/PROGRESS.md, docs/ui-overhaul/DESIGN.md,
+and open docs/ui-overhaul/mockup.html in the browser.
+
+Start at the first unfinished phase in docs/PROGRESS.md (Phase 7, v1.1 UI overhaul) and keep going
+through Phase 13, following AGENTS.md exactly. At the start of each phase, re-read the listed
+sections and look at the mockup again. Verify "Done when" by actually running the checks and the
+PHONE CHECK, and commit after each phase.
+
+Do not ask me anything; log decisions in docs/DECISIONS-LOG.md. If something fails 3 times, mark it
+BLOCKED and move on. Never wipe or risk the data on my phone. Stop when every phase is done or
+blocked, then write the v1.1 summary at the bottom of docs/PROGRESS.md.
+```
+
 ## 4. What's deliberately NOT in v1
 No cloud AI (Gemini/Hydrogen), no accounts/transfers, no recurring, no export/backup, no encryption/app lock, no Bangla UI. These are listed in SPEC → DECISIONS → "NOT in v1". Voice uses a local parser, so "350 taka lunch" works offline and costs nothing. The mic button only appears on a development build (Expo Go doesn't include speech recognition), and typing the same sentence works everywhere.
 

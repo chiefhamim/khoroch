@@ -1,6 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { useTheme } from '@/theme/useTheme';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { Surface, type SurfaceVariant } from './Surface';
 
 export interface CardProps {
   children: React.ReactNode;
@@ -10,36 +10,14 @@ export interface CardProps {
   testID?: string;
 }
 
+/** @deprecated Compatibility wrapper over `Surface`; prefer `Surface` in v1.1 screens. */
 export function Card({ children, tone = 'surface', padded = true, style, testID }: CardProps) {
-  const { theme } = useTheme();
-  const backgroundColor =
-    tone === 'alt'
-      ? theme.colors.surfaceAlt
-      : tone === 'soft'
-        ? theme.colors.primarySoft
-        : theme.colors.surface;
+  const variant: SurfaceVariant =
+    tone === 'alt' ? 'sunken' : tone === 'soft' ? 'soft' : 'card';
 
   return (
-    <View
-      testID={testID}
-      style={[
-        styles.card,
-        {
-          backgroundColor,
-          borderColor: theme.colors.border,
-          borderRadius: theme.radius.xl,
-          padding: padded ? theme.spacing.lg : 0,
-        },
-        style,
-      ]}
-    >
+    <Surface testID={testID} variant={variant} padded={padded} style={style}>
       {children}
-    </View>
+    </Surface>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-  },
-});

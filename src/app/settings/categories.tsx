@@ -137,6 +137,7 @@ export default function CategoriesScreen() {
         id: editingCat?.id ?? `custom_${Crypto.randomUUID().slice(0, 8)}`,
         name: trimmed,
         icon: iconInput,
+        colorKey: editingCat?.colorKey ?? 'gray',
         kind: editingCat?.kind ?? kind,
         sortOrder: nextSortOrder,
         isSelected: isSelectedInput,

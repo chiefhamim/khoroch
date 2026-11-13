@@ -18,10 +18,29 @@ export type ThemePreference = 'system' | 'light' | 'dark';
 
 export type ReminderDays = 'everyday' | 'weekdays';
 
+export const CATEGORY_COLOR_KEYS = [
+  'orange',
+  'green',
+  'blue',
+  'pink',
+  'violet',
+  'amber',
+  'red',
+  'grape',
+  'indigo',
+  'cyan',
+  'teal',
+  'lime',
+  'gray',
+] as const;
+
+export type CategoryColorKey = (typeof CATEGORY_COLOR_KEYS)[number];
+
 export interface Category {
   id: string;
   name: string;
   icon: string;
+  colorKey: CategoryColorKey;
   kind: CategoryKind;
   sortOrder: number;
   isSelected: boolean;

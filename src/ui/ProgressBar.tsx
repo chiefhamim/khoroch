@@ -5,21 +5,22 @@ import { useTheme } from '@/theme/useTheme';
 
 export interface ProgressBarProps {
   pct: number | null;
-  status: BudgetStatus;
+  status?: BudgetStatus;
+  tone?: 'accent' | 'warning' | 'danger';
   height?: number;
 }
 
-export function ProgressBar({ pct, status, height }: ProgressBarProps) {
+export function ProgressBar({ pct, status, tone, height }: ProgressBarProps) {
   const { theme } = useTheme();
-  const barHeight = height ?? theme.spacing.sm;
+  const barHeight = height ?? theme.geometry.progressBarHeight;
   const clamped = pct === null ? 0 : Math.max(0, Math.min(100, pct));
 
   const fillColor =
-    status === 'over'
+    tone === 'danger' || status === 'over'
       ? theme.colors.danger
-      : status === 'attention' || status === 'reached'
+      : tone === 'warning' || status === 'attention' || status === 'reached'
         ? theme.colors.warning
-        : theme.colors.primary;
+        : theme.colors.accent;
 
   return (
     <View
@@ -30,7 +31,7 @@ export function ProgressBar({ pct, status, height }: ProgressBarProps) {
         {
           height: barHeight,
           borderRadius: theme.radius.pill,
-          backgroundColor: theme.colors.surfaceAlt,
+          backgroundColor: theme.colors.surfaceSunken,
         },
       ]}
     >

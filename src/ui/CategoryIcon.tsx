@@ -1,10 +1,11 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/theme/useTheme';
+import type { CategoryColorKey } from '@/domain/types';
+import { IconTile } from './IconTile';
 
 const VALID_IONICONS = Ionicons.glyphMap as Record<string, unknown>;
 
+/** @deprecated Compatibility helper for un-migrated v1 screens until Phase 12 cleanup. */
 export function resolveIoniconName(icon: string | undefined | null): keyof typeof Ionicons.glyphMap {
   if (icon && icon in VALID_IONICONS) {
     return icon as keyof typeof Ionicons.glyphMap;
@@ -14,51 +15,34 @@ export function resolveIoniconName(icon: string | undefined | null): keyof typeo
 
 export interface CategoryIconProps {
   icon?: string | null;
-  size?: 'sm' | 'md';
+  colorKey?: CategoryColorKey | string | null;
+  size?: 'sm' | 'md' | 'lg';
   tone?: 'neutral' | 'primary' | 'income' | 'expense';
+  selected?: boolean;
 }
 
 export function CategoryIcon({
   icon,
+  colorKey,
   size = 'md',
   tone = 'neutral',
+  selected = false,
 }: CategoryIconProps) {
-  const { theme } = useTheme();
-  const boxSize = size === 'sm' ? theme.spacing.xxxl : theme.touch.min - theme.spacing.xs;
-  const iconSize = size === 'sm' ? 16 : 20;
-
-  const fgColor =
-    tone === 'primary'
-      ? theme.colors.primary
-      : tone === 'income'
-        ? theme.colors.income
-        : tone === 'expense'
-          ? theme.colors.expense
-          : theme.colors.text;
-
-  const bgColor =
-    tone === 'primary' ? theme.colors.primarySoft : theme.colors.surfaceAlt;
+  const resolvedColorKey: CategoryColorKey | string | undefined =
+    colorKey ??
+    (tone === 'primary' || tone === 'income'
+      ? 'teal'
+      : tone === 'expense'
+        ? 'orange'
+        : 'gray');
 
   return (
-    <View
-      style={[
-        styles.circle,
-        {
-          width: boxSize,
-          height: boxSize,
-          borderRadius: theme.radius.pill,
-          backgroundColor: bgColor,
-        },
-      ]}
-    >
-      <Ionicons name={resolveIoniconName(icon)} size={iconSize} color={fgColor} />
-    </View>
+    <IconTile
+      icon={icon}
+      colorKey={resolvedColorKey}
+      size={size}
+      selected={selected}
+      neutral={!colorKey && tone === 'neutral'}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  circle: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

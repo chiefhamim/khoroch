@@ -64,6 +64,7 @@ describe('MemoryRepo (TEST-CASES §6)', () => {
       id: 'coffee_custom',
       name: 'Specialty Coffee',
       icon: 'cafe',
+      colorKey: 'orange',
       kind: 'expense',
       sortOrder: 50,
       isSelected: true,
@@ -210,5 +211,17 @@ describe('MemoryRepo (TEST-CASES §6)', () => {
 
     expect(totalFetched).toBe(550);
     expect(pageCount).toBe(Math.ceil(550 / 30));
+  });
+
+  it('seeds v2 categories with colorKey and rent_income', async () => {
+    const repo = new MemoryRepo();
+    const cats = await repo.listCategories();
+    expect(cats).toHaveLength(20);
+    expect(cats.find((c) => c.id === 'food_dining')).toEqual(
+      expect.objectContaining({ icon: 'utensils', colorKey: 'orange' })
+    );
+    expect(cats.find((c) => c.id === 'rent_income')).toEqual(
+      expect.objectContaining({ icon: 'building-2', colorKey: 'violet', kind: 'income' })
+    );
   });
 });

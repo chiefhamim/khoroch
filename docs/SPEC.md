@@ -8,6 +8,9 @@
 
 ## DECISIONS (override everything below)
 
+### v1.1 UI overhaul (added 2026-11-13, after v1.0 shipped)
+`docs/ui-overhaul/DESIGN.md` is authoritative for all visuals, layout and the behaviour changes in its §4. It overrides: SPEC §3 (visual direction), §4 (navigation is now 4 tabs + centre Add, and Settings opens from the Home avatar), ARCHITECTURE §6 (tokens), D-002 (floating +), and D-005 (weekday reminders become per-day toggles). It adds the `rent_income` category, auto-filled time, no preselected category in Add, and cycle-aware period labels. Everything else below still applies (money rules, v1 scope, no cloud).
+
 ### Stack
 - **Expo SDK 58 + TypeScript strict + Expo Router** (routes in `src/app/`). Already scaffolded. No Flutter, no bare React Native.
 - **Database:** `expo-sqlite` (local, unencrypted in v1). Repository interface so a memory implementation can be used in tests and, if needed, on web.

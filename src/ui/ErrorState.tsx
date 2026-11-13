@@ -1,10 +1,10 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon } from './AppIcon';
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { Card } from './Card';
+import { Surface } from './Surface';
 
 export interface ErrorStateProps {
   title: string;
@@ -16,27 +16,25 @@ export interface ErrorStateProps {
 export function ErrorState({ title, body, retryLabel, onRetry }: ErrorStateProps) {
   const { theme } = useTheme();
 
-  const iconBoxSize = theme.touch.min + theme.spacing.sm;
-
   return (
-    <Card style={{ alignItems: 'center', gap: theme.spacing.md }}>
+    <Surface style={{ alignItems: 'center', gap: theme.spacing.md }}>
       <View
         style={[
           styles.iconCircle,
           {
-            width: iconBoxSize,
-            height: iconBoxSize,
-            backgroundColor: theme.colors.surfaceAlt,
+            width: 56,
+            height: 56,
+            backgroundColor: theme.colors.dangerSoft,
             borderRadius: theme.radius.pill,
           },
         ]}
       >
-        <Ionicons name="alert-circle-outline" size={28} color={theme.colors.danger} />
+        <AppIcon name="circle-alert" size={26} color={theme.colors.danger} />
       </View>
-      <AppText variant="heading" style={styles.center}>
+      <AppText variant="headline" style={styles.center}>
         {title}
       </AppText>
-      <AppText variant="body" color="textMuted" style={styles.center}>
+      <AppText variant="body" color="textSecondary" style={styles.center}>
         {body}
       </AppText>
       {retryLabel && onRetry ? (
@@ -47,7 +45,7 @@ export function ErrorState({ title, body, retryLabel, onRetry }: ErrorStateProps
           style={[styles.cta, { marginTop: theme.spacing.xs }]}
         />
       ) : null}
-    </Card>
+    </Surface>
   );
 }
 

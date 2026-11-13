@@ -1,12 +1,18 @@
 import React from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
+import { hapticLight } from './haptics';
 
 export interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerSoft';
+  size?: 'md' | 'sm';
+  leftIcon?: AppIconName;
+  rightIcon?: AppIconName;
+  haptics?: boolean;
   disabled?: boolean;
   loading?: boolean;
   accessibilityLabel?: string;
@@ -18,6 +24,10 @@ export function Button({
   title,
   onPress,
   variant = 'primary',
+  size = 'md',
+  leftIcon,
+  rightIcon,
+  haptics = false,
   disabled = false,
   loading = false,
   accessibilityLabel,
@@ -29,24 +39,36 @@ export function Button({
 
   const backgroundColor =
     variant === 'primary'
-      ? theme.colors.primary
+      ? theme.colors.accent
       : variant === 'secondary'
-        ? theme.colors.surfaceAlt
+        ? theme.colors.surfaceRaised
         : variant === 'danger'
           ? theme.colors.danger
-          : 'transparent';
+          : variant === 'dangerSoft'
+            ? theme.colors.dangerSoft
+            : 'transparent';
 
   const borderColor =
-    variant === 'secondary' ? theme.colors.border : 'transparent';
+    variant === 'secondary' ? theme.colors.separator : 'transparent';
 
   const textColor =
     variant === 'primary'
-      ? 'onPrimary'
+      ? 'onAccent'
       : variant === 'danger'
         ? 'onDanger'
-        : variant === 'ghost'
-          ? 'primary'
-          : 'text';
+        : variant === 'dangerSoft'
+          ? 'danger'
+          : variant === 'ghost'
+            ? 'accent'
+            : 'text';
+
+  const height =
+    size === 'sm' ? theme.geometry.smallButtonHeight : theme.geometry.buttonHeight;
+
+  const handlePress = () => {
+    if (haptics) hapticLight();
+    onPress();
+  };
 
   return (
     <Pressable
@@ -55,14 +77,16 @@ export function Button({
       accessibilityLabel={accessibilityLabel ?? title}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       disabled={isDisabled}
-      onPress={onPress}
+      hitSlop={size === 'sm' ? 4 : undefined}
+      onPress={handlePress}
       style={({ pressed }) => [
         styles.base,
         {
-          minHeight: theme.touch.min,
-          borderRadius: theme.radius.md,
-          paddingHorizontal: theme.spacing.lg,
-          paddingVertical: theme.spacing.md,
+          minHeight: size === 'sm' ? height : Math.max(height, theme.touch.min),
+          borderRadius: size === 'sm' ? theme.radius.pill : theme.radius.button,
+          paddingHorizontal: size === 'sm' ? theme.spacing.lg : theme.spacing.xl,
+          paddingVertical: size === 'sm' ? theme.spacing.sm : theme.spacing.md,
+          gap: theme.spacing.sm,
           backgroundColor,
           borderColor,
           borderWidth: variant === 'secondary' ? 1 : 0,
@@ -74,13 +98,21 @@ export function Button({
       {loading ? (
         <ActivityIndicator size="small" color={theme.colors[textColor]} />
       ) : (
-        <AppText
-          variant="body"
-          color={textColor}
-          style={[styles.label, { fontFamily: theme.typography.heading.fontFamily }]}
-        >
-          {title}
-        </AppText>
+        <>
+          {leftIcon ? (
+            <AppIcon name={leftIcon} size={18} color={theme.colors[textColor]} />
+          ) : null}
+          <AppText
+            variant={size === 'sm' ? 'label' : 'headline'}
+            color={textColor}
+            style={styles.label}
+          >
+            {title}
+          </AppText>
+          {rightIcon ? (
+            <AppIcon name={rightIcon} size={18} color={theme.colors[textColor]} />
+          ) : null}
+        </>
       )}
     </Pressable>
   );

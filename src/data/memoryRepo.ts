@@ -1,4 +1,5 @@
 import { buildDefaultCategories } from '@/domain/categories';
+import { normalizeCategoryColorKey } from '@/theme/categoryColors';
 import { assertValidNewTransaction, isValidBudgetAmount } from '@/domain/validation';
 import type {
   Budget,
@@ -219,7 +220,10 @@ export class MemoryRepo implements Repo {
   }
 
   async upsertCategory(c: Category): Promise<void> {
-    this.categories.set(c.id, { ...c });
+    this.categories.set(c.id, {
+      ...c,
+      colorKey: normalizeCategoryColorKey(c.colorKey),
+    });
   }
 
   async archiveCategory(id: string): Promise<void> {

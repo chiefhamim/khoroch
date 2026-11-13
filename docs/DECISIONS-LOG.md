@@ -59,3 +59,15 @@ Format:
   1. Monday–Friday (`WEEKDAY_NUMBERS = [2, 3, 4, 5, 6]` in Expo Notifications convention where Sunday = 1) as standard `weekdays` repeat option alongside `everyday`.
   2. Lazy guarded `require('expo-speech-recognition')` inside `src/voice/speech.ts` skipping `StoreClient` (Expo Go), because static top-level import throws `Cannot find native module 'ExpoSpeechRecognition'` at bundle eval time in Expo Go even before `isAvailable()` is called.
 - Easy to reverse? Yes — `WEEKDAY_NUMBERS` in `src/notifications/reminders.ts` and `loadSpeechModule()` in `src/voice/speech.ts`.
+
+## D-006 — v2 palette WCAG AA contrast tuning  (Phase 7, 2026-11-13 12:31)
+- Question: Several starting hexes in `docs/ui-overhaul/DESIGN.md` §3 fell below the 4.5:1 WCAG AA minimum when checked across `{bg, surface, surfaceRaised}` and `accentSoft` / `dangerSoft` (`light.accent` `#0C8A5F` was `4.00` on `#F5F5F7` and `3.86` on `#E4F5EE`; `light.textTertiary` `#8B8F97` was `2.98` on `bg` / `3.24` on `surface`; `light.danger` `#D92D20` was `4.44` on `bg`; `dark.textTertiary` `#71717A` was `3.48` on `#1D1D21`; white text on `dark.danger` `#F87171` was `2.77`).
+- Options considered: Leave raw hexes below 4.5:1 / Adjust failing colors minimally along the same hue until every text role × `{bg, surface, surfaceRaised}` and badge/button pair meets ≥ 4.5:1.
+- Chose: Minimal hue-preserving contrast tuning in `src/theme/tokens.ts`, plus `onDanger`:
+  - `light.accent`: `#0C8A5F` → `#097A52` (`5.36` on `bg`/white, `4.75` on `accentSoft`)
+  - `light.textTertiary`: `#8B8F97` → `#6B6F77` (`4.60` on `bg`, `5.01` on `surface`)
+  - `light.warning`: `#B45309` → `#B05008` (`4.65` on `accentSoft`)
+  - `light.danger`: `#D92D20` → `#CE281D` (`4.89` on `bg`, `5.32` on white)
+  - `dark.textTertiary`: `#71717A` → `#86868F` (`5.48` on `bg`, `5.05` on `surface`, `4.66` on `surfaceRaised`)
+  - Added `onDanger: '#FFFFFF'` (light) / `'#0A0A0C'` (dark, `7.15:1` on `#F87171`).
+- Easy to reverse? Yes — single palette edit in `src/theme/tokens.ts`, enforced by `src/theme/tokens.test.ts`.

@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Budget App v1.1 Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@0.469.0/dist/umd/lucide.min.js"></script>
+<style>
+  /* ---- tokens: mirror docs/ui-overhaul/DESIGN.md §3 ---- */
+  [data-theme="light"]{
+    --bg:#F5F5F7; --surface:#FFFFFF; --raised:#FFFFFF; --sunken:#EEEEF1; --sep:#E6E6EA;
+    --text:#0B0B0D; --text2:#5C5F66; --text3:#8B8F97;
+    --accent:#0C8A5F; --onAccent:#FFFFFF; --accentSoft:#E4F5EE;
+    --warning:#B45309; --danger:#D92D20; --dangerSoft:#FDECEA;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+    --tileA:.14;
+    --c-orange:#E8590C; --c-green:#2F9E44; --c-blue:#1C7ED6; --c-pink:#D6336C; --c-violet:#7048E8;
+    --c-amber:#E67700; --c-red:#E03131; --c-grape:#AE3EC9; --c-teal:#099268; --c-gray:#6B7280; --c-cyan:#0C8599;
+  }
+  [data-theme="dark"]{
+    --bg:#0A0A0C; --surface:#151518; --raised:#1D1D21; --sunken:#101013; --sep:#232327;
+    --text:#F4F4F5; --text2:#A1A1AA; --text3:#71717A;
+    --accent:#34D399; --onAccent:#04241A; --accentSoft:#10291F;
+    --warning:#FBBF24; --danger:#F87171; --dangerSoft:#2A1414;
+    --shadow:none;
+    --tileA:.18;
+    --c-orange:#FF922B; --c-green:#69DB7C; --c-blue:#4DABF7; --c-pink:#F783AC; --c-violet:#9775FA;
+    --c-amber:#FFD43B; --c-red:#FF8787; --c-grape:#DA77F2; --c-teal:#38D9A9; --c-gray:#9CA3AF; --c-cyan:#3BC9DB;
+  }
+  :root{ --page:#E9E9EC; --pageText:#222; }
+  @media (prefers-color-scheme: dark){ :root{ --page:#050506; --pageText:#ddd; } }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--page);color:var(--pageText);font-family:Inter,system-ui,sans-serif;padding:24px 16px 64px}
+  h1{font-size:22px;font-weight:600;margin-bottom:4px}
+  .intro{font-size:14px;opacity:.75;max-width:760px;margin-bottom:24px;line-height:1.5}
+  h2.rowtitle{font-size:15px;font-weight:600;margin:28px 0 12px;opacity:.85}
+  .row{display:flex;gap:24px;overflow-x:auto;padding-bottom:12px}
+  .cap{font-size:12px;opacity:.7;margin-bottom:8px;text-align:center}
+
+  /* ---- phone ---- */
+  .phone{flex:0 0 auto;width:360px;height:780px;border-radius:40px;background:var(--bg);color:var(--text);
+         position:relative;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.18);border:8px solid #111;font-variant-numeric:tabular-nums}
+  .status{height:28px;display:flex;justify-content:space-between;align-items:center;padding:0 22px;font-size:12px;font-weight:600;color:var(--text)}
+  .scroll{position:absolute;top:28px;left:0;right:0;bottom:0;overflow:hidden;padding:8px 20px 96px}
+  .nobar .scroll{padding-bottom:20px}
+
+  /* ---- type ---- */
+  .hero{font-size:44px;line-height:50px;font-weight:600;letter-spacing:-1.2px}
+  .display{font-size:30px;line-height:36px;font-weight:600;letter-spacing:-.6px}
+  .title{font-size:22px;line-height:28px;font-weight:600;letter-spacing:-.3px}
+  .headline{font-size:17px;line-height:24px;font-weight:600;letter-spacing:-.2px}
+  .body{font-size:15px;line-height:22px}
+  .strong{font-size:15px;line-height:22px;font-weight:500}
+  .label{font-size:13px;line-height:18px;font-weight:500;color:var(--text2)}
+  .caption{font-size:12px;line-height:16px;font-weight:500;color:var(--text3);letter-spacing:.2px}
+  .t2{color:var(--text2)} .acc{color:var(--accent)} .warn{color:var(--warning)} .dang{color:var(--danger)}
+  .cur{font-size:.6em;color:var(--text2);margin-right:2px;font-weight:500;vertical-align:.12em}
+  .acc .cur{color:inherit;opacity:.8}
+
+  /* ---- surfaces ---- */
+  .card{background:var(--surface);border-radius:20px;padding:20px;box-shadow:var(--shadow)}
+  .gap{height:12px} .sgap{height:28px}
+  .sep{height:1px;background:var(--sep);margin:16px 0}
+  .between{display:flex;justify-content:space-between;align-items:center}
+  .pill{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .pill.ok{background:var(--accentSoft);color:var(--accent)}
+  .pill.warn{background:color-mix(in srgb,var(--warning) 16%,transparent);color:var(--warning)}
+  .bar{height:8px;border-radius:99px;background:var(--sunken);overflow:hidden;margin-top:14px}
+  .bar>i{display:block;height:100%;border-radius:99px;background:var(--accent)}
+  .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .cols>div+div{border-left:1px solid var(--sep);padding-left:12px}
+  .avatar{width:36px;height:36px;border-radius:50%;background:var(--accentSoft);color:var(--accent);display:grid;place-items:center;font-weight:600;font-size:15px}
+  .btn{height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600}
+  .btn.sec{background:var(--surface);box-shadow:var(--shadow);color:var(--text)}
+  .btn.pri{background:var(--accent);color:var(--onAccent);height:52px;font-size:15px}
+  .btn.pri.dis{opacity:.4}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .seg{display:flex;background:var(--sunken);border-radius:10px;padding:3px;gap:2px}
+  .seg span{flex:1;text-align:center;font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;color:var(--text2)}
+  .seg span.on{background:var(--raised);color:var(--text);box-shadow:var(--shadow)}
+  [data-theme="dark"] .seg span.on{background:#2A2A2F}
+  svg.lucide{width:20px;height:20px;stroke-width:1.75}
+
+  /* ---- tiles & rows ---- */
+  .tile{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:0 0 auto;
+        background:color-mix(in srgb,var(--c) calc(var(--tileA)*100%),transparent);color:var(--c)}
+  .tile svg.lucide{width:20px;height:20px}
+  .r{display:flex;align-items:center;gap:12px;height:64px}
+  .r+.r{border-top:1px solid var(--sep)}
+  .r .mid{flex:1;min-width:0}
+  .r .mid .strong{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .r .sub{font-size:13px;color:var(--text2)}
+  .mini{height:6px;border-radius:99px;background:var(--sunken);margin-top:6px;overflow:hidden}
+  .mini>i{display:block;height:100%;background:var(--c);border-radius:99px}
+
+  /* ---- chart ---- */
+  .chart{display:flex;align-items:flex-end;gap:5px;height:96px;margin-top:16px}
+  .chart i{flex:1;background:color-mix(in srgb,var(--accent) 35%,transparent);border-radius:4px 4px 2px 2px}
+  .chart i.now{background:var(--accent)}
+  .axis{display:flex;justify-content:space-between;margin-top:8px}
+
+  /* ---- tab bar ---- */
+  .tabbar{position:absolute;left:0;right:0;bottom:0;height:76px;background:var(--surface);border-top:1px solid var(--sep);
+          display:grid;grid-template-columns:repeat(5,1fr);align-items:center;padding-bottom:10px}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;font-weight:500;color:var(--text3)}
+  .tab.on{color:var(--accent)}
+  .tab svg.lucide{width:24px;height:24px}
+  .plus{width:56px;height:56px;border-radius:50%;background:var(--accent);color:var(--onAccent);display:grid;place-items:center;margin:0 auto;
+        box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 35%,transparent)}
+  .plus svg.lucide{width:26px;height:26px;stroke-width:2.25}
+
+  /* ---- add sheet ---- */
+  .sheettop{display:flex;justify-content:space-between;align-items:center;margin:4px 0 18px}
+  .iconbtn{width:40px;height:40px;border-radius:50%;background:var(--sunken);display:grid;place-items:center;color:var(--text2)}
+  .amount{text-align:center;margin:6px 0 2px}
+  .amount .hero .cur{font-size:26px}
+  .note{text-align:center;font-size:14px;font-weight:500;color:var(--accent);margin-bottom:14px}
+  .chips{display:flex;gap:8px;justify-content:center;margin-bottom:16px}
+  .chip{height:34px;padding:0 12px;border-radius:999px;background:var(--surface);box-shadow:var(--shadow);display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+  [data-theme="dark"] .chip{background:var(--raised)}
+  .chip svg.lucide{width:16px;height:16px;color:var(--text2)}
+  .chip .dn{width:14px;height:14px;color:var(--text3)}
+  .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px 6px;margin:8px 0 4px}
+  .cat{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:11px;font-weight:500;color:var(--text2)}
+  .cat .tile{width:48px;height:48px;border-radius:14px}
+  .cat.sel .tile{outline:2px solid var(--c);outline-offset:2px}
+  .cat.sel{color:var(--text)}
+  .keypad{position:absolute;left:0;right:0;bottom:0;background:var(--surface);border-radius:28px 28px 0 0;padding:14px 16px 18px;box-shadow:0 -1px 0 var(--sep)}
+  .keys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+  .keys b{height:46px;border-radius:16px;background:var(--sunken);display:grid;place-items:center;font-size:22px;font-weight:500}
+  [data-theme="dark"] .keys b{background:var(--raised)}
+
+  /* ---- ring ---- */
+  .ringwrap{display:grid;place-items:center;position:relative;margin:4px 0 12px}
+  .ringwrap .in{position:absolute;text-align:center}
+
+  /* ---- settings ---- */
+  .grp{font-size:12px;font-weight:600;color:var(--text3);letter-spacing:.6px;margin:22px 4px 8px}
+  .list{background:var(--surface);border-radius:16px;box-shadow:var(--shadow);padding:0 16px}
+  .srow{display:flex;align-items:center;gap:12px;min-height:52px;font-size:15px}
+  .srow+.srow{border-top:1px solid var(--sep)}
+  .srow .v{margin-left:auto;color:var(--text2);display:flex;align-items:center;gap:4px;font-size:14px}
+  .srow .v svg.lucide{width:16px;height:16px}
+  .sw{width:44px;height:26px;border-radius:99px;background:var(--accent);margin-left:auto;position:relative}
+  .sw::after{content:"";position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff}
+  .days{display:flex;gap:6px;padding:4px 0 14px}
+  .days b{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:600;background:var(--sunken);color:var(--text2)}
+  .days b.on{background:var(--accent);color:var(--onAccent)}
+  .search{flex:1;height:44px;border-radius:14px;background:var(--surface);box-shadow:var(--shadow);display:flex;align-items:center;gap:8px;padding:0 14px;color:var(--text3);font-size:15px}
+  [data-theme="dark"] .search{background:var(--sunken)}
+  .badge{position:absolute;top:-4px;right:-4px;width:18px;height:18px;border-radius:50%;background:var(--accent);color:var(--onAccent);font-size:11px;font-weight:700;display:grid;place-items:center}
+  .sec-h{display:flex;justify-content:space-between;font-size:12px;font-weight:600;letter-spacing:.5px;color:var(--text3);margin:18px 2px 4px}
+  .banner{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;background:var(--accentSoft);color:var(--accent);font-size:13px;font-weight:500}
+  .banner svg.lucide{width:16px;height:16px}
+</style>
+</head>
+<body>
+<h1>Budget App v1.1 overhaul mockup</h1>
+<p class="intro">A visual reference for <code>docs/ui-overhaul/DESIGN.md</code>. Same markup, two themes. The phone frames are 360 dp wide, which is the smallest supported width. The data shown is illustrative: the Home and Budget screens show the "budget set" state.</p>
+
+<template id="screens">
+  <!-- HOME -->
+  <div><div class="cap">Home</div>
+  <div class="phone"><div class="status"><span>12:08</span><span>52%</span></div>
+    <div class="scroll">
+      <div class="between" style="margin:6px 0 18px">
+        <div><div class="title">Good afternoon</div><div class="label">Hamim · Fri, 13 Nov</div></div>
+        <div class="avatar">H</div>
+      </div>
+      <div class="card">
+        <div class="between"><span class="label">Left to spend</span><span class="pill ok">41% used</span></div>
+        <div class="hero" style="margin-top:6px"><span class="cur">৳</span>23,550</div>
+        <div class="label" style="font-weight:400">of ৳40,000 · 27 days left</div>
+        <div class="bar"><i style="width:41%"></i></div>
+        <div class="sep"></div>
+        <div class="cols">
+          <div><div class="label">Safe today</div><div class="headline"><span class="cur">৳</span>1,308</div></div>
+          <div><div class="label">Spent</div><div class="headline"><span class="cur">৳</span>16,450</div></div>
+          <div><div class="label">Income</div><div class="headline acc"><span class="cur">৳</span>6,000</div></div>
+        </div>
+      </div>
+      <div class="gap"></div>
+      <div class="banner"><i data-lucide="refresh-cw"></i>New cycle started 10 Nov · Last cycle ৳4,600<i data-lucide="chevron-right" style="margin-left:auto"></i></div>
+      <div class="gap"></div>
+      <div class="two"><div class="btn sec"><i data-lucide="sparkles"></i>Say or type it</div><div class="btn sec"><i data-lucide="circle-check"></i>Check-in</div></div>
+      <div class="sgap"></div>
+      <div class="between"><span class="headline">Spending</span><div class="seg"><span class="on">Day</span><span>Week</span><span>Month</span></div></div>
+      <div class="card" style="margin-top:12px;padding:16px 16px 12px">
+        <div class="chart"><i style="height:30%"></i><i style="height:55%"></i><i style="height:12%"></i><i style="height:70%"></i><i style="height:40%"></i><i style="height:22%"></i><i style="height:88%"></i><i style="height:35%"></i><i style="height:50%"></i><i style="height:18%"></i><i style="height:62%"></i><i style="height:28%"></i><i class="now" style="height:45%"></i></div>
+        <div class="axis"><span class="caption">1 Nov</span><span class="caption">5</span><span class="caption">9</span><span class="caption">Today</span></div>
+      </div>
+      <div class="sgap"></div>
+      <div class="between"><span class="headline">Top categories</span><span class="label acc">See all</span></div>
+      <div class="card" style="padding:4px 16px;margin-top:12px">
+        <div class="r"><div class="tile" style="--c:var(--c-orange)"><i data-lucide="utensils"></i></div><div class="mid"><div class="between"><span class="strong">Food &amp; Dining</span><span class="strong">৳6,500</span></div><div class="mini" style="--c:var(--c-orange)"><i style="width:40%"></i></div></div></div>
+        <div class="r"><div class="tile" style="--c:var(--c-pink)"><i data-lucide="shopping-bag"></i></div><div class="mid"><div class="between"><span class="strong">Shopping</span><span class="strong">৳4,200</span></div><div class="mini" style="--c:var(--c-pink)"><i style="width:26%"></i></div></div></div>
+      </div>
+    </div>
+    <div class="tabbar">
+      <div class="tab on"><i data-lucide="house"></i>Home</div><div class="tab"><i data-lucide="list"></i>Activity</div>
+      <div><div class="plus"><i data-lucide="plus"></i></div></div>
+      <div class="tab"><i data-lucide="pie-chart"></i>Budget</div><div class="tab"><i data-lucide="chart-column"></i>Insights</div>
+    </div>
+  </div></div>
+
+  <!-- ADD -->
+  <div><div class="cap">Add expense (sheet)</div>
+  <div class="phone nobar"><div class="status"><span>12:08</span><span>52%</span></div>
+    <div class="scroll" style="padding-bottom:0">
+      <div class="sheettop"><div class="iconbtn"><i data-lucide="x"></i></div><div class="seg" style="width:190px"><span class="on">Expense</span><span>Income</span></div><div style="width:40px"></div></div>
+      <div class="amount"><div class="hero"><span class="cur">৳</span>1,250</div></div>
+      <div class="note">+ Add a note</div>
+      <div class="chips"><span class="chip"><i data-lucide="calendar"></i>Today<i class="dn" data-lucide="chevron-down"></i></span><span class="chip"><i data-lucide="clock"></i>1:20 PM<i class="dn" data-lucide="chevron-down"></i></span></div>
+      <div class="label">Category</div>
+      <div class="grid4">
+        <div class="cat sel" style="--c:var(--c-orange)"><div class="tile"><i data-lucide="utensils"></i></div>Food</div>
+        <div class="cat" style="--c:var(--c-green)"><div class="tile"><i data-lucide="shopping-basket"></i></div>Groceries</div>
+        <div class="cat" style="--c:var(--c-blue)"><div class="tile"><i data-lucide="car"></i></div>Transport</div>
+        <div class="cat" style="--c:var(--c-pink)"><div class="tile"><i data-lucide="shopping-bag"></i></div>Shopping</div>
+        <div class="cat" style="--c:var(--c-amber)"><div class="tile"><i data-lucide="zap"></i></div>Utilities</div>
+        <div class="cat" style="--c:var(--c-violet)"><div class="tile"><i data-lucide="house"></i></div>Rent</div>
+        <div class="cat" style="--c:var(--c-teal)"><div class="tile"><i data-lucide="repeat"></i></div>Subscript.</div>
+        <div class="cat" style="--c:var(--c-gray)"><div class="tile"><i data-lucide="layout-grid"></i></div>All</div>
+      </div>
+    </div>
+    <div class="keypad">
+      <div class="keys"><b>1</b><b>2</b><b>3</b><b>4</b><b>5</b><b>6</b><b>7</b><b>8</b><b>9</b><b>.</b><b>0</b><b><i data-lucide="delete"></i></b></div>
+      <div class="btn pri">Save expense</div>
+    </div>
+  </div></div>
+
+  <!-- ACTIVITY -->
+  <div><div class="cap">Activity</div>
+  <div class="phone"><div class="status"><span>12:08</span><span>52%</span></div>
+    <div class="scroll">
+      <div class="title" style="margin:6px 0 14px">Activity</div>
+      <div style="display:flex;gap:10px"><div class="search"><i data-lucide="search"></i>Search</div><div style="position:relative" class="iconbtn"><i data-lucide="sliders-horizontal"></i><span class="badge">2</span></div></div>
+      <div class="between" style="margin-top:14px"><span class="chip" style="box-shadow:none;background:var(--sunken)">This cycle<i class="dn" data-lucide="chevron-down"></i></span><span class="label">Spent ৳4,600 · In ৳29,000</span></div>
+      <div class="sec-h"><span>YESTERDAY</span><span class="acc">+৳2,500</span></div>
+      <div class="card" style="padding:0 16px">
+        <div class="r"><div class="tile" style="--c:var(--c-violet)"><i data-lucide="building-2"></i></div><div class="mid"><div class="strong">Rent Narsingdi</div><div class="sub">Rent income · 6:10 PM</div></div><div class="strong acc">+৳2,500</div></div>
+      </div>
+      <div class="sec-h"><span>MON, 9 NOV</span><span>+৳18,400</span></div>
+      <div class="card" style="padding:0 16px">
+        <div class="r"><div class="tile" style="--c:var(--c-teal)"><i data-lucide="repeat"></i></div><div class="mid"><div class="strong">Google AI Pro</div><div class="sub">Subscriptions · 9:02 AM</div></div><div class="strong">−৳600</div></div>
+        <div class="r"><div class="tile" style="--c:var(--c-gray)"><i data-lucide="circle-ellipsis"></i></div><div class="mid"><div class="strong">Repay to Nafees</div><div class="sub">Other · 11:30 AM</div></div><div class="strong">−৳2,000</div></div>
+        <div class="r"><div class="tile" style="--c:var(--c-amber)"><i data-lucide="zap"></i></div><div class="mid"><div class="strong">Internet bill</div><div class="sub">Utilities · 2:15 PM</div></div><div class="strong">−৳2,000</div></div>
+        <div class="r"><div class="tile" style="--c:var(--c-teal)"><i data-lucide="banknote"></i></div><div class="mid"><div class="strong">Salary</div><div class="sub">Salary · 10:00 AM</div></div><div class="strong acc">+৳23,000</div></div>
+      </div>
+    </div>
+    <div class="tabbar">
+      <div class="tab"><i data-lucide="house"></i>Home</div><div class="tab on"><i data-lucide="list"></i>Activity</div>
+      <div><div class="plus"><i data-lucide="plus"></i></div></div>
+      <div class="tab"><i data-lucide="pie-chart"></i>Budget</div><div class="tab"><i data-lucide="chart-column"></i>Insights</div>
+    </div>
+  </div></div>
+
+  <!-- BUDGET -->
+  <div><div class="cap">Budget</div>
+  <div class="phone"><div class="status"><span>12:08</span><span>52%</span></div>
+    <div class="scroll">
+      <div class="between" style="margin:6px 0 14px"><div class="title">Budget</div><span class="label">10 Nov – 9 Dec</span></div>
+      <div class="card">
+        <div class="ringwrap">
+          <svg width="168" height="168" viewBox="0 0 168 168"><circle cx="84" cy="84" r="72" fill="none" stroke="var(--sunken)" stroke-width="12"/><circle cx="84" cy="84" r="72" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round" stroke-dasharray="452.4" stroke-dashoffset="266.9" transform="rotate(-90 84 84)"/></svg>
+          <div class="in"><div class="display"><span class="cur">৳</span>23,550</div><div class="label">left · 41% used</div></div>
+        </div>
+        <div class="between"><span class="label" style="font-weight:400">27 days left · ৳1,308/day safe</span><span class="label acc"><i data-lucide="pencil" style="width:14px;height:14px;vertical-align:-2px"></i> Edit</span></div>
+      </div>
+      <div class="sgap"></div>
+      <div class="between"><span class="headline">Category budgets</span><span class="label">৳5,000 unallocated</span></div>
+      <div class="card" style="padding:4px 16px;margin-top:12px">
+        <div class="r" style="height:72px"><div class="tile" style="--c:var(--c-orange)"><i data-lucide="utensils"></i></div><div class="mid"><div class="between"><span class="strong">Food &amp; Dining</span><span class="label">৳3,500 left</span></div><div class="sub">৳6,500 of ৳10,000</div><div class="mini" style="--c:var(--accent)"><i style="width:65%"></i></div></div></div>
+        <div class="r" style="height:72px"><div class="tile" style="--c:var(--c-blue)"><i data-lucide="car"></i></div><div class="mid"><div class="between"><span class="strong">Transport</span><span class="label warn">৳200 left</span></div><div class="sub">৳4,800 of ৳5,000</div><div class="mini" style="--c:var(--warning)"><i style="width:96%"></i></div></div></div>
+      </div>
+      <div class="gap"></div>
+      <div class="btn" style="border:1.5px dashed var(--sep);color:var(--accent)"><i data-lucide="plus"></i>Add category budget</div>
+    </div>
+    <div class="tabbar">
+      <div class="tab"><i data-lucide="house"></i>Home</div><div class="tab"><i data-lucide="list"></i>Activity</div>
+      <div><div class="plus"><i data-lucide="plus"></i></div></div>
+      <div class="tab on"><i data-lucide="pie-chart"></i>Budget</div><div class="tab"><i data-lucide="chart-column"></i>Insights</div>
+    </div>
+  </div></div>
+
+  <!-- SETTINGS -->
+  <div><div class="cap">Settings (from the avatar)</div>
+  <div class="phone nobar"><div class="status"><span>12:08</span><span>52%</span></div>
+    <div class="scroll">
+      <div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px"><i data-lucide="arrow-left"></i><span class="title">Settings</span></div>
+      <div class="list"><div class="srow"><div class="avatar">H</div><div><div class="strong">Hamim</div><div class="label" style="font-weight:400">Offline · No tracking</div></div><span class="v"><i data-lucide="chevron-right"></i></span></div></div>
+      <div class="grp">GENERAL</div>
+      <div class="list">
+        <div class="srow">Currency<span class="v">BDT ৳ <i data-lucide="lock"></i></span></div>
+        <div class="srow">Budget cycle starts<span class="v">10th of month <i data-lucide="chevron-right"></i></span></div>
+        <div class="srow">Appearance<span class="v">System <i data-lucide="chevron-right"></i></span></div>
+      </div>
+      <div class="grp">REMINDERS</div>
+      <div class="list">
+        <div class="srow">Daily check-in<div class="sw"></div></div>
+        <div class="srow">Time<span class="v">9:00 PM <i data-lucide="chevron-right"></i></span></div>
+        <div class="srow" style="flex-direction:column;align-items:flex-start;gap:6px;padding-top:12px">Days
+          <div class="days"><b class="on">S</b><b class="on">M</b><b class="on">T</b><b class="on">W</b><b class="on">T</b><b>F</b><b>S</b></div></div>
+      </div>
+      <div class="grp">DATA</div>
+      <div class="list">
+        <div class="srow">Categories<span class="v">19 <i data-lucide="chevron-right"></i></span></div>
+        <div class="srow dang">Delete all data</div>
+      </div>
+    </div>
+  </div></div>
+</template>
+
+<h2 class="rowtitle">Light</h2>
+<div class="row" id="light" data-theme="light"></div>
+<h2 class="rowtitle">Dark</h2>
+<div class="row" id="dark" data-theme="dark"></div>
+
+<script>
+  const tpl = document.getElementById('screens');
+  for (const id of ['light', 'dark']) document.getElementById(id).appendChild(tpl.content.cloneNode(true));
+  if (window.lucide) window.lucide.createIcons();
+</script>
+</body>
+</html>

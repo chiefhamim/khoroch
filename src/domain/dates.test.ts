@@ -1,7 +1,10 @@
 import {
   addDays,
+  currentLocalTime,
   daysInMonth,
   diffDays,
+  formatFriendlyDate,
+  formatFriendlyTime,
   fromEpochDay,
   isLeapYear,
   isValidLocalDate,
@@ -25,5 +28,33 @@ describe('dates', () => {
     expect(addDays('2028-02-28', 1)).toBe('2028-02-29');
     expect(addDays('2027-01-01', -1)).toBe('2026-12-31');
     expect(diffDays('2026-12-01', '2026-11-01')).toBe(30);
+  });
+
+  it('formats friendly dates for Today, Yesterday, same year, and other years', () => {
+    const today = '2026-11-13'; // Friday
+    expect(formatFriendlyDate('2026-11-13', today)).toBe('Today');
+    expect(formatFriendlyDate('2026-11-12', today)).toBe('Yesterday');
+    expect(formatFriendlyDate('2026-11-11', today)).toBe('Wed, 11 Nov');
+    expect(formatFriendlyDate('2026-11-09', today)).toBe('Mon, 9 Nov');
+    expect(formatFriendlyDate('2025-12-25', today)).toBe('Thu, 25 Dec 2025');
+  });
+
+  it('formats 12-hour and 24-hour times cleanly', () => {
+    expect(formatFriendlyTime('00:05', false)).toBe('12:05 AM');
+    expect(formatFriendlyTime('09:02', false)).toBe('9:02 AM');
+    expect(formatFriendlyTime('12:00', false)).toBe('12:00 PM');
+    expect(formatFriendlyTime('13:20', false)).toBe('1:20 PM');
+    expect(formatFriendlyTime('21:00', false)).toBe('9:00 PM');
+
+    expect(formatFriendlyTime('00:05', true)).toBe('00:05');
+    expect(formatFriendlyTime('9:02', true)).toBe('09:02');
+    expect(formatFriendlyTime('13:20', true)).toBe('13:20');
+    expect(formatFriendlyTime('21:00', true)).toBe('21:00');
+    expect(formatFriendlyTime('invalid', false)).toBe('invalid');
+  });
+
+  it('formats currentLocalTime from local wall clock', () => {
+    const d = new Date(2026, 10, 13, 8, 5);
+    expect(currentLocalTime(d)).toBe('08:05');
   });
 });

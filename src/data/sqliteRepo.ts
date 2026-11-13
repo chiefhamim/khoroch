@@ -15,6 +15,7 @@ import type {
   TxQuery,
   TxSearchResult,
 } from '@/domain/types';
+import { normalizeCategoryColorKey } from '@/theme/categoryColors';
 import { seedDefaultCategoriesSqlite } from './migrations';
 import { DEFAULT_SETTINGS, type Repo } from './repo';
 
@@ -38,6 +39,7 @@ interface CategoryRow {
   id: string;
   name: string;
   icon: string;
+  color_key: string | null;
   kind: 'expense' | 'income';
   sort_order: number;
   is_selected: number;
@@ -88,6 +90,7 @@ function mapCategoryRow(row: CategoryRow): Category {
     id: row.id,
     name: row.name,
     icon: row.icon,
+    colorKey: normalizeCategoryColorKey(row.color_key),
     kind: row.kind,
     sortOrder: row.sort_order,
     isSelected: row.is_selected === 1,
@@ -338,17 +341,29 @@ export class SqliteRepo implements Repo {
   }
 
   async upsertCategory(c: Category): Promise<void> {
+    const colorKey = normalizeCategoryColorKey(c.colorKey);
     await this.db.runAsync(
-      `INSERT INTO categories (id, name, icon, kind, sort_order, is_selected, archived_at, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO categories (id, name, icon, color_key, kind, sort_order, is_selected, archived_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          name = excluded.name,
          icon = excluded.icon,
+         color_key = excluded.color_key,
          kind = excluded.kind,
          sort_order = excluded.sort_order,
          is_selected = excluded.is_selected,
          archived_at = excluded.archived_at`,
-      [c.id, c.name, c.icon, c.kind, c.sortOrder, c.isSelected ? 1 : 0, c.archivedAt, c.createdAt]
+      [
+        c.id,
+        c.name,
+        c.icon,
+        colorKey,
+        c.kind,
+        c.sortOrder,
+        c.isSelected ? 1 : 0,
+        c.archivedAt,
+        c.createdAt,
+      ]
     );
   }
 

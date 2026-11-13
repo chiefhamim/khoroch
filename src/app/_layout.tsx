@@ -26,6 +26,7 @@ import { ThemeProvider } from '@/theme/ThemeProvider';
 import { useTheme } from '@/theme/useTheme';
 import { ErrorState } from '@/ui/ErrorState';
 import { Screen } from '@/ui/Screen';
+import { ToastProvider } from '@/ui/Toast';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 configureNotificationHandler();
@@ -40,7 +41,8 @@ function AppNavigator() {
   useEffect(() => {
     if (!navigationState?.key) return;
     const inOnboarding = segments[0] === 'onboarding';
-    if (!settings.onboardingDone && !inOnboarding) {
+    const inDev = __DEV__ && (segments[0] as string) === 'dev';
+    if (!settings.onboardingDone && !inOnboarding && !inDev) {
       router.replace('/onboarding');
     } else if (settings.onboardingDone && inOnboarding) {
       router.replace('/(tabs)');
@@ -83,6 +85,7 @@ function AppNavigator() {
         <Stack.Screen name="check-in" options={{ headerShown: false }} />
         <Stack.Screen name="settings/categories" options={{ headerShown: false }} />
         <Stack.Screen name="category/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="dev/gallery" options={{ headerShown: false }} />
       </Stack>
     </>
   );
@@ -191,7 +194,9 @@ export default function RootLayout() {
         }}
       >
         <ThemeProvider preference={repoState.settings.theme}>
-          <AppNavigator />
+          <ToastProvider>
+            <AppNavigator />
+          </ToastProvider>
         </ThemeProvider>
       </AppContext.Provider>
     </SafeAreaProvider>
