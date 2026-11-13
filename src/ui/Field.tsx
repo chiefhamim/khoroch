@@ -18,9 +18,11 @@ export interface FieldProps extends Omit<TextInputProps, 'style'> {
   label?: string;
   hint?: string;
   error?: string | null;
+  errorTestID?: string;
   leftIcon?: AppIconName;
   onClear?: () => void;
   pill?: boolean;
+  inputRef?: React.Ref<React.ComponentRef<typeof TextInput>>;
   containerStyle?: StyleProp<ViewStyle>;
   inputStyle?: StyleProp<TextStyle>;
 }
@@ -29,9 +31,11 @@ export function Field({
   label,
   hint,
   error,
+  errorTestID,
   leftIcon,
   onClear,
   pill = false,
+  inputRef,
   value,
   multiline,
   containerStyle,
@@ -77,6 +81,7 @@ export function Field({
           </View>
         ) : null}
         <TextInput
+          ref={inputRef}
           value={value}
           multiline={multiline}
           placeholderTextColor={theme.colors.textTertiary}
@@ -91,7 +96,9 @@ export function Field({
           style={[
             theme.typography.body,
             styles.input,
-            Platform.OS === 'web' ? ({ outlineWidth: 0 } as TextStyle) : null,
+            Platform.OS === 'web'
+              ? ({ outlineStyle: 'none', outlineWidth: 0 } as unknown as TextStyle)
+              : null,
             { color: theme.colors.text },
             multiline ? { textAlignVertical: 'top', minHeight: 68 } : null,
             inputStyle,
@@ -111,7 +118,7 @@ export function Field({
         ) : null}
       </View>
       {error ? (
-        <AppText variant="caption" color="danger">
+        <AppText testID={errorTestID} variant="caption" color="danger">
           {error}
         </AppText>
       ) : hint ? (

@@ -291,14 +291,14 @@ Re-read: DESIGN §4 (tab bar, settings), §6.1 header, §6.6 last paragraph
 
 **Done when:** CHECKS pass · web 360px Light+Dark verified (last items above tab bar across all 4 tabs, avatar → Settings stack with no tab bar) · PHONE CHECK skipped (device unreachable on 192.168.0.154:45999 and Tailscale 100.120.102.83:45999/5555 refused).
 
-## Phase 9 — Add / Edit / Quick Entry / Transaction detail  [ ]
+## Phase 9 — Add / Edit / Quick Entry / Transaction detail  [x]
 Re-read: DESIGN §4 (no preselect, auto time, rent_income), §6.2, §6.8 · SPEC §7, §8 · TEST-CASES §4
-- [ ] Add/Edit layout exactly per DESIGN §6.2: amount hero, note toggle, Date/Time chips → native dialogs, 4-col category grid (most-used first, "All…" sheet with every category + "New category"), description with suggestions filtered by type + category, keypad pinned bottom, Save pinned
-- [ ] No preselected category; Save disabled until amount > 0 and category chosen; time auto-filled with now
-- [ ] Haptics: light on keypad, success on save; Toast "Saved"
-- [ ] Edit: `⋯` menu → Delete with confirm sheet
-- [ ] Quick Entry restyle (DESIGN §6.8); drafts use IconTile + DateField/TimeField
-- [ ] Tests: Save disabled without category; date/time callbacks update state; suggestions filtered; double-tap still saves once
+- [x] Add/Edit layout exactly per DESIGN §6.2: amount hero, note toggle, Date/Time chips → native dialogs, 4-col category grid (most-used first, "All…" sheet with every category + "New category"), description with suggestions filtered by type + category, keypad pinned bottom, Save pinned
+- [x] No preselected category; Save disabled until amount > 0 and category chosen; time auto-filled with now
+- [x] Haptics: light on keypad, success on save; Toast "Saved"
+- [x] Edit: `⋯` menu → Delete with confirm sheet
+- [x] Quick Entry restyle (DESIGN §6.8); drafts use IconTile + DateField/TimeField
+- [x] Tests: Save disabled without category; date/time callbacks update state; suggestions filtered; double-tap still saves once
 
 **Done when:** CHECKS pass · PHONE CHECK: Add screen in both themes; the date chip opens the Material **calendar** dialog and the time chip opens the Material **clock** dialog (screenshot both); one test transaction named `UI TEST – delete me` saved, seen in Activity, then deleted (AGENTS §6).
 
@@ -347,6 +347,7 @@ Re-read: DESIGN (all) · AGENTS §5, §6
 <!-- Agent appends per phase: date/time, phase, built, CHECKS results, PHONE CHECK (screenshots taken or why skipped), BLOCKED, D-entries -->
 - 2026-11-13 12:52 | Phase 7: Design system v2 + native foundations | built: lucide-react-native, @react-native-community/datetimepicker, expo-haptics; v2 tokens/categoryColors (D-006 contrast adjustments); additive SQLite v2 migration + rent_income + unit SQL test; 22 v2 UI primitives + native DateField/TimeField + DEV UI gallery; native Android debug APK (`assembleDebug`) | CHECKS: PASS (typecheck 0 errors, expo lint 0 warnings, 16/16 Jest suites / 80/80 tests passed, web export + 360px Light/Dark gallery 0 console/DOM errors) | PHONE CHECK: SKIPPED (192.168.0.154:45999 unreachable/host off-LAN, Tailscale 100.120.102.83:45999 & :5555 connection refused — Wireless Debugging unavailable) | BLOCKED: none (re-verify migrated owner DB when phone reconnects)
 - 2026-11-13 13:04 | Phase 8: Navigation shell | built: 5-slot `V2TabBar` (`Home · Activity · [ + ] · Budget · Insights`) with 56dp accent circle (tap → Add + light haptic, long-press → Quick Entry + medium haptic); removed floating FAB & Settings tab; moved Settings to stack `/settings` (`src/app/settings/index.tsx`) with back header; Home header avatar `(H)` → `/settings`; `tabBarHeight + 16` bottom padding on all 4 tabs; `TabBar.test.tsx` + `overview.test.tsx` updated | CHECKS: PASS (typecheck 0 errors, expo lint 0 warnings, 17/17 Jest suites / 82/82 tests passed, web export + 360px Light/Dark all 4 tabs + Settings verified with 0 errors/overflow) | PHONE CHECK: SKIPPED (device unreachable on 192.168.0.154:45999 / Tailscale 100.120.102.83:45999/5555 refused) | BLOCKED: none
+- 2026-11-13 13:20 | Phase 9: Add, Edit & Quick Entry overhaul | built: v2 `TransactionForm` (`[✕]` + segmented control + `⋯` edit menu, Hero amount + `+ Add a note` toggle, `DateField`/`TimeField` with `Add time` fallback & auto current time only on new, 4×2 category grid with recent+frequency ordering + `"All…"` sheet + inline custom category creator via `buildCustomCategory`, zero preselected category, strict `(type, categoryId)` suggestion chips, auto-hiding `Keypad` when typing, pinned Save CTA + double-tap guard); updated `transaction/new.tsx` (removed Quick Entry banner) & `transaction/[id].tsx` (`⋯` → Delete confirm sheet + Toast `'Saved'`/`'Deleted'`); restyled `quick-entry.tsx` v2 (`IconTile`, `SegmentedControl`, `DateField`/`TimeField`, voice `Sheet`); added `Field` `inputRef`/`errorTestID` & web outline fix; added 7 Phase 9 tests in `TransactionForm.test.tsx` | CHECKS: PASS (typecheck 0 errors, expo lint 0 errors/warnings, 17/17 Jest suites / 85/85 tests passed, web export + Playwright 360px Light/Dark Add/Edit/Delete/Quick Entry verified with 0 console/DOM/overflow errors) | PHONE CHECK: SKIPPED (Tailscale `100.120.102.83` active via relay `bom`, but ports `45999` and `5555` refused `10061` because Wireless Debugging is disabled on mobile network) | BLOCKED: none
 
 ## v1.1 summary
 <!-- Agent writes at the end -->

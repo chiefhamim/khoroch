@@ -1,364 +1,1070 @@
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { addDays, isValidLocalDate, todayLocalDate } from '@/domain/dates';
-import { parseMoneyInput } from '@/domain/money';
-import type { Category, CurrencyCode, LocalDate, TransactionType } from '@/domain/types';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Keyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from 'react-native';
+import {
+  addDays,
+  currentLocalTime,
+  isValidLocalDate,
+  todayLocalDate,
+} from '@/domain/dates';
+import {
+  formatMinorToDraft,
+  getCurrencySymbol,
+  groupThousands,
+  parseMoneyInput,
+} from '@/domain/money';
+import type {
+  Category,
+  CategoryColorKey,
+  CurrencyCode,
+  LocalDate,
+  Transaction,
+  TransactionType,
+} from '@/domain/types';
 import { isValidLocalTime } from '@/domain/validation';
 import { t } from '@/i18n';
+import { CATEGORY_COLORS, CATEGORY_COLOR_KEYS } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
-import { AmountPad } from './AmountPad';
+import { AppIcon, CATEGORY_ICON_CHOICES } from './AppIcon';
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { resolveIoniconName } from './CategoryIcon';
 import { Chip } from './Chip';
+import { DateField } from './DateField';
+import { Field } from './Field';
+import { hapticLight, hapticSelection } from './haptics';
+import { IconButton } from './IconButton';
+import { IconTile } from './IconTile';
+import { Keypad } from './Keypad';
 import { SegmentedControl } from './SegmentedControl';
+import { Sheet } from './Sheet';
+import { TimeField } from './TimeField';
 
 export interface TransactionFormValues {
   type: TransactionType;
   amountMinor: number;
   categoryId: string | null;
   description: string;
+  note: string;
   occurredOn: LocalDate;
   occurredTime: string | null;
-  note: string;
+}
+
+export interface CreateCategoryInput {
+  name: string;
+  kind: TransactionType;
+  icon: string;
+  colorKey: CategoryColorKey;
 }
 
 export interface TransactionFormProps {
+  mode?: 'new' | 'edit';
   currency: CurrencyCode;
   categories: Category[];
-  recentDescriptions: string[];
+  recentDescriptions?: string[];
+  recentTransactions?: Transaction[];
   initialValues?: {
     type?: TransactionType;
-    amountText?: string;
+    amountMinor?: number;
     categoryId?: string | null;
     description?: string;
+    note?: string;
     occurredOn?: LocalDate;
     occurredTime?: string | null;
-    note?: string;
   };
   submitLabel?: string;
+  onClose?: () => void;
+  onMorePress?: () => void;
+  onCreateCategory?: (input: CreateCategoryInput) => Promise<Category>;
   onSubmit: (values: TransactionFormValues) => Promise<void>;
 }
 
-const FALLBACK_SUGGESTIONS = ['Lunch', 'Uber', 'Electricity bill', 'Groceries', 'Coffee'];
+const CATEGORY_SUGGESTION_FALLBACKS: Readonly<Record<string, readonly string[]>> = {
+  food_dining: ['Lunch', 'Dinner', 'Coffee', 'Breakfast'],
+  groceries: ['Groceries', 'Vegetables', 'Fruits', 'Supermarket'],
+  transportation: ['Uber', 'Rickshaw', 'CNG', 'Fuel'],
+  shopping: ['Clothes', 'Shoes', 'Online order', 'Essentials'],
+  housing_rent: ['House rent', 'Maintenance', 'Service charge'],
+  utilities: ['Electricity bill', 'Internet bill', 'Gas bill', 'Water bill'],
+  health: ['Medicine', 'Doctor visit', 'Lab test', 'Pharmacy'],
+  entertainment: ['Movie', 'Streaming', 'Games'],
+  education: ['Tuition', 'Books', 'Course'],
+  travel: ['Flight', 'Hotel', 'Train ticket'],
+  subscriptions: ['Spotify', 'Netflix', 'iCloud'],
+  personal_care: ['Haircut', 'Skincare', 'Toiletries'],
+  family: ['Family expense', 'Parents', 'Kids'],
+  gifts: ['Birthday gift', 'Present'],
+  other: ['Misc', 'Transfer'],
+  salary: ['Monthly salary', 'Bonus'],
+  rent_income: ['Monthly rent', 'Advance rent'],
+  business: ['Client payment', 'Consulting', 'Project fee'],
+  gift_received: ['Birthday gift', 'Eid gift', 'Cash gift'],
+  other_income: ['Refund', 'Cashback', 'Dividend'],
+};
 
-export function TransactionForm({
-  currency,
-  categories,
-  recentDescriptions,
-  initialValues,
-  submitLabel,
-  onSubmit,
-}: TransactionFormProps) {
-  const { theme } = useTheme();
-  const today = todayLocalDate();
-  const yesterday = addDays(today, -1);
+const TYPE_FALLBACK_SUGGESTIONS: Readonly<Record<TransactionType, readonly string[]>> = {
+  expense: ['Lunch', 'Coffee', 'Uber', 'Groceries'],
+  income: ['Monthly salary', 'Client payment', 'Monthly rent', 'Refund'],
+};
 
-  const [type, setType] = useState<TransactionType>(initialValues?.type ?? 'expense');
-  const [amountText, setAmountText] = useState(initialValues?.amountText ?? '');
-  const [categoryId, setCategoryId] = useState<string | null>(
-    initialValues?.categoryId ?? 'food_dining'
-  );
-  const [description, setDescription] = useState(initialValues?.description ?? '');
-  const [occurredOn, setOccurredOn] = useState<LocalDate>(initialValues?.occurredOn ?? today);
-  const [showDateInput, setShowDateInput] = useState(
-    Boolean(initialValues?.occurredOn && initialValues.occurredOn !== today && initialValues.occurredOn !== yesterday)
-  );
-  const [showMore, setShowMore] = useState(
-    Boolean(initialValues?.occurredTime || initialValues?.note)
-  );
-  const [occurredTime, setOccurredTime] = useState(initialValues?.occurredTime ?? '');
-  const [note, setNote] = useState(initialValues?.note ?? '');
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
+export function formatHeroAmountText(raw: string): string {
+  if (!raw) return '0';
+  const dotIdx = raw.indexOf('.');
+  if (dotIdx === -1) {
+    const cleanWhole = raw.replace(/^0+(?=\d)/, '') || '0';
+    return groupThousands(cleanWhole);
+  }
+  const wholeRaw = raw.slice(0, dotIdx);
+  const fracRaw = raw.slice(dotIdx + 1);
+  const cleanWhole = wholeRaw.replace(/^0+(?=\d)/, '') || '0';
+  return `${groupThousands(cleanWhole)}.${fracRaw}`;
+}
 
-  const orderedCategories = useMemo(() => {
-    const relevant = categories.filter(
-      (c) =>
-        c.kind === type &&
-        (c.archivedAt == null || c.id === categoryId)
-    );
-    return relevant.sort((a, b) => {
-      if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1;
-      if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
-      return a.name.localeCompare(b.name);
-    });
-  }, [categories, type, categoryId]);
+export function orderCategoriesForPicker(
+  categories: readonly Category[],
+  kind: TransactionType,
+  recentTransactions: readonly Transaction[] = []
+): Category[] {
+  const active = categories.filter((c) => c.kind === kind && c.archivedAt === null);
 
-  const effectiveCategoryId = useMemo(() => {
-    if (orderedCategories.some((c) => c.id === categoryId)) {
-      return categoryId;
+  interface UsageStats {
+    count: number;
+    latestSortKey: string;
+  }
+  const statsByCat = new Map<string, UsageStats>();
+
+  for (const tx of recentTransactions) {
+    if (tx.deletedAt !== null || tx.type !== kind || !tx.categoryId) continue;
+    const key = `${tx.occurredOn}|${String(tx.createdAt).padStart(16, '0')}`;
+    const prev = statsByCat.get(tx.categoryId);
+    if (!prev) {
+      statsByCat.set(tx.categoryId, { count: 1, latestSortKey: key });
+    } else {
+      prev.count += 1;
+      if (key > prev.latestSortKey) {
+        prev.latestSortKey = key;
+      }
     }
-    return orderedCategories[0]?.id ?? null;
-  }, [orderedCategories, categoryId]);
+  }
 
-  const handleTypeChange = (nextType: TransactionType) => {
-    setType(nextType);
-    const nextMatch = categories.find(
-      (c) => c.kind === nextType && c.archivedAt == null
-    );
-    setCategoryId(nextMatch?.id ?? null);
+  let mostRecentCatId: string | null = null;
+  let mostRecentKey = '';
+  for (const [catId, st] of statsByCat.entries()) {
+    if (st.latestSortKey > mostRecentKey) {
+      mostRecentKey = st.latestSortKey;
+      mostRecentCatId = catId;
+    }
+  }
+
+  return [...active].sort((a, b) => {
+    if (a.id === mostRecentCatId && b.id !== mostRecentCatId) return -1;
+    if (b.id === mostRecentCatId && a.id !== mostRecentCatId) return 1;
+
+    const stA = statsByCat.get(a.id);
+    const stB = statsByCat.get(b.id);
+    if (stA && !stB) return -1;
+    if (!stA && stB) return 1;
+    if (stA && stB) {
+      if (stA.count !== stB.count) return stB.count - stA.count;
+      if (stA.latestSortKey !== stB.latestSortKey) {
+        return stB.latestSortKey.localeCompare(stA.latestSortKey);
+      }
+    }
+
+    if (a.isSelected !== b.isSelected) return a.isSelected ? -1 : 1;
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+export function buildContextualSuggestions(
+  type: TransactionType,
+  categoryId: string | null,
+  recentTransactions: readonly Transaction[] = []
+): string[] {
+  const matching = recentTransactions
+    .filter(
+      (tx) =>
+        tx.deletedAt === null &&
+        tx.type === type &&
+        (categoryId === null || tx.categoryId === categoryId) &&
+        tx.description.trim().length > 0
+    )
+    .sort((a, b) => {
+      if (a.occurredOn !== b.occurredOn) return b.occurredOn.localeCompare(a.occurredOn);
+      return b.createdAt - a.createdAt;
+    });
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  for (const tx of matching) {
+    const clean = tx.description.trim();
+    const key = clean.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(clean);
+      if (out.length >= 5) return out;
+    }
+  }
+
+  const fallbacks =
+    categoryId !== null
+      ? (CATEGORY_SUGGESTION_FALLBACKS[categoryId] ?? [])
+      : TYPE_FALLBACK_SUGGESTIONS[type];
+
+  for (const item of fallbacks) {
+    const key = item.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      out.push(item);
+      if (out.length >= 5) return out;
+    }
+  }
+
+  return out;
+}
+
+interface AllCategoriesModalProps {
+  visible: boolean;
+  onClose: () => void;
+  type: TransactionType;
+  categories: Category[];
+  selectedCategoryId: string | null;
+  onSelectCategory: (catId: string) => void;
+  onCreateCategory?: (input: CreateCategoryInput) => Promise<Category>;
+}
+
+function AllCategoriesSheet({
+  visible,
+  onClose,
+  type,
+  categories,
+  selectedCategoryId,
+  onSelectCategory,
+  onCreateCategory,
+}: AllCategoriesModalProps) {
+  const { theme } = useTheme();
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newColor, setNewColor] = useState<CategoryColorKey>('orange');
+  const [newIcon, setNewIcon] = useState<string>('tag');
+  const [savingCat, setSavingCat] = useState(false);
+
+  const handleClose = () => {
+    setCreating(false);
+    setNewName('');
+    onClose();
   };
 
-  const suggestions = useMemo(() => {
-    if (recentDescriptions.length > 0) return recentDescriptions;
-    return type === 'expense' ? FALLBACK_SUGGESTIONS : ['Salary', 'Freelance', 'Gift'];
-  }, [recentDescriptions, type]);
+  const handleStartCreate = () => {
+    setNewName('');
+    setNewColor(type === 'income' ? 'teal' : 'orange');
+    setNewIcon(type === 'income' ? 'banknote' : 'tag');
+    setCreating(true);
+  };
 
-  const handleSubmit = async () => {
-    if (saving) return;
-    setError(null);
-
-    const parsed = parseMoneyInput(amountText);
-    if (!parsed.ok) {
-      if (parsed.error === 'too_large') setError(t('tx.errorTooLarge'));
-      else if (parsed.error === 'too_many_decimals') setError(t('tx.errorTooManyDecimals'));
-      else setError(t('tx.errorInvalidAmount'));
-      return;
-    }
-    if (parsed.minor === null) {
-      setError(t('tx.errorInvalidAmount'));
-      return;
-    }
-    const cleanDate = occurredOn.trim();
-    if (!isValidLocalDate(cleanDate)) {
-      setError(t('tx.errorInvalidDate'));
-      return;
-    }
-    const cleanTime = occurredTime.trim();
-    if (cleanTime.length > 0 && !isValidLocalTime(cleanTime)) {
-      setError(t('tx.errorInvalidTime'));
-      return;
-    }
-
-    setSaving(true);
+  const handleCreateSubmit = async () => {
+    const trimmed = newName.trim();
+    if (!trimmed || !onCreateCategory || savingCat) return;
+    setSavingCat(true);
     try {
-      await onSubmit({
-        type,
-        amountMinor: parsed.minor,
-        categoryId: effectiveCategoryId,
-        description: description.trim(),
-        occurredOn: cleanDate,
-        occurredTime: cleanTime.length > 0 ? cleanTime : null,
-        note: note.trim(),
+      const created = await onCreateCategory({
+        name: trimmed,
+        kind: type,
+        icon: newIcon,
+        colorKey: newColor,
       });
-    } catch {
-      setError(t('tx.errorSaveFailed'));
-      setSaving(false);
+      hapticSelection();
+      setCreating(false);
+      setNewName('');
+      onSelectCategory(created.id);
+      onClose();
+    } finally {
+      setSavingCat(false);
     }
   };
 
   return (
-    <View style={{ gap: theme.spacing.lg }}>
-      <SegmentedControl
-        value={type}
-        onChange={handleTypeChange}
-        options={[
-          { value: 'expense', label: t('common.expense') },
-          { value: 'income', label: t('common.income') },
-        ]}
-      />
+    <Sheet
+      visible={visible}
+      onClose={handleClose}
+      title={creating ? t('tx.newCategoryTitle') : t('tx.allCategoriesTitle')}
+      testID="all-categories-sheet"
+    >
+      {creating ? (
+        <View style={{ gap: theme.spacing.md }}>
+          <Field
+            testID="new-category-name-input"
+            label={t('tx.categoryNamePlaceholder')}
+            placeholder={t('tx.categoryNamePlaceholder')}
+            value={newName}
+            onChangeText={setNewName}
+            maxLength={32}
+            autoFocus
+          />
 
-      <AmountPad value={amountText} onChange={setAmountText} currency={currency} />
+          <View style={{ gap: theme.spacing.sm }}>
+            <AppText variant="label" color="textSecondary">
+              {t('tx.categoryColorLabel')}
+            </AppText>
+            <View style={styles.paletteRow}>
+              {CATEGORY_COLOR_KEYS.map((colorKey) => {
+                const swatch = CATEGORY_COLORS[colorKey];
+                const isSelected = newColor === colorKey;
+                return (
+                  <Pressable
+                    key={colorKey}
+                    testID={`new-category-color-${colorKey}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={colorKey}
+                    accessibilityState={{ selected: isSelected }}
+                    onPress={() => {
+                      hapticSelection();
+                      setNewColor(colorKey);
+                    }}
+                    style={[
+                      styles.swatch,
+                      {
+                        backgroundColor:
+                          theme.scheme === 'dark' ? swatch.dark : swatch.light,
+                        borderColor: isSelected ? theme.colors.text : 'transparent',
+                      },
+                    ]}
+                  />
+                );
+              })}
+            </View>
+          </View>
 
-      <View style={{ gap: theme.spacing.sm }}>
-        <AppText variant="label" color="textMuted">
-          {t('common.category')}
-        </AppText>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: theme.spacing.sm }}
-        >
-          {orderedCategories.map((cat) => (
-            <Chip
-              key={cat.id}
-              label={cat.name}
-              icon={resolveIoniconName(cat.icon)}
-              selected={effectiveCategoryId === cat.id}
-              onPress={() => setCategoryId(cat.id)}
+          <View style={{ gap: theme.spacing.sm }}>
+            <AppText variant="label" color="textSecondary">
+              {t('tx.categoryIconLabel')}
+            </AppText>
+            <View style={styles.iconChoiceGrid}>
+              {CATEGORY_ICON_CHOICES.map((iconName) => {
+                const isSelected = newIcon === iconName;
+                return (
+                  <Pressable
+                    key={iconName}
+                    testID={`new-category-icon-${iconName}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={iconName}
+                    accessibilityState={{ selected: isSelected }}
+                    onPress={() => {
+                      hapticSelection();
+                      setNewIcon(iconName);
+                    }}
+                  >
+                    <IconTile icon={iconName} colorKey={newColor} selected={isSelected} size="md" />
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.sheetActionsRow}>
+            <Button
+              title={t('common.cancel')}
+              variant="secondary"
+              onPress={() => setCreating(false)}
+              style={styles.flexButton}
             />
-          ))}
-        </ScrollView>
-      </View>
-
-      <View style={{ gap: theme.spacing.sm }}>
-        <AppText variant="label" color="textMuted">
-          {t('common.description')}
-        </AppText>
-        <TextInput
-          testID="description-input"
-          value={description}
-          onChangeText={setDescription}
-          placeholder={t('tx.descriptionPlaceholder')}
-          placeholderTextColor={theme.colors.textMuted}
-          accessibilityLabel={t('common.description')}
-          style={[
-            theme.typography.body,
-            styles.input,
-            {
-              color: theme.colors.text,
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-              borderRadius: theme.radius.md,
-              paddingHorizontal: theme.spacing.md,
-              paddingVertical: theme.spacing.md,
-            },
-          ]}
-        />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ gap: theme.spacing.sm }}
-        >
-          {suggestions.map((item) => (
-            <Chip
-              key={item}
-              label={item}
-              selected={description.trim().toLowerCase() === item.toLowerCase()}
-              onPress={() => setDescription(item)}
+            <Button
+              testID="new-category-save-button"
+              title={t('common.save')}
+              variant="primary"
+              disabled={newName.trim().length === 0 || savingCat}
+              loading={savingCat}
+              onPress={() => {
+                void handleCreateSubmit();
+              }}
+              style={styles.flexButton}
             />
-          ))}
-        </ScrollView>
-      </View>
-
-      <View style={{ gap: theme.spacing.sm }}>
-        <AppText variant="label" color="textMuted">
-          {t('common.date')}
-        </AppText>
-        <View style={[styles.rowWrap, { gap: theme.spacing.sm }]}>
-          <Chip
-            label={t('common.today')}
-            selected={!showDateInput && occurredOn === today}
-            onPress={() => {
-              setOccurredOn(today);
-              setShowDateInput(false);
-            }}
-          />
-          <Chip
-            label={t('common.yesterday')}
-            selected={!showDateInput && occurredOn === yesterday}
-            onPress={() => {
-              setOccurredOn(yesterday);
-              setShowDateInput(false);
-            }}
-          />
-          <Chip
-            label={t('common.pickDate')}
-            icon="calendar-outline"
-            selected={showDateInput || (occurredOn !== today && occurredOn !== yesterday)}
-            onPress={() => setShowDateInput((v) => !v)}
-          />
+          </View>
         </View>
-        {showDateInput ? (
-          <TextInput
-            testID="date-input"
-            value={occurredOn}
-            onChangeText={setOccurredOn}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor={theme.colors.textMuted}
-            accessibilityLabel={t('common.date')}
-            style={[
-              theme.typography.body,
-              styles.input,
-              {
-                color: theme.colors.text,
-                backgroundColor: theme.colors.surface,
-                borderColor: theme.colors.border,
-                borderRadius: theme.radius.md,
-                paddingHorizontal: theme.spacing.md,
-                paddingVertical: theme.spacing.md,
-              },
+      ) : (
+        <View style={{ gap: theme.spacing.sm }}>
+          {categories.map((cat) => {
+            const active = cat.id === selectedCategoryId;
+            return (
+              <Pressable
+                key={cat.id}
+                testID={`cat-sheet-item-${cat.id}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => {
+                  hapticSelection();
+                  onSelectCategory(cat.id);
+                  handleClose();
+                }}
+                style={({ pressed }) => [
+                  styles.sheetCatRow,
+                  {
+                    backgroundColor: active
+                      ? theme.colors.accentSoft
+                      : pressed
+                        ? theme.colors.surfaceSunken
+                        : 'transparent',
+                    borderRadius: theme.radius.md,
+                    minHeight: theme.touch.min,
+                    paddingHorizontal: theme.spacing.sm,
+                  },
+                ]}
+              >
+                <IconTile icon={cat.icon} colorKey={cat.colorKey} selected={active} size="sm" />
+                <AppText
+                  variant={active ? 'bodyStrong' : 'body'}
+                  color={active ? 'accent' : 'text'}
+                  style={styles.flex1}
+                >
+                  {cat.name}
+                </AppText>
+                {active ? <AppIcon name="check" size={18} color={theme.colors.accent} /> : null}
+              </Pressable>
+            );
+          })}
+
+          {onCreateCategory ? (
+            <Button
+              testID="new-category-open-button"
+              title={t('tx.newCategoryCta')}
+              leftIcon="plus"
+              variant="secondary"
+              onPress={handleStartCreate}
+              style={{ marginTop: theme.spacing.xs }}
+            />
+          ) : null}
+        </View>
+      )}
+    </Sheet>
+  );
+}
+
+export function TransactionForm({
+  mode = 'new',
+  currency,
+  categories,
+  recentTransactions = [],
+  initialValues,
+  submitLabel,
+  onClose,
+  onMorePress,
+  onCreateCategory,
+  onSubmit,
+}: TransactionFormProps) {
+  const { theme } = useTheme();
+  const isEditing = mode === 'edit';
+
+  const [type, setType] = useState<TransactionType>(initialValues?.type ?? 'expense');
+  const [amountText, setAmountText] = useState<string>(() =>
+    initialValues?.amountMinor && initialValues.amountMinor > 0
+      ? formatMinorToDraft(initialValues.amountMinor)
+      : ''
+  );
+  // Strict v2 rule: NO preselected category on new creation.
+  const [categoryId, setCategoryId] = useState<string | null>(
+    initialValues?.categoryId ?? null
+  );
+  const [description, setDescription] = useState<string>(initialValues?.description ?? '');
+  const [note, setNote] = useState<string>(initialValues?.note ?? '');
+  const [noteOpen, setNoteOpen] = useState<boolean>(
+    Boolean(initialValues?.note && initialValues.note.trim().length > 0)
+  );
+  const [occurredOn, setOccurredOn] = useState<LocalDate>(
+    initialValues?.occurredOn ?? todayLocalDate()
+  );
+  // Strict v2 rule: auto-fill current time ONLY when creating new; preserve on edit.
+  const [occurredTime, setOccurredTime] = useState<string>(() => {
+    if (isEditing) {
+      return initialValues?.occurredTime ?? '';
+    }
+    if (initialValues?.occurredTime !== undefined) {
+      return initialValues.occurredTime ?? '';
+    }
+    return currentLocalTime();
+  });
+
+  const [allCatsOpen, setAllCatsOpen] = useState(false);
+  const [activeField, setActiveField] = useState<'description' | 'note' | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const savingRef = useRef(false);
+  const descriptionRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+  const noteRef = useRef<React.ComponentRef<typeof TextInput>>(null);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+      setActiveField(null);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  const orderedCategories = useMemo(
+    () => orderCategoriesForPicker(categories, type, recentTransactions),
+    [categories, type, recentTransactions]
+  );
+
+  const gridCategories = useMemo(() => {
+    const topSeven = orderedCategories.slice(0, 7);
+    if (!categoryId || topSeven.some((c) => c.id === categoryId)) {
+      return topSeven;
+    }
+    const selectedCat = categories.find((c) => c.id === categoryId && c.kind === type);
+    if (!selectedCat) return topSeven;
+    return [...orderedCategories.slice(0, 6), selectedCat];
+  }, [orderedCategories, categoryId, categories, type]);
+
+  const suggestions = useMemo(
+    () => buildContextualSuggestions(type, categoryId, recentTransactions),
+    [type, categoryId, recentTransactions]
+  );
+
+  const parsedAmount = useMemo(() => parseMoneyInput(amountText), [amountText]);
+  const validAmountMinor =
+    parsedAmount.ok && parsedAmount.minor !== null && parsedAmount.minor > 0
+      ? parsedAmount.minor
+      : null;
+
+  const canSave = validAmountMinor !== null && categoryId !== null && !saving;
+  const hideKeypad = activeField !== null || keyboardVisible;
+
+  const dismissTextInputs = () => {
+    descriptionRef.current?.blur();
+    noteRef.current?.blur();
+    Keyboard.dismiss();
+    setActiveField(null);
+    setKeyboardVisible(false);
+  };
+
+  const handleTypeChange = (nextType: TransactionType) => {
+    if (nextType === type) return;
+    setType(nextType);
+    // Switching type clears category selection (different category sets).
+    setCategoryId(null);
+    setErrorMsg(null);
+  };
+
+  const handleSelectCategory = (id: string) => {
+    hapticSelection();
+    dismissTextInputs();
+    setCategoryId(id);
+    setErrorMsg(null);
+  };
+
+  const handleSubmit = async () => {
+    if (savingRef.current || !canSave || validAmountMinor === null) {
+      if (!savingRef.current && validAmountMinor === null) {
+        if (!parsedAmount.ok) {
+          setErrorMsg(
+            parsedAmount.error === 'too_large'
+              ? t('tx.errorTooLarge')
+              : parsedAmount.error === 'too_many_decimals'
+                ? t('tx.errorTooManyDecimals')
+                : t('tx.errorInvalidAmount')
+          );
+        } else {
+          setErrorMsg(t('tx.errorInvalidAmount'));
+        }
+      }
+      return;
+    }
+
+    const trimmedDate = occurredOn.trim();
+    const today = todayLocalDate();
+    if (!isValidLocalDate(trimmedDate) || trimmedDate > addDays(today, 30)) {
+      setErrorMsg(t('tx.errorInvalidDate'));
+      return;
+    }
+
+    const trimmedTime = occurredTime.trim();
+    if (trimmedTime && !isValidLocalTime(trimmedTime)) {
+      setErrorMsg(t('tx.errorInvalidTime'));
+      return;
+    }
+
+    savingRef.current = true;
+    setSaving(true);
+    setErrorMsg(null);
+    try {
+      await onSubmit({
+        type,
+        amountMinor: validAmountMinor,
+        categoryId,
+        description: description.trim(),
+        note: note.trim(),
+        occurredOn: trimmedDate,
+        occurredTime: trimmedTime || null,
+      });
+    } catch {
+      setErrorMsg(t('tx.errorSaveFailed'));
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
+  };
+
+  const heroFormatted = formatHeroAmountText(amountText);
+  const symbol = getCurrencySymbol(currency);
+  const isCompactHero = heroFormatted.length >= 9;
+  const amountFontSize = isCompactHero ? 34 : 44;
+  const amountLineHeight = isCompactHero ? 40 : 50;
+  const symbolFontSize = Math.round(amountFontSize * 0.6);
+  const heroColor = amountText.length > 0 ? theme.colors.text : theme.colors.textMuted;
+
+  const primaryLabel =
+    submitLabel ?? (type === 'income' ? t('tx.saveIncomeCta') : t('tx.saveExpenseCta'));
+
+  return (
+    <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
+      {/* Top Bar: Close + Segmented Control + Optional More Menu */}
+      <View
+        style={[
+          styles.topBar,
+          {
+            paddingHorizontal: theme.geometry.screenMargin,
+            paddingTop: theme.spacing.sm,
+            paddingBottom: theme.spacing.xs,
+          },
+        ]}
+      >
+        <IconButton
+          testID="tx-close-button"
+          icon="x"
+          variant="sunken"
+          size={40}
+          accessibilityLabel={t('tx.closeForm')}
+          onPress={() => {
+            hapticLight();
+            dismissTextInputs();
+            onClose?.();
+          }}
+        />
+        <View style={styles.topCenter}>
+          <SegmentedControl
+            testID="tx-type-toggle"
+            size="sm"
+            value={type}
+            onChange={handleTypeChange}
+            options={[
+              { value: 'expense', label: t('common.expense') },
+              { value: 'income', label: t('common.income') },
             ]}
           />
-        ) : null}
+        </View>
+        {isEditing && onMorePress ? (
+          <IconButton
+            testID="tx-more-button"
+            icon="more-horizontal"
+            variant="sunken"
+            size={40}
+            accessibilityLabel={t('tx.moreActions')}
+            onPress={() => {
+              hapticLight();
+              dismissTextInputs();
+              onMorePress();
+            }}
+          />
+        ) : (
+          <View style={styles.topRightSpacer} />
+        )}
       </View>
 
-      <Button
-        title={showMore ? t('common.less') : t('common.more')}
-        variant="ghost"
-        onPress={() => setShowMore((v) => !v)}
-      />
+      {/* Scrollable Middle Controls */}
+      <ScrollView
+        style={styles.flex1}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingHorizontal: theme.geometry.screenMargin,
+          paddingTop: theme.spacing.sm,
+          paddingBottom: theme.spacing.md,
+          gap: theme.spacing.md,
+        }}
+      >
+        {/* Hero Amount + Optional Note CTA */}
+        <View style={{ alignItems: 'center', gap: theme.spacing.xs }}>
+          <Pressable
+            testID="tx-hero-amount"
+            accessibilityRole="button"
+            accessibilityLabel={`${t('tx.editHeroLabel')}: ${symbol} ${heroFormatted}`}
+            onPress={dismissTextInputs}
+            style={styles.heroAmountTap}
+          >
+            <View style={styles.heroAmountRow}>
+              <AppText
+                color="textSecondary"
+                style={{
+                  fontSize: symbolFontSize,
+                  lineHeight: Math.round(amountLineHeight * 0.72),
+                  fontFamily: 'Inter_600SemiBold',
+                  marginRight: 4,
+                }}
+              >
+                {symbol}
+              </AppText>
+              <AppText
+                tabularNums
+                style={{
+                  fontSize: amountFontSize,
+                  lineHeight: amountLineHeight,
+                  letterSpacing: -1.1,
+                  fontFamily: 'Inter_600SemiBold',
+                  color: heroColor,
+                }}
+              >
+                {heroFormatted}
+              </AppText>
+            </View>
+          </Pressable>
 
-      {showMore ? (
-        <View style={{ gap: theme.spacing.md }}>
-          <View style={{ gap: theme.spacing.xs }}>
-            <AppText variant="label" color="textMuted">
-              {t('common.time')}
-            </AppText>
-            <TextInput
-              testID="time-input"
-              value={occurredTime}
-              onChangeText={setOccurredTime}
-              placeholder={t('tx.timePlaceholder')}
-              placeholderTextColor={theme.colors.textMuted}
-              accessibilityLabel={t('common.time')}
-              style={[
-                theme.typography.body,
-                styles.input,
-                {
-                  color: theme.colors.text,
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.border,
-                  borderRadius: theme.radius.md,
-                  paddingHorizontal: theme.spacing.md,
-                  paddingVertical: theme.spacing.md,
-                },
-              ]}
-            />
-          </View>
-          <View style={{ gap: theme.spacing.xs }}>
-            <AppText variant="label" color="textMuted">
-              {t('common.note')}
-            </AppText>
-            <TextInput
-              testID="note-input"
-              value={note}
-              onChangeText={setNote}
-              placeholder={t('tx.notePlaceholder')}
-              placeholderTextColor={theme.colors.textMuted}
-              multiline
-              accessibilityLabel={t('common.note')}
-              style={[
-                theme.typography.body,
-                styles.input,
-                {
-                  color: theme.colors.text,
-                  backgroundColor: theme.colors.surface,
-                  borderColor: theme.colors.border,
-                  borderRadius: theme.radius.md,
-                  paddingHorizontal: theme.spacing.md,
-                  paddingVertical: theme.spacing.md,
-                },
-              ]}
-            />
-          </View>
+          {noteOpen ? (
+            <View style={styles.noteInputWrap}>
+              <Field
+                inputRef={noteRef}
+                testID="note-input"
+                placeholder={t('tx.notePlaceholder')}
+                leftIcon="pencil"
+                value={note}
+                onChangeText={setNote}
+                onClear={
+                  note.length > 0
+                    ? () => setNote('')
+                    : () => {
+                        setNoteOpen(false);
+                        setActiveField(null);
+                      }
+                }
+                onFocus={() => setActiveField('note')}
+                onBlur={() => setActiveField((prev) => (prev === 'note' ? null : prev))}
+                returnKeyType="done"
+                onSubmitEditing={dismissTextInputs}
+              />
+            </View>
+          ) : (
+            <Pressable
+              testID="tx-add-note-toggle"
+              accessibilityRole="button"
+              onPress={() => {
+                hapticSelection();
+                setNoteOpen(true);
+              }}
+              hitSlop={8}
+              style={styles.addNoteBtn}
+            >
+              <AppText variant="label" color="accent">
+                {t('tx.addNoteCta')}
+              </AppText>
+            </Pressable>
+          )}
         </View>
-      ) : null}
 
-      {error ? (
-        <AppText variant="label" color="danger" accessibilityRole="alert">
-          {error}
-        </AppText>
-      ) : null}
+        {/* Inline Error Banner (only on submit failure) */}
+        {errorMsg ? (
+          <View
+            testID="tx-form-error"
+            style={[
+              styles.errorBox,
+              {
+                backgroundColor: theme.colors.dangerSoft,
+                borderRadius: theme.radius.md,
+                paddingHorizontal: theme.spacing.md,
+                paddingVertical: theme.spacing.sm,
+              },
+            ]}
+          >
+            <AppText variant="label" color="danger">
+              {errorMsg}
+            </AppText>
+          </View>
+        ) : null}
 
-      <Button
-        testID="save-tx-button"
-        title={saving ? t('common.saving') : (submitLabel ?? t('common.save'))}
-        onPress={() => void handleSubmit()}
-        loading={saving}
-        disabled={saving}
+        {/* Centered Date & Time Chips */}
+        <View style={[styles.dateTimeRow, { gap: theme.spacing.sm }]}>
+          <DateField
+            testID="tx-date-field"
+            value={occurredOn}
+            onChange={(next) => {
+              dismissTextInputs();
+              setOccurredOn(next);
+            }}
+            maximumDate={new Date()}
+          />
+          <TimeField
+            testID="tx-time-field"
+            value={occurredTime}
+            onChange={(next) => {
+              dismissTextInputs();
+              setOccurredTime(next);
+            }}
+          />
+        </View>
+
+        {/* Category 4x2 Grid */}
+        <View style={styles.catGrid}>
+          {gridCategories.map((cat) => {
+            const selected = categoryId === cat.id;
+            return (
+              <Pressable
+                key={cat.id}
+                testID={`cat-chip-${cat.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={cat.name}
+                accessibilityState={{ selected }}
+                onPress={() => handleSelectCategory(cat.id)}
+                style={({ pressed }) => [
+                  styles.catCell,
+                  { opacity: pressed ? 0.78 : 1 },
+                ]}
+              >
+                <IconTile icon={cat.icon} colorKey={cat.colorKey} selected={selected} size="md" />
+                <AppText
+                  variant="caption"
+                  color={selected ? 'text' : 'textSecondary'}
+                  numberOfLines={1}
+                  style={[
+                    styles.catLabel,
+                    selected ? { fontFamily: 'Inter_600SemiBold' } : null,
+                  ]}
+                >
+                  {cat.name}
+                </AppText>
+              </Pressable>
+            );
+          })}
+
+          <Pressable
+            testID="cat-all-button"
+            accessibilityRole="button"
+            accessibilityLabel={t('tx.allCategories')}
+            onPress={() => {
+              hapticSelection();
+              dismissTextInputs();
+              setAllCatsOpen(true);
+            }}
+            style={({ pressed }) => [styles.catCell, { opacity: pressed ? 0.78 : 1 }]}
+          >
+            <IconTile icon="layout-grid" neutral size="md" />
+            <AppText variant="caption" color="textSecondary" numberOfLines={1} style={styles.catLabel}>
+              {t('tx.allCategories')}
+            </AppText>
+          </Pressable>
+        </View>
+
+        {/* Description Input + Strict Contextual Suggestions */}
+        <View style={{ gap: theme.spacing.sm }}>
+          <Field
+            inputRef={descriptionRef}
+            testID="description-input"
+            leftIcon="pencil"
+            placeholder={t('tx.descriptionPlaceholder')}
+            value={description}
+            onChangeText={setDescription}
+            onClear={description.length > 0 ? () => setDescription('') : undefined}
+            onFocus={() => setActiveField('description')}
+            onBlur={() => setActiveField((prev) => (prev === 'description' ? null : prev))}
+            returnKeyType="done"
+            onSubmitEditing={dismissTextInputs}
+          />
+
+          {suggestions.length > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={[styles.suggestionRow, { gap: theme.spacing.xs }]}
+            >
+              {suggestions.map((item, idx) => (
+                <Chip
+                  key={`${type}-${categoryId ?? 'none'}-${item}`}
+                  testID={`suggestion-chip-${idx}`}
+                  variant="sunken"
+                  label={item}
+                  selected={description.trim().toLowerCase() === item.toLowerCase()}
+                  onPress={() => {
+                    hapticSelection();
+                    setDescription(item);
+                    dismissTextInputs();
+                  }}
+                />
+              ))}
+            </ScrollView>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      {/* Pinned Bottom Dock: Keypad (hidden while typing in text inputs) + Primary CTA */}
+      <View
+        style={[
+          styles.bottomDock,
+          {
+            backgroundColor: theme.colors.bg,
+            borderTopColor: theme.colors.separator,
+            paddingHorizontal: theme.geometry.screenMargin,
+            paddingTop: theme.spacing.sm,
+            paddingBottom: theme.spacing.md,
+            gap: theme.spacing.sm,
+          },
+        ]}
+      >
+        {!hideKeypad ? (
+          <Keypad
+            testID="tx-keypad"
+            keyHeight={48}
+            value={amountText}
+            onChange={(next) => {
+              setAmountText(next);
+              if (errorMsg) setErrorMsg(null);
+            }}
+          />
+        ) : null}
+
+        <Button
+          testID="save-tx-button"
+          title={saving ? t('common.saving') : primaryLabel}
+          variant="primary"
+          size="md"
+          disabled={!canSave}
+          loading={saving}
+          onPress={() => {
+            void handleSubmit();
+          }}
+        />
+      </View>
+
+      <AllCategoriesSheet
+        visible={allCatsOpen}
+        onClose={() => setAllCatsOpen(false)}
+        type={type}
+        categories={orderedCategories}
+        selectedCategoryId={categoryId}
+        onSelectCategory={(id) => {
+          setCategoryId(id);
+          setErrorMsg(null);
+        }}
+        onCreateCategory={onCreateCategory}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  input: {
-    borderWidth: 1,
+  container: {
+    flex: 1,
   },
-  rowWrap: {
+  flex1: {
+    flex: 1,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  topCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  topRightSpacer: {
+    width: 40,
+    height: 40,
+  },
+  heroAmountTap: {
+    paddingVertical: 4,
+    paddingHorizontal: 16,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  heroAmountRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+  },
+  addNoteBtn: {
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  noteInputWrap: {
+    width: '100%',
+  },
+  errorBox: {
+    alignSelf: 'stretch',
+  },
+  dateTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+  },
+  catGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    marginHorizontal: -2,
+  },
+  catCell: {
+    width: '25%',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    gap: 4,
+    minHeight: 68,
+  },
+  catLabel: {
+    textAlign: 'center',
+    width: '100%',
+  },
+  suggestionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
+  bottomDock: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  paletteRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  swatch: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 2.5,
+  },
+  iconChoiceGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  sheetActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  flexButton: {
+    flex: 1,
+  },
+  sheetCatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 6,
   },
 });

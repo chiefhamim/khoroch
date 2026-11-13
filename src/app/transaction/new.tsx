@@ -1,144 +1,187 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import type { Category } from '@/domain/types';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { buildCustomCategory } from '@/domain/categories';
+import type { Category, Transaction } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
-import { AppText } from '@/ui/AppText';
 import { ErrorState } from '@/ui/ErrorState';
-import { Screen } from '@/ui/Screen';
-import { TransactionForm, type TransactionFormValues } from '@/ui/TransactionForm';
+import { hapticSuccess } from '@/ui/haptics';
+import { useToast } from '@/ui/Toast';
+import {
+  TransactionForm,
+  type CreateCategoryInput,
+  type TransactionFormValues,
+} from '@/ui/TransactionForm';
 
 export default function NewTransactionScreen() {
   const { repo, settings } = useAppContext();
   const { theme } = useTheme();
-  const router = useRouter();
-
+  const { showToast } = useToast();
   const txIdRef = useRef<string>(Crypto.randomUUID());
+
   const [categories, setCategories] = useState<Category[]>([]);
-  const [recentDescriptions, setRecentDescriptions] = useState<string[]>([]);
-  const [loadError, setLoadError] = useState(false);
-  const [reloadTick, setReloadTick] = useState(0);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     let active = true;
     Promise.all([
       repo.listCategories({ includeArchived: false }),
-      repo.listRecentDescriptions(8),
+      repo.searchTransactions({}, { limit: 150 }),
     ])
-      .then(([cats, recents]) => {
+      .then(([cats, txPage]) => {
         if (!active) return;
-        setLoadError(false);
         setCategories(cats);
-        setRecentDescriptions(recents);
+        setRecentTransactions(txPage.rows);
+        setLoadError(null);
       })
       .catch(() => {
-        if (active) setLoadError(true);
+        if (!active) return;
+        setLoadError(t('common.retry'));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
-  }, [repo, reloadTick]);
+  }, [repo, retryTick]);
 
-  const handleSubmit = async (values: TransactionFormValues) => {
-    await repo.insertTransaction({
-      id: txIdRef.current,
-      type: values.type,
-      amountMinor: values.amountMinor,
-      currency: settings.currency,
-      categoryId: values.categoryId,
-      description: values.description,
-      occurredOn: values.occurredOn,
-      occurredTime: values.occurredTime,
-      note: values.note,
-      source: 'manual',
-    });
-    bumpDataVersion();
-    router.back();
-  };
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
+    setRetryTick((prev) => prev + 1);
+  }, []);
 
-  return (
-    <Screen scroll edges={['top', 'bottom', 'left', 'right']} keyboardAvoiding>
-      <View style={[styles.header, { minHeight: theme.touch.min }]}>
-        <AppText variant="title">{t('tx.newTitle')}</AppText>
-        <Pressable
-          testID="close-new-tx"
-          accessibilityRole="button"
-          accessibilityLabel={t('common.close')}
-          onPress={() => router.back()}
-          style={[
-            styles.closeBtn,
-            {
-              width: theme.touch.min,
-              height: theme.touch.min,
-              borderRadius: theme.radius.pill,
-              backgroundColor: theme.colors.surfaceAlt,
-            },
-          ]}
-        >
-          <Ionicons name="close" size={22} color={theme.colors.text} />
-        </Pressable>
-      </View>
+  const handleClose = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  }, []);
 
-      <Pressable
-        testID="new-tx-quick-entry"
-        accessibilityRole="button"
-        accessibilityLabel={t('quickEntry.shortcutBtn')}
-        onPress={() => router.replace('/quick-entry')}
+  const handleCreateCategory = useCallback(
+    async (input: CreateCategoryInput): Promise<Category> => {
+      const created = buildCustomCategory(
+        { id: `custom_${Crypto.randomUUID().slice(0, 8)}`, ...input },
+        categories
+      );
+      await repo.upsertCategory(created);
+      bumpDataVersion();
+      setCategories((prev) => [...prev, created]);
+      return created;
+    },
+    [categories, repo]
+  );
+
+  const handleSubmit = useCallback(
+    async (values: TransactionFormValues) => {
+      await repo.insertTransaction({
+        id: txIdRef.current,
+        type: values.type,
+        amountMinor: values.amountMinor,
+        currency: settings.currency,
+        categoryId: values.categoryId,
+        description: values.description,
+        note: values.note,
+        occurredOn: values.occurredOn,
+        occurredTime: values.occurredTime,
+        source: 'manual',
+      });
+      hapticSuccess();
+      bumpDataVersion();
+      showToast({
+        message: t('tx.savedToast'),
+        icon: 'circle-check',
+        tone: 'accent',
+      });
+      handleClose();
+    },
+    [handleClose, repo, settings.currency, showToast]
+  );
+
+  if (loading) {
+    return (
+      <SafeAreaView
+        edges={['top', 'bottom']}
+        style={[styles.centerWrap, { backgroundColor: theme.colors.bg }]}
+      >
+        <ActivityIndicator color={theme.colors.accent} />
+      </SafeAreaView>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <SafeAreaView
+        edges={['top', 'bottom']}
         style={[
-          styles.quickBanner,
+          styles.centerWrap,
           {
-            minHeight: theme.touch.min,
-            borderRadius: theme.radius.md,
-            backgroundColor: theme.colors.primarySoft,
-            borderColor: theme.colors.border,
-            paddingHorizontal: theme.spacing.md,
-            gap: theme.spacing.sm,
+            backgroundColor: theme.colors.bg,
+            paddingHorizontal: theme.geometry.screenMargin,
           },
         ]}
       >
-        <Ionicons name="sparkles-outline" size={18} color={theme.colors.primary} />
-        <AppText variant="label" color="primary" style={{ flex: 1 }}>
-          {t('quickEntry.shortcutBtn')}
-        </AppText>
-        <Ionicons name="chevron-forward" size={16} color={theme.colors.primary} />
-      </Pressable>
+        <View style={styles.errorCardWrap}>
+          <ErrorState
+            title={t('tx.newTitle')}
+            body={loadError}
+            retryLabel={t('common.retry')}
+            onRetry={handleRetry}
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-      <TransactionForm
-        currency={settings.currency}
-        categories={categories}
-        recentDescriptions={recentDescriptions}
-        onSubmit={handleSubmit}
-      />
-      {loadError ? (
-        <ErrorState
-          title={t('error.genericTitle')}
-          body={t('categories.loadError')}
-          retryLabel={t('common.retry')}
-          onRetry={() => setReloadTick((v) => v + 1)}
+  return (
+    <SafeAreaView
+      edges={['top', 'bottom']}
+      style={[styles.flex1, { backgroundColor: theme.colors.bg }]}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex1}
+      >
+        <TransactionForm
+          mode="new"
+          currency={settings.currency}
+          categories={categories}
+          recentTransactions={recentTransactions}
+          onClose={handleClose}
+          onCreateCategory={handleCreateCategory}
+          onSubmit={handleSubmit}
         />
-      ) : null}
-    </Screen>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  flex1: {
+    flex: 1,
   },
-  closeBtn: {
+  centerWrap: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
+  errorCardWrap: {
+    width: '100%',
   },
 });

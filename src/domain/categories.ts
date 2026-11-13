@@ -171,3 +171,32 @@ export const CATEGORY_KEYWORDS: readonly CategoryKeywordRule[] = [
   { keyword: 'freelance', categoryId: 'business', label: 'Freelance', kind: 'income' },
   { keyword: 'business', categoryId: 'business', label: 'Business', kind: 'income' },
 ];
+
+export interface NewCustomCategoryInput {
+  id: string;
+  name: string;
+  kind: TransactionType;
+  icon: string;
+  colorKey: CategoryColorKey;
+}
+
+export function buildCustomCategory(
+  input: NewCustomCategoryInput,
+  existingCategories: readonly Category[],
+  nowMs: number = Date.now()
+): Category {
+  const maxOrder = existingCategories
+    .filter((c) => c.kind === input.kind)
+    .reduce((max, c) => Math.max(max, c.sortOrder), 0);
+  return {
+    id: input.id,
+    name: input.name,
+    icon: input.icon,
+    colorKey: input.colorKey,
+    kind: input.kind,
+    sortOrder: maxOrder + 1,
+    isSelected: true,
+    archivedAt: null,
+    createdAt: nowMs,
+  };
+}

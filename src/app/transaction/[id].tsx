@@ -1,8 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { formatMinorToDraft } from '@/domain/money';
+import * as Crypto from 'expo-crypto';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { buildCustomCategory } from '@/domain/categories';
 import type { Category, Transaction } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
@@ -10,212 +17,289 @@ import { bumpDataVersion } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
-import { ConfirmModal } from '@/ui/ConfirmModal';
-import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
-import { Screen } from '@/ui/Screen';
-import { TransactionForm, type TransactionFormValues } from '@/ui/TransactionForm';
+import { hapticSuccess } from '@/ui/haptics';
+import { IconButton } from '@/ui/IconButton';
+import { Sheet } from '@/ui/Sheet';
+import { useToast } from '@/ui/Toast';
+import {
+  TransactionForm,
+  type CreateCategoryInput,
+  type TransactionFormValues,
+} from '@/ui/TransactionForm';
 
-export default function TransactionDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+export default function EditTransactionScreen() {
+  const { id } = useLocalSearchParams<{ id?: string | string[] }>();
+  const txId = Array.isArray(id) ? id[0] : id;
   const { repo, settings } = useAppContext();
   const { theme } = useTheme();
-  const router = useRouter();
+  const { showToast } = useToast();
 
   const [tx, setTx] = useState<Transaction | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [recentDescriptions, setRecentDescriptions] = useState<string[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [reloadTick, setReloadTick] = useState(0);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    const txId = typeof id === 'string' ? id : '';
-    (async () => {
-      try {
-        const [loadedTx, allCats, recents] = await Promise.all([
-          txId ? repo.getTransaction(txId) : Promise.resolve(null),
-          repo.listCategories({ includeArchived: true }),
-          repo.listRecentDescriptions(8),
-        ]);
+    Promise.all([
+      txId ? repo.getTransaction(txId) : Promise.resolve(null),
+      repo.listCategories({ includeArchived: true }),
+      repo.searchTransactions({}, { limit: 150 }),
+    ])
+      .then(([loadedTx, allCats, txPage]) => {
         if (!active) return;
-        setLoadError(false);
         setTx(loadedTx);
-        const visibleCats = allCats.filter(
-          (c) => c.archivedAt === null || c.id === loadedTx?.categoryId
-        );
-        setCategories(visibleCats);
-        setRecentDescriptions(recents);
-      } catch {
-        if (!active) return;
-        setLoadError(true);
-        setTx(null);
-      } finally {
+        setCategories(allCats);
+        setRecentTransactions(txPage.rows);
+      })
+      .finally(() => {
         if (active) setLoading(false);
-      }
-    })();
-
+      });
     return () => {
       active = false;
     };
-  }, [repo, id, reloadTick]);
+  }, [repo, txId]);
 
-  const handleUpdate = async (values: TransactionFormValues) => {
-    if (!tx) return;
-    await repo.updateTransaction(tx.id, {
-      type: values.type,
-      amountMinor: values.amountMinor,
-      categoryId: values.categoryId,
-      description: values.description,
-      occurredOn: values.occurredOn,
-      occurredTime: values.occurredTime,
-      note: values.note,
-    });
-    bumpDataVersion();
-    router.back();
-  };
+  const handleClose = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/activity');
+    }
+  }, []);
 
-  const handleConfirmDelete = async () => {
+  const handleCreateCategory = useCallback(
+    async (input: CreateCategoryInput): Promise<Category> => {
+      const created = buildCustomCategory(
+        { id: `custom_${Crypto.randomUUID().slice(0, 8)}`, ...input },
+        categories
+      );
+      await repo.upsertCategory(created);
+      bumpDataVersion();
+      setCategories((prev) => [...prev, created]);
+      return created;
+    },
+    [categories, repo]
+  );
+
+  const handleUpdate = useCallback(
+    async (values: TransactionFormValues) => {
+      if (!tx) return;
+      await repo.updateTransaction(tx.id, {
+        type: values.type,
+        amountMinor: values.amountMinor,
+        categoryId: values.categoryId,
+        description: values.description,
+        note: values.note,
+        occurredOn: values.occurredOn,
+        occurredTime: values.occurredTime,
+      });
+      hapticSuccess();
+      bumpDataVersion();
+      showToast({
+        message: t('tx.savedToast'),
+        icon: 'circle-check',
+        tone: 'accent',
+      });
+      handleClose();
+    },
+    [handleClose, repo, showToast, tx]
+  );
+
+  const handleDelete = useCallback(async () => {
     if (!tx || deleting) return;
     setDeleting(true);
     setDeleteError(null);
     try {
       await repo.softDeleteTransaction(tx.id);
-      setConfirmOpen(false);
+      hapticSuccess();
       bumpDataVersion();
-      router.back();
+      setDeleteConfirmOpen(false);
+      showToast({
+        message: t('tx.deletedToast'),
+        icon: 'trash-2',
+        tone: 'danger',
+      });
+      handleClose();
     } catch {
       setDeleteError(t('tx.errorDeleteFailed'));
+    } finally {
       setDeleting(false);
     }
-  };
+  }, [deleting, handleClose, repo, showToast, tx]);
 
   if (loading) {
     return (
-      <Screen edges={['top', 'bottom', 'left', 'right']}>
-        <AppText variant="body" color="textMuted">
-          {t('tx.detailTitle')}
-        </AppText>
-      </Screen>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <Screen edges={['top', 'bottom', 'left', 'right']}>
-        <ErrorState
-          title={t('error.genericTitle')}
-          body={t('tx.errorLoadFailed')}
-          retryLabel={t('common.retry')}
-          onRetry={() => setReloadTick((v) => v + 1)}
-        />
-      </Screen>
+      <SafeAreaView
+        edges={['top', 'bottom']}
+        style={[styles.centerWrap, { backgroundColor: theme.colors.bg }]}
+      >
+        <ActivityIndicator color={theme.colors.accent} />
+      </SafeAreaView>
     );
   }
 
   if (!tx) {
     return (
-      <Screen edges={['top', 'bottom', 'left', 'right']}>
-        <EmptyState
-          icon="receipt-outline"
-          title={t('tx.notFound')}
-          body={t('empty.activityBody')}
-          ctaLabel={t('common.back')}
-          onCtaPress={() => router.back()}
-        />
-      </Screen>
+      <SafeAreaView
+        edges={['top', 'bottom']}
+        style={[
+          styles.flex1,
+          {
+            backgroundColor: theme.colors.bg,
+            paddingHorizontal: theme.geometry.screenMargin,
+            paddingTop: theme.spacing.sm,
+          },
+        ]}
+      >
+        <View style={styles.missingHeader}>
+          <IconButton
+            testID="tx-detail-close"
+            icon="x"
+            accessibilityLabel={t('common.close')}
+            onPress={handleClose}
+          />
+          <AppText variant="headline">{t('tx.detailTitle')}</AppText>
+          <View style={styles.headerSpacer} />
+        </View>
+        <View style={styles.centerWrap}>
+          <View style={styles.fullWidth}>
+            <ErrorState
+              title={t('tx.notFound')}
+              body={t('tx.deleteConfirmBody')}
+              retryLabel={t('common.back')}
+              onRetry={handleClose}
+            />
+          </View>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <Screen scroll edges={['top', 'bottom', 'left', 'right']} keyboardAvoiding>
-      <View style={[styles.header, { minHeight: theme.touch.min }]}>
-        <Pressable
-          testID="back-tx-detail"
-          accessibilityRole="button"
-          accessibilityLabel={t('common.back')}
-          onPress={() => router.back()}
-          style={[
-            styles.iconBtn,
-            {
-              width: theme.touch.min,
-              height: theme.touch.min,
-              borderRadius: theme.radius.pill,
-              backgroundColor: theme.colors.surfaceAlt,
-            },
-          ]}
-        >
-          <Ionicons name="arrow-back" size={20} color={theme.colors.text} />
-        </Pressable>
-        <AppText variant="title" style={styles.title}>
-          {t('tx.editTitle')}
-        </AppText>
-        <View style={{ width: theme.touch.min }} />
-      </View>
+    <SafeAreaView
+      edges={['top', 'bottom']}
+      style={[styles.flex1, { backgroundColor: theme.colors.bg }]}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.flex1}
+      >
+        <TransactionForm
+          mode="edit"
+          currency={settings.currency}
+          categories={categories}
+          recentTransactions={recentTransactions}
+          initialValues={{
+            type: tx.type,
+            amountMinor: tx.amountMinor,
+            categoryId: tx.categoryId,
+            description: tx.description,
+            note: tx.note,
+            occurredOn: tx.occurredOn,
+            occurredTime: tx.occurredTime,
+          }}
+          submitLabel={t('common.save')}
+          onClose={handleClose}
+          onMorePress={() => setMoreSheetOpen(true)}
+          onCreateCategory={handleCreateCategory}
+          onSubmit={handleUpdate}
+        />
+      </KeyboardAvoidingView>
 
-      <TransactionForm
-        currency={settings.currency}
-        categories={categories}
-        recentDescriptions={recentDescriptions}
-        initialValues={{
-          type: tx.type,
-          amountText: formatMinorToDraft(tx.amountMinor),
-          categoryId: tx.categoryId,
-          description: tx.description,
-          occurredOn: tx.occurredOn,
-          occurredTime: tx.occurredTime,
-          note: tx.note ?? '',
+      <Sheet
+        visible={moreSheetOpen}
+        onClose={() => setMoreSheetOpen(false)}
+        title={t('tx.moreActions')}
+        testID="tx-more-sheet"
+      >
+        <Button
+          testID="tx-action-delete"
+          title={t('tx.deleteButton')}
+          leftIcon="trash-2"
+          variant="dangerSoft"
+          onPress={() => {
+            setMoreSheetOpen(false);
+            setDeleteError(null);
+            setDeleteConfirmOpen(true);
+          }}
+        />
+        <Button
+          title={t('common.cancel')}
+          variant="secondary"
+          onPress={() => setMoreSheetOpen(false)}
+        />
+      </Sheet>
+
+      <Sheet
+        visible={deleteConfirmOpen}
+        onClose={() => {
+          if (!deleting) setDeleteConfirmOpen(false);
         }}
-        submitLabel={t('common.save')}
-        onSubmit={handleUpdate}
-      />
-
-      {deleteError ? (
-        <AppText variant="caption" color="danger">
-          {deleteError}
-        </AppText>
-      ) : null}
-
-      <Button
-        testID="delete-tx-button"
-        title={t('tx.deleteButton')}
-        variant="danger"
-        onPress={() => setConfirmOpen(true)}
-      />
-
-      <ConfirmModal
-        visible={confirmOpen}
         title={t('tx.deleteConfirmTitle')}
-        body={t('tx.deleteConfirmBody')}
-        confirmLabel={t('common.delete')}
-        cancelLabel={t('common.cancel')}
-        destructive
-        loading={deleting}
-        onConfirm={handleConfirmDelete}
-        onCancel={() => {
-          if (!deleting) setConfirmOpen(false);
-        }}
-      />
-    </Screen>
+        testID="tx-delete-confirm-sheet"
+      >
+        <AppText variant="body" color="textSecondary">
+          {t('tx.deleteConfirmBody')}
+        </AppText>
+        {deleteError ? (
+          <AppText variant="label" color="danger">
+            {deleteError}
+          </AppText>
+        ) : null}
+        <View style={styles.confirmRow}>
+          <Button
+            title={t('common.cancel')}
+            variant="secondary"
+            disabled={deleting}
+            onPress={() => setDeleteConfirmOpen(false)}
+            style={styles.flex1}
+          />
+          <Button
+            testID="tx-confirm-delete-button"
+            title={t('common.delete')}
+            variant="danger"
+            loading={deleting}
+            onPress={() => {
+              void handleDelete();
+            }}
+            style={styles.flex1}
+          />
+        </View>
+      </Sheet>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
+  flex1: {
+    flex: 1,
+  },
+  fullWidth: {
+    width: '100%',
+  },
+  centerWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  missingHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  iconBtn: {
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerSpacer: {
+    width: 40,
+    height: 40,
   },
-  title: {
-    textAlign: 'center',
-    flex: 1,
+  confirmRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
   },
 });

@@ -70,7 +70,7 @@ export function TimeField({
   const webInputRef = useRef<{ showPicker?: () => void; click?: () => void } | null>(null);
 
   const resolved24Hour = use24Hour ?? isDevice24HourClock();
-  const display = formatFriendlyTime(value, resolved24Hour);
+  const display = value.trim() ? formatFriendlyTime(value, resolved24Hour) : 'Add time';
 
   const handleOpenPicker = () => {
     if (Platform.OS === 'android') {
