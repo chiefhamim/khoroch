@@ -3,6 +3,11 @@ import { StyleSheet, Switch, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { isValidLocalTime } from '@/domain/validation';
 import { t } from '@/i18n';
+import {
+  getNotificationPermissionStatus,
+  isNotificationsSupported,
+  requestNotificationPermission,
+} from '@/notifications/reminders';
 import { useOnboardingDraft } from '@/state/onboardingStore';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from '@/ui/AppText';
@@ -26,13 +31,33 @@ export default function OnboardingReminderScreen() {
     setReminderDays,
   } = useOnboardingDraft();
   const [error, setError] = useState<string | null>(null);
+  const [requesting, setRequesting] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    if (requesting) return;
     setError(null);
     if (reminderEnabled && !isValidLocalTime(reminderTime.trim())) {
       setError(t('tx.errorInvalidTime'));
       return;
     }
+
+    if (reminderEnabled && isNotificationsSupported()) {
+      setRequesting(true);
+      try {
+        const status = await getNotificationPermissionStatus();
+        if (status === 'undetermined') {
+          const result = await requestNotificationPermission();
+          if (result === 'denied') {
+            setReminderEnabled(false);
+          }
+        } else if (status === 'denied') {
+          setReminderEnabled(false);
+        }
+      } finally {
+        setRequesting(false);
+      }
+    }
+
     router.push('/onboarding/done');
   };
 
@@ -147,7 +172,9 @@ export default function OnboardingReminderScreen() {
         <Button
           testID="onboarding-reminder-continue"
           title={t('common.continue')}
-          onPress={handleContinue}
+          loading={requesting}
+          disabled={requesting}
+          onPress={() => void handleContinue()}
           style={styles.navBtn}
         />
       </View>

@@ -5,6 +5,11 @@ import { todayLocalDate } from '@/domain/dates';
 import { formatMoney, parseMoneyInput } from '@/domain/money';
 import { getPeriod } from '@/domain/period';
 import { t } from '@/i18n';
+import {
+  getNotificationPermissionStatus,
+  isNotificationsSupported,
+  syncReminderSchedule,
+} from '@/notifications/reminders';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useOnboardingDraft } from '@/state/onboardingStore';
@@ -47,11 +52,24 @@ export default function OnboardingDoneScreen() {
       await repo.setSetting('name', name.trim());
       await repo.setSetting('currency', currency);
       await repo.setSetting('monthStartDay', monthStartDay);
-      await repo.setSetting('reminder', {
+
+      const reminderConfig = {
         enabled: reminderEnabled,
         time: reminderTime.trim() || '21:00',
         days: reminderDays,
-      });
+      };
+      if (isNotificationsSupported()) {
+        const permStatus = await getNotificationPermissionStatus();
+        if (reminderConfig.enabled && permStatus !== 'granted') {
+          reminderConfig.enabled = false;
+        }
+        await repo.setSetting('notificationPermissionDenied', permStatus === 'denied');
+        await repo.setSetting('reminder', reminderConfig);
+        await syncReminderSchedule(reminderConfig);
+      } else {
+        await repo.setSetting('notificationPermissionDenied', false);
+        await repo.setSetting('reminder', reminderConfig);
+      }
 
       const categories = await repo.listCategories({ includeArchived: true });
       const selectedSet = new Set(selectedCategoryIds);

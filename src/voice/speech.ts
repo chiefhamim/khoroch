@@ -1,4 +1,5 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { requireOptionalNativeModule } from 'expo-modules-core';
 import { Platform } from 'react-native';
 
 export type SpeechPermissionState = 'granted' | 'denied' | 'undetermined' | 'unavailable';
@@ -17,13 +18,25 @@ export interface SpeechSessionHandle {
 
 type SpeechModuleType = typeof import('expo-speech-recognition').ExpoSpeechRecognitionModule;
 
+function hasNativeSpeechModule(): boolean {
+  try {
+    return Boolean(requireOptionalNativeModule('ExpoSpeechRecognition'));
+  } catch {
+    return false;
+  }
+}
+
 function loadSpeechModule(): SpeechModuleType | null {
   // Expo Go does not include custom native binary for expo-speech-recognition.
-  if (
-    Platform.OS !== 'web' &&
-    Constants.executionEnvironment === ExecutionEnvironment.StoreClient
-  ) {
-    return null;
+  // Check requireOptionalNativeModule BEFORE requiring the package so Metro's
+  // guardedLoadModule never fires a dev-mode Redbox for missing native modules.
+  if (Platform.OS !== 'web') {
+    if (
+      Constants.executionEnvironment === ExecutionEnvironment.StoreClient ||
+      !hasNativeSpeechModule()
+    ) {
+      return null;
+    }
   }
 
   try {

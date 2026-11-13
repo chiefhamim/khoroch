@@ -107,7 +107,8 @@ export async function getNotificationPermissionStatus(): Promise<NotificationPer
   try {
     const res = await Notifications.getPermissionsAsync();
     if (res.granted) return 'granted';
-    if (!res.canAskAgain || res.status === 'denied') return 'denied';
+    // Android 13+ reports status:'denied' with canAskAgain:true before the first prompt.
+    if (res.canAskAgain === false) return 'denied';
     return 'undetermined';
   } catch {
     return 'unsupported';
@@ -139,7 +140,17 @@ export async function cancelAllReminders(): Promise<void> {
  * Cancels all existing reminders and (when enabled + permitted) schedules fresh local triggers.
  * Re-running on app start ensures timezone changes take effect without duplicates.
  */
-export async function syncReminderSchedule(
+let syncQueue: Promise<unknown> = Promise.resolve();
+
+export function syncReminderSchedule(
+  reminder: ReminderSettings
+): Promise<{ scheduled: number; permissionDenied?: boolean }> {
+  const run = syncQueue.then(() => runSyncReminderSchedule(reminder));
+  syncQueue = run.catch(() => {});
+  return run;
+}
+
+async function runSyncReminderSchedule(
   reminder: ReminderSettings
 ): Promise<{ scheduled: number; permissionDenied?: boolean }> {
   const Notifications = loadNotifications();
@@ -157,31 +168,41 @@ export async function syncReminderSchedule(
   try {
     const perm = await Notifications.getPermissionsAsync();
     if (!perm.granted) {
+      if (__DEV__) {
+        console.warn('[reminders] permission not granted:', perm);
+      }
       return {
         scheduled: 0,
-        permissionDenied: perm.status === 'denied' || !perm.canAskAgain,
+        permissionDenied: perm.canAskAgain === false,
       };
     }
 
+    let useCustomChannel = false;
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
-        name: 'Daily Check-in Reminders',
-        importance: Notifications.AndroidImportance.DEFAULT,
-      });
+      try {
+        await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
+          name: 'Daily Check-in Reminders',
+          importance: Notifications.AndroidImportance.DEFAULT,
+        });
+        useCustomChannel = true;
+      } catch {
+        // Some Android / Expo Go hosts throw when scoping custom channels; fall back to default channel.
+        useCustomChannel = false;
+      }
     }
 
     for (const spec of specs) {
-      const trigger =
+      const trigger: import('expo-notifications').NotificationTriggerInput =
         spec.kind === 'daily'
           ? {
               type: Notifications.SchedulableTriggerInputTypes.DAILY,
-              channelId: REMINDER_CHANNEL_ID,
+              ...(useCustomChannel ? { channelId: REMINDER_CHANNEL_ID } : {}),
               hour: spec.hour,
               minute: spec.minute,
             }
           : {
               type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
-              channelId: REMINDER_CHANNEL_ID,
+              ...(useCustomChannel ? { channelId: REMINDER_CHANNEL_ID } : {}),
               weekday: spec.weekday,
               hour: spec.hour,
               minute: spec.minute,
@@ -198,10 +219,15 @@ export async function syncReminderSchedule(
     }
 
     return { scheduled: specs.length };
-  } catch {
+  } catch (err) {
+    if (__DEV__) {
+      console.warn('[reminders] syncReminderSchedule failed:', err);
+    }
     return { scheduled: 0 };
   }
 }
+
+let lastHandledResponseKey: string | null = null;
 
 export function subscribeToCheckInResponses(onOpenCheckIn: () => void): () => void {
   const Notifications = loadNotifications();
@@ -209,19 +235,26 @@ export function subscribeToCheckInResponses(onOpenCheckIn: () => void): () => vo
 
   let active = true;
 
+  const handleResponse = (
+    response: {
+      actionIdentifier: string;
+      notification: { request: { identifier: string; content: { data?: Record<string, unknown> } } };
+    } | null
+  ) => {
+    if (!active || !response) return;
+    if (response.notification.request.content.data?.route !== '/check-in') return;
+    const key = `${response.notification.request.identifier}:${response.actionIdentifier}`;
+    if (lastHandledResponseKey === key) return;
+    lastHandledResponseKey = key;
+    onOpenCheckIn();
+  };
+
   Notifications.getLastNotificationResponseAsync()
-    .then((response) => {
-      if (!active || !response) return;
-      if (response.notification.request.content.data?.route === '/check-in') {
-        onOpenCheckIn();
-      }
-    })
+    .then((response) => handleResponse(response))
     .catch(() => {});
 
   const sub = Notifications.addNotificationResponseReceivedListener((response) => {
-    if (response.notification.request.content.data?.route === '/check-in') {
-      onOpenCheckIn();
-    }
+    handleResponse(response);
   });
 
   return () => {

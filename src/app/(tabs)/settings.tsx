@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Linking, StyleSheet, Switch, TextInput, View } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AppState, Linking, StyleSheet, Switch, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { buildSampleTransactions } from '@/data/sampleData';
 import { todayLocalDate } from '@/domain/dates';
 import { getPeriod } from '@/domain/period';
@@ -9,6 +9,7 @@ import {
   CURRENCIES,
   type CurrencyCode,
   type ReminderDays,
+  type ReminderSettings,
   type ThemePreference,
 } from '@/domain/types';
 import { t } from '@/i18n';
@@ -55,10 +56,55 @@ export default function SettingsScreen() {
 
   const reminderTimeDraft = reminderTimeOverride ?? settings.reminder.time;
 
-  const applyReminderUpdate = async (nextReminder: typeof settings.reminder) => {
-    await updateSetting('reminder', nextReminder);
-    await syncReminderSchedule(nextReminder);
-  };
+  const applyReminderUpdate = useCallback(
+    async (nextReminder: ReminderSettings) => {
+      await updateSetting('reminder', nextReminder);
+      await syncReminderSchedule(nextReminder);
+    },
+    [updateSetting]
+  );
+
+  const syncPermissionFromOs = useCallback(async () => {
+    if (!isNotificationsSupported()) return;
+    const status = await getNotificationPermissionStatus();
+    if (status === 'granted') {
+      if (settings.notificationPermissionDenied) {
+        await updateSetting('notificationPermissionDenied', false);
+      }
+      if (settings.reminder.enabled) {
+        await syncReminderSchedule(settings.reminder);
+      }
+      return;
+    }
+
+    const osDenied = status === 'denied';
+    if (settings.notificationPermissionDenied !== osDenied) {
+      await updateSetting('notificationPermissionDenied', osDenied);
+    }
+    if (settings.reminder.enabled) {
+      await applyReminderUpdate({ ...settings.reminder, enabled: false });
+    }
+  }, [
+    applyReminderUpdate,
+    settings.notificationPermissionDenied,
+    settings.reminder,
+    updateSetting,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void syncPermissionFromOs();
+    }, [syncPermissionFromOs])
+  );
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void syncPermissionFromOs();
+      }
+    });
+    return () => sub.remove();
+  }, [syncPermissionFromOs]);
 
   const handleToggleReminder = async (nextEnabled: boolean) => {
     if (!nextEnabled) {
@@ -71,12 +117,11 @@ export default function SettingsScreen() {
       return;
     }
 
-    if (settings.notificationPermissionDenied) {
-      return;
-    }
-
     const status = await getNotificationPermissionStatus();
     if (status === 'granted') {
+      if (settings.notificationPermissionDenied) {
+        await updateSetting('notificationPermissionDenied', false);
+      }
       await applyReminderUpdate({ ...settings.reminder, enabled: true });
       return;
     }
@@ -87,6 +132,9 @@ export default function SettingsScreen() {
       return;
     }
 
+    if (settings.notificationPermissionDenied) {
+      await updateSetting('notificationPermissionDenied', false);
+    }
     setReminderExplainOpen(true);
   };
 
@@ -97,7 +145,8 @@ export default function SettingsScreen() {
       await updateSetting('notificationPermissionDenied', false);
       await applyReminderUpdate({ ...settings.reminder, enabled: true });
     } else {
-      await updateSetting('notificationPermissionDenied', true);
+      const afterStatus = await getNotificationPermissionStatus();
+      await updateSetting('notificationPermissionDenied', afterStatus === 'denied');
       await applyReminderUpdate({ ...settings.reminder, enabled: false });
     }
   };
