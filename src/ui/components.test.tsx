@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { fireEvent, render } from '@testing-library/react-native';
+import { addDays, diffDays } from '@/domain/dates';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { Banner } from './Banner';
 import { Button } from './Button';
@@ -17,6 +18,7 @@ import { ProgressRing } from './ProgressRing';
 import { SettingsGroup } from './SettingsGroup';
 import { SettingsRow } from './SettingsRow';
 import { Sheet } from './Sheet';
+import { pickDailyAxisLabels } from './SpendingChart';
 import { Surface } from './Surface';
 import { TimeField } from './TimeField';
 import { ToastView } from './Toast';
@@ -132,5 +134,43 @@ describe('v2 design system components', () => {
     expect(view.getByText('Currency')).toBeTruthy();
     expect(view.getByText('Test Sheet')).toBeTruthy();
     expect(view.getByText('Cycle started')).toBeTruthy();
+  });
+
+  it('pickDailyAxisLabels keeps <=5 labels, >=3 day spacing, and "Today" last when in range', () => {
+    const buildRange = (start: string, count: number) =>
+      Array.from({ length: count }, (_, i) => addDays(start, i));
+
+    for (const [len, today] of [
+      [1, '2026-11-10'],
+      [3, '2026-11-12'],
+      [4, '2026-11-13'],
+      [7, '2026-11-16'],
+      [13, '2026-11-13'],
+      [30, '2026-11-13'],
+      [31, undefined],
+    ] as const) {
+      const start = len === 13 || len === 30 ? '2026-11-01' : '2026-11-10';
+      const days = buildRange(start, len);
+      const labels = pickDailyAxisLabels(days, today);
+      expect(labels).toHaveLength(len);
+
+      const nonEmptyIndices = labels
+        .map((label, idx) => (label ? idx : -1))
+        .filter((idx) => idx >= 0);
+
+      expect(nonEmptyIndices.length).toBeLessThanOrEqual(5);
+      expect(nonEmptyIndices.length).toBeGreaterThanOrEqual(1);
+
+      for (let i = 1; i < nonEmptyIndices.length; i++) {
+        const gap = diffDays(days[nonEmptyIndices[i]], days[nonEmptyIndices[i - 1]]);
+        expect(gap).toBeGreaterThanOrEqual(3);
+      }
+
+      if (today && days.includes(today)) {
+        const lastIdx = nonEmptyIndices[nonEmptyIndices.length - 1];
+        expect(days[lastIdx]).toBe(today);
+        expect(labels[lastIdx]).toBe('Today');
+      }
+    }
   });
 });

@@ -125,7 +125,7 @@ describe('Accessibility, large fontScale, reduced motion, and DB error recovery'
 
     await waitFor(() => {
       expect(listSpy).toHaveBeenCalledTimes(2);
-      expect(view.getByText(t('overview.monthlyBudget'))).toBeTruthy();
+      expect(view.getByText(t('overview.leftToSpend'))).toBeTruthy();
     });
   });
 });

@@ -1,34 +1,47 @@
 import React, { useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { formatUtilizationPct } from '@/domain/calc';
-import { formatPeriodRange } from '@/domain/dates';
-import { formatMinorToDraft, getCurrencySymbol, parseMoneyInput } from '@/domain/money';
+import {
+  formatMinorToDraft,
+  formatMoney,
+  getCurrencySymbol,
+  groupThousands,
+  parseMoneyInput,
+} from '@/domain/money';
+import { formatCycleLabel } from '@/domain/period';
+import { isValidBudgetAmount } from '@/domain/validation';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { useBudgets } from '@/state/useBudgets';
-import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
 import { BudgetStatusBadge } from '@/ui/BudgetStatusBadge';
 import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
-import { CategoryIcon, resolveIoniconName } from '@/ui/CategoryIcon';
 import { Chip } from '@/ui/Chip';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
+import { hapticLight, hapticSuccess } from '@/ui/haptics';
+import { IconTile } from '@/ui/IconTile';
+import { Keypad } from '@/ui/Keypad';
+import { ListRow } from '@/ui/ListRow';
 import { Money } from '@/ui/Money';
 import { ProgressBar } from '@/ui/ProgressBar';
+import { ProgressRing } from '@/ui/ProgressRing';
 import { Screen } from '@/ui/Screen';
-import { SectionHeader } from '@/ui/SectionHeader';
+import { Sheet } from '@/ui/Sheet';
+import { Surface } from '@/ui/Surface';
+import { useToast } from '@/ui/Toast';
 
-function formatMinorInput(minor: number | null): string {
-  if (minor === null || minor <= 0) return '';
-  return formatMinorToDraft(minor);
-}
+type SheetMode =
+  | { kind: 'overall' }
+  | { kind: 'addCategory' }
+  | { kind: 'editCategory'; categoryId: string };
 
 export default function BudgetScreen() {
   const { settings } = useAppContext();
   const { theme, reducedMotion } = useTheme();
+  const { showToast } = useToast();
   const {
     period,
     remainingDaysCount,
@@ -48,103 +61,25 @@ export default function BudgetScreen() {
     removeCategoryBudget,
   } = useBudgets();
 
-  // Overall budget edit modal
-  const [overallModalOpen, setOverallModalOpen] = useState(false);
-  const [overallInput, setOverallInput] = useState('');
-  const [overallError, setOverallError] = useState<string | null>(null);
+  const [sheetMode, setSheetMode] = useState<SheetMode | null>(null);
+  const [pickedCategoryId, setPickedCategoryId] = useState<string>('');
+  const [amountDraft, setAmountDraft] = useState('');
+  const [sheetError, setSheetError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pastExpanded, setPastExpanded] = useState(false);
 
-  // Category budget add/edit modal
-  const [catModalOpen, setCatModalOpen] = useState(false);
-  const [selectedCatId, setSelectedCatId] = useState<string>('');
-  const [isEditingExistingCat, setIsEditingExistingCat] = useState(false);
-  const [catAmountInput, setCatAmountInput] = useState('');
-  const [catError, setCatError] = useState<string | null>(null);
+  const budgetedCatIds = useMemo(
+    () => new Set(categoryBudgets.map((c) => c.categoryId)),
+    [categoryBudgets]
+  );
 
-  const availableCategoriesForAdd = useMemo(() => {
-    const existingSet = new Set(categoryBudgets.map((cb) => cb.categoryId));
-    return categories.filter(
-      (c) => c.kind === 'expense' && c.archivedAt == null && !existingSet.has(c.id)
-    );
-  }, [categories, categoryBudgets]);
-
-  const openOverallModal = () => {
-    setOverallInput(formatMinorInput(overallBudgetMinor));
-    setOverallError(null);
-    setOverallModalOpen(true);
-  };
-
-  const handleSaveOverall = async () => {
-    if (saving) return;
-    const parsed = parseMoneyInput(overallInput);
-    if (!parsed.ok || parsed.minor === null || parsed.minor <= 0) {
-      setOverallError(t('budget.invalidAmount'));
-      return;
-    }
-    setSaving(true);
-    try {
-      await setOverallBudget(parsed.minor);
-      setOverallModalOpen(false);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRemoveOverall = async () => {
-    if (saving) return;
-    setSaving(true);
-    try {
-      await removeOverallBudget();
-      setOverallModalOpen(false);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const openAddCategoryBudget = () => {
-    const first = availableCategoriesForAdd[0];
-    if (!first) return;
-    setIsEditingExistingCat(false);
-    setSelectedCatId(first.id);
-    setCatAmountInput('');
-    setCatError(null);
-    setCatModalOpen(true);
-  };
-
-  const openEditCategoryBudget = (categoryId: string, currentMinor: number) => {
-    setIsEditingExistingCat(true);
-    setSelectedCatId(categoryId);
-    setCatAmountInput(formatMinorInput(currentMinor));
-    setCatError(null);
-    setCatModalOpen(true);
-  };
-
-  const handleSaveCategoryBudget = async () => {
-    if (saving || !selectedCatId) return;
-    const parsed = parseMoneyInput(catAmountInput);
-    if (!parsed.ok || parsed.minor === null || parsed.minor <= 0) {
-      setCatError(t('budget.invalidAmount'));
-      return;
-    }
-    setSaving(true);
-    try {
-      await setCategoryBudget(selectedCatId, parsed.minor);
-      setCatModalOpen(false);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRemoveCategoryBudget = async () => {
-    if (saving || !selectedCatId) return;
-    setSaving(true);
-    try {
-      await removeCategoryBudget(selectedCatId);
-      setCatModalOpen(false);
-    } finally {
-      setSaving(false);
-    }
-  };
+  const availableCategoriesForAdd = useMemo(
+    () =>
+      categories.filter(
+        (c) => c.archivedAt == null && c.kind === 'expense' && !budgetedCatIds.has(c.id)
+      ),
+    [categories, budgetedCatIds]
+  );
 
   if (error && !loading) {
     return (
@@ -159,422 +94,477 @@ export default function BudgetScreen() {
     );
   }
 
-  const symbol = getCurrencySymbol(settings.currency);
-  const isOverAllocated = allocation.unallocatedMinor !== null && allocation.unallocatedMinor < 0;
+  const cycleLabel = formatCycleLabel(period, settings.monthStartDay);
+  const currencySymbol = getCurrencySymbol(settings.currency);
+  const displayAmountDraft = amountDraft ? groupThousands(amountDraft) : '0';
+
+  const openEditOverall = () => {
+    setAmountDraft(overallBudgetMinor !== null ? formatMinorToDraft(overallBudgetMinor) : '');
+    setSheetError(null);
+    setSheetMode({ kind: 'overall' });
+  };
+
+  const openAddCategory = () => {
+    const first = availableCategoriesForAdd[0];
+    if (!first) return;
+    setPickedCategoryId(first.id);
+    setAmountDraft('');
+    setSheetError(null);
+    setSheetMode({ kind: 'addCategory' });
+  };
+
+  const openEditCategory = (categoryId: string, currentMinor: number) => {
+    setPickedCategoryId(categoryId);
+    setAmountDraft(formatMinorToDraft(currentMinor));
+    setSheetError(null);
+    setSheetMode({ kind: 'editCategory', categoryId });
+  };
+
+  const closeSheet = () => {
+    if (saving) return;
+    setSheetMode(null);
+    setSheetError(null);
+  };
+
+  const handleSaveSheet = async () => {
+    const parsed = parseMoneyInput(amountDraft);
+    if (!parsed.ok || !isValidBudgetAmount(parsed.minor)) {
+      setSheetError(t('budget.invalidAmount'));
+      return;
+    }
+    setSaving(true);
+    try {
+      if (sheetMode?.kind === 'overall') {
+        await setOverallBudget(parsed.minor);
+      } else if (sheetMode?.kind === 'addCategory') {
+        if (!pickedCategoryId) {
+          setSaving(false);
+          return;
+        }
+        await setCategoryBudget(pickedCategoryId, parsed.minor);
+      } else if (sheetMode?.kind === 'editCategory') {
+        await setCategoryBudget(sheetMode.categoryId, parsed.minor);
+      }
+      hapticSuccess();
+      setSheetMode(null);
+      showToast({ message: t('tx.savedToast') });
+    } catch {
+      setSheetError(t('settings.actionError'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveBudget = async () => {
+    if (!sheetMode) return;
+    setSaving(true);
+    try {
+      if (sheetMode.kind === 'overall') {
+        await removeOverallBudget();
+      } else if (sheetMode.kind === 'editCategory') {
+        await removeCategoryBudget(sheetMode.categoryId);
+      }
+      hapticSuccess();
+      setSheetMode(null);
+      showToast({ message: t('tx.deletedToast') });
+    } catch {
+      setSheetError(t('settings.actionError'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const isNegativeRemaining =
+    overallSummary.remainingMinor !== null && overallSummary.remainingMinor < 0;
+
+  const sheetTitle = (() => {
+    if (sheetMode?.kind === 'overall') {
+      return overallBudgetMinor !== null
+        ? t('budget.editOverallTitle')
+        : t('budget.setOverallTitle');
+    }
+    if (sheetMode?.kind === 'editCategory') {
+      return categoriesById.get(sheetMode.categoryId)?.name ?? t('budget.editCategoryBudget');
+    }
+    return t('budget.addCategoryRow');
+  })();
+
+  const allocationSummaryText = (() => {
+    if (
+      overallBudgetMinor === null ||
+      allocation.unallocatedMinor === null ||
+      allocation.allocatedMinor <= 0
+    ) {
+      return null;
+    }
+    if (allocation.unallocatedMinor < 0) {
+      return {
+        text: t('budget.overAllocatedInline', {
+          amount: formatMoney(Math.abs(allocation.unallocatedMinor), settings.currency),
+        }),
+        tone: 'warning' as const,
+      };
+    }
+    return {
+      text: t('budget.unallocatedInline', {
+        amount: formatMoney(allocation.unallocatedMinor, settings.currency),
+      }),
+      tone: 'textSecondary' as const,
+    };
+  })();
 
   return (
     <Screen scroll bottomSpacer>
-      {/* Header */}
+      {/* Page header: Title + cycle range */}
       <View style={styles.headerRow}>
-        <View style={{ gap: 2 }}>
-          <AppText variant="title">{t('budget.title')}</AppText>
-          <AppText variant="caption" color="textMuted">
-            {formatPeriodRange(period.start, period.endExcl)}
-          </AppText>
-        </View>
-        <View
-          style={[
-            styles.daysPill,
-            {
-              backgroundColor: theme.colors.surfaceAlt,
-              borderColor: theme.colors.border,
-              borderRadius: theme.radius.pill,
-              paddingHorizontal: theme.spacing.md,
-              paddingVertical: theme.spacing.xs,
-            },
-          ]}
-        >
-          <AppText variant="label" color="text">
-            {t('budget.remainingDays', { days: remainingDaysCount })}
-          </AppText>
-        </View>
+        <AppText variant="title">{t('budget.title')}</AppText>
+        <AppText variant="label" color="textSecondary">
+          {cycleLabel}
+        </AppText>
       </View>
 
-      {/* Overall Monthly Budget Card */}
-      <SectionHeader
-        title={t('budget.overallSection')}
-        actionLabel={overallBudgetMinor !== null ? t('common.edit') : t('overview.setBudgetCta')}
-        onActionPress={openOverallModal}
-      />
-      <Card style={{ gap: theme.spacing.md }}>
+      {/* Overall budget hero card */}
+      <Surface style={{ gap: theme.spacing.lg }}>
         {overallBudgetMinor !== null && overallSummary.remainingMinor !== null ? (
           <>
-            <View style={styles.rowBetween}>
-              <Money amountMinor={overallBudgetMinor} currency={settings.currency} variant="display" />
-              <BudgetStatusBadge status={overallSummary.status} />
-            </View>
-            <ProgressBar pct={overallSummary.utilizationPct} status={overallSummary.status} height={10} />
-            <View style={styles.rowBetween}>
-              <View style={{ gap: 2 }}>
-                <AppText variant="caption" color="textMuted">
-                  {t('overview.spentLabel')}
+            <ProgressRing
+              testID="budget-overall-ring"
+              size={164}
+              strokeWidth={12}
+              pct={overallSummary.utilizationPct}
+              status={overallSummary.status}
+            >
+              <Money
+                testID="budget-ring-remaining"
+                variant="display"
+                amountMinor={Math.abs(overallSummary.remainingMinor)}
+                currency={settings.currency}
+                color={isNegativeRemaining ? 'danger' : 'text'}
+              />
+              <AppText
+                variant="caption"
+                color={isNegativeRemaining ? 'danger' : 'textSecondary'}
+                style={styles.centerText}
+              >
+                {`${isNegativeRemaining ? t('budget.overSuffix') : t('budget.leftSuffix')} · ${formatUtilizationPct(overallSummary.utilizationPct ?? 0)}`}
+              </AppText>
+            </ProgressRing>
+
+            <View style={[styles.heroFooter, { gap: theme.spacing.sm }]}>
+              <AppText variant="label" color="textSecondary" style={styles.flexOne}>
+                {overallSummary.safeToSpendPerDayMinor !== null
+                  ? t('budget.safePerDaySummary', {
+                      days: remainingDaysCount,
+                      amount: formatMoney(
+                        overallSummary.safeToSpendPerDayMinor,
+                        settings.currency
+                      ),
+                    })
+                  : t('budget.remainingDays', { days: remainingDaysCount })}
+              </AppText>
+              <Pressable
+                testID="budget-edit-overall-btn"
+                accessibilityRole="button"
+                accessibilityLabel={t('budget.editOverallTitle')}
+                hitSlop={8}
+                onPress={openEditOverall}
+                style={({ pressed }) => [
+                  styles.editLink,
+                  {
+                    gap: theme.spacing.xs,
+                    opacity: pressed && !reducedMotion ? 0.65 : 1,
+                  },
+                ]}
+              >
+                <AppIcon name="pencil" size={14} color={theme.colors.accent} />
+                <AppText variant="label" color="accent" style={styles.semiBold}>
+                  {t('budget.editShort')}
                 </AppText>
-                <Money amountMinor={overallSummary.spentMinor} currency={settings.currency} variant="heading" />
-              </View>
-              <View style={{ gap: 2, alignItems: 'center' }}>
-                <AppText variant="caption" color="textMuted">
-                  {overallSummary.utilizationPct !== null
-                    ? t('overview.usedPct', {
-                        pct: formatUtilizationPct(overallSummary.utilizationPct),
-                      })
-                    : ''}
-                </AppText>
-              </View>
-              <View style={{ gap: 2, alignItems: 'flex-end' }}>
-                <AppText
-                  variant="caption"
-                  color={overallSummary.remainingMinor < 0 ? 'danger' : 'textMuted'}
-                >
-                  {overallSummary.remainingMinor < 0
-                    ? t('overview.overByLabel')
-                    : t('overview.remainingLabel')}
-                </AppText>
-                <Money
-                  amountMinor={overallSummary.remainingMinor}
-                  currency={settings.currency}
-                  variant="heading"
-                  color={overallSummary.remainingMinor < 0 ? 'danger' : 'text'}
-                />
-              </View>
+              </Pressable>
             </View>
           </>
         ) : (
-          <View style={{ gap: theme.spacing.sm }}>
-            <AppText variant="heading">{t('overview.noBudgetSet')}</AppText>
-            <AppText variant="body" color="textMuted">
-              {t('overview.noBudgetHint')}
-            </AppText>
-            <Button
-              testID="budget-set-overall-btn"
-              title={t('overview.setBudgetCta')}
-              variant="secondary"
-              onPress={openOverallModal}
-            />
-          </View>
+          <EmptyState
+            testID="budget-empty-overall"
+            icon="pie-chart"
+            title={t('empty.budgetTitle')}
+            body={t('empty.budgetBody')}
+            ctaLabel={t('budget.setMonthlyCta')}
+            onCtaPress={openEditOverall}
+          />
         )}
-        <AppText variant="caption" color="textMuted">
-          {t('overview.budgetPlanNote')}
-        </AppText>
-      </Card>
+      </Surface>
 
-      {/* Allocation summary */}
-      <Card tone="alt" style={{ gap: theme.spacing.sm }}>
-        <View style={styles.rowBetween}>
-          <AppText variant="label" color="textMuted">
-            {t('budget.allocatedLabel')}
-          </AppText>
-          <Money amountMinor={allocation.allocatedMinor} currency={settings.currency} variant="heading" />
-        </View>
-        {allocation.unallocatedMinor !== null ? (
-          <View style={styles.rowBetween}>
-            <AppText variant="label" color={isOverAllocated ? 'warning' : 'textMuted'}>
-              {isOverAllocated ? t('budget.overAllocatedLabel') : t('budget.unallocatedLabel')}
+      {/* Category budgets section */}
+      <View style={{ gap: theme.spacing.md }}>
+        <View style={[styles.headerRow, { gap: theme.spacing.sm }]}>
+          <AppText variant="headline">{t('budget.categorySection')}</AppText>
+          {allocationSummaryText ? (
+            <AppText
+              variant="label"
+              color={allocationSummaryText.tone}
+              tabularNums
+            >
+              {allocationSummaryText.text}
             </AppText>
-            <Money
-              amountMinor={Math.abs(allocation.unallocatedMinor)}
-              currency={settings.currency}
-              variant="heading"
-              color={isOverAllocated ? 'warning' : 'text'}
-            />
-          </View>
-        ) : null}
-      </Card>
-
-      {/* Category Budgets */}
-      <SectionHeader
-        title={t('budget.categorySection')}
-        actionLabel={availableCategoriesForAdd.length > 0 ? t('budget.addCategoryBudget') : undefined}
-        onActionPress={availableCategoriesForAdd.length > 0 ? openAddCategoryBudget : undefined}
-      />
-      {categoryBudgets.length === 0 ? (
-        <EmptyState
-          icon="pie-chart-outline"
-          title={t('budget.emptyCategoriesTitle')}
-          body={t('budget.emptyCategoriesBody')}
-          ctaLabel={availableCategoriesForAdd.length > 0 ? t('budget.addCategoryBudget') : undefined}
-          onCtaPress={availableCategoriesForAdd.length > 0 ? openAddCategoryBudget : undefined}
-        />
-      ) : (
-        <View style={{ gap: theme.spacing.md }}>
-          {categoryBudgets.map((item) => {
-            const cat = categoriesById.get(item.categoryId);
-            const catName = cat?.name ?? t('common.uncategorized');
-            const isOver = item.remainingMinor < 0;
-            return (
-              <Pressable
-                key={item.categoryId}
-                accessibilityRole="button"
-                accessibilityLabel={catName}
-                onPress={() => openEditCategoryBudget(item.categoryId, item.budgetMinor)}
-                style={({ pressed }) => ({
-                  opacity: pressed && !reducedMotion ? 0.8 : 1,
-                })}
-              >
-                <Card style={{ gap: theme.spacing.sm }}>
-                  <View style={styles.rowBetween}>
-                    <View style={[styles.catLeft, { gap: theme.spacing.sm }]}>
-                      <CategoryIcon icon={cat?.icon} size="sm" tone="primary" />
-                      <AppText variant="heading" numberOfLines={1} style={styles.flexOne}>
-                        {catName}
-                      </AppText>
-                    </View>
-                    <BudgetStatusBadge status={item.status} />
-                  </View>
-
-                  <ProgressBar pct={item.utilizationPct} status={item.status} height={8} />
-
-                  <View style={styles.rowBetween}>
-                    <View style={[styles.inlinePair, { gap: theme.spacing.xs }]}>
-                      <Money amountMinor={item.spentMinor} currency={settings.currency} variant="label" />
-                      <AppText variant="caption" color="textMuted">
-                        /
-                      </AppText>
-                      <Money
-                        amountMinor={item.budgetMinor}
-                        currency={settings.currency}
-                        variant="label"
-                        color="textMuted"
-                      />
-                    </View>
-                    <Money
-                      amountMinor={item.remainingMinor}
-                      currency={settings.currency}
-                      variant="label"
-                      color={isOver ? 'danger' : 'text'}
-                    />
-                  </View>
-                </Card>
-              </Pressable>
-            );
-          })}
+          ) : null}
         </View>
-      )}
 
-      {/* Previous Periods (read-only) */}
-      <SectionHeader title={t('budget.historySection')} />
-      <Card style={{ gap: theme.spacing.md }}>
-        {history.length === 0 ? (
-          <AppText variant="body" color="textMuted">
-            {t('budget.emptyHistory')}
-          </AppText>
-        ) : (
-          history.map((h, idx) => (
-            <View key={h.period.start} style={{ gap: theme.spacing.xs }}>
-              {idx > 0 ? <View style={{ height: 1, backgroundColor: theme.colors.border, marginBottom: theme.spacing.xs }} /> : null}
-              <View style={styles.rowBetween}>
-                <AppText variant="heading">{formatPeriodRange(h.period.start, h.period.endExcl)}</AppText>
-                <BudgetStatusBadge status={h.status} />
-              </View>
-              <View style={styles.rowBetween}>
-                <AppText variant="caption" color="textMuted">
-                  {t('overview.spentLabel')}
-                </AppText>
-                <View style={[styles.inlinePair, { gap: theme.spacing.xs }]}>
-                  <Money amountMinor={h.spentMinor} currency={settings.currency} variant="label" />
-                  {h.overallBudgetMinor !== null ? (
-                    <>
-                      <AppText variant="caption" color="textMuted">
-                        /
+        {categoryBudgets.length > 0 ? (
+          <Surface padded={false}>
+            {categoryBudgets.map((item, idx) => {
+              const cat = categoriesById.get(item.categoryId);
+              const catName = cat?.name ?? t('common.uncategorized');
+              const isOver = item.remainingMinor < 0;
+              const statusTone: 'danger' | 'warning' | 'textSecondary' =
+                item.status === 'over'
+                  ? 'danger'
+                  : item.status === 'attention' || item.status === 'reached'
+                    ? 'warning'
+                    : 'textSecondary';
+
+              return (
+                <View key={item.categoryId}>
+                  <Pressable
+                    testID={`budget-cat-row-${item.categoryId}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${catName}: ${formatMoney(item.spentMinor, settings.currency)} of ${formatMoney(item.budgetMinor, settings.currency)}`}
+                    onPress={() => openEditCategory(item.categoryId, item.budgetMinor)}
+                    style={({ pressed }) => [
+                      styles.catRow,
+                      {
+                        minHeight: 72,
+                        paddingHorizontal: theme.spacing.lg,
+                        paddingVertical: theme.spacing.md,
+                        gap: theme.spacing.md,
+                        opacity: pressed && !reducedMotion ? 0.72 : 1,
+                      },
+                    ]}
+                  >
+                    <IconTile
+                      icon={cat?.icon ?? 'circle-ellipsis'}
+                      colorKey={cat?.colorKey ?? 'gray'}
+                      size="md"
+                    />
+                    <View style={[styles.flexOne, { gap: theme.spacing.xs }]}>
+                      <View style={[styles.catRowTop, { gap: theme.spacing.sm }]}>
+                        <AppText
+                          variant="bodyStrong"
+                          style={styles.flexOne}
+                          numberOfLines={1}
+                        >
+                          {catName}
+                        </AppText>
+                        <AppText variant="label" color={statusTone} tabularNums>
+                          {isOver
+                            ? t('budget.overAmount', {
+                                amount: formatMoney(
+                                  Math.abs(item.remainingMinor),
+                                  settings.currency
+                                ),
+                              })
+                            : t('budget.leftAmount', {
+                                amount: formatMoney(
+                                  item.remainingMinor,
+                                  settings.currency
+                                ),
+                              })}
+                        </AppText>
+                      </View>
+                      <AppText variant="caption" color="textSecondary" tabularNums>
+                        {t('budget.ofLimitLabel', {
+                          spent: formatMoney(item.spentMinor, settings.currency),
+                          limit: formatMoney(item.budgetMinor, settings.currency),
+                        })}
                       </AppText>
-                      <Money
-                        amountMinor={h.overallBudgetMinor}
-                        currency={settings.currency}
-                        variant="label"
-                        color="textMuted"
+                      <ProgressBar
+                        pct={item.utilizationPct}
+                        status={item.status}
+                        height={4}
                       />
-                    </>
+                    </View>
+                  </Pressable>
+                  {idx < categoryBudgets.length - 1 ? (
+                    <View
+                      style={[
+                        styles.divider,
+                        {
+                          backgroundColor: theme.colors.separator,
+                          marginLeft: 68,
+                          marginRight: theme.spacing.lg,
+                        },
+                      ]}
+                    />
                   ) : null}
                 </View>
-              </View>
-            </View>
-          ))
-        )}
-      </Card>
+              );
+            })}
+          </Surface>
+        ) : null}
 
-      {/* Overall Budget Edit Modal */}
-      {overallModalOpen ? (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => setOverallModalOpen(false)}
-        >
-          <View style={[styles.backdrop, { padding: theme.spacing.xl }]}>
-            <Card style={[styles.dialog, { gap: theme.spacing.md }]}>
-              <AppText variant="title">{t('budget.editOverallTitle')}</AppText>
-              <View style={{ gap: theme.spacing.xs }}>
-                <AppText variant="label" color="textMuted">
-                  {`${t('budget.amountLabel')} (${symbol})`}
-                </AppText>
-                <TextInput
-                  testID="overall-budget-input"
-                  value={overallInput}
-                  onChangeText={(txt) => {
-                    setOverallInput(txt);
-                    if (overallError) setOverallError(null);
-                  }}
-                  keyboardType="decimal-pad"
-                  placeholder="40000"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[
-                    styles.input,
-                    {
-                      minHeight: theme.touch.min,
-                      borderColor: theme.colors.border,
-                      backgroundColor: theme.colors.surfaceAlt,
-                      borderRadius: theme.radius.md,
-                      paddingHorizontal: theme.spacing.md,
-                      color: theme.colors.text,
-                      fontFamily: theme.typography.heading.fontFamily,
-                      fontSize: theme.typography.heading.fontSize,
-                      fontVariant: ['tabular-nums'],
-                    },
-                  ]}
-                />
-              </View>
-              {overallError ? (
-                <AppText variant="caption" color="danger">
-                  {overallError}
-                </AppText>
-              ) : null}
-              <View style={[styles.modalActions, { gap: theme.spacing.sm }]}>
-                <Button
-                  title={t('common.cancel')}
-                  variant="secondary"
-                  disabled={saving}
-                  onPress={() => setOverallModalOpen(false)}
-                  style={styles.flexOne}
-                />
-                <Button
-                  testID="save-overall-budget-btn"
-                  title={t('common.save')}
-                  loading={saving}
-                  disabled={saving}
-                  onPress={() => void handleSaveOverall()}
-                  style={styles.flexOne}
-                />
-              </View>
-              {overallBudgetMinor !== null ? (
-                <Button
-                  title={t('budget.removeBudget')}
-                  variant="danger"
-                  disabled={saving}
-                  onPress={() => void handleRemoveOverall()}
-                />
-              ) : null}
-            </Card>
-          </View>
-        </Modal>
-      ) : null}
+        {availableCategoriesForAdd.length > 0 ? (
+          <Pressable
+            testID="budget-add-category-row"
+            accessibilityRole="button"
+            accessibilityLabel={t('budget.addCategoryRow')}
+            onPress={openAddCategory}
+            style={({ pressed }) => [
+              styles.dashedAddRow,
+              {
+                minHeight: theme.geometry.buttonHeight,
+                borderRadius: theme.radius.card,
+                borderColor: theme.colors.separator,
+                gap: theme.spacing.sm,
+                opacity: pressed && !reducedMotion ? 0.68 : 1,
+              },
+            ]}
+          >
+            <AppIcon name="plus" size={18} color={theme.colors.accent} />
+            <AppText variant="bodyStrong" color="accent">
+              {t('budget.addCategoryRow')}
+            </AppText>
+          </Pressable>
+        ) : null}
+      </View>
 
-      {/* Category Budget Modal */}
-      {catModalOpen ? (
-        <Modal
-          visible
-          transparent
-          animationType="fade"
-          onRequestClose={() => setCatModalOpen(false)}
+      {/* Collapsible Past cycles card */}
+      <Surface padded={false}>
+        <Pressable
+          testID="budget-past-cycles-toggle"
+          accessibilityRole="button"
+          accessibilityLabel={t('budget.pastCyclesTitle')}
+          accessibilityState={{ expanded: pastExpanded }}
+          onPress={() => {
+            hapticLight();
+            setPastExpanded((v) => !v);
+          }}
+          style={({ pressed }) => [
+            styles.pastHeader,
+            {
+              minHeight: theme.geometry.listRowHeight,
+              paddingHorizontal: theme.spacing.lg,
+              opacity: pressed && !reducedMotion ? 0.72 : 1,
+            },
+          ]}
         >
-          <View style={[styles.backdrop, { padding: theme.spacing.xl }]}>
-            <Card style={[styles.dialog, { gap: theme.spacing.md }]}>
-              <AppText variant="title">
-                {isEditingExistingCat ? t('budget.editCategoryBudget') : t('budget.addCategoryBudget')}
+          <View style={[styles.pastTitleWrap, { gap: theme.spacing.sm }]}>
+            <AppText variant="headline">{t('budget.pastCyclesTitle')}</AppText>
+            {history.length > 0 ? (
+              <AppText variant="label" color="textSecondary" tabularNums>
+                {String(history.length)}
               </AppText>
-
-              {isEditingExistingCat ? (
-                <AppText variant="heading">
-                  {categoriesById.get(selectedCatId)?.name ?? t('common.uncategorized')}
-                </AppText>
-              ) : (
-                <View style={{ gap: theme.spacing.xs }}>
-                  <AppText variant="label" color="textMuted">
-                    {t('budget.pickCategoryLabel')}
-                  </AppText>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={{ gap: theme.spacing.sm }}
-                  >
-                    {availableCategoriesForAdd.map((cat) => (
-                      <Chip
-                        key={cat.id}
-                        label={cat.name}
-                        icon={resolveIoniconName(cat.icon)}
-                        selected={selectedCatId === cat.id}
-                        onPress={() => setSelectedCatId(cat.id)}
-                      />
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              <View style={{ gap: theme.spacing.xs }}>
-                <AppText variant="label" color="textMuted">
-                  {`${t('budget.amountLabel')} (${symbol})`}
-                </AppText>
-                <TextInput
-                  testID="category-budget-input"
-                  value={catAmountInput}
-                  onChangeText={(txt) => {
-                    setCatAmountInput(txt);
-                    if (catError) setCatError(null);
-                  }}
-                  keyboardType="decimal-pad"
-                  placeholder="5000"
-                  placeholderTextColor={theme.colors.textMuted}
-                  style={[
-                    styles.input,
-                    {
-                      minHeight: theme.touch.min,
-                      borderColor: theme.colors.border,
-                      backgroundColor: theme.colors.surfaceAlt,
-                      borderRadius: theme.radius.md,
-                      paddingHorizontal: theme.spacing.md,
-                      color: theme.colors.text,
-                      fontFamily: theme.typography.heading.fontFamily,
-                      fontSize: theme.typography.heading.fontSize,
-                      fontVariant: ['tabular-nums'],
-                    },
-                  ]}
-                />
-              </View>
-
-              {catError ? (
-                <AppText variant="caption" color="danger">
-                  {catError}
-                </AppText>
-              ) : null}
-
-              <View style={[styles.modalActions, { gap: theme.spacing.sm }]}>
-                <Button
-                  title={t('common.cancel')}
-                  variant="secondary"
-                  disabled={saving}
-                  onPress={() => setCatModalOpen(false)}
-                  style={styles.flexOne}
-                />
-                <Button
-                  testID="save-category-budget-btn"
-                  title={t('common.save')}
-                  loading={saving}
-                  disabled={saving}
-                  onPress={() => void handleSaveCategoryBudget()}
-                  style={styles.flexOne}
-                />
-              </View>
-
-              {isEditingExistingCat ? (
-                <Button
-                  title={t('budget.removeBudget')}
-                  variant="danger"
-                  disabled={saving}
-                  onPress={() => void handleRemoveCategoryBudget()}
-                />
-              ) : null}
-            </Card>
+            ) : null}
           </View>
-        </Modal>
-      ) : null}
+          <AppIcon
+            name={pastExpanded ? 'chevron-down' : 'chevron-right'}
+            size={18}
+            color={theme.colors.textTertiary}
+          />
+        </Pressable>
+
+        {pastExpanded ? (
+          <View>
+            <View style={[styles.divider, { backgroundColor: theme.colors.separator }]} />
+            {history.length === 0 ? (
+              <View style={{ padding: theme.spacing.lg }}>
+                <AppText variant="body" color="textSecondary">
+                  {t('budget.emptyHistory')}
+                </AppText>
+              </View>
+            ) : (
+              history.map((item, idx) => (
+                <ListRow
+                  key={item.period.start}
+                  compact
+                  title={formatCycleLabel(item.period, settings.monthStartDay)}
+                  subtitle={
+                    item.overallBudgetMinor !== null
+                      ? t('budget.ofLimitLabel', {
+                          spent: formatMoney(item.spentMinor, settings.currency),
+                          limit: formatMoney(item.overallBudgetMinor, settings.currency),
+                        })
+                      : formatMoney(item.spentMinor, settings.currency)
+                  }
+                  right={<BudgetStatusBadge status={item.status} />}
+                  showDivider={idx < history.length - 1}
+                />
+              ))
+            )}
+          </View>
+        ) : null}
+      </Surface>
+
+      {/* Budget editor bottom sheet */}
+      <Sheet visible={sheetMode !== null} onClose={closeSheet} title={sheetTitle}>
+        {sheetMode?.kind === 'addCategory' ? (
+          <View style={{ gap: theme.spacing.xs }}>
+            <AppText variant="label" color="textSecondary">
+              {t('budget.pickCategoryLabel')}
+            </AppText>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.catChipList, { gap: theme.spacing.xs }]}
+            >
+              {availableCategoriesForAdd.map((c) => (
+                <Chip
+                  key={c.id}
+                  testID={`budget-pick-cat-${c.id}`}
+                  label={c.name}
+                  selected={pickedCategoryId === c.id}
+                  onPress={() => setPickedCategoryId(c.id)}
+                />
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
+
+        <View
+          testID="budget-sheet-amount-hero"
+          style={[styles.heroAmountBox, { paddingVertical: theme.spacing.sm }]}
+        >
+          <AppText
+            variant="hero"
+            tabularNums
+            color={amountDraft ? 'text' : 'textTertiary'}
+          >
+            {`${currencySymbol} ${displayAmountDraft}`}
+          </AppText>
+        </View>
+
+        {sheetError ? (
+          <AppText variant="label" color="danger" style={styles.centerText}>
+            {sheetError}
+          </AppText>
+        ) : null}
+
+        <Keypad
+          testID="budget-sheet-keypad"
+          value={amountDraft}
+          onChange={(next) => {
+            setAmountDraft(next);
+            if (sheetError) setSheetError(null);
+          }}
+        />
+
+        <Button
+          testID="budget-sheet-save-btn"
+          title={t('common.save')}
+          onPress={handleSaveSheet}
+          loading={saving}
+        />
+
+        {(sheetMode?.kind === 'overall' && overallBudgetMinor !== null) ||
+        sheetMode?.kind === 'editCategory' ? (
+          <Button
+            testID="budget-sheet-remove-btn"
+            title={t('budget.removeBudget')}
+            variant="dangerSoft"
+            onPress={handleRemoveBudget}
+            disabled={saving}
+          />
+        ) : null}
+      </Sheet>
     </Screen>
   );
 }
@@ -584,43 +574,59 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
   },
-  daysPill: {
-    borderWidth: 1,
-  },
-  rowBetween: {
+  heroFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
   },
-  catLeft: {
-    flex: 1,
+  editLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 36,
+    paddingHorizontal: 4,
+  },
+  semiBold: {
+    fontWeight: '600',
+  },
+  catRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  inlinePair: {
+  catRowTop: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  flexOne: {
-    flex: 1,
+  dashedAddRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
   },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  pastHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pastTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  catChipList: {
+    paddingVertical: 2,
+  },
+  heroAmountBox: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dialog: {
-    width: '100%',
-    maxWidth: 420,
+  centerText: {
+    textAlign: 'center',
   },
-  input: {
-    borderWidth: 1,
+  divider: {
+    height: 1,
   },
-  modalActions: {
-    flexDirection: 'row',
+  flexOne: {
+    flex: 1,
   },
 });

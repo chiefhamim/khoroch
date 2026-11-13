@@ -15,7 +15,12 @@ import {
   type WeeklySeriesPoint,
 } from '@/domain/calc';
 import { todayLocalDate } from '@/domain/dates';
-import { buildRecentPeriodWindows, getPeriod, previousPeriod } from '@/domain/period';
+import {
+  buildRecentPeriodWindows,
+  getPeriod,
+  previousPeriod,
+  shouldShowNewCycleHint,
+} from '@/domain/period';
 import type { Category, LocalDate, Period, Transaction } from '@/domain/types';
 import { useAppContext } from './AppContext';
 import { useDataVersionStore } from './dataVersion';
@@ -23,8 +28,11 @@ import { useDataVersionStore } from './dataVersion';
 export interface DashboardData {
   today: LocalDate;
   period: Period;
+  prevPeriod: Period;
   overallBudgetMinor: number | null;
   summary: PeriodSummary;
+  previousCycleSpentMinor: number;
+  showNewCycleHint: boolean;
   categoryBreakdown: CategoryBreakdownSlice[];
   daily: DailySeriesPoint[];
   weekly: WeeklySeriesPoint[];
@@ -116,6 +124,23 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
     [rangeTxs, period, today, overallBudgetMinor, currency]
   );
 
+  const previousCycleSpentMinor = useMemo(
+    () =>
+      summarize({
+        transactions: rangeTxs,
+        period: prevPeriod,
+        today,
+        overallBudgetMinor: null,
+        currency,
+      }).spentMinor,
+    [rangeTxs, prevPeriod, today, currency]
+  );
+
+  const showNewCycleHint = useMemo(
+    () => shouldShowNewCycleHint(period, today, previousCycleSpentMinor),
+    [period, today, previousCycleSpentMinor]
+  );
+
   const categoryBreakdown = useMemo(() => {
     const allSpend = spendByCategory(rangeTxs, period, currency);
     return buildCategoryBreakdown(allSpend, summary.spentMinor, 5);
@@ -148,8 +173,11 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
   return {
     today,
     period,
+    prevPeriod,
     overallBudgetMinor,
     summary,
+    previousCycleSpentMinor,
+    showNewCycleHint,
     categoryBreakdown,
     daily,
     weekly,

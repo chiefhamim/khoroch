@@ -160,10 +160,10 @@ describe('Overview Scenario A integration', () => {
     expect(view.getByText('H')).toBeTruthy();
     expect(view.getAllByText('৳ 16,450').length).toBeGreaterThanOrEqual(1);
     expect(view.getByText('41.1% used')).toBeTruthy();
-    expect(view.getByText('৳ 1,265.38')).toBeTruthy();
     expect(view.getByText('৳ 1,308.33')).toBeTruthy();
     expect(view.getByText('৳ 50,000')).toBeTruthy();
     expect(view.getByText(t('status.ok'))).toBeTruthy();
+    expect(view.queryByTestId('overview-new-cycle-banner')).toBeNull();
     expect(
       view.getByText(t('overview.ignoredCurrencyBanner', { count: 1 }))
     ).toBeTruthy();
@@ -186,5 +186,63 @@ describe('Overview Scenario A integration', () => {
       expect(view.getByText('৳ 23,200')).toBeTruthy();
     });
     expect(view.getAllByText('৳ 16,800').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('shows new-cycle hint banner within first 7 days and inline no-budget invite when unset', async () => {
+    const repo = new MemoryRepo();
+    await repo.setSetting('onboardingDone', true);
+    await repo.setSetting('currency', 'BDT');
+    await repo.setSetting('monthStartDay', 10);
+    await repo.setSetting('name', 'Hamim');
+
+    // Prior cycle (10 Oct – 9 Nov): ৳4,600 spent
+    await repo.insertTransaction({
+      id: 'prev1',
+      type: 'expense',
+      amountMinor: 460_000,
+      currency: 'BDT',
+      categoryId: 'utilities',
+      description: 'Internet',
+      occurredOn: '2026-11-05',
+    });
+    // Current cycle (10 Nov – 9 Dec): ৳600 spent on Nov 11
+    await repo.insertTransaction({
+      id: 'cur1',
+      type: 'expense',
+      amountMinor: 60_000,
+      currency: 'BDT',
+      categoryId: 'food_dining',
+      description: 'Lunch',
+      occurredOn: '2026-11-11',
+    });
+
+    const settings = await repo.getSettings();
+    const view = await render(
+      <AppContext.Provider
+        value={{
+          repo,
+          backend: 'memory',
+          settings,
+          updateSetting: async (k, v) => {
+            await repo.setSetting(k, v);
+          },
+          refreshSettings: async () => {},
+        }}
+      >
+        <ThemeProvider preference="light">
+          <OverviewContent todayOverride="2026-11-13" hourOverride={14} />
+        </ThemeProvider>
+      </AppContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(view.getByTestId('hero-spent-no-budget')).toBeTruthy();
+    });
+
+    expect(view.getByTestId('overview-set-budget-inline')).toBeTruthy();
+    expect(view.getByTestId('overview-new-cycle-banner')).toBeTruthy();
+    expect(
+      view.getByText('New cycle started 10 Nov · Last cycle ৳ 4,600')
+    ).toBeTruthy();
   });
 });

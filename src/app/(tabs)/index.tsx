@@ -1,31 +1,39 @@
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { formatUtilizationPct } from '@/domain/calc';
-import { formatPeriodRange, formatShortDate, formatWeekdayShortDate } from '@/domain/dates';
+import {
+  formatFriendlyDate,
+  formatFriendlyTime,
+  formatShortDate,
+  formatWeekdayShortDate,
+  isDevice24HourClock,
+} from '@/domain/dates';
 import { formatMoney } from '@/domain/money';
+import { remainingDays } from '@/domain/period';
 import type { LocalDate } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { useDashboard } from '@/state/useDashboard';
-import { spacing } from '@/theme/tokens';
+import { getCategoryTileVisual } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
+import { Banner } from '@/ui/Banner';
 import { BudgetStatusBadge } from '@/ui/BudgetStatusBadge';
 import { Button } from '@/ui/Button';
-import { Card } from '@/ui/Card';
-import { CategoryIcon } from '@/ui/CategoryIcon';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
-import { InfoModal } from '@/ui/InfoModal';
+import { IconButton } from '@/ui/IconButton';
+import { IconTile } from '@/ui/IconTile';
 import { ListRow } from '@/ui/ListRow';
-import { MetricCard } from '@/ui/MetricCard';
 import { Money } from '@/ui/Money';
 import { ProgressBar } from '@/ui/ProgressBar';
 import { Screen } from '@/ui/Screen';
-import { SectionHeader } from '@/ui/SectionHeader';
-import { SpendingChart } from '@/ui/SpendingChart';
+import { SegmentedControl } from '@/ui/SegmentedControl';
+import { Sheet } from '@/ui/Sheet';
+import { SpendingChart, type ChartGranularity } from '@/ui/SpendingChart';
+import { Surface } from '@/ui/Surface';
 
 function buildGreeting(hour: number): string {
   if (hour < 12) return t('overview.goodMorning');
@@ -48,11 +56,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     period,
     overallBudgetMinor,
     summary,
+    previousCycleSpentMinor,
+    showNewCycleHint,
     categoryBreakdown,
     daily,
     weekly,
     monthly,
-    mtdComparison,
     recentTransactions,
     categoriesById,
     loading,
@@ -60,7 +69,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     reload,
   } = useDashboard(todayOverride);
 
-  const [infoDialog, setInfoDialog] = useState<{ title: string; body: string } | null>(null);
+  const [chartGranularity, setChartGranularity] = useState<ChartGranularity>('daily');
+  const [howItWorksOpen, setHowItWorksOpen] = useState(false);
 
   const hour = hourOverride ?? new Date().getHours();
   const greeting = buildGreeting(hour);
@@ -69,6 +79,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const readableDate = formatWeekdayShortDate(today);
   const subtitleLine =
     trimmedName.length > 0 ? `${trimmedName} · ${readableDate}` : readableDate;
+  const use24Hour = isDevice24HourClock();
 
   if (error && !loading) {
     return (
@@ -83,43 +94,15 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     );
   }
 
-  const maxCategorySpent = categoryBreakdown[0]?.spentMinor ?? 0;
-  const hasAnyPeriodActivity =
-    summary.expenseCount > 0 || summary.incomeMinor > 0 || recentTransactions.length > 0;
-
+  const topSlices = categoryBreakdown.slice(0, 4);
+  const maxCategorySpent = topSlices[0]?.spentMinor ?? 0;
+  const remainingDaysCount = remainingDays(period, today);
   const isNegativeRemaining =
     summary.remainingMinor !== null && summary.remainingMinor < 0;
 
-  const topCatName = summary.topCategoryId
-    ? (categoriesById.get(summary.topCategoryId)?.name ?? t('common.uncategorized'))
-    : null;
-
-  const mtdSummaryText = (() => {
-    if (mtdComparison.previousMinor === 0 && mtdComparison.currentMinor === 0) {
-      return t('overview.vsLastMonthNoBaseline');
-    }
-    if (mtdComparison.pctChange === null) {
-      return t('overview.vsLastMonthNoBaseline');
-    }
-    const roundedPct = formatUtilizationPct(Math.abs(mtdComparison.pctChange));
-    if (mtdComparison.diffMinor > 0) {
-      return t('overview.vsLastMonthUp', {
-        pct: roundedPct,
-        diff: formatMoney(mtdComparison.diffMinor, settings.currency),
-      });
-    }
-    if (mtdComparison.diffMinor < 0) {
-      return t('overview.vsLastMonthDown', {
-        pct: roundedPct,
-        diff: formatMoney(Math.abs(mtdComparison.diffMinor), settings.currency),
-      });
-    }
-    return t('overview.vsLastMonthSame');
-  })();
-
   return (
     <Screen scroll bottomSpacer>
-      {/* Greeting & Date + Avatar -> Settings */}
+      {/* Header: Greeting, date & circular settings avatar */}
       <View style={styles.headerRow}>
         <View style={styles.headerText}>
           <AppText variant="title" numberOfLines={1}>
@@ -153,397 +136,453 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         </Pressable>
       </View>
 
-      {/* 1-tap shortcuts: Quick Entry & Daily Check-in */}
-      <View style={[styles.quickBar, { gap: theme.spacing.sm }]}>
-        <Pressable
-          testID="overview-quick-entry-btn"
-          accessibilityRole="button"
-          accessibilityLabel={t('quickEntry.overviewQuickCta')}
-          onPress={() => router.push('/quick-entry')}
-          style={({ pressed }) => [
-            styles.quickPill,
-            {
-              minHeight: theme.touch.min,
-              borderRadius: theme.radius.md,
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-              paddingHorizontal: theme.spacing.md,
-              gap: theme.spacing.xs,
-              opacity: pressed && !reducedMotion ? 0.75 : 1,
-            },
-          ]}
-        >
-          <Ionicons name="sparkles-outline" size={18} color={theme.colors.primary} />
-          <AppText variant="label" color="text" numberOfLines={1}>
-            {t('quickEntry.overviewQuickCta')}
-          </AppText>
-        </Pressable>
-
-        <Pressable
-          testID="overview-check-in-btn"
-          accessibilityRole="button"
-          accessibilityLabel={t('quickEntry.overviewCheckInCta')}
-          onPress={() => router.push('/check-in')}
-          style={({ pressed }) => [
-            styles.quickPill,
-            {
-              minHeight: theme.touch.min,
-              borderRadius: theme.radius.md,
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.border,
-              paddingHorizontal: theme.spacing.md,
-              gap: theme.spacing.xs,
-              opacity: pressed && !reducedMotion ? 0.75 : 1,
-            },
-          ]}
-        >
-          <Ionicons name="checkmark-done-outline" size={18} color={theme.colors.primary} />
-          <AppText variant="label" color="text" numberOfLines={1}>
-            {t('quickEntry.overviewCheckInCta')}
-          </AppText>
-        </Pressable>
-      </View>
-
       {summary.ignoredOtherCurrencyCount > 0 ? (
-        <Card tone="alt">
-          <AppText variant="caption" color="textMuted">
-            {t('overview.ignoredCurrencyBanner', {
-              count: summary.ignoredOtherCurrencyCount,
-            })}
-          </AppText>
-        </Card>
+        <Banner
+          tone="neutral"
+          icon="info"
+          message={t('overview.ignoredCurrencyBanner', {
+            count: summary.ignoredOtherCurrencyCount,
+          })}
+        />
       ) : null}
 
-      {/* Hero Monthly Budget Card */}
-      <Card testID="overview-budget-card" style={{ gap: theme.spacing.md }}>
-        <View style={styles.budgetHeaderRow}>
-          <View style={{ gap: 2 }}>
-            <AppText variant="label" color="textMuted">
-              {t('overview.monthlyBudget')}
-            </AppText>
-            <AppText variant="caption" color="textMuted">
-              {formatPeriodRange(period.start, period.endExcl)}
-            </AppText>
-          </View>
-          <BudgetStatusBadge status={summary.status} />
-        </View>
-
+      {/* Hero budget card */}
+      <Surface testID="overview-budget-card" style={{ gap: theme.spacing.md }}>
         {overallBudgetMinor !== null && summary.remainingMinor !== null ? (
           <>
-            <View style={{ gap: 2 }}>
-              <AppText variant="caption" color={isNegativeRemaining ? 'danger' : 'textMuted'}>
-                {isNegativeRemaining ? t('overview.overByLabel') : t('overview.remainingLabel')}
+            <View style={styles.heroTopRow}>
+              <AppText variant="label" color="textSecondary">
+                {isNegativeRemaining
+                  ? t('overview.overByHero')
+                  : t('overview.leftToSpend')}
               </AppText>
-              <Money
-                testID="hero-remaining-amount"
-                amountMinor={summary.remainingMinor}
-                currency={settings.currency}
-                variant="display"
-                color={isNegativeRemaining ? 'danger' : 'text'}
-              />
+              <View style={[styles.heroTopRight, { gap: theme.spacing.xs }]}>
+                <BudgetStatusBadge status={summary.status} />
+                <IconButton
+                  testID="overview-hero-menu"
+                  icon="more-horizontal"
+                  variant="ghost"
+                  size={30}
+                  iconSize={18}
+                  accessibilityLabel={t('overview.howNumbersWork')}
+                  onPress={() => setHowItWorksOpen(true)}
+                />
+              </View>
             </View>
 
-            <ProgressBar pct={summary.utilizationPct} status={summary.status} height={10} />
+            <Money
+              testID="hero-remaining-amount"
+              variant="hero"
+              amountMinor={Math.abs(summary.remainingMinor)}
+              currency={settings.currency}
+              color={isNegativeRemaining ? 'danger' : 'text'}
+            />
 
-            <View style={styles.budgetStatsRow}>
-              <View style={{ gap: 2 }}>
-                <AppText variant="caption" color="textMuted">
-                  {t('overview.spentLabel')}
+            <View style={[styles.heroSubRow, { gap: theme.spacing.sm }]}>
+              <AppText
+                variant="label"
+                color="textSecondary"
+                style={styles.flexOne}
+                numberOfLines={1}
+              >
+                {t('overview.ofBudgetDaysLeft', {
+                  budget: formatMoney(overallBudgetMinor, settings.currency),
+                  days: remainingDaysCount,
+                })}
+              </AppText>
+              <AppText variant="label" color="textSecondary" tabularNums>
+                {t('overview.usedPct', {
+                  pct: formatUtilizationPct(summary.utilizationPct ?? 0),
+                })}
+              </AppText>
+            </View>
+
+            <ProgressBar pct={summary.utilizationPct} status={summary.status} />
+
+            <View style={[styles.divider, { backgroundColor: theme.colors.separator }]} />
+
+            <View style={[styles.stripRow, { gap: theme.spacing.sm }]}>
+              <View style={styles.stripCol}>
+                <AppText variant="label" color="textSecondary" numberOfLines={1}>
+                  {t('overview.safeToday')}
                 </AppText>
-                <Money amountMinor={summary.spentMinor} currency={settings.currency} variant="heading" />
-              </View>
-              <View style={{ gap: 2, alignItems: 'center' }}>
-                <AppText variant="caption" color="textMuted">
-                  {t('budget.title')}
-                </AppText>
-                <Money amountMinor={overallBudgetMinor} currency={settings.currency} variant="heading" />
-              </View>
-              <View style={{ gap: 2, alignItems: 'flex-end' }}>
-                <AppText variant="caption" color="textMuted">
-                  {summary.utilizationPct !== null
-                    ? t('overview.usedPct', {
-                        pct: formatUtilizationPct(summary.utilizationPct),
-                      })
-                    : ''}
-                </AppText>
-                <Pressable
-                  testID="overview-edit-budget-link"
-                  accessibilityRole="button"
-                  accessibilityLabel={t('overview.editBudgetCta')}
-                  onPress={() => router.push('/(tabs)/budget')}
-                  style={{ minHeight: 24, justifyContent: 'center' }}
-                >
-                  <AppText variant="label" color="primary">
-                    {t('overview.editBudgetCta')}
+                {summary.safeToSpendPerDayMinor !== null ? (
+                  <Money
+                    variant="bodyStrong"
+                    amountMinor={summary.safeToSpendPerDayMinor}
+                    currency={settings.currency}
+                  />
+                ) : (
+                  <AppText variant="bodyStrong" color="textSecondary">
+                    {t('overview.metricNotAvailable')}
                   </AppText>
-                </Pressable>
+                )}
+              </View>
+              <View style={styles.stripCol}>
+                <AppText variant="label" color="textSecondary" numberOfLines={1}>
+                  {t('overview.spentShort')}
+                </AppText>
+                <Money
+                  variant="bodyStrong"
+                  amountMinor={summary.spentMinor}
+                  currency={settings.currency}
+                />
+              </View>
+              <View style={styles.stripCol}>
+                <AppText variant="label" color="textSecondary" numberOfLines={1}>
+                  {t('overview.incomeShort')}
+                </AppText>
+                <Money
+                  variant="bodyStrong"
+                  amountMinor={summary.incomeMinor}
+                  currency={settings.currency}
+                  color={summary.incomeMinor > 0 ? 'accent' : 'text'}
+                />
               </View>
             </View>
           </>
         ) : (
-          <View style={{ gap: theme.spacing.sm }}>
-            <AppText variant="title">{t('overview.noBudgetSet')}</AppText>
-            <AppText variant="body" color="textMuted">
-              {t('overview.noBudgetHint')}
-            </AppText>
-            <Button
-              testID="overview-set-budget-button"
-              title={t('overview.setBudgetCta')}
-              variant="secondary"
-              onPress={() => router.push('/(tabs)/budget')}
+          <>
+            <View style={styles.heroTopRow}>
+              <AppText variant="label" color="textSecondary">
+                {t('overview.spentThisCycle')}
+              </AppText>
+              <IconButton
+                testID="overview-hero-menu"
+                icon="more-horizontal"
+                variant="ghost"
+                size={30}
+                iconSize={18}
+                accessibilityLabel={t('overview.howNumbersWork')}
+                onPress={() => setHowItWorksOpen(true)}
+              />
+            </View>
+
+            <Money
+              testID="hero-spent-no-budget"
+              variant="hero"
+              amountMinor={summary.spentMinor}
+              currency={settings.currency}
             />
-          </View>
+
+            <View style={[styles.divider, { backgroundColor: theme.colors.separator }]} />
+
+            <Pressable
+              testID="overview-set-budget-inline"
+              accessibilityRole="button"
+              accessibilityLabel={t('overview.setBudgetCta')}
+              onPress={() => router.push('/(tabs)/budget' as never)}
+              style={({ pressed }) => [
+                styles.noBudgetRow,
+                {
+                  gap: theme.spacing.sm,
+                  opacity: pressed && !reducedMotion ? 0.7 : 1,
+                },
+              ]}
+            >
+              <AppText variant="label" color="accent" style={styles.flexOne}>
+                {t('overview.noBudgetInline')}
+              </AppText>
+              <AppText variant="label" color="accent" style={styles.semiBold}>
+                {t('overview.setBudgetCta')}
+              </AppText>
+              <AppIcon name="chevron-right" size={16} color={theme.colors.accent} />
+            </Pressable>
+          </>
         )}
+      </Surface>
 
-        <AppText variant="caption" color="textMuted">
-          {t('overview.budgetPlanNote')}
-        </AppText>
-      </Card>
+      {/* New-cycle hint banner */}
+      {showNewCycleHint ? (
+        <Banner
+          testID="overview-new-cycle-banner"
+          icon="repeat"
+          tone="accent"
+          showChevron
+          message={t('overview.newCycleBanner', {
+            startDate: formatShortDate(period.start),
+            amount: formatMoney(previousCycleSpentMinor, settings.currency),
+          })}
+          onPress={() =>
+            router.push({
+              pathname: '/(tabs)/insights',
+              params: { preset: 'last_month' },
+            } as never)
+          }
+        />
+      ) : null}
 
-      {/* 4 Financial Summary Cards */}
-      <View style={{ gap: theme.spacing.md }}>
-        <View style={[styles.metricsRow, { gap: theme.spacing.md }]}>
-          <MetricCard
-            testID="metric-daily-avg"
-            label={t('overview.metricAvgDaily')}
-            amountMinor={summary.dailyAverageMinor}
-            currency={settings.currency}
-            onInfoPress={() =>
-              setInfoDialog({
-                title: t('overview.metricAvgDaily'),
-                body: t('overview.metricAvgDailyInfo'),
-              })
-            }
-          />
-          <MetricCard
-            testID="metric-safe-per-day"
-            label={t('overview.metricSafePerDay')}
-            amountMinor={summary.safeToSpendPerDayMinor}
-            currency={settings.currency}
-            fallbackText={t('overview.metricNotAvailable')}
-            valueColor={summary.status === 'over' ? 'danger' : 'primary'}
-            onInfoPress={() =>
-              setInfoDialog({
-                title: t('overview.metricSafePerDay'),
-                body: t('overview.metricSafePerDayInfo'),
-              })
-            }
-          />
-        </View>
-
-        <View style={[styles.metricsRow, { gap: theme.spacing.md }]}>
-          <MetricCard
-            testID="metric-income-month"
-            label={t('overview.metricIncomeMonth')}
-            amountMinor={summary.incomeMinor}
-            currency={settings.currency}
-            valueColor="income"
-            onInfoPress={() =>
-              setInfoDialog({
-                title: t('overview.metricIncomeMonth'),
-                body: t('overview.metricIncomeMonthInfo'),
-              })
-            }
-          />
-          <MetricCard
-            testID="metric-expense-month"
-            label={t('overview.metricExpenseMonth')}
-            amountMinor={summary.spentMinor}
-            currency={settings.currency}
-            onInfoPress={() =>
-              setInfoDialog({
-                title: t('overview.metricExpenseMonth'),
-                body: t('overview.metricExpenseMonthInfo'),
-              })
-            }
-          />
-        </View>
+      {/* Two 50/50 secondary actions */}
+      <View style={[styles.actionsRow, { gap: theme.spacing.sm }]}>
+        <Button
+          testID="overview-quick-entry-btn"
+          variant="secondary"
+          size="sm"
+          leftIcon="sparkles"
+          title={t('quickEntry.overviewQuickCta')}
+          onPress={() => router.push('/quick-entry')}
+          style={styles.flexOne}
+        />
+        <Button
+          testID="overview-check-in-btn"
+          variant="secondary"
+          size="sm"
+          leftIcon="circle-check"
+          title={t('overview.checkInShort')}
+          onPress={() => router.push('/check-in')}
+          style={styles.flexOne}
+        />
       </View>
 
-      {!hasAnyPeriodActivity && !loading ? (
-        <EmptyState
-          icon="wallet-outline"
-          title={t('empty.overviewTitle')}
-          body={t('empty.overviewBody')}
-          ctaLabel={t('empty.overviewCta')}
-          onCtaPress={() => router.push('/transaction/new')}
-        />
-      ) : (
-        <>
-          {/* Interactive SVG Spending Chart */}
-          <SpendingChart
-            currency={settings.currency}
-            daily={daily}
-            weekly={weekly}
-            monthly={monthly}
+      {/* Spending chart + inline Day | Week | Month switcher */}
+      <View style={{ gap: theme.spacing.sm }}>
+        <View style={[styles.sectionRow, { gap: theme.spacing.sm }]}>
+          <AppText variant="headline">{t('overview.spendingTitle')}</AppText>
+          <SegmentedControl<ChartGranularity>
+            testID="overview-chart-granularity"
+            size="sm"
+            value={chartGranularity}
+            onChange={setChartGranularity}
+            options={[
+              { value: 'daily', label: t('overview.chartDaily') },
+              { value: 'weekly', label: t('overview.chartWeekly') },
+              { value: 'monthly', label: t('overview.chartMonthly') },
+            ]}
           />
+        </View>
+        <SpendingChart
+          currency={settings.currency}
+          daily={daily}
+          weekly={weekly}
+          monthly={monthly}
+          today={today}
+          granularity={chartGranularity}
+          onGranularityChange={setChartGranularity}
+          showHeader={false}
+        />
+      </View>
 
-          {/* Category Breakdown */}
-          <SectionHeader title={t('overview.breakdownTitle')} />
-          <Card style={{ gap: theme.spacing.md }}>
-            {categoryBreakdown.length === 0 ? (
-              <AppText variant="body" color="textMuted">
-                {t('overview.breakdownEmpty')}
+      {/* Top categories */}
+      {topSlices.length > 0 ? (
+        <View style={{ gap: theme.spacing.sm }}>
+          <View style={styles.sectionRow}>
+            <AppText variant="headline">{t('overview.topCategoriesTitle')}</AppText>
+            <Pressable
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => router.push('/(tabs)/insights' as never)}
+            >
+              <AppText variant="label" color="accent">
+                {t('overview.seeAll')}
               </AppText>
-            ) : (
-              categoryBreakdown.map((slice, idx) => {
-                const cat = slice.categoryId ? categoriesById.get(slice.categoryId) : undefined;
-                const label = slice.isOtherGroup
-                  ? t('overview.breakdownOtherGroup')
-                  : (cat?.name ?? t('common.uncategorized'));
-                const barRatio =
-                  maxCategorySpent > 0 ? Math.min(100, (slice.spentMinor / maxCategorySpent) * 100) : 0;
+            </Pressable>
+          </View>
 
-                return (
+          <Surface padded={false}>
+            {topSlices.map((slice, idx) => {
+              const sliceCatId = slice.categoryId;
+              const cat =
+                !slice.isOtherGroup && sliceCatId
+                  ? categoriesById.get(sliceCatId)
+                  : undefined;
+              const catName = slice.isOtherGroup
+                ? t('overview.breakdownOtherGroup')
+                : (cat?.name ?? t('common.uncategorized'));
+              const barColor = getCategoryTileVisual(
+                cat?.colorKey ?? 'gray',
+                theme.scheme
+              ).fg;
+              const barPct =
+                maxCategorySpent > 0
+                  ? Math.max(4, Math.min(100, (slice.spentMinor / maxCategorySpent) * 100))
+                  : 0;
+
+              return (
+                <View key={slice.isOtherGroup || !sliceCatId ? '__other__' : sliceCatId}>
                   <Pressable
-                    key={slice.categoryId ?? 'other-group'}
                     accessibilityRole="button"
-                    accessibilityLabel={label}
+                    accessibilityLabel={`${catName}: ${formatMoney(slice.spentMinor, settings.currency)}`}
                     onPress={() => {
-                      if (slice.isOtherGroup || !slice.categoryId) {
-                        router.push('/(tabs)/activity');
+                      if (slice.isOtherGroup || !sliceCatId) {
+                        router.push('/(tabs)/insights' as never);
                       } else {
                         router.push({
                           pathname: '/category/[id]',
-                          params: {
-                            id: slice.categoryId,
-                            periodStart: period.start,
-                            periodEnd: period.endExcl,
-                          },
+                          params: { id: sliceCatId },
                         });
                       }
                     }}
-                    style={({ pressed }) => ({
-                      gap: theme.spacing.xs,
-                      paddingTop: idx > 0 ? theme.spacing.xs : 0,
-                      opacity: pressed && !reducedMotion ? 0.75 : 1,
-                    })}
+                    style={({ pressed }) => [
+                      styles.topCatRow,
+                      {
+                        paddingHorizontal: theme.spacing.lg,
+                        paddingVertical: theme.spacing.md,
+                        gap: theme.spacing.md,
+                        opacity: pressed && !reducedMotion ? 0.72 : 1,
+                      },
+                    ]}
                   >
-                    <View style={styles.breakdownRow}>
-                      <View style={[styles.breakdownLeft, { gap: theme.spacing.sm }]}>
-                        <CategoryIcon
-                          icon={slice.isOtherGroup ? 'ellipsis-horizontal' : cat?.icon}
-                          size="sm"
-                          tone="primary"
-                        />
-                        <AppText variant="body" numberOfLines={1} style={styles.flexOne}>
-                          {label}
+                    <IconTile
+                      icon={cat?.icon ?? 'circle-ellipsis'}
+                      colorKey={cat?.colorKey ?? 'gray'}
+                      size="sm"
+                    />
+                    <View style={[styles.flexOne, { gap: theme.spacing.xs + 2 }]}>
+                      <View style={[styles.topCatHeader, { gap: theme.spacing.sm }]}>
+                        <AppText
+                          variant="bodyStrong"
+                          style={styles.flexOne}
+                          numberOfLines={1}
+                        >
+                          {catName}
                         </AppText>
-                      </View>
-                      <View style={[styles.breakdownRight, { gap: theme.spacing.sm }]}>
-                        <AppText variant="caption" color="textMuted" tabularNums>
+                        <AppText variant="caption" color="textSecondary" tabularNums>
                           {formatUtilizationPct(slice.sharePct)}
                         </AppText>
                         <Money
+                          variant="bodyStrong"
                           amountMinor={slice.spentMinor}
                           currency={settings.currency}
-                          variant="heading"
+                        />
+                      </View>
+                      <View
+                        style={[
+                          styles.topCatTrack,
+                          { backgroundColor: theme.colors.surfaceSunken },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.topCatFill,
+                            { width: `${barPct}%`, backgroundColor: barColor },
+                          ]}
                         />
                       </View>
                     </View>
-                    <ProgressBar pct={barRatio} status="ok" height={6} />
                   </Pressable>
-                );
-              })
-            )}
-          </Card>
-
-          {/* Recent Activity (latest 5) */}
-          <SectionHeader
-            title={t('overview.recentTitle')}
-            actionLabel={t('overview.viewAll')}
-            onActionPress={() => router.push('/(tabs)/activity')}
-          />
-          <Card style={{ paddingVertical: theme.spacing.xs }}>
-            {recentTransactions.map((tx, idx) => {
-              const cat = tx.categoryId ? categoriesById.get(tx.categoryId) : undefined;
-              const catLabel = cat?.name ?? t('common.uncategorized');
-              return (
-                <View key={tx.id}>
-                  {idx > 0 ? <View style={{ height: 1, backgroundColor: theme.colors.border }} /> : null}
-                  <ListRow
-                    title={tx.description || catLabel}
-                    subtitle={
-                      tx.occurredTime
-                        ? `${catLabel} · ${formatShortDate(tx.occurredOn)} · ${tx.occurredTime}`
-                        : `${catLabel} · ${formatShortDate(tx.occurredOn)}`
-                    }
-                    left={
-                      <CategoryIcon
-                        icon={cat?.icon}
-                        tone={tx.type === 'income' ? 'income' : 'neutral'}
-                      />
-                    }
-                    right={
-                      <Money
-                        amountMinor={tx.amountMinor}
-                        currency={settings.currency}
-                        variant="heading"
-                        color={tx.type === 'income' ? 'income' : 'text'}
-                        prefix={tx.type === 'income' ? '+' : '-'}
-                      />
-                    }
-                    onPress={() =>
-                      router.push({ pathname: '/transaction/[id]', params: { id: tx.id } })
-                    }
-                  />
+                  {idx < topSlices.length - 1 ? (
+                    <View
+                      style={[
+                        styles.divider,
+                        {
+                          backgroundColor: theme.colors.separator,
+                          marginLeft: 64,
+                          marginRight: theme.spacing.lg,
+                        },
+                      ]}
+                    />
+                  ) : null}
                 </View>
               );
             })}
-          </Card>
+          </Surface>
+        </View>
+      ) : null}
 
-          {/* Financial Highlights */}
-          <SectionHeader title={t('overview.highlightsTitle')} />
-          <Card style={{ gap: theme.spacing.md }}>
-            <View style={styles.highlightRow}>
-              <AppText variant="label" color="textMuted">
-                {t('overview.highlightTopCategory')}
-              </AppText>
-              <AppText variant="body">{topCatName ?? t('overview.highlightNone')}</AppText>
-            </View>
-            <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-            <View style={styles.highlightRow}>
-              <AppText variant="label" color="textMuted">
-                {t('overview.highlightLargestExpense')}
-              </AppText>
-              <AppText variant="body" tabularNums>
-                {summary.largestExpense
-                  ? `${formatMoney(summary.largestExpense.amountMinor, settings.currency)}${
-                      summary.largestExpense.description
-                        ? ` · ${summary.largestExpense.description}`
-                        : ''
-                    }`
-                  : t('overview.highlightNone')}
-              </AppText>
-            </View>
-            <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-            <View style={styles.highlightRow}>
-              <AppText variant="label" color="textMuted">
-                {t('overview.highlightTxCount')}
-              </AppText>
-              <AppText variant="body" tabularNums>
-                {summary.expenseCount}
-              </AppText>
-            </View>
-            <View style={{ height: 1, backgroundColor: theme.colors.border }} />
-            <View style={styles.highlightRow}>
-              <AppText variant="label" color="textMuted">
-                {t('overview.highlightVsLastMonth')}
-              </AppText>
-              <AppText variant="body" numberOfLines={2} style={styles.highlightValRight}>
-                {mtdSummaryText}
-              </AppText>
-            </View>
-          </Card>
-        </>
-      )}
+      {/* Recent transactions */}
+      <View style={{ gap: theme.spacing.sm }}>
+        <View style={styles.sectionRow}>
+          <AppText variant="headline">{t('overview.recentTitle')}</AppText>
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => router.push('/(tabs)/activity' as never)}
+          >
+            <AppText variant="label" color="accent">
+              {t('overview.seeAll')}
+            </AppText>
+          </Pressable>
+        </View>
 
-      <InfoModal
-        visible={infoDialog !== null}
-        title={infoDialog?.title ?? ''}
-        body={infoDialog?.body ?? ''}
-        onClose={() => setInfoDialog(null)}
-      />
+        {recentTransactions.length === 0 ? (
+          <Surface>
+            <EmptyState
+              icon="list"
+              title={t('overview.noRecentTitle')}
+              body={t('overview.noRecentBody')}
+            />
+          </Surface>
+        ) : (
+          <Surface padded={false}>
+            {recentTransactions.map((tx, idx) => {
+              const cat = tx.categoryId ? categoriesById.get(tx.categoryId) : undefined;
+              const catName = cat?.name ?? t('common.uncategorized');
+              const isIncome = tx.type === 'income';
+              const whenLabel = tx.occurredTime
+                ? formatFriendlyTime(tx.occurredTime, use24Hour)
+                : formatFriendlyDate(tx.occurredOn, today);
+
+              return (
+                <ListRow
+                  key={tx.id}
+                  left={
+                    <IconTile
+                      icon={cat?.icon ?? 'circle-ellipsis'}
+                      colorKey={cat?.colorKey ?? 'gray'}
+                      size="md"
+                    />
+                  }
+                  title={tx.description.trim() || catName}
+                  subtitle={`${catName} · ${whenLabel}`}
+                  right={
+                    <Money
+                      variant="bodyStrong"
+                      prefix={isIncome ? '+' : '−'}
+                      amountMinor={tx.amountMinor}
+                      currency={tx.currency}
+                      color={isIncome ? 'accent' : 'text'}
+                    />
+                  }
+                  showDivider={idx < recentTransactions.length - 1}
+                  onPress={() =>
+                    router.push({ pathname: '/transaction/[id]', params: { id: tx.id } })
+                  }
+                />
+              );
+            })}
+          </Surface>
+        )}
+      </View>
+
+      {/* "How these numbers work" bottom sheet */}
+      <Sheet
+        visible={howItWorksOpen}
+        onClose={() => setHowItWorksOpen(false)}
+        title={t('overview.howNumbersWork')}
+      >
+        <AppText variant="body" color="textSecondary">
+          {t('overview.howNumbersWorkIntro')}
+        </AppText>
+        <Surface variant="sunken" style={{ gap: theme.spacing.sm }}>
+          <View style={styles.explainItem}>
+            <AppText variant="bodyStrong">{t('overview.safeToday')}</AppText>
+            <AppText variant="caption" color="textSecondary">
+              {t('overview.metricSafePerDayInfo')}
+            </AppText>
+          </View>
+          <View style={[styles.divider, { backgroundColor: theme.colors.separator }]} />
+          <View style={styles.explainItem}>
+            <AppText variant="bodyStrong">{t('overview.spentShort')}</AppText>
+            <AppText variant="caption" color="textSecondary">
+              {t('overview.metricExpenseMonthInfo')}
+            </AppText>
+          </View>
+          <View style={[styles.divider, { backgroundColor: theme.colors.separator }]} />
+          <View style={styles.explainItem}>
+            <AppText variant="bodyStrong">{t('overview.incomeShort')}</AppText>
+            <AppText variant="caption" color="textSecondary">
+              {t('overview.metricIncomeMonthInfo')}
+            </AppText>
+          </View>
+        </Surface>
+        <AppText variant="caption" color="textSecondary">
+          {t('overview.budgetPlanNote')}
+        </AppText>
+        <Button
+          title={t('overview.gotIt')}
+          onPress={() => setHowItWorksOpen(false)}
+        />
+      </Sheet>
     </Screen>
   );
 }
@@ -557,7 +596,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: 12,
   },
   headerText: {
     flex: 1,
@@ -570,57 +609,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  budgetHeaderRow: {
+  heroTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  heroTopRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  heroSubRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  budgetStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
+  divider: {
+    height: 1,
   },
-  metricsRow: {
+  stripRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
   },
-  breakdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  breakdownLeft: {
+  stripCol: {
     flex: 1,
+    gap: 2,
+  },
+  noBudgetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 36,
+  },
+  semiBold: {
+    fontWeight: '600',
+  },
+  actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  breakdownRight: {
+  sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  topCatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  topCatHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  topCatTrack: {
+    height: 4,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  topCatFill: {
+    height: 4,
+    borderRadius: 999,
+  },
+  explainItem: {
+    gap: 2,
   },
   flexOne: {
     flex: 1,
-  },
-  highlightRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  highlightValRight: {
-    flexShrink: 1,
-    textAlign: 'right',
-  },
-  quickBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  quickPill: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
   },
 });

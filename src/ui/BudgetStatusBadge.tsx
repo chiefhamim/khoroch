@@ -1,45 +1,46 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import type { BudgetStatus } from '@/domain/types';
 import { t, type TranslationKey } from '@/i18n';
+import { hexToRgba } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
 
 interface StatusVisual {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   labelKey: TranslationKey;
-  tone: 'muted' | 'primary' | 'warning' | 'danger';
+  tone: 'neutral' | 'accent' | 'warning' | 'danger';
 }
 
 const STATUS_MAP: Record<BudgetStatus, StatusVisual> = {
   no_budget: {
-    icon: 'ellipse-outline',
+    icon: 'circle-ellipsis',
     labelKey: 'status.no_budget',
-    tone: 'muted',
+    tone: 'neutral',
   },
   ok: {
-    icon: 'checkmark-circle',
+    icon: 'circle-check',
     labelKey: 'status.ok',
-    tone: 'primary',
+    tone: 'accent',
   },
   info: {
-    icon: 'information-circle',
+    icon: 'info',
     labelKey: 'status.info',
-    tone: 'primary',
+    tone: 'accent',
   },
   attention: {
-    icon: 'alert-circle',
+    icon: 'circle-alert',
     labelKey: 'status.attention',
     tone: 'warning',
   },
   reached: {
-    icon: 'flag',
+    icon: 'circle-alert',
     labelKey: 'status.reached',
     tone: 'warning',
   },
   over: {
-    icon: 'warning',
+    icon: 'triangle-alert',
     labelKey: 'status.over',
     tone: 'danger',
   },
@@ -47,53 +48,60 @@ const STATUS_MAP: Record<BudgetStatus, StatusVisual> = {
 
 export interface BudgetStatusBadgeProps {
   status: BudgetStatus;
+  label?: string;
   testID?: string;
 }
 
-export function BudgetStatusBadge({ status, testID }: BudgetStatusBadgeProps) {
+export function BudgetStatusBadge({ status, label, testID }: BudgetStatusBadgeProps) {
   const { theme } = useTheme();
   const cfg = STATUS_MAP[status];
+  const displayLabel = label ?? t(cfg.labelKey);
 
   const fgColor =
     cfg.tone === 'danger'
       ? theme.colors.danger
       : cfg.tone === 'warning'
         ? theme.colors.warning
-        : cfg.tone === 'primary'
-          ? theme.colors.primary
-          : theme.colors.textMuted;
+        : cfg.tone === 'accent'
+          ? theme.colors.accent
+          : theme.colors.textSecondary;
 
   const textKey =
     cfg.tone === 'danger'
       ? 'danger'
       : cfg.tone === 'warning'
         ? 'warning'
-        : cfg.tone === 'primary'
-          ? 'primary'
-          : 'textMuted';
+        : cfg.tone === 'accent'
+          ? 'accent'
+          : 'textSecondary';
 
   const bgColor =
-    cfg.tone === 'primary' ? theme.colors.primarySoft : theme.colors.surfaceAlt;
+    cfg.tone === 'danger'
+      ? theme.colors.dangerSoft
+      : cfg.tone === 'warning'
+        ? hexToRgba(theme.colors.warning, 0.14)
+        : cfg.tone === 'accent'
+          ? theme.colors.accentSoft
+          : theme.colors.surfaceSunken;
 
   return (
     <View
       testID={testID}
-      accessibilityLabel={t(cfg.labelKey)}
+      accessibilityLabel={displayLabel}
       style={[
         styles.badge,
         {
           backgroundColor: bgColor,
-          borderColor: cfg.tone === 'muted' ? theme.colors.border : fgColor,
           borderRadius: theme.radius.pill,
-          paddingHorizontal: theme.spacing.sm,
+          paddingHorizontal: theme.spacing.sm + 2,
           paddingVertical: theme.spacing.xs,
           gap: theme.spacing.xs,
         },
       ]}
     >
-      <Ionicons name={cfg.icon} size={14} color={fgColor} />
-      <AppText variant="caption" color={textKey}>
-        {t(cfg.labelKey)}
+      <AppIcon name={cfg.icon} size={13} color={fgColor} />
+      <AppText variant="caption" color={textKey} style={styles.text}>
+        {displayLabel}
       </AppText>
     </View>
   );
@@ -101,9 +109,11 @@ export function BudgetStatusBadge({ status, testID }: BudgetStatusBadgeProps) {
 
 const styles = StyleSheet.create({
   badge: {
-    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
+  },
+  text: {
+    fontWeight: '600',
   },
 });

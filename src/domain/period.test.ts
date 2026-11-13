@@ -1,5 +1,12 @@
 import { addDays } from './dates';
-import { elapsedDays, getPeriod, previousPeriod, remainingDays } from './period';
+import {
+  elapsedDays,
+  formatCycleLabel,
+  getPeriod,
+  previousPeriod,
+  remainingDays,
+  shouldShowNewCycleHint,
+} from './period';
 
 describe('periods (TEST-CASES §2)', () => {
   const cases: [string, number, string, string, number, number, number][] = [
@@ -57,5 +64,47 @@ describe('periods (TEST-CASES §2)', () => {
     }
 
     expect(checked).toBe((365 + 365 + 366) * 28);
+  });
+});
+
+describe('formatCycleLabel', () => {
+  it('returns the full month name when monthStartDay is 1', () => {
+    const nov = getPeriod('2026-11-13', 1);
+    expect(formatCycleLabel(nov, 1)).toBe('November');
+    expect(formatCycleLabel(nov, 1, { includeYear: true })).toBe('November 2026');
+
+    const jan = getPeriod('2027-01-01', 1);
+    expect(formatCycleLabel(jan, 1)).toBe('January');
+  });
+
+  it('returns "start – endIncl" for non-1 start days including year boundaries', () => {
+    const octNov = getPeriod('2026-11-05', 10);
+    expect(formatCycleLabel(octNov, 10)).toBe('10 Oct – 9 Nov');
+
+    const decJan = getPeriod('2026-12-20', 10);
+    expect(formatCycleLabel(decJan, 10)).toBe('10 Dec – 9 Jan');
+    expect(formatCycleLabel(decJan, 10, { includeYear: true })).toBe(
+      '10 Dec – 9 Jan (2026/2027)'
+    );
+  });
+});
+
+describe('shouldShowNewCycleHint', () => {
+  it('shows only when elapsed is 1..7 and previous cycle had spending', () => {
+    const cycle = getPeriod('2026-11-10', 10);
+    expect(cycle).toEqual({ start: '2026-11-10', endExcl: '2026-12-10', lengthDays: 30 });
+
+    // Before cycle starts (elapsed = 0)
+    expect(shouldShowNewCycleHint(cycle, '2026-11-09', 460_000)).toBe(false);
+    // Day 1 (elapsed = 1) through Day 7 (elapsed = 7 -> 16 Nov)
+    expect(shouldShowNewCycleHint(cycle, '2026-11-10', 460_000)).toBe(true);
+    expect(shouldShowNewCycleHint(cycle, '2026-11-13', 460_000)).toBe(true);
+    expect(shouldShowNewCycleHint(cycle, '2026-11-16', 460_000)).toBe(true);
+    // Day 8 (elapsed = 8 -> 17 Nov)
+    expect(shouldShowNewCycleHint(cycle, '2026-11-17', 460_000)).toBe(false);
+    // After cycle ends
+    expect(shouldShowNewCycleHint(cycle, '2026-12-10', 460_000)).toBe(false);
+    // Zero previous cycle spend
+    expect(shouldShowNewCycleHint(cycle, '2026-11-13', 0)).toBe(false);
   });
 });

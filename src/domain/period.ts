@@ -1,5 +1,26 @@
-import { addDays, diffDays, formatLocalDate, parseLocalDate } from './dates';
+import {
+  addDays,
+  diffDays,
+  formatLocalDate,
+  formatPeriodRange,
+  parseLocalDate,
+} from './dates';
 import type { LocalDate, Period } from './types';
+
+const FULL_MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+] as const;
 
 function assertMonthStartDay(monthStartDay: number): void {
   if (!Number.isInteger(monthStartDay) || monthStartDay < 1 || monthStartDay > 28) {
@@ -80,4 +101,44 @@ export function buildRecentPeriodWindows(
     out.push(cursor);
   }
   return out.reverse();
+}
+
+export interface FormatCycleLabelOptions {
+  includeYear?: boolean;
+}
+
+/**
+ * Formats a budget period as its calendar month name when `monthStartDay === 1`
+ * (e.g. "November"), or as an inclusive short date range otherwise (e.g. "10 Oct – 9 Nov").
+ */
+export function formatCycleLabel(
+  period: Period,
+  monthStartDay: number,
+  options?: FormatCycleLabelOptions
+): string {
+  assertMonthStartDay(monthStartDay);
+  const { year, month } = parseLocalDate(period.start);
+  if (monthStartDay === 1) {
+    const monthName = FULL_MONTHS[month - 1];
+    return options?.includeYear ? `${monthName} ${year}` : monthName;
+  }
+  const range = formatPeriodRange(period.start, period.endExcl);
+  if (!options?.includeYear) {
+    return range;
+  }
+  const endYear = parseLocalDate(addDays(period.endExcl, -1)).year;
+  return year === endYear ? `${range} ${year}` : `${range} (${year}/${endYear})`;
+}
+
+/**
+ * Returns true during the first 7 days of a cycle when the prior cycle had spending > 0.
+ */
+export function shouldShowNewCycleHint(
+  period: Period,
+  today: LocalDate,
+  previousCycleSpentMinor: number
+): boolean {
+  if (previousCycleSpentMinor <= 0) return false;
+  const elapsed = elapsedDays(period, today);
+  return elapsed >= 1 && elapsed <= 7;
 }
