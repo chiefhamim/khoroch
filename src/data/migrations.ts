@@ -5,7 +5,7 @@ import {
   DEFAULT_CATEGORY_BY_ID,
 } from '@/domain/categories';
 
-export const LATEST_SCHEMA_VERSION = 3;
+export const LATEST_SCHEMA_VERSION = 4;
 
 export const SCHEMA_V1_SQL = `
 CREATE TABLE IF NOT EXISTS categories (
@@ -203,5 +203,39 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       await db.execAsync('PRAGMA user_version = 3;');
     });
     version = 3;
+  }
+
+  if (version < 4) {
+    await db.withTransactionAsync(async () => {
+      await db.execAsync(`
+        CREATE TABLE IF NOT EXISTS people (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          color_key TEXT NOT NULL,
+          honorific TEXT NOT NULL DEFAULT 'none' CHECK (honorific IN ('none','bhai','apu')),
+          archived_at INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS due_entries (
+          id TEXT PRIMARY KEY,
+          person_id TEXT NOT NULL REFERENCES people(id),
+          kind TEXT NOT NULL CHECK (kind IN ('lent','borrowed','received_back','paid_back')),
+          amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+          account_id TEXT REFERENCES accounts(id),
+          occurred_on TEXT NOT NULL,
+          occurred_time TEXT,
+          note TEXT NOT NULL DEFAULT '',
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          deleted_at INTEGER
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_due_person ON due_entries (person_id, deleted_at, occurred_on);
+        PRAGMA user_version = 4;
+      `);
+    });
+    version = 4;
   }
 }

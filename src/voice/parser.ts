@@ -1,13 +1,38 @@
 import { CATEGORY_KEYWORDS, type CategoryKeywordRule } from '@/domain/categories';
 import { addDays, isValidLocalDate, todayLocalDate } from '@/domain/dates';
 import { normalizeDigits, parseMoneyInput } from '@/domain/money';
-import type { Category, LocalDate, TransactionType } from '@/domain/types';
+import type {
+  Account,
+  Category,
+  DueKind,
+  LocalDate,
+  Person,
+  TransactionType,
+} from '@/domain/types';
+
+export type ParsedDraftKind = 'transaction' | 'transfer' | 'due';
+
+export interface ParserContext {
+  accounts?: readonly Account[];
+  people?: readonly Person[];
+}
 
 export interface ParsedTransactionDraft {
   id: string;
+  draftKind?: ParsedDraftKind;
   type: TransactionType;
   amountMinor: number | null;
   categoryId: string | null;
+  accountId?: string | null;
+  fromAccountId?: string | null;
+  toAccountId?: string | null;
+  feeMinor?: number;
+  asksFee?: boolean;
+  dueKind?: DueKind;
+  personId?: string | null;
+  personName?: string | null;
+  missingWalletName?: string | null;
+  missingWalletHint?: string | null;
   description: string;
   occurredOn: LocalDate;
   needsAmount: boolean;
@@ -107,6 +132,231 @@ const STOP_WORDS = new Set([
 const INCOME_VERB_RE = /\b(received|receive|got|earned|earn|paycheck|salary|income)\b/i;
 const EXPENSE_VERB_RE = /\b(spent|spend|paid|pay|bought|buy|purchased|purchase)\b/i;
 const NUMBER_LITERAL_RE = /\b\d+(?:\.\d+)?\b/;
+
+interface WalletAliasRule {
+  label: string;
+  providerKey: string;
+  aliases: readonly string[];
+}
+
+const KNOWN_WALLET_RULES: readonly WalletAliasRule[] = [
+  { label: 'City Bank', providerKey: 'city_bank', aliases: ['city bank', 'citybank'] },
+  { label: 'BRAC Bank', providerKey: 'brac_bank', aliases: ['brac bank', 'brac'] },
+  { label: 'DBBL', providerKey: 'dbbl', aliases: ['dbbl', 'dutch bangla', 'dutch-bangla'] },
+  { label: 'EBL', providerKey: 'ebl', aliases: ['ebl', 'eastern bank'] },
+  { label: 'bKash', providerKey: 'bkash', aliases: ['bkash', 'b-kash'] },
+  { label: 'Nagad', providerKey: 'nagad', aliases: ['nagad'] },
+  { label: 'Rocket', providerKey: 'rocket', aliases: ['rocket'] },
+  { label: 'Upay', providerKey: 'upay', aliases: ['upay'] },
+];
+
+interface WalletDetectionResult {
+  accountId: string | null;
+  missingWalletName: string | null;
+  missingWalletHint: string | null;
+  strippedClause: string;
+}
+
+function stripMatchedPhrase(clause: string, phrase: string): string {
+  const withPrepRe = new RegExp(
+    `(?:\\b(?:from|in|into|via|using|by|on|at|to)\\s+)?(?:^|(?<=\\s))${escapeRegExp(phrase)}(?:$|(?=\\s|[.,!?]))`,
+    'gi'
+  );
+  return clause.replace(withPrepRe, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function detectWalletInClause(
+  clause: string,
+  accounts?: readonly Account[]
+): WalletDetectionResult {
+  if (!accounts) {
+    return {
+      accountId: null,
+      missingWalletName: null,
+      missingWalletHint: null,
+      strippedClause: clause,
+    };
+  }
+
+  const activeAccounts = accounts.filter((a) => a.archivedAt == null);
+  // Prevent "cash out" / "cash in" from matching a Cash wallet as source phrase
+  const sanitized = clause.replace(/\bcash\s*(?:out|in)\b/gi, ' ');
+
+  // 1. Try matching user's active wallets by longest name or provider first
+  const candidates: { account: Account; token: string }[] = [];
+  for (const acc of activeAccounts) {
+    const trimmedName = acc.name.trim().toLowerCase();
+    if (trimmedName.length >= 2) {
+      candidates.push({ account: acc, token: trimmedName });
+    }
+    if (acc.provider) {
+      const prov = acc.provider.trim().toLowerCase().replace(/_/g, ' ');
+      if (prov.length >= 2 && prov !== trimmedName) {
+        candidates.push({ account: acc, token: prov });
+      }
+      // Also support known aliases for that provider
+      const known = KNOWN_WALLET_RULES.find(
+        (r) => r.providerKey === acc.provider?.trim().toLowerCase()
+      );
+      if (known) {
+        for (const alias of known.aliases) {
+          candidates.push({ account: acc, token: alias });
+        }
+      }
+    }
+  }
+
+  candidates.sort((a, b) => b.token.length - a.token.length);
+  for (const cand of candidates) {
+    if (hasKeywordMatch(sanitized, cand.token)) {
+      return {
+        accountId: cand.account.id,
+        missingWalletName: null,
+        missingWalletHint: null,
+        strippedClause: stripMatchedPhrase(clause, cand.token),
+      };
+    }
+  }
+
+  // 2. Check known BD wallet / bank names so missing wallets surface helpful hint
+  for (const rule of KNOWN_WALLET_RULES) {
+    for (const alias of rule.aliases) {
+      if (hasKeywordMatch(sanitized, alias)) {
+        return {
+          accountId: null,
+          missingWalletName: rule.label,
+          missingWalletHint: `No ${rule.label} wallet yet: add it?`,
+          strippedClause: stripMatchedPhrase(clause, alias),
+        };
+      }
+    }
+  }
+
+  return {
+    accountId: null,
+    missingWalletName: null,
+    missingWalletHint: null,
+    strippedClause: clause,
+  };
+}
+
+function findPersonByName(
+  rawName: string,
+  people?: readonly Person[]
+): { personId: string | null; personName: string } {
+  const cleaned = capitalize(
+    rawName
+      .replace(/[.,!?]+$/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
+  if (people && cleaned) {
+    const lower = cleaned.toLowerCase();
+    const matched = people.find(
+      (p) => p.archivedAt == null && p.name.trim().toLowerCase() === lower
+    );
+    if (matched) {
+      return { personId: matched.id, personName: matched.name };
+    }
+  }
+  return { personId: null, personName: cleaned };
+}
+
+function isWalletOrStopWord(candidate: string): boolean {
+  const lower = candidate.trim().toLowerCase();
+  if (!lower || STOP_WORDS.has(lower)) return true;
+  if (lower === 'me' || lower === 'my' || lower === 'cash' || lower === 'card') return true;
+  return KNOWN_WALLET_RULES.some((r) => r.aliases.includes(lower));
+}
+
+function detectDueIntent(
+  clauseWithoutWallet: string,
+  people?: readonly Person[]
+): { dueKind: DueKind; personId: string | null; personName: string } | null {
+  const cleaned = clauseWithoutWallet
+    .replace(/\b(?:today|yesterday|\d{4}-\d{2}-\d{2})\b/gi, ' ')
+    .replace(/[৳$€]/g, ' ')
+    .replace(/\b(?:taka|tk|bdt|টাকা)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // 1. "<name> paid me back <amt>" / "<name> returned me <amt>"
+  const revMatch =
+    /^([a-z\u0980-\u09ff][a-z\u0980-\u09ff\s'-]{0,28}?)\s+(?:paid|gave|sent|returned)\s+(?:me\s+)?back(?:\s+\d+(?:\.\d+)?)?$/i.exec(
+      cleaned
+    );
+  if (revMatch && !isWalletOrStopWord(revMatch[1])) {
+    const person = findPersonByName(revMatch[1], people);
+    if (person.personName) {
+      return { dueKind: 'received_back', ...person };
+    }
+  }
+
+  // Also "got back 500 from rafi" / "received 500 back from rafi"
+  const gotBackMatch =
+    /\b(?:got|received)\b.*?\bback\b.*?\bfrom\s+([a-z\u0980-\u09ff][a-z\u0980-\u09ff\s'-]{0,28}?)$/i.exec(
+      cleaned
+    );
+  if (gotBackMatch && !isWalletOrStopWord(gotBackMatch[1])) {
+    const person = findPersonByName(gotBackMatch[1], people);
+    if (person.personName) {
+      return { dueKind: 'received_back', ...person };
+    }
+  }
+
+  // 2. "paid <name> back <amt>" / "paid back <amt> to <name>"
+  const paidBackNameMatch =
+    /\b(?:paid|returned)\s+([a-z\u0980-\u09ff][a-z\u0980-\u09ff\s'-]{0,28}?)\s+back\b/i.exec(
+      cleaned
+    );
+  if (
+    paidBackNameMatch &&
+    paidBackNameMatch[1].trim().toLowerCase() !== 'me' &&
+    !isWalletOrStopWord(paidBackNameMatch[1])
+  ) {
+    const person = findPersonByName(paidBackNameMatch[1], people);
+    if (person.personName) {
+      return { dueKind: 'paid_back', ...person };
+    }
+  }
+
+  const paidBackToMatch =
+    /\b(?:paid|returned)\s+back(?:\s+\d+(?:\.\d+)?)?\s+(?:to\s+)?([a-z\u0980-\u09ff][a-z\u0980-\u09ff\s'-]{0,28}?)$/i.exec(
+      cleaned
+    );
+  if (paidBackToMatch && !isWalletOrStopWord(paidBackToMatch[1])) {
+    const person = findPersonByName(paidBackToMatch[1], people);
+    if (person.personName) {
+      return { dueKind: 'paid_back', ...person };
+    }
+  }
+
+  // 3. "borrowed <amt> from <name>" / "took <amt> from <name>"
+  const borrowedMatch =
+    /\b(?:borrowed|took)\b(?:\s+\d+(?:\.\d+)?)?\s+from\s+([a-z\u0980-\u09ff][a-z\u0980-\u09ff\s'-]{0,28}?)$/i.exec(
+      cleaned
+    );
+  if (borrowedMatch && !isWalletOrStopWord(borrowedMatch[1])) {
+    const person = findPersonByName(borrowedMatch[1], people);
+    if (person.personName) {
+      return { dueKind: 'borrowed', ...person };
+    }
+  }
+
+  // 4. "sent 500 to rafi" / "lent 500 to rafi" / "gave 500 to rafi"
+  const sentMatch =
+    /\b(?:sent|send|lent|lend|gave|give|loaned|loan)\b(?:\s+\d+(?:\.\d+)?)?\s+to\s+([a-z\u0980-\u09ff][a-z\u0980-\u09ff\s'-]{0,28}?)$/i.exec(
+      cleaned
+    );
+  if (sentMatch && !isWalletOrStopWord(sentMatch[1])) {
+    const person = findPersonByName(sentMatch[1], people);
+    if (person.personName) {
+      return { dueKind: 'lent', ...person };
+    }
+  }
+
+  return null;
+}
 
 function isNumberWordToken(tok: string): boolean {
   return (
@@ -317,7 +567,8 @@ function parseSingleClause(
   clause: string,
   index: number,
   today: LocalDate,
-  categories?: readonly Category[]
+  categories?: readonly Category[],
+  context?: ParserContext
 ): { draft: ParsedTransactionDraft; hasExplicitDateWord: boolean } | null {
   let working = clause;
   let occurredOn: LocalDate = today;
@@ -345,9 +596,78 @@ function parseSingleClause(
     }
   }
 
-  const match = findCategoryMatch(working, categories);
-  const hasIncomeVerb = INCOME_VERB_RE.test(working);
-  const hasExpenseVerb = EXPENSE_VERB_RE.test(working);
+  const walletInfo = detectWalletInClause(working, context?.accounts);
+  const semanticClause = walletInfo.strippedClause;
+
+  // 1. Transfer pattern: "cash out 1000 bkash"
+  if (/\bcash\s*out\b/i.test(working) && amountMinor !== null) {
+    const cashAcc = context?.accounts?.find(
+      (a) =>
+        a.archivedAt == null &&
+        (a.kind === 'cash' || a.name.trim().toLowerCase() === 'cash')
+    );
+    return {
+      hasExplicitDateWord,
+      draft: {
+        id: `draft-${index}`,
+        draftKind: 'transfer',
+        type: 'expense',
+        amountMinor,
+        categoryId: null,
+        fromAccountId: walletInfo.accountId,
+        toAccountId: cashAcc?.id ?? null,
+        feeMinor: 0,
+        asksFee: true,
+        ...(walletInfo.missingWalletName ? { missingWalletName: walletInfo.missingWalletName } : {}),
+        ...(walletInfo.missingWalletHint ? { missingWalletHint: walletInfo.missingWalletHint } : {}),
+        description: 'Cash out',
+        occurredOn,
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    };
+  }
+
+  // 2. Due pattern: "sent 500 to rafi bkash" / "rafi paid me back 500"
+  const dueIntent = detectDueIntent(semanticClause, context?.people);
+  if (dueIntent) {
+    const descByKind: Record<DueKind, string> = {
+      lent: `Lent to ${dueIntent.personName}`,
+      borrowed: `Borrowed from ${dueIntent.personName}`,
+      received_back: `${dueIntent.personName} paid back`,
+      paid_back: `Paid back ${dueIntent.personName}`,
+    };
+    return {
+      hasExplicitDateWord,
+      draft: {
+        id: `draft-${index}`,
+        draftKind: 'due',
+        type:
+          dueIntent.dueKind === 'received_back' || dueIntent.dueKind === 'borrowed'
+            ? 'income'
+            : 'expense',
+        amountMinor,
+        categoryId: null,
+        accountId: walletInfo.accountId,
+        dueKind: dueIntent.dueKind,
+        personId: dueIntent.personId,
+        personName: dueIntent.personName,
+        ...(walletInfo.missingWalletName ? { missingWalletName: walletInfo.missingWalletName } : {}),
+        ...(walletInfo.missingWalletHint ? { missingWalletHint: walletInfo.missingWalletHint } : {}),
+        description: descByKind[dueIntent.dueKind],
+        occurredOn,
+        needsAmount: amountMinor === null,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    };
+  }
+
+  // 3. Standard transaction parsing
+  const match = findCategoryMatch(semanticClause, categories);
+  const hasIncomeVerb = INCOME_VERB_RE.test(semanticClause);
+  const hasExpenseVerb = EXPENSE_VERB_RE.test(semanticClause);
 
   if (amountMinor === null && match === null) {
     return null;
@@ -373,21 +693,33 @@ function parseSingleClause(
     }
   }
 
-  const description = match ? match.rule.label : buildFallbackDescription(working);
+  const description = match ? match.rule.label : buildFallbackDescription(semanticClause);
+
+  const draft: ParsedTransactionDraft = {
+    id: `draft-${index}`,
+    type,
+    amountMinor,
+    categoryId,
+    description,
+    occurredOn,
+    needsAmount: amountMinor === null,
+    needsCategory: categoryId === null,
+    requiresConfirmation: true,
+  };
+
+  if (walletInfo.accountId) {
+    draft.accountId = walletInfo.accountId;
+  }
+  if (walletInfo.missingWalletName) {
+    draft.missingWalletName = walletInfo.missingWalletName;
+  }
+  if (walletInfo.missingWalletHint) {
+    draft.missingWalletHint = walletInfo.missingWalletHint;
+  }
 
   return {
     hasExplicitDateWord,
-    draft: {
-      id: `draft-${index}`,
-      type,
-      amountMinor,
-      categoryId,
-      description,
-      occurredOn,
-      needsAmount: amountMinor === null,
-      needsCategory: categoryId === null,
-      requiresConfirmation: true,
-    },
+    draft,
   };
 }
 
@@ -398,7 +730,8 @@ function parseSingleClause(
 export function parse(
   text: string,
   today: LocalDate = todayLocalDate(),
-  categories?: readonly Category[]
+  categories?: readonly Category[],
+  context?: ParserContext
 ): ParsedTransactionDraft[] {
   if (!text || !text.trim()) return [];
 
@@ -408,7 +741,7 @@ export function parse(
 
   const parsedEntries: { draft: ParsedTransactionDraft; hasExplicitDateWord: boolean }[] = [];
   for (const clause of clauses) {
-    const entry = parseSingleClause(clause, parsedEntries.length, today, categories);
+    const entry = parseSingleClause(clause, parsedEntries.length, today, categories, context);
     if (entry) {
       parsedEntries.push(entry);
     }

@@ -10,11 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { buildCustomCategory } from '@/domain/categories';
-import type { Account, Category, Transaction } from '@/domain/types';
+import type { Account, Category, LocalDate, Transaction } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
+import { DueEntrySheet } from '@/ui/DueEntrySheet';
 import { ErrorState } from '@/ui/ErrorState';
 import { hapticSuccess } from '@/ui/haptics';
 import { useToast } from '@/ui/Toast';
@@ -37,6 +38,11 @@ export default function NewTransactionScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryTick, setRetryTick] = useState(0);
+  const [duePrefill, setDuePrefill] = useState<{
+    amountMinor: number | null;
+    accountId: string | null;
+    occurredOn: LocalDate;
+  } | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -201,11 +207,24 @@ export default function NewTransactionScreen() {
           accounts={accounts}
           defaultAccountId={settings.lastUsedAccountId}
           onPressSetupWallets={() => router.push('/wallets?setup=1' as never)}
+          onPressLendBorrow={(prefill) => setDuePrefill(prefill)}
           recentTransactions={recentTransactions}
           onClose={handleClose}
           onCreateCategory={handleCreateCategory}
           onSubmit={handleSubmit}
           onSubmitTransfer={handleSubmitTransfer}
+        />
+        <DueEntrySheet
+          visible={duePrefill !== null}
+          onClose={() => setDuePrefill(null)}
+          initialKind="lent"
+          initialAmountMinor={duePrefill?.amountMinor ?? null}
+          initialAccountId={duePrefill?.accountId ?? null}
+          initialOccurredOn={duePrefill?.occurredOn}
+          onSaved={() => {
+            setDuePrefill(null);
+            handleClose();
+          }}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

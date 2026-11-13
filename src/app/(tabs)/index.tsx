@@ -16,12 +16,14 @@ import {
   MISSING_METRIC_DASH,
 } from '@/domain/money';
 import { remainingDays } from '@/domain/period';
+import { formatHomeDuesSummaryLine } from '@/domain/dues';
 import type { LocalDate } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
 import { useDashboard } from '@/state/useDashboard';
+import { usePeople } from '@/state/usePeople';
 import { getCategoryTileVisual } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
@@ -87,6 +89,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     loading: accountsLoading,
   } = useAccounts(today);
   const hasWallets = accountsOverview.balances.length > 0;
+  const { overview: duesOverview } = usePeople();
+  const duesSummaryLine = formatHomeDuesSummaryLine(duesOverview, settings.currency);
 
   const hour = hourOverride ?? new Date().getHours();
   const greeting = buildGreeting(hour);
@@ -561,6 +565,23 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             title={t('overview.setupWalletsTitle')}
             subtitle={t('overview.setupWalletsBody')}
             left={<WalletAvatar account={null} size="sm" />}
+            showChevron
+          />
+        </Surface>
+      ) : null}
+
+      {/* People & dues compact summary strip */}
+      {duesSummaryLine ? (
+        <Surface
+          testID="overview-dues-card"
+          padded={false}
+          onPress={() => router.push('/(tabs)/people' as never)}
+          accessibilityLabel={`${t('overview.duesTitle')}: ${hideAmounts ? HIDDEN_AMOUNT_TEXT : duesSummaryLine}`}
+        >
+          <ListRow
+            title={hideAmounts ? HIDDEN_AMOUNT_TEXT : duesSummaryLine}
+            subtitle={t('overview.duesTitle')}
+            left={<IconTile icon="users" colorKey="teal" size="sm" />}
             showChevron
           />
         </Surface>

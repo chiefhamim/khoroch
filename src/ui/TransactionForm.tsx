@@ -94,6 +94,11 @@ export interface TransactionFormProps {
   defaultAccountId?: string | null;
   balancesById?: ReadonlyMap<string, number>;
   onPressSetupWallets?: () => void;
+  onPressLendBorrow?: (prefill: {
+    amountMinor: number | null;
+    accountId: string | null;
+    occurredOn: LocalDate;
+  }) => void;
   recentDescriptions?: string[];
   recentTransactions?: Transaction[];
   initialMode?: TransactionEntryMode;
@@ -494,6 +499,7 @@ export function TransactionForm({
   defaultAccountId = null,
   balancesById,
   onPressSetupWallets,
+  onPressLendBorrow,
   recentTransactions = [],
   initialMode,
   initialValues,
@@ -619,15 +625,18 @@ export function TransactionForm({
     [categories, txType, recentTransactions]
   );
 
+  const showLendBorrowTile = !isEditing && Boolean(onPressLendBorrow);
+
   const gridCategories = useMemo(() => {
-    const topSeven = orderedCategories.slice(0, 7);
-    if (!categoryId || topSeven.some((c) => c.id === categoryId)) {
-      return topSeven;
+    const slotCount = showLendBorrowTile ? 6 : 7;
+    const topCategories = orderedCategories.slice(0, slotCount);
+    if (!categoryId || topCategories.some((c) => c.id === categoryId)) {
+      return topCategories;
     }
     const selectedCat = categories.find((c) => c.id === categoryId && c.kind === txType);
-    if (!selectedCat) return topSeven;
-    return [...orderedCategories.slice(0, 6), selectedCat];
-  }, [orderedCategories, categoryId, categories, txType]);
+    if (!selectedCat) return topCategories;
+    return [...orderedCategories.slice(0, slotCount - 1), selectedCat];
+  }, [orderedCategories, showLendBorrowTile, categoryId, categories, txType]);
 
   const suggestions = useMemo(
     () => buildContextualSuggestions(txType, categoryId, recentTransactions),
@@ -1219,6 +1228,29 @@ export function TransactionForm({
                   </Pressable>
                 );
               })}
+
+              {showLendBorrowTile && onPressLendBorrow ? (
+                <Pressable
+                  testID="cat-lend-borrow-button"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tx.lendBorrowTile')}
+                  onPress={() => {
+                    hapticSelection();
+                    dismissTextInputs();
+                    onPressLendBorrow({
+                      amountMinor: validAmountMinor,
+                      accountId,
+                      occurredOn,
+                    });
+                  }}
+                  style={({ pressed }) => [styles.catCell, { opacity: pressed ? 0.78 : 1 }]}
+                >
+                  <IconTile icon="hand-coins" colorKey="teal" size="md" />
+                  <AppText variant="caption" color="textSecondary" numberOfLines={1} style={styles.catLabel}>
+                    {t('tx.lendBorrowTile')}
+                  </AppText>
+                </Pressable>
+              ) : null}
 
               <Pressable
                 testID="cat-all-button"

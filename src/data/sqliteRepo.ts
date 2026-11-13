@@ -2,8 +2,10 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import {
   assertValidAccountInput,
   assertValidCategoryInput,
+  assertValidNewDueEntry,
   assertValidNewTransaction,
   assertValidNewTransfer,
+  assertValidPersonInput,
   isValidBudgetAmount,
   isValidCurrency,
 } from '@/domain/validation';
@@ -17,10 +19,18 @@ import {
   type Category,
   type CurrencyCode,
   type DayReviewRecord,
+  type DueEntry,
+  type DueEntryPatch,
+  type DueKind,
   type LocalDate,
   type NewAccount,
+  type NewDueEntry,
+  type NewPerson,
   type NewTransaction,
   type NewTransfer,
+  type Person,
+  type PersonHonorific,
+  type PersonPatch,
   type Settings,
   type Transaction,
   type TransactionPatch,
@@ -78,6 +88,30 @@ interface TransferRow {
   to_account_id: string;
   amount_minor: number;
   fee_minor: number;
+  occurred_on: string;
+  occurred_time: string | null;
+  note: string;
+  created_at: number;
+  updated_at: number;
+  deleted_at: number | null;
+}
+
+interface PersonRow {
+  id: string;
+  name: string;
+  color_key: string;
+  honorific: PersonHonorific | null;
+  archived_at: number | null;
+  created_at: number;
+  updated_at: number;
+}
+
+interface DueEntryRow {
+  id: string;
+  person_id: string;
+  kind: DueKind;
+  amount_minor: number;
+  account_id: string | null;
   occurred_on: string;
   occurred_time: string | null;
   note: string;
@@ -168,6 +202,34 @@ function mapTransferRow(row: TransferRow): Transfer {
     toAccountId: row.to_account_id,
     amountMinor: row.amount_minor,
     feeMinor: row.fee_minor,
+    occurredOn: row.occurred_on,
+    occurredTime: row.occurred_time,
+    note: row.note,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+  };
+}
+
+function mapPersonRow(row: PersonRow): Person {
+  return {
+    id: row.id,
+    name: row.name,
+    colorKey: normalizeCategoryColorKey(row.color_key),
+    honorific: row.honorific ?? 'none',
+    archivedAt: row.archived_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapDueEntryRow(row: DueEntryRow): DueEntry {
+  return {
+    id: row.id,
+    personId: row.person_id,
+    kind: row.kind,
+    amountMinor: row.amount_minor,
+    accountId: row.account_id ?? null,
     occurredOn: row.occurred_on,
     occurredTime: row.occurred_time,
     note: row.note,
@@ -869,6 +931,188 @@ export class SqliteRepo implements Repo {
     return rows.map(mapTransferRow);
   }
 
+  async listPeople(opts?: { includeArchived?: boolean }): Promise<Person[]> {
+    const includeArchived = opts?.includeArchived ?? false;
+    const rows = await this.db.getAllAsync<PersonRow>(
+      includeArchived
+        ? `SELECT * FROM people ORDER BY created_at ASC, name COLLATE NOCASE ASC`
+        : `SELECT * FROM people WHERE archived_at IS NULL ORDER BY created_at ASC, name COLLATE NOCASE ASC`
+    );
+    return rows.map(mapPersonRow);
+  }
+
+  async getPerson(id: string): Promise<Person | null> {
+    const row = await this.db.getFirstAsync<PersonRow>(
+      `SELECT * FROM people WHERE id = ?`,
+      [id]
+    );
+    return row ? mapPersonRow(row) : null;
+  }
+
+  async insertPerson(p: NewPerson): Promise<void> {
+    const honorific = p.honorific ?? 'none';
+    const colorKey = normalizeCategoryColorKey(p.colorKey);
+    assertValidPersonInput({
+      id: p.id,
+      name: p.name,
+      colorKey,
+      honorific,
+    });
+    const now = Date.now();
+    await this.db.runAsync(
+      `INSERT INTO people (id, name, color_key, honorific, archived_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        p.id,
+        p.name.trim(),
+        colorKey,
+        honorific,
+        p.archivedAt ?? null,
+        p.createdAt ?? now,
+        p.updatedAt ?? now,
+      ]
+    );
+  }
+
+  async updatePerson(id: string, patch: PersonPatch): Promise<void> {
+    const existing = await this.getPerson(id);
+    if (!existing) return;
+    const nextColor = patch.colorKey !== undefined ? normalizeCategoryColorKey(patch.colorKey) : existing.colorKey;
+    const merged: Person = {
+      ...existing,
+      name: patch.name !== undefined ? patch.name.trim() : existing.name,
+      colorKey: nextColor,
+      honorific: patch.honorific !== undefined ? patch.honorific : existing.honorific,
+      archivedAt: patch.archivedAt !== undefined ? patch.archivedAt : existing.archivedAt,
+      updatedAt: Date.now(),
+    };
+    assertValidPersonInput(merged);
+    await this.db.runAsync(
+      `UPDATE people SET name = ?, color_key = ?, honorific = ?, archived_at = ?, updated_at = ? WHERE id = ?`,
+      [merged.name, merged.colorKey, merged.honorific, merged.archivedAt, merged.updatedAt, id]
+    );
+  }
+
+  async archivePerson(id: string): Promise<void> {
+    const now = Date.now();
+    await this.db.runAsync(
+      `UPDATE people SET archived_at = COALESCE(archived_at, ?), updated_at = ? WHERE id = ?`,
+      [now, now, id]
+    );
+  }
+
+  async unarchivePerson(id: string): Promise<void> {
+    const now = Date.now();
+    await this.db.runAsync(
+      `UPDATE people SET archived_at = NULL, updated_at = ? WHERE id = ?`,
+      [now, id]
+    );
+  }
+
+  async listDueEntries(opts?: {
+    personId?: string;
+    accountId?: string;
+    includeDeleted?: boolean;
+  }): Promise<DueEntry[]> {
+    const clauses: string[] = [];
+    const params: (string | number)[] = [];
+    if (!opts?.includeDeleted) {
+      clauses.push('deleted_at IS NULL');
+    }
+    if (opts?.personId) {
+      clauses.push('person_id = ?');
+      params.push(opts.personId);
+    }
+    if (opts?.accountId) {
+      clauses.push('account_id = ?');
+      params.push(opts.accountId);
+    }
+    const whereSql = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+    const rows = await this.db.getAllAsync<DueEntryRow>(
+      `SELECT * FROM due_entries ${whereSql} ORDER BY occurred_on DESC, created_at DESC, id DESC`,
+      params
+    );
+    return rows.map(mapDueEntryRow);
+  }
+
+  async getDueEntry(id: string): Promise<DueEntry | null> {
+    const row = await this.db.getFirstAsync<DueEntryRow>(
+      `SELECT * FROM due_entries WHERE id = ?`,
+      [id]
+    );
+    return row ? mapDueEntryRow(row) : null;
+  }
+
+  async insertDueEntry(d: NewDueEntry): Promise<void> {
+    assertValidNewDueEntry(d);
+    const now = Date.now();
+    await this.db.runAsync(
+      `INSERT INTO due_entries
+       (id, person_id, kind, amount_minor, account_id, occurred_on, occurred_time, note, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+      [
+        d.id,
+        d.personId,
+        d.kind,
+        d.amountMinor,
+        d.accountId ?? null,
+        d.occurredOn,
+        d.occurredTime ?? null,
+        d.note ?? '',
+        d.createdAt ?? now,
+        d.updatedAt ?? now,
+      ]
+    );
+  }
+
+  async updateDueEntry(id: string, patch: DueEntryPatch): Promise<void> {
+    const existing = await this.getDueEntry(id);
+    if (!existing || existing.deletedAt != null) return;
+    const merged: DueEntry = {
+      ...existing,
+      personId: patch.personId !== undefined ? patch.personId : existing.personId,
+      kind: patch.kind !== undefined ? patch.kind : existing.kind,
+      amountMinor: patch.amountMinor !== undefined ? patch.amountMinor : existing.amountMinor,
+      accountId: patch.accountId !== undefined ? patch.accountId : existing.accountId,
+      occurredOn: patch.occurredOn !== undefined ? patch.occurredOn : existing.occurredOn,
+      occurredTime: patch.occurredTime !== undefined ? patch.occurredTime : existing.occurredTime,
+      note: patch.note !== undefined ? patch.note : existing.note,
+      updatedAt: Date.now(),
+    };
+    assertValidNewDueEntry(merged);
+    await this.db.runAsync(
+      `UPDATE due_entries
+       SET person_id = ?, kind = ?, amount_minor = ?, account_id = ?, occurred_on = ?, occurred_time = ?, note = ?, updated_at = ?
+       WHERE id = ? AND deleted_at IS NULL`,
+      [
+        merged.personId,
+        merged.kind,
+        merged.amountMinor,
+        merged.accountId,
+        merged.occurredOn,
+        merged.occurredTime,
+        merged.note,
+        merged.updatedAt,
+        id,
+      ]
+    );
+  }
+
+  async softDeleteDueEntry(id: string): Promise<void> {
+    const now = Date.now();
+    await this.db.runAsync(
+      `UPDATE due_entries SET deleted_at = ?, updated_at = ? WHERE id = ? AND deleted_at IS NULL`,
+      [now, now, id]
+    );
+  }
+
+  async listAllDueEntriesForBackup(): Promise<DueEntry[]> {
+    const rows = await this.db.getAllAsync<DueEntryRow>(
+      `SELECT * FROM due_entries ORDER BY created_at ASC, id ASC`
+    );
+    return rows.map(mapDueEntryRow);
+  }
+
   async listCategories(opts?: { includeArchived?: boolean }): Promise<Category[]> {
     const includeArchived = opts?.includeArchived ?? false;
     const sql = includeArchived
@@ -1086,6 +1330,8 @@ export class SqliteRepo implements Repo {
   async deleteAllData(): Promise<void> {
     await this.db.withTransactionAsync(async () => {
       await this.db.execAsync(`
+        DELETE FROM due_entries;
+        DELETE FROM people;
         DELETE FROM transactions;
         DELETE FROM transfers;
         DELETE FROM accounts;
@@ -1109,6 +1355,8 @@ export class SqliteRepo implements Repo {
   async replaceAllDataFromBackup(data: BackupDataSnapshot): Promise<void> {
     await this.db.withTransactionAsync(async () => {
       await this.db.execAsync(`
+        DELETE FROM due_entries;
+        DELETE FROM people;
         DELETE FROM transactions;
         DELETE FROM transfers;
         DELETE FROM accounts;
@@ -1181,6 +1429,52 @@ export class SqliteRepo implements Repo {
             tr.createdAt,
             tr.updatedAt,
             tr.deletedAt,
+          ]
+        );
+      }
+
+      for (const person of data.people) {
+        const colorKey = normalizeCategoryColorKey(person.colorKey);
+        const honorific = person.honorific ?? 'none';
+        assertValidPersonInput({
+          id: person.id,
+          name: person.name,
+          colorKey,
+          honorific,
+        });
+        await this.db.runAsync(
+          `INSERT INTO people (id, name, color_key, honorific, archived_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            person.id,
+            person.name.trim(),
+            colorKey,
+            honorific,
+            person.archivedAt,
+            person.createdAt,
+            person.updatedAt,
+          ]
+        );
+      }
+
+      for (const due of data.due_entries) {
+        assertValidNewDueEntry(due);
+        await this.db.runAsync(
+          `INSERT INTO due_entries
+           (id, person_id, kind, amount_minor, account_id, occurred_on, occurred_time, note, created_at, updated_at, deleted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            due.id,
+            due.personId,
+            due.kind,
+            due.amountMinor,
+            due.accountId ?? null,
+            due.occurredOn,
+            due.occurredTime ?? null,
+            due.note,
+            due.createdAt,
+            due.updatedAt,
+            due.deletedAt,
           ]
         );
       }

@@ -13,6 +13,7 @@ import type { Category, Transfer } from '@/domain/types';
 import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { useAccounts } from '@/state/useAccounts';
+import { usePeople } from '@/state/usePeople';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from '@/ui/AppText';
 import { EmptyState } from '@/ui/EmptyState';
@@ -54,6 +55,21 @@ type WalletFeedItem =
       prefix: string;
       isIncome: boolean;
       targetRoute: { pathname: '/transfer/[id]'; params: { id: string } };
+    }
+  | {
+      kind: 'due';
+      id: string;
+      occurredOn: string;
+      occurredTime: string | null;
+      createdAt: number;
+      title: string;
+      subtitle: string;
+      icon: string;
+      colorKey: string;
+      amountMinor: number;
+      prefix: string;
+      isIncome: boolean;
+      targetRoute: { pathname: '/people/[id]'; params: { id: string } };
     };
 
 export default function WalletDetailScreen() {
@@ -70,8 +86,10 @@ export default function WalletDetailScreen() {
     overview,
     transactions,
     transfers,
+    dueEntries,
     loading,
   } = useAccounts(today);
+  const { peopleById } = usePeople();
 
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -107,11 +125,12 @@ export default function WalletDetailScreen() {
       account,
       transactions,
       transfers,
+      dues: dueEntries,
       fromDate,
       toDate: today,
       currency,
     });
-  }, [account, transactions, transfers, today, currency]);
+  }, [account, transactions, transfers, dueEntries, today, currency]);
 
   const feedItems = useMemo<WalletFeedItem[]>(() => {
     if (!account) return [];
@@ -189,12 +208,47 @@ export default function WalletDetailScreen() {
       });
     }
 
+    for (const due of dueEntries) {
+      if (due.deletedAt != null || due.accountId !== account.id) continue;
+      const person = peopleById.get(due.personId);
+      const personName = person?.name ?? t('people.title');
+      const incoming = due.kind === 'received_back' || due.kind === 'borrowed';
+      const titleMap: Record<typeof due.kind, string> = {
+        lent: `Lent to ${personName}`,
+        received_back: `${personName} paid back`,
+        borrowed: `Borrowed from ${personName}`,
+        paid_back: `Paid back ${personName}`,
+      };
+      const whenLabel = due.occurredTime
+        ? formatFriendlyTime(due.occurredTime, use24Hour)
+        : formatFriendlyDate(due.occurredOn, today);
+      const subParts = [whenLabel];
+      if (due.occurredOn < account.openingDate) subParts.push('Before opening');
+      if (due.note.trim()) subParts.push(due.note.trim());
+
+      items.push({
+        kind: 'due',
+        id: `due_${due.id}`,
+        occurredOn: due.occurredOn,
+        occurredTime: due.occurredTime,
+        createdAt: due.createdAt,
+        title: titleMap[due.kind],
+        subtitle: subParts.join(' · '),
+        icon: incoming ? 'arrow-down-left' : 'arrow-up-right',
+        colorKey: incoming ? 'teal' : 'orange',
+        amountMinor: due.amountMinor,
+        prefix: incoming ? '+' : '−',
+        isIncome: incoming,
+        targetRoute: { pathname: '/people/[id]', params: { id: due.personId } },
+      });
+    }
+
     return items.sort((a, b) => {
       if (a.occurredOn !== b.occurredOn) return b.occurredOn.localeCompare(a.occurredOn);
       if (a.createdAt !== b.createdAt) return b.createdAt - a.createdAt;
       return b.id.localeCompare(a.id);
     });
-  }, [account, transfers, transactions, categoriesById, accountsById, currency, today, use24Hour]);
+  }, [account, transfers, transactions, dueEntries, categoriesById, accountsById, peopleById, currency, today, use24Hour]);
 
   if (!loading && !account) {
     return (

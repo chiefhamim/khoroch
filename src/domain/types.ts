@@ -333,3 +333,71 @@ export interface TxSearchResult {
   rows: Transaction[];
   next?: string;
 }
+
+export type PersonHonorific = 'none' | 'bhai' | 'apu';
+
+export type DueKind = 'lent' | 'borrowed' | 'received_back' | 'paid_back';
+
+export interface Person {
+  id: string;
+  name: string;
+  colorKey: CategoryColorKey;
+  honorific: PersonHonorific;
+  archivedAt: number | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NewPerson {
+  id: string;
+  name: string;
+  colorKey: CategoryColorKey;
+  honorific?: PersonHonorific;
+  archivedAt?: number | null;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface PersonPatch {
+  name?: string;
+  colorKey?: CategoryColorKey;
+  honorific?: PersonHonorific;
+  archivedAt?: number | null;
+}
+
+export interface DueEntry {
+  id: string;
+  personId: string;
+  kind: DueKind;
+  amountMinor: number;
+  accountId: string | null;
+  occurredOn: LocalDate;
+  occurredTime: LocalTime | null;
+  note: string;
+  createdAt: number;
+  updatedAt: number;
+  deletedAt: number | null;
+}
+
+export interface NewDueEntry {
+  id: string;
+  personId: string;
+  kind: DueKind;
+  amountMinor: number;
+  accountId?: string | null;
+  occurredOn: LocalDate;
+  occurredTime?: LocalTime | null;
+  note?: string;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface DueEntryPatch {
+  personId?: string;
+  kind?: DueKind;
+  amountMinor?: number;
+  accountId?: string | null;
+  occurredOn?: LocalDate;
+  occurredTime?: LocalTime | null;
+  note?: string;
+}

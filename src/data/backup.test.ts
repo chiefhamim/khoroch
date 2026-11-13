@@ -227,6 +227,45 @@ async function seedComplexState(repo: MemoryRepo | SqliteRepo) {
   });
   await repo.softDeleteTransfer('tr-deleted-1');
 
+  await repo.insertPerson({
+    id: 'p-rafi',
+    name: 'Rafi',
+    colorKey: 'blue',
+    honorific: 'bhai',
+    createdAt: 1731500550000,
+    updatedAt: 1731500550000,
+  });
+  await repo.insertPerson({
+    id: 'p-old',
+    name: 'Old Friend',
+    colorKey: 'gray',
+    archivedAt: 1731500560000,
+    createdAt: 1731500555000,
+    updatedAt: 1731500560000,
+  });
+  await repo.insertDueEntry({
+    id: 'd-rafi-1',
+    personId: 'p-rafi',
+    kind: 'lent',
+    amountMinor: 200_000,
+    accountId: 'bkash',
+    occurredOn: '2026-11-09',
+    note: 'Book fair',
+    createdAt: 1731500570000,
+    updatedAt: 1731500570000,
+  });
+  await repo.insertDueEntry({
+    id: 'd-rafi-del',
+    personId: 'p-rafi',
+    kind: 'received_back',
+    amountMinor: 10_000,
+    accountId: null,
+    occurredOn: '2026-11-10',
+    createdAt: 1731500580000,
+    updatedAt: 1731500580000,
+  });
+  await repo.softDeleteDueEntry('d-rafi-del');
+
   await repo.setBudget('2026-11-01', '', 200000);
   await repo.setBudget('2026-11-01', 'food_dining', 45000);
   await repo.markDayReviewed('2026-11-10');
@@ -268,6 +307,8 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       expect(preview.deletedTransactionCount).toBe(2); // 1 deleted tx + 1 deleted transfer fee
       expect(preview.accountCount).toBe(3);
       expect(preview.transferCount).toBe(1);
+      expect(preview.personCount).toBe(1);
+      expect(preview.dueCount).toBe(1);
       expect(preview.reviewCount).toBe(2);
       expect(preview.summaryLine).toContain('3 transactions');
 
@@ -281,6 +322,12 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       );
       expect(await dstSqlite.repo.listAllTransfersForBackup()).toEqual(
         await srcSqlite.repo.listAllTransfersForBackup()
+      );
+      expect(await dstSqlite.repo.listPeople({ includeArchived: true })).toEqual(
+        await srcSqlite.repo.listPeople({ includeArchived: true })
+      );
+      expect(await dstSqlite.repo.listAllDueEntriesForBackup()).toEqual(
+        await srcSqlite.repo.listAllDueEntriesForBackup()
       );
       expect(await dstSqlite.repo.listAllTransactionsForBackup()).toEqual(
         await srcSqlite.repo.listAllTransactionsForBackup()
@@ -299,6 +346,8 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
         cats: await memSrc.listCategories({ includeArchived: true }),
         accounts: await memSrc.listAccounts({ includeArchived: true }),
         transfers: await memSrc.listAllTransfersForBackup(),
+        people: await memSrc.listPeople({ includeArchived: true }),
+        dues: await memSrc.listAllDueEntriesForBackup(),
         txs: await memSrc.listAllTransactionsForBackup(),
         budgets: await memSrc.getAllBudgets(),
         reviews: await memSrc.listAllDayReviews(),
@@ -308,11 +357,15 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       await memSrc.deleteAllData();
       expect(await memSrc.listAccounts({ includeArchived: true })).toEqual([]);
       expect(await memSrc.listAllTransfersForBackup()).toEqual([]);
+      expect(await memSrc.listPeople({ includeArchived: true })).toEqual([]);
+      expect(await memSrc.listAllDueEntriesForBackup()).toEqual([]);
 
       await restoreBackupPayload(memSrc, parseAndValidateBackup(memJson));
       expect(await memSrc.listCategories({ includeArchived: true })).toEqual(memSnapshotBefore.cats);
       expect(await memSrc.listAccounts({ includeArchived: true })).toEqual(memSnapshotBefore.accounts);
       expect(await memSrc.listAllTransfersForBackup()).toEqual(memSnapshotBefore.transfers);
+      expect(await memSrc.listPeople({ includeArchived: true })).toEqual(memSnapshotBefore.people);
+      expect(await memSrc.listAllDueEntriesForBackup()).toEqual(memSnapshotBefore.dues);
       expect(await memSrc.listAllTransactionsForBackup()).toEqual(memSnapshotBefore.txs);
       expect(await memSrc.getAllBudgets()).toEqual(memSnapshotBefore.budgets);
       expect(await memSrc.listAllDayReviews()).toEqual(memSnapshotBefore.reviews);
@@ -355,6 +408,8 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
         categories: Record<string, unknown>[];
         accounts?: unknown;
         transfers?: unknown;
+        people?: unknown;
+        due_entries?: unknown;
         transactions: Record<string, unknown>[];
         budgets: Record<string, unknown>[];
         settings: Record<string, unknown>;
@@ -362,20 +417,24 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       };
     };
 
-    // Strip v3-only fields to simulate a v2 backup
+    // Strip v3/v4-only fields to simulate a v2 backup
     const v2Raw = structuredClone(base);
     v2Raw.schema = 2;
     delete v2Raw.data.accounts;
     delete v2Raw.data.transfers;
+    delete v2Raw.data.people;
+    delete v2Raw.data.due_entries;
     v2Raw.data.categories = v2Raw.data.categories.filter((c) => c.id !== 'fees');
     for (const tx of v2Raw.data.transactions) {
       delete tx.accountId;
       delete tx.transferId;
     }
     const migratedV2 = parseAndValidateBackup(JSON.stringify(v2Raw));
-    expect(migratedV2.schema).toBe(3);
+    expect(migratedV2.schema).toBe(4);
     expect(migratedV2.data.accounts).toEqual([]);
     expect(migratedV2.data.transfers).toEqual([]);
+    expect(migratedV2.data.people).toEqual([]);
+    expect(migratedV2.data.due_entries).toEqual([]);
     expect(migratedV2.data.categories.some((c) => c.id === 'fees')).toBe(true);
     expect(migratedV2.data.transactions[0].accountId).toBeNull();
     expect(migratedV2.data.transactions[0].transferId).toBeNull();
@@ -385,6 +444,8 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     v1Raw.schema = 1;
     delete v1Raw.data.accounts;
     delete v1Raw.data.transfers;
+    delete v1Raw.data.people;
+    delete v1Raw.data.due_entries;
     delete v1Raw.data.day_reviews;
     delete v1Raw.data.settings.lastBackupAt;
     delete v1Raw.data.settings.speechDisclosureAccepted;
@@ -400,10 +461,12 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       });
 
     const migratedV1 = parseAndValidateBackup(JSON.stringify(v1Raw));
-    expect(migratedV1.schema).toBe(3);
+    expect(migratedV1.schema).toBe(4);
     expect(migratedV1.data.day_reviews).toEqual([]);
     expect(migratedV1.data.accounts).toEqual([]);
     expect(migratedV1.data.transfers).toEqual([]);
+    expect(migratedV1.data.people).toEqual([]);
+    expect(migratedV1.data.due_entries).toEqual([]);
     expect(migratedV1.data.settings.lastBackupAt).toBeNull();
     expect(migratedV1.data.settings.speechDisclosureAccepted).toBe(false);
     expect(migratedV1.data.settings.lastUsedAccountId).toBeNull();
@@ -437,6 +500,14 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     badTxAccountFk.data.transactions[0].accountId = 'ghost-wallet';
     expect(() => parseAndValidateBackup(JSON.stringify(badTxAccountFk))).toThrow(
       /Transaction row #1.*ghost-wallet/
+    );
+
+    const badDuePersonFk = JSON.parse(baseJson) as {
+      data: { due_entries: Record<string, unknown>[] };
+    };
+    badDuePersonFk.data.due_entries[0].personId = 'ghost-person';
+    expect(() => parseAndValidateBackup(JSON.stringify(badDuePersonFk))).toThrow(
+      /Due row #1.*ghost-person/
     );
   });
 

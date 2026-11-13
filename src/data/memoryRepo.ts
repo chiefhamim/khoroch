@@ -3,8 +3,10 @@ import { normalizeCategoryColorKey } from '@/theme/categoryColors';
 import {
   assertValidAccountInput,
   assertValidCategoryInput,
+  assertValidNewDueEntry,
   assertValidNewTransaction,
   assertValidNewTransfer,
+  assertValidPersonInput,
   isValidBudgetAmount,
 } from '@/domain/validation';
 import {
@@ -15,10 +17,16 @@ import {
   type Category,
   type CurrencyCode,
   type DayReviewRecord,
+  type DueEntry,
+  type DueEntryPatch,
   type LocalDate,
   type NewAccount,
+  type NewDueEntry,
+  type NewPerson,
   type NewTransaction,
   type NewTransfer,
+  type Person,
+  type PersonPatch,
   type Settings,
   type Transaction,
   type TransactionPatch,
@@ -96,6 +104,8 @@ export class MemoryRepo implements Repo {
   private transactions = new Map<string, Transaction>();
   private accounts = new Map<string, Account>();
   private transfers = new Map<string, Transfer>();
+  private people = new Map<string, Person>();
+  private dueEntries = new Map<string, DueEntry>();
   private categories = new Map<string, Category>();
   private budgets = new Map<string, Budget>();
   private seededBudgetPeriods = new Set<LocalDate>();
@@ -598,6 +608,156 @@ export class MemoryRepo implements Repo {
       .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
   }
 
+  async listPeople(opts?: { includeArchived?: boolean }): Promise<Person[]> {
+    const includeArchived = opts?.includeArchived ?? false;
+    return Array.from(this.people.values())
+      .filter((p) => includeArchived || p.archivedAt == null)
+      .map((p) => ({ ...p }))
+      .sort((a, b) => a.createdAt - b.createdAt || a.name.localeCompare(b.name));
+  }
+
+  async getPerson(id: string): Promise<Person | null> {
+    const found = this.people.get(id);
+    return found ? { ...found } : null;
+  }
+
+  async insertPerson(p: NewPerson): Promise<void> {
+    const honorific = p.honorific ?? 'none';
+    const colorKey = normalizeCategoryColorKey(p.colorKey);
+    assertValidPersonInput({
+      id: p.id,
+      name: p.name,
+      colorKey,
+      honorific,
+    });
+    const now = Date.now();
+    this.people.set(p.id, {
+      id: p.id,
+      name: p.name.trim(),
+      colorKey,
+      honorific,
+      archivedAt: p.archivedAt ?? null,
+      createdAt: p.createdAt ?? now,
+      updatedAt: p.updatedAt ?? now,
+    });
+  }
+
+  async updatePerson(id: string, patch: PersonPatch): Promise<void> {
+    const existing = this.people.get(id);
+    if (!existing) return;
+    const merged: Person = {
+      ...existing,
+      name: patch.name !== undefined ? patch.name.trim() : existing.name,
+      colorKey:
+        patch.colorKey !== undefined ? normalizeCategoryColorKey(patch.colorKey) : existing.colorKey,
+      honorific: patch.honorific !== undefined ? patch.honorific : existing.honorific,
+      archivedAt: patch.archivedAt !== undefined ? patch.archivedAt : existing.archivedAt,
+      updatedAt: Date.now(),
+    };
+    assertValidPersonInput(merged);
+    this.people.set(id, merged);
+  }
+
+  async archivePerson(id: string): Promise<void> {
+    const existing = this.people.get(id);
+    if (!existing) return;
+    const now = Date.now();
+    this.people.set(id, {
+      ...existing,
+      archivedAt: existing.archivedAt ?? now,
+      updatedAt: now,
+    });
+  }
+
+  async unarchivePerson(id: string): Promise<void> {
+    const existing = this.people.get(id);
+    if (!existing) return;
+    this.people.set(id, {
+      ...existing,
+      archivedAt: null,
+      updatedAt: Date.now(),
+    });
+  }
+
+  async listDueEntries(opts?: {
+    personId?: string;
+    accountId?: string;
+    includeDeleted?: boolean;
+  }): Promise<DueEntry[]> {
+    const includeDeleted = opts?.includeDeleted ?? false;
+    const rows: DueEntry[] = [];
+    for (const d of this.dueEntries.values()) {
+      if (!includeDeleted && d.deletedAt != null) continue;
+      if (opts?.personId && d.personId !== opts.personId) continue;
+      if (opts?.accountId && d.accountId !== opts.accountId) continue;
+      rows.push({ ...d });
+    }
+    rows.sort((a, b) => {
+      if (a.occurredOn !== b.occurredOn) return b.occurredOn.localeCompare(a.occurredOn);
+      if (a.createdAt !== b.createdAt) return b.createdAt - a.createdAt;
+      return b.id.localeCompare(a.id);
+    });
+    return rows;
+  }
+
+  async getDueEntry(id: string): Promise<DueEntry | null> {
+    const found = this.dueEntries.get(id);
+    return found ? { ...found } : null;
+  }
+
+  async insertDueEntry(d: NewDueEntry): Promise<void> {
+    assertValidNewDueEntry(d);
+    const now = Date.now();
+    this.dueEntries.set(d.id, {
+      id: d.id,
+      personId: d.personId,
+      kind: d.kind,
+      amountMinor: d.amountMinor,
+      accountId: d.accountId ?? null,
+      occurredOn: d.occurredOn,
+      occurredTime: d.occurredTime ?? null,
+      note: d.note ?? '',
+      createdAt: d.createdAt ?? now,
+      updatedAt: d.updatedAt ?? now,
+      deletedAt: null,
+    });
+  }
+
+  async updateDueEntry(id: string, patch: DueEntryPatch): Promise<void> {
+    const existing = this.dueEntries.get(id);
+    if (!existing || existing.deletedAt != null) return;
+    const merged: DueEntry = {
+      ...existing,
+      personId: patch.personId !== undefined ? patch.personId : existing.personId,
+      kind: patch.kind !== undefined ? patch.kind : existing.kind,
+      amountMinor: patch.amountMinor !== undefined ? patch.amountMinor : existing.amountMinor,
+      accountId: patch.accountId !== undefined ? patch.accountId : existing.accountId,
+      occurredOn: patch.occurredOn !== undefined ? patch.occurredOn : existing.occurredOn,
+      occurredTime: patch.occurredTime !== undefined ? patch.occurredTime : existing.occurredTime,
+      note: patch.note !== undefined ? patch.note : existing.note,
+      updatedAt: Date.now(),
+    };
+    assertValidNewDueEntry(merged);
+    this.dueEntries.set(id, merged);
+  }
+
+  async softDeleteDueEntry(id: string): Promise<void> {
+    const existing = this.dueEntries.get(id);
+    if (!existing || existing.deletedAt != null) return;
+    const now = Date.now();
+    this.dueEntries.set(id, {
+      ...existing,
+      deletedAt: now,
+      updatedAt: now,
+    });
+  }
+
+  async listAllDueEntriesForBackup(): Promise<DueEntry[]> {
+    return Array.from(this.dueEntries.values())
+      .map((d) => ({ ...d }))
+      .sort((a, b) => a.createdAt - b.createdAt || a.id.localeCompare(b.id));
+  }
+
   async listCategories(opts?: { includeArchived?: boolean }): Promise<Category[]> {
     const includeArchived = opts?.includeArchived ?? false;
     return Array.from(this.categories.values())
@@ -708,6 +868,8 @@ export class MemoryRepo implements Repo {
   }
 
   async deleteAllData(): Promise<void> {
+    this.dueEntries.clear();
+    this.people.clear();
     this.transactions.clear();
     this.transfers.clear();
     this.accounts.clear();
@@ -731,6 +893,12 @@ export class MemoryRepo implements Repo {
     const prevTransfers = new Map(
       Array.from(this.transfers.entries()).map(([k, v]) => [k, { ...v }])
     );
+    const prevPeople = new Map(
+      Array.from(this.people.entries()).map(([k, v]) => [k, { ...v }])
+    );
+    const prevDueEntries = new Map(
+      Array.from(this.dueEntries.entries()).map(([k, v]) => [k, { ...v }])
+    );
     const prevCategories = new Map(
       Array.from(this.categories.entries()).map(([k, v]) => [k, { ...v }])
     );
@@ -742,6 +910,8 @@ export class MemoryRepo implements Repo {
     const prevSettings = cloneSettings(this.settings);
 
     try {
+      this.dueEntries.clear();
+      this.people.clear();
       this.transactions.clear();
       this.transfers.clear();
       this.accounts.clear();
@@ -774,6 +944,34 @@ export class MemoryRepo implements Repo {
         this.transfers.set(tr.id, { ...tr });
       }
 
+      for (const person of data.people) {
+        const colorKey = normalizeCategoryColorKey(person.colorKey);
+        const honorific = person.honorific ?? 'none';
+        assertValidPersonInput({
+          id: person.id,
+          name: person.name,
+          colorKey,
+          honorific,
+        });
+        this.people.set(person.id, {
+          ...person,
+          name: person.name.trim(),
+          colorKey,
+          honorific,
+        });
+      }
+
+      for (const due of data.due_entries) {
+        assertValidNewDueEntry(due);
+        if (!this.people.has(due.personId)) {
+          throw new Error(`Unknown personId "${due.personId}" on due entry "${due.id}"`);
+        }
+        if (due.accountId !== null && !this.accounts.has(due.accountId)) {
+          throw new Error(`Unknown accountId "${due.accountId}" on due entry "${due.id}"`);
+        }
+        this.dueEntries.set(due.id, { ...due });
+      }
+
       for (const tx of data.transactions) {
         assertValidNewTransaction(tx);
         if (tx.categoryId !== null && !this.categories.has(tx.categoryId)) {
@@ -804,6 +1002,8 @@ export class MemoryRepo implements Repo {
 
       this.settings = cloneSettings(data.settings);
     } catch (err) {
+      this.dueEntries = prevDueEntries;
+      this.people = prevPeople;
       this.transactions = prevTransactions;
       this.accounts = prevAccounts;
       this.transfers = prevTransfers;

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { computeAccountsOverview, type AccountsOverview } from '@/domain/accounts';
 import { todayLocalDate } from '@/domain/dates';
-import type { Account, LocalDate, Transaction, Transfer } from '@/domain/types';
+import type { Account, DueEntry, LocalDate, Transaction, Transfer } from '@/domain/types';
 import { useAppContext } from './AppContext';
 import { useDataVersionStore } from './dataVersion';
 
@@ -12,6 +12,7 @@ export interface UseAccountsResult {
   overview: AccountsOverview;
   transactions: Transaction[];
   transfers: Transfer[];
+  dueEntries: DueEntry[];
   untaggedCount: number;
   loading: boolean;
   error: string | null;
@@ -25,6 +26,7 @@ export function useAccounts(asOfDate?: LocalDate): UseAccountsResult {
   const [allAccounts, setAllAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [dueEntries, setDueEntries] = useState<DueEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
@@ -35,15 +37,17 @@ export function useAccounts(asOfDate?: LocalDate): UseAccountsResult {
     let active = true;
     (async () => {
       try {
-        const [accList, txList, trList] = await Promise.all([
+        const [accList, txList, trList, dueList] = await Promise.all([
           repo.listAccounts({ includeArchived: true }),
           repo.listAllActiveTransactions(),
           repo.listTransfers(),
+          repo.listDueEntries(),
         ]);
         if (!active) return;
         setAllAccounts(accList);
         setTransactions(txList);
         setTransfers(trList);
+        setDueEntries(dueList);
         setError(null);
       } catch {
         if (!active) return;
@@ -68,17 +72,19 @@ export function useAccounts(asOfDate?: LocalDate): UseAccountsResult {
     [allAccounts]
   );
 
+  const currency = settings.currency;
   const overview = useMemo(
     () =>
       computeAccountsOverview({
         accounts: allAccounts,
         transactions,
         transfers,
+        dues: dueEntries,
         asOfDate: resolvedAsOf,
-        currency: settings.currency,
+        currency,
         includeArchived: false,
       }),
-    [allAccounts, transactions, transfers, resolvedAsOf, settings.currency]
+    [allAccounts, transactions, transfers, dueEntries, resolvedAsOf, currency]
   );
 
   const untaggedCount = useMemo(() => {
@@ -102,6 +108,7 @@ export function useAccounts(asOfDate?: LocalDate): UseAccountsResult {
     overview,
     transactions,
     transfers,
+    dueEntries,
     untaggedCount,
     loading,
     error,

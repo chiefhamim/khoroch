@@ -287,4 +287,213 @@ describe('voice/quick-entry parser (TEST-CASES §4)', () => {
     expect(zeroLunch[0].amountMinor).toBeNull();
     expect(zeroLunch[0].needsAmount).toBe(true);
   });
+
+  it('parses every TEST-CASES-v1.2 §D wallet, transfer, due, and missing-wallet case', () => {
+    const accounts = [
+      {
+        id: 'acc-cash',
+        name: 'Cash',
+        kind: 'cash' as const,
+        provider: null,
+        colorKey: 'cash',
+        monogram: null,
+        last4: null,
+        openingBalanceMinor: 100_000,
+        openingDate: TODAY,
+        includeInTotal: true,
+        sortOrder: 0,
+        archivedAt: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'acc-bkash',
+        name: 'bKash',
+        kind: 'mobile_wallet' as const,
+        provider: 'bkash',
+        colorKey: 'bkash',
+        monogram: 'bK',
+        last4: null,
+        openingBalanceMinor: 500_000,
+        openingDate: TODAY,
+        includeInTotal: true,
+        sortOrder: 1,
+        archivedAt: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'acc-nagad',
+        name: 'Nagad',
+        kind: 'mobile_wallet' as const,
+        provider: 'nagad',
+        colorKey: 'nagad',
+        monogram: 'Ng',
+        last4: null,
+        openingBalanceMinor: 200_000,
+        openingDate: TODAY,
+        includeInTotal: true,
+        sortOrder: 2,
+        archivedAt: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+      {
+        id: 'acc-city',
+        name: 'City Bank',
+        kind: 'bank' as const,
+        provider: 'city_bank',
+        colorKey: 'city_bank',
+        monogram: 'CB',
+        last4: null,
+        openingBalanceMinor: 1_000_000,
+        openingDate: TODAY,
+        includeInTotal: true,
+        sortOrder: 3,
+        archivedAt: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    // Mark Nagad active (accidentally typed archivedAt: 1 above, let's fix to null cleanly!)
+    accounts[2].archivedAt = null;
+
+    const people = [
+      {
+        id: 'p-rafi',
+        name: 'Rafi',
+        colorKey: 'blue' as const,
+        honorific: 'bhai' as const,
+        archivedAt: null,
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ];
+    const ctx = { accounts, people };
+
+    // §D.1: "350 lunch bkash"
+    expect(parse('350 lunch bkash', TODAY, undefined, ctx)).toEqual([
+      {
+        id: 'draft-0',
+        type: 'expense',
+        amountMinor: 35_000,
+        categoryId: 'food_dining',
+        accountId: 'acc-bkash',
+        description: 'Lunch',
+        occurredOn: TODAY,
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    ]);
+
+    // §D.2: "paid 1200 electricity from nagad"
+    expect(parse('paid 1200 electricity from nagad', TODAY, undefined, ctx)).toEqual([
+      {
+        id: 'draft-0',
+        type: 'expense',
+        amountMinor: 120_000,
+        categoryId: 'utilities',
+        accountId: 'acc-nagad',
+        description: 'Electricity bill',
+        occurredOn: TODAY,
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    ]);
+
+    // §D.3: "got 25000 salary in city bank"
+    expect(parse('got 25000 salary in city bank', TODAY, undefined, ctx)).toEqual([
+      {
+        id: 'draft-0',
+        type: 'income',
+        amountMinor: 2_500_000,
+        categoryId: 'salary',
+        accountId: 'acc-city',
+        description: 'Salary',
+        occurredOn: TODAY,
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    ]);
+
+    // §D.4: "cash out 1000 bkash"
+    expect(parse('cash out 1000 bkash', TODAY, undefined, ctx)).toEqual([
+      {
+        id: 'draft-0',
+        draftKind: 'transfer',
+        type: 'expense',
+        amountMinor: 100_000,
+        categoryId: null,
+        fromAccountId: 'acc-bkash',
+        toAccountId: 'acc-cash',
+        feeMinor: 0,
+        asksFee: true,
+        description: 'Cash out',
+        occurredOn: TODAY,
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    ]);
+
+    // §D.5: "sent 500 to rafi bkash"
+    expect(parse('sent 500 to rafi bkash', TODAY, undefined, ctx)).toEqual([
+      {
+        id: 'draft-0',
+        draftKind: 'due',
+        type: 'expense',
+        amountMinor: 50_000,
+        categoryId: null,
+        accountId: 'acc-bkash',
+        dueKind: 'lent',
+        personId: 'p-rafi',
+        personName: 'Rafi',
+        description: 'Lent to Rafi',
+        occurredOn: TODAY,
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    ]);
+
+    // §D.6: "rafi paid me back 500"
+    expect(parse('rafi paid me back 500', TODAY, undefined, ctx)).toEqual([
+      {
+        id: 'draft-0',
+        draftKind: 'due',
+        type: 'income',
+        amountMinor: 50_000,
+        categoryId: null,
+        accountId: null,
+        dueKind: 'received_back',
+        personId: 'p-rafi',
+        personName: 'Rafi',
+        description: 'Rafi paid back',
+        occurredOn: TODAY,
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    ]);
+
+    // §D.7: "350 lunch upay" when no Upay wallet exists
+    expect(parse('350 lunch upay', TODAY, undefined, ctx)).toEqual([
+      {
+        id: 'draft-0',
+        type: 'expense',
+        amountMinor: 35_000,
+        categoryId: 'food_dining',
+        missingWalletName: 'Upay',
+        missingWalletHint: 'No Upay wallet yet: add it?',
+        description: 'Lunch',
+        occurredOn: TODAY,
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    ]);
+  });
 });

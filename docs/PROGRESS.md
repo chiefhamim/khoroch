@@ -432,13 +432,13 @@ Re-read: PLAN §2, §3 (wallet identity), §4 · mockup Home/Add/Ledger
 
 **Done when:** CHECKS pass · component tests: transfer form saves the transfer + fee atomically; the wallet chip defaults to last used · PHONE CHECK (dev app, sample wallets): reproduce TEST-CASES-v1.2 §A by hand and screenshot Home showing **৳6,531.50** total, bKash **৳11,131.50**, Card "৳5,600 due".
 
-## Phase 18 — People & dues  [ ]
+## Phase 18 — People & dues  [x]
 Re-read: PLAN §2, §4 (v4) · TEST-CASES-v1.2 §B, §D
-- [ ] Migration v4 + repo + `src/domain/dues.ts` with every §B case
-- [ ] Home dues line ("Rafi owes you ৳1,500 · You owe Shuvo ৳300") → **People tab** (open / settled) → person detail per mockup screen 7 (timeline, "Settle up" sheet that prefills the outstanding amount)
-- [ ] Reminder message per PLAN §8.4: English | বাংলা toggle, editable text, honorific per person, WhatsApp / Messenger / Copy (+ tests for both templates incl. Bangla digits)
-- [ ] Add flows: a "Lend / Borrow" entry point in the Add screen (tile in the category grid per mockup, opening a dues form), wallet optional
-- [ ] Parser: every §D row (wallet words, cash out → transfer, sent to X → lent, X paid me back → received_back)
+- [x] Migration v4 + repo + `src/domain/dues.ts` with every §B case
+- [x] Home dues line ("Rafi owes you ৳1,500 · You owe Shuvo ৳300") → **People tab** (open / settled) → person detail per mockup screen 7 (timeline, "Settle up" sheet that prefills the outstanding amount)
+- [x] Reminder message per PLAN §8.4: English | বাংলা toggle, editable text, honorific per person, WhatsApp / Messenger / Copy (+ tests for both templates incl. Bangla digits)
+- [x] Add flows: a "Lend / Borrow" entry point in the Add screen (tile in the category grid per mockup, opening a dues form), wallet optional
+- [x] Parser: every §D row (wallet words, cash out → transfer, sent to X → lent, X paid me back → received_back)
 
 **Done when:** CHECKS pass · §B and §D tests pass · PHONE CHECK (dev app): create Rafi/Nafees from §B by hand, screenshot the Home dues line (৳2,000 / ৳300) and Rafi's detail with the বাংলা reminder.
 
@@ -550,6 +550,15 @@ Re-read: AGENTS §6 · PLAN §6
   - **CHECKS:** `npm run typecheck` (0 errors) · `npx expo lint` (0 errors, 0 warnings) · `npm test -- --no-color` (23 passed / 23 suites, 137 passed / 137 tests) · `npx expo export --platform web --output-dir dist-check` (3182 modules, 33 bundles, exit 0; removed `dist-check`).
   - **PHONE CHECK (dev app, `SM_S938B` via ADB `192.168.0.154:45643`):** Walked fresh onboarding (`Step 6 of 7` `"Your wallets"`), created Scenario A wallets (`Cash` ৳0 Nov 10, `bKash` ৳10,000 Nov 10, `Card ending 4821` ৳5,000 due Nov 1, `Savings` ৳300,000 Excluded Nov 1), entered `e1`–`e5` and `t1` (`bKash → Cash` ৳1,000 + `18.50` fee); verified Home shows **৳6,531.50** total (`In ৳2,500` / `Out ৳2,418.50`), Cash **৳1,000**, bKash **৳11,131.50**, Card **৳5,600 due**, tap-to-hide toggles `"Hidden"`, Ledger underlined tabs filter cleanly (`bKash` shows `Spent ৳368.50`), Wallet Detail renders 30-day chart (`৳11,131.50`), and `logcat` reported 0 JS/Android runtime errors. Caught & fixed Manage Wallets Card subtitle clipping (`"Ending 4821"`). Screenshots (`docs/v1.2/after/phase-17/`): `01-launch.png`, `02-onboarding-wallets.png`, `03-home-wallets.png`, `04-home-hidden.png`, `04-add-out-bkash.png`, `05-add-transfer.png`, `06-ledger-wallets.png`, `06b-ledger-bkash-tab.png`, `07-wallets-manage-initial.png`, `08-wallet-detail.png`.
   - **BLOCKED:** None · **D-entries:** `D-011`
+- **2026-11-13 · Phase 18 — People & dues**
+  - **Built:**
+    - Schema **v4** (`src/data/migrations.ts`, `src/data/migrations.test.ts`): additive `people` (`honorific` `'none' | 'bhai' | 'apu'`), `due_entries`, and `idx_due_person`; repo CRUD + atomic restore (`src/data/repo.ts`, `sqliteRepo.ts`, `memoryRepo.ts`) and Backup v4 round-trip (`src/data/backup.ts`, `src/data/backup.test.ts`).
+    - Domain math & reminders (`src/domain/dues.ts`, `src/domain/dues.test.ts`, `src/domain/validation.ts`): signed net dues (`You'll get`, `You owe`, open cycle date), overpayment check (`"This is ৳X more than Name owes"`), and editable EN/BN templates (`"Rafi ভাই, সালাম। ৯ নভেম্বরের ৳১,৫০০ টাকার কথা মনে করিয়ে দিলাম। তাড়া নেই, সুবিধামতো দিও।"`).
+    - UI & Navigation (`src/state/usePeople.ts`, `useAccounts.ts`, `src/ui/PersonAvatar.tsx`, `PersonEditorSheet.tsx`, `DueEntrySheet.tsx`, `src/app/(tabs)/people.tsx`, `src/app/people/[id].tsx`, `src/app/(tabs)/index.tsx`, `src/app/wallets/[id].tsx`, `src/ui/TransactionForm.tsx`, `src/app/transaction/new.tsx`): Home `overview-dues-card`, People `Open | Settled` tabs, Person detail (`Settle up` prefill, overpayment warning, EN/বাংলা + honorific pills + `expo-clipboard` / Share, entries timeline), wallet balance & chart due integration, and `Lend / Borrow` category tile in Add.
+    - Parser §D (`src/voice/parser.ts`, `src/voice/parser.test.ts`, `src/app/quick-entry.tsx`): wallet matching (`bKash`, `Nagad`, `City Bank`), missing-wallet hint banner (`"No Upay wallet yet: add it?"`), `cash out` -> transfer with editable fee `0`, and `sent to X` / `X paid me back` -> due drafts.
+  - **CHECKS:** `npm run typecheck` (0 errors) · `npx expo lint` (0 errors, 0 warnings) · `npm test -- --no-color` (24 passed / 24 suites, 143 passed / 143 tests incl. `dues.test.ts`, `migrations.test.ts`, `backup.test.ts`, `parser.test.ts`) · `npx expo export --platform web --output-dir dist-check` (34 web bundles, exit 0; removed `dist-check`).
+  - **PHONE CHECK (dev app, `SM_S938B` via ADB `192.168.0.154:39335`):** Created Scenario §B entries (`Rafi` lent `2,000` on `Nov 9` from bKash + `received_back 500` into bKash -> `৳1,500`; `Sumi` lent `500` -> `৳500`; `Tareq` borrowed `300` -> `You owe ৳300`; `Nafees` borrowed `2,000` + `paid_back 2,000` -> `Settled`), tested `Settle up` overpayment warning (`"This is ৳500 more than Rafi owes"`), tested বাংলা + `ভাই` (`"Rafi ভাই, সালাম। ৯ নভেম্বরের ৳১,৫০০..."`), English toggle, `Copy` clipboard write, Home card (`"You'll get ৳2,000 · You owe ৳300"` + bKash `৳11,631.50`), and Quick Entry §D inputs (`350 lunch upay` missing-wallet banner, `cash out 1000 bkash` transfer, `sent 500 to rafi bkash` due), with 0 JS/Android errors in `logcat`. Screenshots (`docs/v1.2/after/phase-18/`): `03-due-entry-sheet.png`–`15-quick-entry-due.png`.
+  - **BLOCKED:** None · **D-entries:** `D-012`
 
 ## v1.2 summary
 <!-- written at the end -->

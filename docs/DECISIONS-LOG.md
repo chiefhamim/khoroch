@@ -112,3 +112,12 @@ Format:
   1. Keep `decimal-pad` on wallet balance inputs (`src/ui/WalletEditorSheet.tsx`, `src/app/onboarding/wallets.tsx`) and add an accessible explicit sign toggle pill (`"Positive balance (+)"` / `"Tap for negative (−)"` / `"Amount due (−)"`), storing signed `openingBalanceMinor`.
   2. Fold `tx.transferId` rows into their parent transfer row in Ledger (`src/app/(tabs)/ledger.tsx`) and Wallet detail (`src/app/wallets/[id].tsx`) whenever that parent transfer is in the visible list; when filtering by category (`Fees & charges`) or type (`expense`), linked transfers are not loaded so the fee row remains visible and accurate.
 - Easy to reverse? Yes — sign toggle state in two wallet components and the `visibleTransferIds` check in Ledger/Wallet detail.
+
+## D-012 — Persisted `people.honorific`, reminder share fallbacks, and Quick Entry draft confirmation  (Phase 18, 2026-11-13)
+- Question: Three Phase 18 details needed explicit choices: (1) Whether per-person honorific (`none | bhai | apu`) for EN/BN reminders lives only in component state or is persisted; (2) How the Messenger / WhatsApp buttons on Person detail share reminders on Android without brittle URL scheme failures; (3) How Quick Entry handles `cash out` fees and unknown people/wallets.
+- Options considered: Keep honorific in local screen state / Persist `honorific TEXT NOT NULL DEFAULT 'none'` on `people` in schema v4 + backup v4; require `fb-messenger://` scheme query / use `Share.share` + `expo-clipboard` fallback for Messenger & WhatsApp; auto-create wallets/people during parse / keep drafts strictly non-mutating until Save with an actionable `"No Upay wallet yet: add it?"` banner.
+- Chose:
+  1. Persist `people.honorific` (`'none' | 'bhai' | 'apu'`) in migration v4 (`src/data/migrations.ts`) and backup v4 (`src/data/backup.ts`) so Rafi `ভাই` / Sumi `আপু` choices survive app restarts and backups.
+  2. Use WhatsApp deep link (`whatsapp://send` / `wa.me`) with `Share.share` fallback, and system `Share.share` (+ `expo-clipboard` pre-copy) for Messenger in `src/app/people/[id].tsx`.
+  3. Keep `src/voice/parser.ts` pure: return `feeMinor: null` + `asksFee: true` on `cash out` (prefilled `0` in review UI), hint missing wallets (`missingWalletHint`), and create new `Person` records only when the user confirms Save in `src/app/quick-entry.tsx`.
+- Easy to reverse? Yes — localized to v4 schema/backup normalization, `people/[id].tsx` share handlers, and `quick-entry.tsx` draft submission.

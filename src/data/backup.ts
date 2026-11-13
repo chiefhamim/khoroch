@@ -1,6 +1,7 @@
 import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_BY_ID } from '@/domain/categories';
 import { formatLocalDate, isValidLocalDate } from '@/domain/dates';
 import { MAX_AMOUNT_MINOR } from '@/domain/money';
+import { normalizeCategoryColorKey } from '@/theme/categoryColors';
 import {
   ACCENT_THEMES,
   CATEGORY_COLOR_KEYS,
@@ -13,7 +14,10 @@ import {
   type CategoryColorKey,
   type CurrencyCode,
   type DayReviewRecord,
+  type DueEntry,
   type LocalDate,
+  type Person,
+  type PersonHonorific,
   type Settings,
   type ThemePreference,
   type Transaction,
@@ -27,13 +31,15 @@ import {
   MAX_PROFILE_NAME_LENGTH,
   validateAccountInput,
   validateCategoryInput,
+  validateNewDueEntry,
   validateNewTransaction,
   validateNewTransfer,
+  validatePersonInput,
 } from '@/domain/validation';
 import type { BackupDataSnapshot, Repo } from './repo';
 
 export const BACKUP_APP_ID = 'budget-app';
-export const BACKUP_SCHEMA_VERSION = 3;
+export const BACKUP_SCHEMA_VERSION = 4;
 export const MAX_BACKUP_BYTES = 20 * 1024 * 1024; // 20 MB
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
@@ -57,6 +63,8 @@ export interface BackupPreview {
   categoryCount: number;
   accountCount: number;
   transferCount: number;
+  personCount: number;
+  dueCount: number;
   budgetCount: number;
   reviewCount: number;
   summaryLine: string;
@@ -117,16 +125,27 @@ export async function exportBackupPayload(
   repo: Repo,
   exportedAt: string = new Date().toISOString()
 ): Promise<BackupFilePayload> {
-  const [categories, accounts, transfers, transactions, budgets, settings, dayReviews] =
-    await Promise.all([
-      repo.listCategories({ includeArchived: true }),
-      repo.listAccounts({ includeArchived: true }),
-      repo.listAllTransfersForBackup(),
-      repo.listAllTransactionsForBackup(),
-      repo.getAllBudgets(),
-      repo.getSettings(),
-      repo.listAllDayReviews(),
-    ]);
+  const [
+    categories,
+    accounts,
+    transfers,
+    people,
+    dueEntries,
+    transactions,
+    budgets,
+    settings,
+    dayReviews,
+  ] = await Promise.all([
+    repo.listCategories({ includeArchived: true }),
+    repo.listAccounts({ includeArchived: true }),
+    repo.listAllTransfersForBackup(),
+    repo.listPeople({ includeArchived: true }),
+    repo.listAllDueEntriesForBackup(),
+    repo.listAllTransactionsForBackup(),
+    repo.getAllBudgets(),
+    repo.getSettings(),
+    repo.listAllDayReviews(),
+  ]);
 
   return {
     app: BACKUP_APP_ID,
@@ -172,6 +191,28 @@ export async function exportBackupPayload(
         createdAt: tr.createdAt,
         updatedAt: tr.updatedAt,
         deletedAt: tr.deletedAt,
+      })),
+      people: people.map((p) => ({
+        id: p.id,
+        name: p.name,
+        colorKey: p.colorKey,
+        honorific: p.honorific,
+        archivedAt: p.archivedAt,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+      })),
+      due_entries: dueEntries.map((d) => ({
+        id: d.id,
+        personId: d.personId,
+        kind: d.kind,
+        amountMinor: d.amountMinor,
+        accountId: d.accountId,
+        occurredOn: d.occurredOn,
+        occurredTime: d.occurredTime,
+        note: d.note,
+        createdAt: d.createdAt,
+        updatedAt: d.updatedAt,
+        deletedAt: d.deletedAt,
       })),
       transactions: transactions.map((tx) => ({
         id: tx.id,
@@ -387,6 +428,100 @@ function validateTransferRow(
     toAccountId: toId,
     amountMinor: obj.amountMinor as number,
     feeMinor: feeMinor as number,
+    occurredOn: obj.occurredOn as LocalDate,
+    occurredTime: (obj.occurredTime ?? null) as string | null,
+    note: note as string,
+    createdAt,
+    updatedAt,
+    deletedAt,
+  };
+}
+
+function validatePersonRow(raw: unknown, index: number): Person {
+  const obj = asPlainObject(raw, `Person row #${index + 1}`);
+  const idLabel = typeof obj.id === 'string' && obj.id.trim() ? obj.id : `index ${index}`;
+  const label = `Person row #${index + 1} (${idLabel})`;
+
+  const honorific = obj.honorific ?? 'none';
+  const check = validatePersonInput({
+    id: obj.id,
+    name: obj.name,
+    colorKey: obj.colorKey,
+    honorific,
+  });
+  if (!check.valid) {
+    throw new Error(`${label}: ${check.errors.join(', ')}`);
+  }
+
+  const archivedAt =
+    obj.archivedAt === null || obj.archivedAt === undefined
+      ? null
+      : assertFiniteInteger(obj.archivedAt, `${label} archivedAt`);
+  const createdAt = assertFiniteInteger(obj.createdAt, `${label} createdAt`);
+  const updatedAt = assertFiniteInteger(obj.updatedAt, `${label} updatedAt`);
+
+  return {
+    id: obj.id as string,
+    name: (obj.name as string).trim(),
+    colorKey: normalizeCategoryColorKey(obj.colorKey as string),
+    honorific: honorific as PersonHonorific,
+    archivedAt,
+    createdAt,
+    updatedAt,
+  };
+}
+
+function validateDueEntryRow(
+  raw: unknown,
+  index: number,
+  personIds: ReadonlySet<string>,
+  accountIds: ReadonlySet<string>
+): DueEntry {
+  const obj = asPlainObject(raw, `Due row #${index + 1}`);
+  const idLabel = typeof obj.id === 'string' && obj.id.trim() ? obj.id : `index ${index}`;
+  const label = `Due row #${index + 1} (${idLabel})`;
+
+  const note = obj.note ?? '';
+  const check = validateNewDueEntry({
+    id: obj.id,
+    personId: obj.personId,
+    kind: obj.kind,
+    amountMinor: obj.amountMinor,
+    accountId: obj.accountId,
+    occurredOn: obj.occurredOn,
+    occurredTime: obj.occurredTime,
+    note,
+  });
+  if (!check.valid) {
+    throw new Error(`${label}: ${check.errors.join(', ')}`);
+  }
+
+  const personId = obj.personId as string;
+  if (!personIds.has(personId)) {
+    throw new Error(`${label}: missing person "${personId}".`);
+  }
+
+  if (
+    obj.accountId !== null &&
+    obj.accountId !== undefined &&
+    (typeof obj.accountId !== 'string' || !accountIds.has(obj.accountId))
+  ) {
+    throw new Error(`${label}: missing account "${String(obj.accountId)}".`);
+  }
+
+  const createdAt = assertFiniteInteger(obj.createdAt, `${label} createdAt`);
+  const updatedAt = assertFiniteInteger(obj.updatedAt, `${label} updatedAt`);
+  const deletedAt =
+    obj.deletedAt === null || obj.deletedAt === undefined
+      ? null
+      : assertFiniteInteger(obj.deletedAt, `${label} deletedAt`);
+
+  return {
+    id: obj.id as string,
+    personId,
+    kind: obj.kind as DueEntry['kind'],
+    amountMinor: obj.amountMinor as number,
+    accountId: (obj.accountId ?? null) as string | null,
     occurredOn: obj.occurredOn as LocalDate,
     occurredTime: (obj.occurredTime ?? null) as string | null,
     note: note as string,
@@ -655,6 +790,16 @@ export function parseAndValidateBackup(
   if (!Array.isArray(transfersRaw)) {
     throw new Error('Backup.data.transfers must be an array.');
   }
+  const peopleRaw =
+    dataObj.people === undefined && root.schema < 4 ? [] : dataObj.people;
+  if (!Array.isArray(peopleRaw)) {
+    throw new Error('Backup.data.people must be an array.');
+  }
+  const dueEntriesRaw =
+    dataObj.due_entries === undefined && root.schema < 4 ? [] : dataObj.due_entries;
+  if (!Array.isArray(dueEntriesRaw)) {
+    throw new Error('Backup.data.due_entries must be an array.');
+  }
   if (!Array.isArray(dataObj.transactions)) {
     throw new Error('Backup.data.transactions must be an array.');
   }
@@ -717,6 +862,28 @@ export function parseAndValidateBackup(
     transfers.push(tr);
   }
 
+  const people: Person[] = [];
+  const personIds = new Set<string>();
+  for (let i = 0; i < peopleRaw.length; i += 1) {
+    const person = validatePersonRow(peopleRaw[i], i);
+    if (personIds.has(person.id)) {
+      throw new Error(`Person row #${i + 1} (${person.id}): duplicate person id.`);
+    }
+    personIds.add(person.id);
+    people.push(person);
+  }
+
+  const dueEntries: DueEntry[] = [];
+  const dueIds = new Set<string>();
+  for (let i = 0; i < dueEntriesRaw.length; i += 1) {
+    const due = validateDueEntryRow(dueEntriesRaw[i], i, personIds, accountIds);
+    if (dueIds.has(due.id)) {
+      throw new Error(`Due row #${i + 1} (${due.id}): duplicate due id.`);
+    }
+    dueIds.add(due.id);
+    dueEntries.push(due);
+  }
+
   const transactions: Transaction[] = [];
   const txIds = new Set<string>();
   for (let i = 0; i < dataObj.transactions.length; i += 1) {
@@ -772,6 +939,8 @@ export function parseAndValidateBackup(
       categories,
       accounts,
       transfers,
+      people,
+      due_entries: dueEntries,
       transactions,
       budgets,
       settings,
@@ -794,6 +963,8 @@ export function buildBackupPreview(payload: BackupFilePayload): BackupPreview {
   const activeCategoryCount = payload.data.categories.filter((c) => c.archivedAt === null).length;
   const activeAccountCount = payload.data.accounts.filter((a) => a.archivedAt === null).length;
   const activeTransferCount = payload.data.transfers.filter((tr) => tr.deletedAt === null).length;
+  const activePersonCount = payload.data.people.filter((p) => p.archivedAt === null).length;
+  const activeDueCount = payload.data.due_entries.filter((d) => d.deletedAt === null).length;
 
   let dateRangeLabel = 'No transactions';
   if (activeTxs.length > 0) {
@@ -824,6 +995,8 @@ export function buildBackupPreview(payload: BackupFilePayload): BackupPreview {
     categoryCount: activeCategoryCount,
     accountCount: activeAccountCount,
     transferCount: activeTransferCount,
+    personCount: activePersonCount,
+    dueCount: activeDueCount,
     budgetCount: payload.data.budgets.length,
     reviewCount: payload.data.day_reviews.length,
     summaryLine,

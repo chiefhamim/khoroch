@@ -308,3 +308,106 @@ export function assertValidNewTransfer(tr: Parameters<typeof validateNewTransfer
     throw new Error(`Invalid transfer: ${res.errors.join(', ')}`);
   }
 }
+
+export const MAX_PERSON_NAME_LENGTH = 60;
+const VALID_HONORIFICS = new Set(['none', 'bhai', 'apu']);
+const VALID_DUE_KINDS = new Set(['lent', 'borrowed', 'received_back', 'paid_back']);
+
+export function validatePersonInput(p: {
+  id: unknown;
+  name: unknown;
+  colorKey: unknown;
+  honorific?: unknown;
+}): ValidationResult {
+  const errors: string[] = [];
+
+  if (typeof p.id !== 'string' || p.id.trim().length === 0) {
+    errors.push('invalid_person_id');
+  }
+  if (typeof p.name !== 'string' || p.name.trim().length === 0) {
+    errors.push('invalid_person_name');
+  } else if (p.name.trim().length > MAX_PERSON_NAME_LENGTH) {
+    errors.push('person_name_too_long');
+  }
+  if (typeof p.colorKey !== 'string' || p.colorKey.trim().length === 0) {
+    errors.push('invalid_color');
+  }
+  if (
+    p.honorific !== undefined &&
+    p.honorific !== null &&
+    (typeof p.honorific !== 'string' || !VALID_HONORIFICS.has(p.honorific))
+  ) {
+    errors.push('invalid_honorific');
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function assertValidPersonInput(p: Parameters<typeof validatePersonInput>[0]): void {
+  const res = validatePersonInput(p);
+  if (!res.valid) {
+    throw new Error(`Invalid person: ${res.errors.join(', ')}`);
+  }
+}
+
+export function validateNewDueEntry(d: {
+  id: unknown;
+  personId: unknown;
+  kind: unknown;
+  amountMinor: unknown;
+  accountId?: unknown;
+  occurredOn: unknown;
+  occurredTime?: unknown;
+  note?: unknown;
+}): ValidationResult {
+  const errors: string[] = [];
+
+  if (typeof d.id !== 'string' || d.id.trim().length === 0) {
+    errors.push('invalid_due_id');
+  }
+  if (typeof d.personId !== 'string' || d.personId.trim().length === 0) {
+    errors.push('invalid_person_id');
+  }
+  if (typeof d.kind !== 'string' || !VALID_DUE_KINDS.has(d.kind)) {
+    errors.push('invalid_due_kind');
+  }
+  if (
+    typeof d.amountMinor !== 'number' ||
+    !Number.isInteger(d.amountMinor) ||
+    d.amountMinor <= 0 ||
+    d.amountMinor > MAX_AMOUNT_MINOR
+  ) {
+    errors.push('invalid_amount');
+  }
+  if (
+    d.accountId !== undefined &&
+    d.accountId !== null &&
+    (typeof d.accountId !== 'string' || d.accountId.trim().length === 0)
+  ) {
+    errors.push('invalid_account_id');
+  }
+  if (typeof d.occurredOn !== 'string' || !isValidLocalDate(d.occurredOn)) {
+    errors.push('invalid_date');
+  }
+  if (
+    d.occurredTime !== undefined &&
+    d.occurredTime !== null &&
+    (typeof d.occurredTime !== 'string' || !isValidLocalTime(d.occurredTime))
+  ) {
+    errors.push('invalid_time');
+  }
+  if (d.note !== undefined && d.note !== null) {
+    if (typeof d.note !== 'string' || d.note.length > MAX_NOTE_LENGTH) {
+      errors.push('note_too_long');
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function assertValidNewDueEntry(d: Parameters<typeof validateNewDueEntry>[0]): void {
+  const res = validateNewDueEntry(d);
+  if (!res.valid) {
+    throw new Error(`Invalid due entry: ${res.errors.join(', ')}`);
+  }
+}

@@ -6,10 +6,16 @@ import {
   type Category,
   type CurrencyCode,
   type DayReviewRecord,
+  type DueEntry,
+  type DueEntryPatch,
   type LocalDate,
   type NewAccount,
+  type NewDueEntry,
+  type NewPerson,
   type NewTransaction,
   type NewTransfer,
+  type Person,
+  type PersonPatch,
   type Settings,
   type Transaction,
   type TransactionPatch,
@@ -25,6 +31,8 @@ export interface BackupDataSnapshot {
   categories: Category[];
   accounts: Account[];
   transfers: Transfer[];
+  people: Person[];
+  due_entries: DueEntry[];
   transactions: Transaction[];
   budgets: Budget[];
   settings: Settings;
@@ -71,6 +79,24 @@ export interface Repo {
     includeDeleted?: boolean;
   }): Promise<Transfer[]>;
   listAllTransfersForBackup(): Promise<Transfer[]>;
+
+  // People & Dues
+  listPeople(opts?: { includeArchived?: boolean }): Promise<Person[]>;
+  getPerson(id: string): Promise<Person | null>;
+  insertPerson(p: NewPerson): Promise<void>;
+  updatePerson(id: string, patch: PersonPatch): Promise<void>;
+  archivePerson(id: string): Promise<void>;
+  unarchivePerson(id: string): Promise<void>;
+  listDueEntries(opts?: {
+    personId?: string;
+    accountId?: string;
+    includeDeleted?: boolean;
+  }): Promise<DueEntry[]>;
+  getDueEntry(id: string): Promise<DueEntry | null>;
+  insertDueEntry(d: NewDueEntry): Promise<void>;
+  updateDueEntry(id: string, patch: DueEntryPatch): Promise<void>;
+  softDeleteDueEntry(id: string): Promise<void>;
+  listAllDueEntriesForBackup(): Promise<DueEntry[]>;
 
   // Categories
   listCategories(opts?: { includeArchived?: boolean }): Promise<Category[]>;

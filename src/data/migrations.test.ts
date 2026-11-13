@@ -207,7 +207,7 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
 
       const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
       expect(ver?.user_version).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(3);
+      expect(LATEST_SCHEMA_VERSION).toBe(4);
 
       const colsAfter = await db.getAllAsync<{ name: string }>('PRAGMA table_info(categories)');
       expect(colsAfter.some((c) => c.name === 'color_key')).toBe(true);
@@ -353,7 +353,7 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
       await runMigrations(db);
 
       const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-      expect(ver?.user_version).toBe(3);
+      expect(ver?.user_version).toBe(4);
 
       const txCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(transactions)');
       expect(txCols.some((c) => c.name === 'account_id')).toBe(true);
@@ -433,6 +433,30 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
       expect((await repo.listTransactionsByAccount('bkash')).map((t) => t.id)).toEqual([
         'tr-post-mig:fee',
       ]);
+
+      // v4 people and due_entries tables also created and writable
+      const v4Tables = await db.getAllAsync<{ name: string }>(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('people', 'due_entries')`
+      );
+      expect(v4Tables.map((t) => t.name).sort()).toEqual(['due_entries', 'people']);
+
+      await repo.insertPerson({
+        id: 'p-rafi',
+        name: 'Rafi',
+        colorKey: 'blue',
+        honorific: 'bhai',
+      });
+      await repo.insertDueEntry({
+        id: 'd-rafi-1',
+        personId: 'p-rafi',
+        kind: 'lent',
+        amountMinor: 200_000,
+        accountId: 'bkash',
+        occurredOn: '2026-11-13',
+        note: 'Book fair',
+      });
+      expect(await repo.listPeople()).toHaveLength(1);
+      expect(await repo.listDueEntries({ personId: 'p-rafi' })).toHaveLength(1);
     } finally {
       close();
     }
