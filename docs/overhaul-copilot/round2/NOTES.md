@@ -23,3 +23,7 @@ The month grid and exact-time state still need a separate phone capture and visu
 The wallet editor now presents the opening balance as a first-class amount with an in-sheet keypad and an as-of date. The Wallets list has an explicit starting-balance action for zero-balance wallets.
 
 The requested Adjust balance action is not implemented yet; the current editor changes the opening balance rather than recording a separate adjustment entry. This remains a known gap for the final report.
+
+## Verification
+
+`npm run typecheck`, the full Jest suite (24 suites, 146 tests), and the web export pass. Expo lint has no errors and retains the existing wallet-detail hook warning. The current Android debug and release builds are blocked by a Windows Ninja/CMake failure while compiling React Native Reanimated because it cannot create a deeply nested object directory.
