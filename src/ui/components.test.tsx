@@ -53,12 +53,12 @@ describe('v2 design system components', () => {
 
     const negTaka = view.getByTestId('m-neg-taka');
     expect(StyleSheet.flatten(negTaka.props.style).fontFamily).toBe('HindSiliguri_600SemiBold');
-    expect(StyleSheet.flatten(negTaka.props.style).fontSize).toBe(8);
+    expect(StyleSheet.flatten(negTaka.props.style).fontSize).toBe(9);
     expect(StyleSheet.flatten(negTaka.props.style).opacity).toBe(1);
 
     const heroTaka = view.getByTestId('m-hero-taka');
     expect(StyleSheet.flatten(heroTaka.props.style).fontFamily).toBe('HindSiliguri_600SemiBold');
-    expect(StyleSheet.flatten(heroTaka.props.style).fontSize).toBe(21);
+    expect(StyleSheet.flatten(heroTaka.props.style).fontSize).toBe(24);
     expect(StyleSheet.flatten(heroTaka.props.style).opacity).toBe(1);
 
     const dec = view.getByTestId('m-dec');

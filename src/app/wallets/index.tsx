@@ -279,6 +279,16 @@ export default function ManageWalletsScreen() {
                     />
                   </View>
                 </View>
+                {acc.openingBalanceMinor === 0 ? (
+                  <Button
+                    testID={`wallet-set-starting-${acc.id}`}
+                    title={t('wallets.setStartingBalance')}
+                    variant="secondary"
+                    size="sm"
+                    onPress={() => openEdit(acc)}
+                    style={styles.startingBalanceButton}
+                  />
+                ) : null}
 
                 {idx < accounts.length - 1 ? (
                   <View
@@ -542,6 +552,11 @@ const styles = StyleSheet.create({
   },
   flex1: {
     flex: 1,
+  },
+  startingBalanceButton: {
+    alignSelf: 'flex-start',
+    marginLeft: 68,
+    marginBottom: 8,
     minWidth: 0,
   },
 });

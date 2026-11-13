@@ -45,6 +45,7 @@ import { Chip } from './Chip';
 import { DateField } from './DateField';
 import { EmptyState } from './EmptyState';
 import { Field } from './Field';
+import { FastTransactionEntry } from './FastTransactionEntry';
 import { hapticLight, hapticSelection } from './haptics';
 import { IconButton } from './IconButton';
 import { IconTile } from './IconTile';
@@ -89,6 +90,7 @@ export interface CreateCategoryInput {
 
 export interface TransactionFormProps {
   mode?: 'new' | 'edit';
+  fastEntry?: boolean;
   currency: CurrencyCode;
   categories: Category[];
   accounts?: Account[];
@@ -127,6 +129,7 @@ export interface TransactionFormProps {
   onMorePress?: () => void;
   onCreateCategory?: (input: CreateCategoryInput) => Promise<Category>;
   onSubmit: (values: TransactionFormValues) => Promise<void>;
+  onSubmitAndAddAnother?: (values: TransactionFormValues) => Promise<void>;
   onSubmitTransfer?: (values: TransferFormValues) => Promise<void>;
 }
 
@@ -492,7 +495,25 @@ function AllCategoriesSheet({
   );
 }
 
-export function TransactionForm({
+export function TransactionForm(props: TransactionFormProps) {
+  if (props.fastEntry && props.mode !== 'edit') {
+    return (
+      <FastTransactionEntry
+        currency={props.currency}
+        categories={props.categories}
+        accounts={(props.accounts ?? []).filter((account) => account.archivedAt == null)}
+        defaultAccountId={props.defaultAccountId}
+        recentTransactions={props.recentTransactions}
+        onClose={props.onClose ?? (() => undefined)}
+        onSubmit={props.onSubmit}
+        onSubmitAndAddAnother={props.onSubmitAndAddAnother}
+      />
+    );
+  }
+  return <LegacyTransactionForm {...props} fastEntry={false} />;
+}
+
+function LegacyTransactionForm({
   mode = 'new',
   currency,
   categories,

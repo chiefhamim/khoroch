@@ -17,3 +17,9 @@ The seven-entry walkthrough is not yet complete; the remaining phone work is to 
 The date picker is a custom bottom sheet with a horizontal day strip and no Android wheel or clock dialog. The visible sheet has strong hierarchy and a solid action button.
 
 The month grid and exact-time state still need a separate phone capture and visual pass; the current date-sheet screenshot does not prove those states.
+
+## Step 4
+
+The wallet editor now presents the opening balance as a first-class amount with an in-sheet keypad and an as-of date. The Wallets list has an explicit starting-balance action for zero-balance wallets.
+
+The requested Adjust balance action is not implemented yet; the current editor changes the opening balance rather than recording a separate adjustment entry. This remains a known gap for the final report.

@@ -128,6 +128,36 @@ export default function NewTransactionScreen() {
     [handleClose, repo, settings.currency, settings.lastUsedAccountId, showToast, updateSetting]
   );
 
+  const handleSubmitAndAddAnother = useCallback(
+    async (values: TransactionFormValues) => {
+      await repo.insertTransaction({
+        id: txIdRef.current,
+        type: values.type,
+        amountMinor: values.amountMinor,
+        currency: settings.currency,
+        categoryId: values.categoryId,
+        accountId: values.accountId,
+        description: values.description,
+        note: values.note,
+        occurredOn: values.occurredOn,
+        occurredTime: values.occurredTime,
+        source: 'manual',
+      });
+      txIdRef.current = Crypto.randomUUID();
+      if (values.accountId !== settings.lastUsedAccountId) {
+        await updateSetting('lastUsedAccountId', values.accountId);
+      }
+      hapticSuccess();
+      bumpDataVersion();
+      showToast({
+        message: t('tx.savedToast'),
+        icon: 'circle-check',
+        tone: 'accent',
+      });
+    },
+    [repo, settings.currency, settings.lastUsedAccountId, showToast, updateSetting]
+  );
+
   const handleSubmitTransfer = useCallback(
     async (values: TransferFormValues) => {
       await repo.createTransfer({
@@ -202,6 +232,7 @@ export default function NewTransactionScreen() {
       >
         <TransactionForm
           mode="new"
+          fastEntry
           currency={settings.currency}
           categories={categories}
           accounts={accounts}
@@ -212,6 +243,7 @@ export default function NewTransactionScreen() {
           onClose={handleClose}
           onCreateCategory={handleCreateCategory}
           onSubmit={handleSubmit}
+          onSubmitAndAddAnother={handleSubmitAndAddAnother}
           onSubmitTransfer={handleSubmitTransfer}
         />
         <DueEntrySheet

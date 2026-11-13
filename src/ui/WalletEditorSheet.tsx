@@ -18,6 +18,7 @@ import { AppText } from './AppText';
 import { Button } from './Button';
 import { DateField } from './DateField';
 import { Field } from './Field';
+import { Keypad } from './Keypad';
 import { Sheet } from './Sheet';
 import { WalletAvatar } from './WalletAvatar';
 import { hapticLight, hapticSelection, hapticSuccess } from './haptics';
@@ -370,6 +371,15 @@ function WalletEditorDialog({
             }}
             placeholder="0"
             keyboardType="decimal-pad"
+          />
+          <Keypad
+            testID="wallet-opening-keypad"
+            value={balanceText}
+            onChange={(next) => {
+              setBalanceText(next);
+              if (errorMsg) setErrorMsg(null);
+            }}
+            keyHeight={42}
           />
           <PressableScale pressScale={0.98}
             testID="wallet-negative-toggle"
