@@ -1,6 +1,7 @@
 import React from 'react';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import EditTransactionScreen from '@/app/transaction/[id]';
+import EditTransferScreen from '@/app/transfer/[id]';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { buildDefaultCategories } from '@/domain/categories';
 import type { Account, Transaction } from '@/domain/types';
@@ -17,12 +18,13 @@ import {
   TransactionForm,
 } from './TransactionForm';
 
+let mockRouteId = 'tx-edit-1';
 const mockBack = jest.fn();
 const mockCanGoBack = jest.fn(() => true);
 const mockReplace = jest.fn();
 
 jest.mock('expo-router', () => ({
-  useLocalSearchParams: () => ({ id: 'tx-edit-1' }),
+  useLocalSearchParams: () => ({ id: mockRouteId }),
   router: {
     back: () => mockBack(),
     canGoBack: () => mockCanGoBack(),
@@ -491,5 +493,76 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
       })
     );
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('keeps Delete visible with transfer-fee-input focus and confirms soft delete in EditTransferScreen', async () => {
+    const repo = new MemoryRepo();
+    await repo.insertAccount({
+      id: 'acc_cash',
+      name: 'Cash',
+      kind: 'cash',
+      colorKey: '#123227',
+      openingBalanceMinor: 50_000,
+      openingDate: '2026-11-10',
+    });
+    await repo.insertAccount({
+      id: 'acc_bkash',
+      name: 'bKash',
+      kind: 'mobile_wallet',
+      provider: 'bkash',
+      colorKey: '#D82A77',
+      openingBalanceMinor: 100_000,
+      openingDate: '2026-11-10',
+    });
+    await repo.createTransfer({
+      id: 'tr-edit-1',
+      fromAccountId: 'acc_bkash',
+      toAccountId: 'acc_cash',
+      amountMinor: 25_000,
+      feeMinor: 400,
+      occurredOn: '2026-11-12',
+      occurredTime: '14:15',
+      note: 'Cash out',
+    });
+
+    mockRouteId = 'tr-edit-1';
+    try {
+      const view = await render(
+        <AppContext.Provider
+          value={{
+            repo,
+            backend: 'memory',
+            settings: DEFAULT_SETTINGS,
+            updateSetting: async () => {},
+            refreshSettings: async () => {},
+          }}
+        >
+          <ThemeProvider preference="light">
+            <ToastProvider>
+              <EditTransferScreen />
+            </ToastProvider>
+          </ThemeProvider>
+        </AppContext.Provider>
+      );
+
+      await waitFor(() => expect(view.getByTestId('tx-delete-button')).toBeTruthy());
+      expect(view.getByText(t('transfer.editTitle'))).toBeTruthy();
+      expect(view.queryByTestId('tx-type-toggle')).toBeNull();
+      expect(view.queryByTestId('tx-more-button')).toBeNull();
+
+      await fireEvent(view.getByTestId('transfer-fee-input'), 'focus');
+      expect(view.getByTestId('tx-delete-button')).toBeTruthy();
+
+      await fireEvent.press(view.getByTestId('tx-delete-button'));
+      expect(view.getByTestId('transfer-delete-confirm-sheet')).toBeTruthy();
+
+      await fireEvent.press(view.getByTestId('transfer-confirm-delete-button'));
+      await waitFor(async () => {
+        const after = await repo.getTransfer('tr-edit-1');
+        expect(after?.deletedAt).not.toBeNull();
+      });
+    } finally {
+      mockRouteId = 'tx-edit-1';
+    }
   });
 });

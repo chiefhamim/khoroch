@@ -337,6 +337,12 @@ describe('v2 design system components', () => {
             onPress={() => {}}
           />
           <Button
+            testID="bn-transfer-save-btn"
+            title="ট্রান্সফার সেভ করুন"
+            variant="primary"
+            onPress={() => {}}
+          />
+          <Button
             testID="bn-long-btn"
             title="আপনার সমস্ত হিসাবের ব্যাকআপ নিন"
             variant="primary"
@@ -350,6 +356,12 @@ describe('v2 design system components', () => {
       const deleteMinWidth = StyleSheet.flatten(deleteText.props.style).minWidth as number;
       expect(deleteMinWidth).toBeGreaterThanOrEqual(75 * scale);
       expect(deleteMinWidth).toBeLessThanOrEqual(98 * scale);
+
+      const transferSaveText = view.getByText('ট্রান্সফার সেভ করুন');
+      const transferSaveMinWidth = StyleSheet.flatten(transferSaveText.props.style)
+        .minWidth as number;
+      expect(transferSaveMinWidth).toBeGreaterThanOrEqual(140 * scale);
+      expect(transferSaveMinWidth).toBeLessThanOrEqual(170 * scale);
 
       const longText = view.getByText('আপনার সমস্ত হিসাবের ব্যাকআপ নিন');
       expect(StyleSheet.flatten(longText.props.style).minWidth).toBeUndefined();

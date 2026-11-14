@@ -44,7 +44,7 @@ import {
 } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, CATEGORY_ICON_CHOICES } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { Button } from './Button';
 import { Chip } from './Chip';
 import { DateField } from './DateField';
@@ -883,26 +883,34 @@ function LegacyTransactionForm({
           }}
         />
         <View style={styles.topCenter}>
-          <SegmentedControl<TransactionEntryMode>
-            testID="tx-type-toggle"
-            size="sm"
-            value={entryMode}
-            onChange={handleModeChange}
-            options={
-              isEditing
-                ? initialMode === 'transfer'
-                  ? [{ value: 'transfer', label: t('tx.typeTransfer') }]
-                  : [
+          {isEditing && initialMode === 'transfer' ? (
+            <AppText
+              variant="headline"
+              numberOfLines={1}
+              style={styles.topTitle}
+            >
+              {t('transfer.editTitle')}
+            </AppText>
+          ) : (
+            <SegmentedControl<TransactionEntryMode>
+              testID="tx-type-toggle"
+              size="sm"
+              value={entryMode}
+              onChange={handleModeChange}
+              options={
+                isEditing
+                  ? [
                       { value: 'expense', label: t('tx.typeOut') },
                       { value: 'income', label: t('tx.typeIn') },
                     ]
-                : [
-                    { value: 'expense', label: t('tx.typeOut') },
-                    { value: 'income', label: t('tx.typeIn') },
-                    { value: 'transfer', label: t('tx.typeTransfer') },
-                  ]
-            }
-          />
+                  : [
+                      { value: 'expense', label: t('tx.typeOut') },
+                      { value: 'income', label: t('tx.typeIn') },
+                      { value: 'transfer', label: t('tx.typeTransfer') },
+                    ]
+              }
+            />
+          )}
         </View>
         {isEditing && !onDeletePress && onMorePress ? (
           <IconButton
@@ -1096,7 +1104,17 @@ function LegacyTransactionForm({
             <View testID="transfer-fee-row" style={styles.flatRow}>
               <AppIcon name="receipt" size={18} color={theme.colors.textSecondary} />
               <View style={styles.feeLabelWrap}>
-                <AppText variant="label" color="textSecondary">
+                <AppText
+                  variant="label"
+                  color="textSecondary"
+                  numberOfLines={1}
+                  style={{
+                    minWidth: estimateSingleLineMinWidth(
+                      t('transfer.feeLabel'),
+                      theme.typography.label.fontSize
+                    ),
+                  }}
+                >
                   {t('transfer.feeLabel')}
                 </AppText>
                 {showCashOutFeeHint ? (
@@ -1115,7 +1133,21 @@ function LegacyTransactionForm({
                   </View>
                 ) : null}
               </View>
-              <View style={styles.feeInputWrap}>
+              <View
+                style={[
+                  styles.feeInputWrap,
+                  {
+                    backgroundColor: theme.colors.surfaceSunken,
+                    borderRadius: theme.radius.input,
+                    borderWidth: 1,
+                    borderColor: !feeMinorValid
+                      ? theme.colors.danger
+                      : activeField === 'fee'
+                        ? theme.colors.accent
+                        : theme.colors.separator,
+                  },
+                ]}
+              >
                 <AppText variant="label" color="textSecondary">
                   {symbol}
                 </AppText>
@@ -1479,6 +1511,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
   },
+  topTitle: {
+    width: '100%',
+    textAlign: 'center',
+  },
   topRightSpacer: {
     width: 40,
     height: 40,
@@ -1556,14 +1592,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    minWidth: 80,
+    minWidth: 92,
+    paddingHorizontal: 10,
+    paddingVertical: 2,
     justifyContent: 'flex-end',
   },
   feeInput: {
     minWidth: 54,
     textAlign: 'right',
-    paddingVertical: 4,
-    paddingHorizontal: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
     fontVariant: ['tabular-nums'],
   },
   catGrid: {

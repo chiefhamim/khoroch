@@ -8,7 +8,7 @@ import {
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Account, Category, Transfer } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
@@ -22,6 +22,7 @@ import { TransactionForm, type TransferFormValues } from '@/ui/TransactionForm';
 import { hapticSuccess } from '@/ui/haptics';
 
 export default function EditTransferScreen() {
+  useLocale();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const transferId = Array.isArray(id) ? id[0] : id;
   const { repo, settings } = useAppContext();
@@ -32,7 +33,6 @@ export default function EditTransferScreen() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -148,7 +148,7 @@ export default function EditTransferScreen() {
         <View style={styles.centerWrap}>
           <ErrorState
             title={t('transfer.notFound')}
-            body={t('transfer.deleteConfirmBody')}
+            body={t('error.genericBody')}
             retryLabel={t('common.back')}
             onRetry={handleClose}
           />
@@ -183,35 +183,14 @@ export default function EditTransferScreen() {
           }}
           submitLabel={t('transfer.updateCta')}
           onClose={handleClose}
-          onMorePress={() => setMoreSheetOpen(true)}
+          onDeletePress={() => {
+            setDeleteError(null);
+            setDeleteConfirmOpen(true);
+          }}
           onSubmit={async () => {}}
           onSubmitTransfer={handleUpdateTransfer}
         />
       </KeyboardAvoidingView>
-
-      <Sheet
-        visible={moreSheetOpen}
-        onClose={() => setMoreSheetOpen(false)}
-        title={t('transfer.moreActions')}
-        testID="transfer-more-sheet"
-      >
-        <Button
-          testID="transfer-action-delete"
-          title={t('transfer.deleteButton')}
-          leftIcon="trash-2"
-          variant="dangerSoft"
-          onPress={() => {
-            setMoreSheetOpen(false);
-            setDeleteError(null);
-            setDeleteConfirmOpen(true);
-          }}
-        />
-        <Button
-          title={t('common.cancel')}
-          variant="secondary"
-          onPress={() => setMoreSheetOpen(false)}
-        />
-      </Sheet>
 
       <Sheet
         visible={deleteConfirmOpen}
