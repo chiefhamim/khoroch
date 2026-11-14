@@ -1,4 +1,4 @@
-# Budget App (v1.1.0)
+# LenDen (v1.1.0)
 
 A calm, offline-first personal budget & expense companion built with **Expo SDK 58**, **React Native 0.88**, **TypeScript 6**, **Expo Router**, **Lucide Icons**, and **expo-sqlite**.
 
@@ -6,6 +6,23 @@ Know where your money goes, log expenses or income in under 10 seconds (by tappi
 
 - **Humans:** read [START-HERE.md](START-HERE.md) and walk [docs/PHONE-TEST.md](docs/PHONE-TEST.md) on your phone.
 - **Coding agents:** read [AGENTS.md](AGENTS.md) first, then [docs/PROGRESS.md](docs/PROGRESS.md) and [docs/ui-overhaul/DESIGN.md](docs/ui-overhaul/DESIGN.md).
+
+---
+
+## Working from another PC (office)
+
+1. Clone to a **short path** (Windows path limit breaks the native build otherwise): `git clone https://github.com/chiefhamim/lenden C:\dev\lenden`
+2. Needs Node 26, Java 21, Android SDK (`adb`), Python 3 + `fonttools` (only to re-run `scripts/patch-taka-font.py`).
+3. `npm install`, then `npm run typecheck` and `npm test`.
+4. Build the **dev** app (never the owner's app for testing):
+   ```powershell
+   $env:CI="1"; $env:APP_VARIANT="dev"; npx expo prebuild -p android
+   cd android; .\gradlew.bat assembleRelease --init-script ..\scripts\short-cxx-paths.gradle; cd ..
+   adb -s <phone> install -r android\app\build\outputs\apk\release\app-release.apk
+   ```
+   `android/` is generated, never committed. Check `android\app\build.gradle` says `com.hamim.budgetapp.dev` before installing.
+5. Package IDs stay `com.hamim.budgetapp` / `.dev` even though the app is now called **LenDen**, so updates keep the owner's data. Signing uses Expo's template `debug.keystore`, which prebuild regenerates identically on any PC.
+6. Latest state of the UI overhaul: `docs/overhaul-copilot/` (BRIEF, ROUND2, REPORT, NOTES, screenshots).
 
 ---
 

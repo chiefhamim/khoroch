@@ -2,7 +2,7 @@
 
 Round 1 (commit 8e11148) only did a light touch-up and skipped the visual work. The owner's verdict was "bruh". Screens look the same as before, Add transaction is unchanged, wallets still have no starting balance, and nothing was checked on the phone. This round fixes that.
 
-The full brief is still `C:\Users\hamim\Desktop\COPILOT-BUDGET-OVERHAUL.md`. Read it, then `AGENTS.md` §4b, §6 and §7. Every rule there still applies, especially:
+The full brief is still `docs/overhaul-copilot/BRIEF.md`. Read it, then `AGENTS.md` §4b, §6 and §7. Every rule there still applies, especially:
 - **Dev app only** (`com.hamim.budgetapp.dev`). Never install to, launch or touch `com.hamim.budgetapp`.
 - Use `install -r` only. Never uninstall or `pm clear`.
 - Migrations are additive only.

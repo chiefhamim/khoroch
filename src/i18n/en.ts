@@ -88,7 +88,7 @@ export const en = {
   'onboarding.doneSummaryCycle': 'Month starts on day {day}',
   'onboarding.doneSummaryBudget': 'Monthly budget: {value}',
   'onboarding.doneSummaryNoBudget': 'Monthly budget: Not set yet',
-  'onboarding.doneCta': 'Start using Budget App',
+  'onboarding.doneCta': 'Start using LenDen',
 
   // Empty states
   'empty.overviewTitle': 'Your spending at a glance',
@@ -197,7 +197,7 @@ export const en = {
   'settings.sampleClear': 'Clear sample data',
   'settings.sampleLoadedNote': 'Sample data loaded for testing.',
   'settings.sampleDevOnly': 'Developer builds only.',
-  'settings.aboutName': 'Budget App v1.1.0',
+  'settings.aboutName': 'LenDen v1.1.0',
   'settings.aboutVersionLine': 'Version 1.1.0 · Offline · No tracking',
   'settings.aboutDesc': 'Offline-first personal budget companion. Local {backend} storage, zero cloud tracking.',
   'settings.savedNotice': 'Saved',

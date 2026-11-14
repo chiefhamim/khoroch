@@ -38,7 +38,7 @@ export function buildAppConfig(
 
   return {
     ...baseConfig,
-    name: isDev ? 'Budget Dev' : 'Budget App',
+    name: isDev ? 'LenDen Dev' : 'LenDen',
     slug: 'budget-app',
     version: '1.1.0',
     orientation: 'portrait',

@@ -40,7 +40,7 @@ export async function shareBackupFile(jsonContent: string, filename: string): Pr
   await Sharing.shareAsync(targetFile.uri, {
     mimeType: 'application/json',
     UTI: 'public.json',
-    dialogTitle: 'Save Budget App backup',
+    dialogTitle: 'Save LenDen backup',
   });
 }
 
