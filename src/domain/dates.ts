@@ -115,9 +115,28 @@ const SHORT_MONTHS_BY_LOCALE: Record<DateLocale, readonly string[]> = {
   bn: ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'],
 };
 
+const FULL_MONTHS_BY_LOCALE: Record<DateLocale, readonly string[]> = {
+  en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  bn: ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'],
+};
+
+const CALENDAR_WEEKDAYS_THU0_BY_LOCALE: Record<DateLocale, readonly string[]> = {
+  en: ['Th', 'Fr', 'Sa', 'Su', 'Mo', 'Tu', 'We'],
+  bn: ['বৃহঃ', 'শুক্র', 'শনি', 'রবি', 'সোম', 'মঙ্গল', 'বুধ'],
+};
+
+function weekdayIndexThu0(date: LocalDate): number {
+  const epochDay = toEpochDay(date);
+  return ((epochDay % 7) + 7) % 7;
+}
+
 export function formatShortDate(date: LocalDate, locale: DateLocale = 'en'): string {
   const { month, day } = parseLocalDate(date);
   return `${day} ${SHORT_MONTHS_BY_LOCALE[locale][month - 1]}`;
+}
+
+export function formatMonthYear(year: number, month: number, locale: DateLocale = 'en'): string {
+  return `${FULL_MONTHS_BY_LOCALE[locale][month - 1]} ${year}`;
 }
 
 export function formatShortMonthYear(date: LocalDate, locale: DateLocale = 'en'): string {
@@ -125,11 +144,19 @@ export function formatShortMonthYear(date: LocalDate, locale: DateLocale = 'en')
   return `${SHORT_MONTHS_BY_LOCALE[locale][month - 1]} ${year}`;
 }
 
+export function formatWeekdayDay(date: LocalDate, locale: DateLocale = 'en'): string {
+  const { day } = parseLocalDate(date);
+  return `${SHORT_WEEKDAYS_BY_LOCALE[locale][weekdayIndexThu0(date)]} ${day}`;
+}
+
+export function formatWeekdayDayMonth(date: LocalDate, locale: DateLocale = 'en'): string {
+  const { month, day } = parseLocalDate(date);
+  return `${SHORT_WEEKDAYS_BY_LOCALE[locale][weekdayIndexThu0(date)]}, ${day} ${SHORT_MONTHS_BY_LOCALE[locale][month - 1]}`;
+}
+
 export function formatWeekdayShortDate(date: LocalDate, locale: DateLocale = 'en'): string {
   const { year, month, day } = parseLocalDate(date);
-  const epochDay = toEpochDay(date);
-  const weekdayIdx = ((epochDay % 7) + 7) % 7;
-  return `${SHORT_WEEKDAYS_BY_LOCALE[locale][weekdayIdx]}, ${day} ${SHORT_MONTHS_BY_LOCALE[locale][month - 1]} ${year}`;
+  return `${SHORT_WEEKDAYS_BY_LOCALE[locale][weekdayIndexThu0(date)]}, ${day} ${SHORT_MONTHS_BY_LOCALE[locale][month - 1]} ${year}`;
 }
 
 export function formatPeriodRange(start: LocalDate, endExcl: LocalDate): string {
@@ -161,6 +188,16 @@ const WEEK_START_OFFSET_THU0: Record<WeekStartDay, number> = {
   sunday: 3,
   monday: 4,
 };
+
+/** Ordered 7-column calendar weekday labels starting on `weekStartsOn`. */
+export function getCalendarWeekdayLabels(
+  weekStartsOn: WeekStartDay = 'saturday',
+  locale: DateLocale = 'en'
+): string[] {
+  const start = WEEK_START_OFFSET_THU0[weekStartsOn] ?? WEEK_START_OFFSET_THU0.saturday;
+  const source = CALENDAR_WEEKDAYS_THU0_BY_LOCALE[locale];
+  return Array.from({ length: 7 }, (_, i) => source[(start + i) % 7]);
+}
 
 /**
  * Returns the local start date of the 7-day calendar week containing `date`,

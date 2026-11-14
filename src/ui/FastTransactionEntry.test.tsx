@@ -1,8 +1,11 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { buildDefaultCategories } from '@/domain/categories';
-import { todayLocalDate } from '@/domain/dates';
+import { formatMonthYear, formatShortDate, parseLocalDate, todayLocalDate } from '@/domain/dates';
 import type { Account, Transaction } from '@/domain/types';
+import { setLocale } from '@/i18n';
+import { mapFontToBangla } from '@/theme/tokens';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { buildDescriptionSuggestions, FastTransactionEntry } from './FastTransactionEntry';
 
@@ -132,5 +135,39 @@ describe('FastTransactionEntry', () => {
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'expense', amountMinor: 1_000, description: 'Bus fare', categoryId: 'transportation' })
     );
+  });
+
+  it('uses Bangla fonts for description input and localizes When + Calendar sheet in Bangla', async () => {
+    setLocale('bn');
+    try {
+      const view = await render(
+        <ThemeProvider preference="dark">
+          <FastTransactionEntry
+            currency="BDT"
+            categories={categories}
+            accounts={[cash]}
+            defaultAccountId="cash"
+            onClose={jest.fn()}
+            onSubmit={jest.fn(async () => {})}
+          />
+        </ThemeProvider>
+      );
+
+      const inputStyle = StyleSheet.flatten(view.getByTestId('fast-description').props.style);
+      expect(inputStyle.fontFamily).toBe(mapFontToBangla('Manrope_600SemiBold'));
+      expect(view.getByText(/আজ,/)).toBeTruthy();
+
+      await fireEvent.press(view.getByTestId('fast-when'));
+      const today = todayLocalDate();
+      const { year, month } = parseLocalDate(today);
+      expect(view.getByText(formatMonthYear(year, month, 'bn'))).toBeTruthy();
+      expect(view.getByText(formatShortDate(today, 'bn'))).toBeTruthy();
+      expect(view.getByText('মঙ্গল')).toBeTruthy();
+      expect(view.getByText('বৃহঃ')).toBeTruthy();
+    } finally {
+      await act(async () => {
+        setLocale('en');
+      });
+    }
   });
 });

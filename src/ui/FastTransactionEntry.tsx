@@ -19,10 +19,11 @@ import type {
   TransactionType,
   WeekStartDay,
 } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
+import { containsBengali, mapFontToBangla } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { Button } from './Button';
 import { DateTimeSheet } from './DateTimeSheet';
 import { hapticSelection } from './haptics';
@@ -108,6 +109,7 @@ export function FastTransactionEntry({
   onSubmitAndAddAnother,
 }: FastTransactionEntryProps) {
   const { theme } = useTheme();
+  const locale = useLocale();
   const today = todayLocalDate();
   const use24Hour = isDevice24HourClock();
 
@@ -210,9 +212,18 @@ export function FastTransactionEntry({
         ? t('common.today')
         : occurredOn === addDays(today, -1)
           ? t('common.yesterday')
-          : formatFriendlyDate(occurredOn, today);
+          : formatFriendlyDate(occurredOn, today, locale);
     return `${day}, ${formatFriendlyTime(occurredTime, use24Hour)}`;
   })();
+
+  const descriptionFontFamily =
+    locale === 'bn' || containsBengali(description)
+      ? mapFontToBangla('Manrope_600SemiBold')
+      : 'Manrope_600SemiBold';
+  const noteFontFamily =
+    locale === 'bn' || containsBengali(note)
+      ? mapFontToBangla('Manrope_400Regular')
+      : 'Manrope_400Regular';
 
   const submit = async (keepOpen: boolean) => {
     if (!canSave || !selectedCategory || parsedAmount === null) return;
@@ -276,12 +287,13 @@ export function FastTransactionEntry({
         <View style={[styles.typeSwitch, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.pill }]}>
           {(['expense', 'income'] as const).map((key) => {
             const active = type === key;
+            const typeLabel = key === 'expense' ? t('fast.spent') : t('fast.received');
             return (
               <PressableScale
                 key={key}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={key === 'expense' ? t('fast.spent') : t('fast.received')}
+                accessibilityLabel={typeLabel}
                 onPress={() => {
                   hapticSelection();
                   setType(key);
@@ -302,12 +314,15 @@ export function FastTransactionEntry({
                 />
                 <AppText
                   variant="label"
+                  numberOfLines={1}
                   style={{
                     color: active ? theme.colors.text : theme.colors.textTertiary,
                     fontFamily: active ? 'Manrope_700Bold' : 'Manrope_500Medium',
+                    minWidth: estimateSingleLineMinWidth(typeLabel, theme.typography.label.fontSize),
+                    textAlign: 'center',
                   }}
                 >
-                  {key === 'expense' ? t('fast.spent') : t('fast.received')}
+                  {typeLabel}
                 </AppText>
               </PressableScale>
             );
@@ -317,8 +332,9 @@ export function FastTransactionEntry({
       </View>
 
       <ScrollView
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.content, { paddingHorizontal: theme.geometry.screenMargin, gap: theme.spacing.md }]}
+        contentContainerStyle={[styles.content, { paddingHorizontal: theme.geometry.screenMargin, gap: theme.spacing.sm }]}
       >
         {/* Amount */}
         <View style={styles.amount}>
@@ -348,7 +364,7 @@ export function FastTransactionEntry({
             onChangeText={setDescription}
             returnKeyType="done"
             maxLength={80}
-            style={[styles.input, { color: theme.colors.text, fontFamily: 'Manrope_600SemiBold' }]}
+            style={[styles.input, { color: theme.colors.text, fontFamily: descriptionFontFamily }]}
             testID="fast-description"
           />
           {description ? (
@@ -383,7 +399,15 @@ export function FastTransactionEntry({
                   { borderRadius: theme.radius.pill, borderColor: theme.colors.separator, backgroundColor: theme.colors.surface },
                 ]}
               >
-                <AppText variant="label" color="textSecondary">
+                <AppText
+                  variant="label"
+                  color="textSecondary"
+                  numberOfLines={1}
+                  style={{
+                    minWidth: estimateSingleLineMinWidth(s.description, theme.typography.label.fontSize),
+                    textAlign: 'center',
+                  }}
+                >
                   {s.description}
                 </AppText>
               </PressableScale>
@@ -393,7 +417,7 @@ export function FastTransactionEntry({
         ) : null}
 
         {/* Category */}
-        <View style={{ gap: theme.spacing.sm }}>
+        <View style={{ gap: theme.spacing.xs }}>
           <View style={styles.labelRow}>
             <AppText variant="overline" color="textTertiary">
               {t('common.category').toUpperCase()}
@@ -404,7 +428,15 @@ export function FastTransactionEntry({
               onPress={() => setCategoryOpen(true)}
               style={styles.linkBtn}
             >
-              <AppText variant="label" color="accent">
+              <AppText
+                variant="label"
+                color="accent"
+                numberOfLines={1}
+                style={{
+                  minWidth: estimateSingleLineMinWidth(t('fast.allCategories'), theme.typography.label.fontSize),
+                  textAlign: 'right',
+                }}
+              >
                 {t('fast.allCategories')}
               </AppText>
             </PressableScale>
@@ -432,7 +464,7 @@ export function FastTransactionEntry({
                     },
                   ]}
                 >
-                  <IconTile icon={category.icon as AppIconName} colorKey={category.colorKey} size={30} />
+                  <IconTile icon={category.icon as AppIconName} colorKey={category.colorKey} size={24} />
                   <AppText
                     variant="caption"
                     style={[styles.catLabel, { color: active ? theme.colors.text : theme.colors.textSecondary }]}
@@ -503,13 +535,13 @@ export function FastTransactionEntry({
               value={note}
               onChangeText={setNote}
               autoFocus
-              style={[styles.input, { color: theme.colors.text }]}
+              style={[styles.input, { color: theme.colors.text, fontFamily: noteFontFamily }]}
             />
           </View>
         ) : null}
 
         {!keyboardVisible ? (
-          <View style={{ gap: theme.spacing.sm }}>
+          <View style={{ gap: theme.spacing.xs }}>
             {!noteOpen ? (
               <PressableScale
                 accessibilityRole="button"
@@ -523,7 +555,7 @@ export function FastTransactionEntry({
                 </AppText>
               </PressableScale>
             ) : null}
-            <Keypad value={amountText} onChange={setAmountText} keyHeight={52} testID="fast-keypad" />
+            <Keypad value={amountText} onChange={setAmountText} keyHeight={48} testID="fast-keypad" />
           </View>
         ) : null}
 
@@ -641,34 +673,34 @@ export function FastTransactionEntry({
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  header: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
   typeSwitch: { flexDirection: 'row', padding: 4 },
-  typeBtn: { minHeight: 40, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1 },
-  content: { paddingTop: 4, paddingBottom: 16 },
-  amount: { alignItems: 'center', justifyContent: 'center', minHeight: 72 },
+  typeBtn: { minHeight: 38, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1 },
+  content: { paddingTop: 0, paddingBottom: 8 },
+  amount: { alignItems: 'center', justifyContent: 'center', minHeight: 50 },
   amountRow: { flexDirection: 'row', alignItems: 'center' },
-  field: { minHeight: 52, borderWidth: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10 },
-  input: { flex: 1, minHeight: 50, fontSize: 16 },
+  field: { minHeight: 46, borderWidth: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10 },
+  input: { flex: 1, minHeight: 44, fontSize: 16 },
   clearBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   bleed: { marginHorizontal: -20 },
-  suggestion: { minHeight: 36, paddingHorizontal: 14, borderWidth: 1, justifyContent: 'center' },
+  suggestion: { minHeight: 34, paddingHorizontal: 14, borderWidth: 1, justifyContent: 'center' },
   labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  linkBtn: { minHeight: 32, justifyContent: 'center', paddingLeft: 12 },
+  linkBtn: { minHeight: 28, justifyContent: 'center', paddingLeft: 12 },
   catGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  catCell: { width: '31.6%', minHeight: 76, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 8, gap: 6 },
+  catCell: { width: '31.6%', minHeight: 62, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 5, gap: 4 },
   catLabel: { textAlign: 'center' },
   detailRow: { flexDirection: 'row' },
-  detail: { flex: 1, minHeight: 56, borderWidth: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 10 },
-  detailWide: { flex: 1.35 },
+  detail: { flex: 1, minHeight: 48, borderWidth: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 8 },
+  detailWide: { flex: 1.06 },
   detailText: { flex: 1 },
-  addNote: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+  addNote: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
   saved: { borderWidth: 1, padding: 14, gap: 10 },
   savedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   savedTime: { width: 64 },
   flex: { flex: 1 },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, paddingBottom: 12, flexDirection: 'row' },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 8, paddingBottom: 8, flexDirection: 'row' },
   sheetGrid: { flexDirection: 'row', flexWrap: 'wrap' },
-  sheetCell: { width: '23%', minHeight: 88, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6 },
+  sheetCell: { width: '31.6%', minHeight: 82, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 6, paddingVertical: 8 },
   sheetLabel: { textAlign: 'center' },
 });

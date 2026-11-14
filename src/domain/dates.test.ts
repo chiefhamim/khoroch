@@ -5,10 +5,14 @@ import {
   diffDays,
   formatFriendlyDate,
   formatFriendlyTime,
+  formatMonthYear,
   formatShortDate,
   formatShortMonthYear,
+  formatWeekdayDay,
+  formatWeekdayDayMonth,
   formatWeekdayShortDate,
   fromEpochDay,
+  getCalendarWeekdayLabels,
   getStartOfWeek,
   getWeekRange,
   isLeapYear,
@@ -85,5 +89,19 @@ describe('dates', () => {
     const saturday = '2026-11-14';
     expect(getStartOfWeek(saturday, 'saturday')).toBe('2026-11-14');
     expect(getStartOfWeek(saturday, 'sunday')).toBe('2026-11-08');
+  });
+
+  it('formats calendar months, weekdays, and compact labels in English and Bangla without bisecting Bangla text', () => {
+    expect(formatMonthYear(2026, 11, 'en')).toBe('November 2026');
+    expect(formatMonthYear(2026, 11, 'bn')).toBe('নভেম্বর 2026');
+
+    expect(formatWeekdayDay('2026-11-12', 'en')).toBe('Thu 12');
+    expect(formatWeekdayDay('2026-11-12', 'bn')).toBe('বৃহঃ 12');
+
+    expect(formatWeekdayDayMonth('2026-11-14', 'en')).toBe('Sat, 14 Nov');
+    expect(formatWeekdayDayMonth('2026-11-14', 'bn')).toBe('শনি, 14 নভে');
+
+    expect(getCalendarWeekdayLabels('saturday', 'en')).toEqual(['Sa', 'Su', 'Mo', 'Tu', 'We', 'Th', 'Fr']);
+    expect(getCalendarWeekdayLabels('saturday', 'bn')).toEqual(['শনি', 'রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র']);
   });
 });

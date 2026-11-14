@@ -6,15 +6,20 @@ import {
   daysInMonth,
   formatFriendlyTime,
   formatLocalDate,
+  formatMonthYear,
+  formatShortDate,
+  formatWeekdayDay,
+  formatWeekdayDayMonth,
+  getCalendarWeekdayLabels,
   isDevice24HourClock,
   parseLocalDate,
   todayLocalDate,
 } from '@/domain/dates';
 import type { LocalDate, LocalTime, WeekStartDay } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { Button } from './Button';
 import { hapticSelection } from './haptics';
 import { PressableScale } from './PressableScale';
@@ -39,9 +44,7 @@ export interface DateTimeSheetProps {
   title?: string;
 }
 
-const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEK_START_INDEX: Record<WeekStartDay, number> = { sunday: 0, monday: 1, saturday: 6 };
-const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
 
 function pad(n: number): string {
@@ -79,6 +82,7 @@ function Calendar({
   weekStartsOn: WeekStartDay;
 }) {
   const { theme } = useTheme();
+  const locale = useLocale();
   const today = todayLocalDate();
   const initial = parseLocalDate(value);
   const [view, setView] = useState({ year: initial.year, month: initial.month });
@@ -92,7 +96,7 @@ function Calendar({
   }
 
   const firstIndex = WEEK_START_INDEX[weekStartsOn];
-  const weekdayHeaders = Array.from({ length: 7 }, (_, i) => WEEKDAY_NAMES[(firstIndex + i) % 7]);
+  const weekdayHeaders = getCalendarWeekdayLabels(weekStartsOn, locale);
 
   const cells = useMemo(() => {
     const first = formatLocalDate(view.year, view.month, 1);
@@ -116,7 +120,7 @@ function Calendar({
     <View style={{ gap: theme.spacing.sm }}>
       <View style={styles.monthHeader}>
         <AppText variant="headline" accessibilityRole="header">
-          {MONTHS[view.month - 1]} {view.year}
+          {formatMonthYear(view.year, view.month, locale)}
         </AppText>
         <View style={[styles.monthNav, { gap: theme.spacing.xs }]}>
           {[
@@ -151,8 +155,8 @@ function Calendar({
       <View style={styles.week}>
         {weekdayHeaders.map((name) => (
           <View key={name} style={styles.cell}>
-            <AppText variant="caption" color="textTertiary">
-              {name.slice(0, 2)}
+            <AppText variant="caption" color="textTertiary" numberOfLines={1} style={styles.weekdayLabel}>
+              {name}
             </AppText>
           </View>
         ))}
@@ -194,10 +198,11 @@ function Calendar({
                       color: selected
                         ? theme.colors.onAccent
                         : disabled
-                          ? theme.colors.separator
+                          ? theme.colors.textTertiary
                           : isToday
                             ? theme.colors.accent
                             : theme.colors.text,
+                      opacity: disabled ? 0.38 : 1,
                     }}
                   >
                     {parseLocalDate(cell).day}
@@ -382,6 +387,7 @@ export function DateTimeSheet({
   title,
 }: DateTimeSheetProps) {
   const { theme } = useTheme();
+  const locale = useLocale();
   const today = todayLocalDate();
   const resolved24 = use24Hour ?? isDevice24HourClock();
 
@@ -403,9 +409,7 @@ export function DateTimeSheet({
     { label: t('common.today'), value: today },
     { label: t('common.yesterday'), value: addDays(today, -1) },
     {
-      label: new Intl.DateTimeFormat('en', { weekday: 'short', day: 'numeric' }).format(
-        new Date(`${addDays(today, -2)}T12:00:00`)
-      ),
+      label: formatWeekdayDay(addDays(today, -2), locale),
       value: addDays(today, -2),
     },
   ].filter((q) => (!maxDate || q.value <= maxDate) && (!minDate || q.value >= minDate));
@@ -421,9 +425,9 @@ export function DateTimeSheet({
     onClose();
   };
 
-  const summary = `${new Intl.DateTimeFormat('en', { weekday: 'short', day: 'numeric', month: 'short' }).format(
-    new Date(`${draftDate}T12:00:00`)
-  )}${mode === 'datetime' ? `, ${formatFriendlyTime(draftTime, resolved24)}` : ''}`;
+  const summary = `${formatWeekdayDayMonth(draftDate, locale)}${
+    mode === 'datetime' ? `, ${formatFriendlyTime(draftTime, resolved24)}` : ''
+  }`;
 
   const showDate = mode === 'date' || (mode === 'datetime' && tab === 'date');
   const showTime = mode === 'time' || (mode === 'datetime' && tab === 'time');
@@ -449,6 +453,10 @@ export function DateTimeSheet({
         <View style={[styles.tabs, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.pill }]}>
           {(['date', 'time'] as const).map((key) => {
             const active = tab === key;
+            const tabLabel =
+              key === 'date'
+                ? formatShortDate(draftDate, locale)
+                : formatFriendlyTime(draftTime, resolved24);
             return (
               <PressableScale
                 key={key}
@@ -473,10 +481,16 @@ export function DateTimeSheet({
                   size={16}
                   color={active ? theme.colors.text : theme.colors.textTertiary}
                 />
-                <AppText variant="label" style={{ color: active ? theme.colors.text : theme.colors.textTertiary }}>
-                  {key === 'date'
-                    ? new Intl.DateTimeFormat('en', { day: 'numeric', month: 'short' }).format(new Date(`${draftDate}T12:00:00`))
-                    : formatFriendlyTime(draftTime, resolved24)}
+                <AppText
+                  variant="label"
+                  numberOfLines={1}
+                  style={{
+                    color: active ? theme.colors.text : theme.colors.textTertiary,
+                    minWidth: estimateSingleLineMinWidth(tabLabel, theme.typography.label.fontSize),
+                    textAlign: 'center',
+                  }}
+                >
+                  {tabLabel}
                 </AppText>
               </PressableScale>
             );
@@ -509,7 +523,15 @@ export function DateTimeSheet({
                       },
                     ]}
                   >
-                    <AppText variant="label" style={{ color: active ? theme.colors.accent : theme.colors.text }}>
+                    <AppText
+                      variant="label"
+                      numberOfLines={1}
+                      style={{
+                        color: active ? theme.colors.accent : theme.colors.text,
+                        minWidth: estimateSingleLineMinWidth(q.label, theme.typography.label.fontSize),
+                        textAlign: 'center',
+                      }}
+                    >
                       {q.label}
                     </AppText>
                   </PressableScale>
@@ -544,7 +566,16 @@ export function DateTimeSheet({
               style={[styles.quick, { borderRadius: theme.radius.pill, borderColor: theme.colors.separator }]}
             >
               <AppIcon name="clock" size={14} color={theme.colors.textSecondary} />
-              <AppText variant="label">{t('dateTime.now')}</AppText>
+              <AppText
+                variant="label"
+                numberOfLines={1}
+                style={{
+                  minWidth: estimateSingleLineMinWidth(t('dateTime.now'), theme.typography.label.fontSize),
+                  textAlign: 'center',
+                }}
+              >
+                {t('dateTime.now')}
+              </AppText>
             </PressableScale>
           </View>
           <TimePicker value={draftTime} onChange={setDraftTime} use24Hour={resolved24} />
@@ -560,6 +591,7 @@ const styles = StyleSheet.create({
   navBtn: { width: 44, height: 44, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   week: { flexDirection: 'row' },
   cell: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 46 },
+  weekdayLabel: { width: '100%', textAlign: 'center' },
   day: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
   tabs: { flexDirection: 'row', padding: 4 },
   tab: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1 },
