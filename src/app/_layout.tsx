@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useFonts } from "expo-font";
+import { HindSiliguri_400Regular } from "@expo-google-fonts/hind-siliguri/400Regular";
 import { HindSiliguri_500Medium } from "@expo-google-fonts/hind-siliguri/500Medium";
 import { HindSiliguri_600SemiBold } from "@expo-google-fonts/hind-siliguri/600SemiBold";
 import { HindSiliguri_700Bold } from "@expo-google-fonts/hind-siliguri/700Bold";
@@ -124,6 +125,7 @@ export default function RootLayout() {
     Manrope_500Medium,
     Manrope_600SemiBold,
     Manrope_700Bold,
+    HindSiliguri_400Regular,
     HindSiliguri_500Medium,
     HindSiliguri_600SemiBold,
     HindSiliguri_700Bold,

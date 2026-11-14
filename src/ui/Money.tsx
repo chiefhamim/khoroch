@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Text, type StyleProp, type TextStyle } from 'react-native';
 import {
   getCompactNumberPart,
@@ -8,8 +8,15 @@ import {
   roundMinorToWhole,
 } from '@/domain/money';
 import type { CurrencyCode } from '@/domain/types';
+import { getLocale } from '@/i18n';
 import { usePrivacyStore } from '@/state/privacyStore';
-import { TAKA_FONT_FAMILY, type ColorPalette, type TypographyVariant } from '@/theme/tokens';
+import {
+  containsBengali,
+  mapFontToBangla,
+  TAKA_FONT_FAMILY,
+  type ColorPalette,
+  type TypographyVariant,
+} from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
 export interface MoneyProps {
@@ -26,6 +33,8 @@ export interface MoneyProps {
   roundToWhole?: boolean;
   showDecimals?: boolean;
   hidden?: boolean;
+  /** Animates numeric changes over ~400ms (defaults true for hero/display amounts). */
+  animate?: boolean;
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
   accessibilityLabel?: string;
@@ -83,9 +92,8 @@ function TakaSign({ numberFontSize, symbol, color, testID }: TakaSignProps) {
 }
 
 /**
- * Formats integer minor units with a dedicated Hind Siliguri `TakaSign` (0.6x,
- * baseline-tuned across 12/15/17/28/40 size buckets), tabular numerals, omitted `.00` unless
- * `showDecimals` is enabled, optional `compact` `k`/`M` cards display, and `Hidden` masking.
+ * Formats integer minor units with a dedicated Hind Siliguri `TakaSign`, tabular numerals,
+ * omitted `.00` unless `showDecimals` is enabled, optional compact display, and ~400ms count-up on change.
  */
 export function Money({
   amountMinor,
@@ -100,12 +108,13 @@ export function Money({
   roundToWhole = false,
   showDecimals,
   hidden,
+  animate,
   style,
   numberOfLines,
   accessibilityLabel,
   testID,
 }: MoneyProps) {
-  const { theme } = useTheme();
+  const { theme, reducedMotion } = useTheme();
   const storeHideAmounts = usePrivacyStore((s) => s.hideAmounts);
   const storeShowPoisha = usePrivacyStore((s) => s.showPoisha);
   const storeCompactNumbers = usePrivacyStore((s) => s.compactNumbers);
@@ -114,6 +123,55 @@ export function Money({
   const resolvedCompact = compact ?? (allowCompact ? storeCompactNumbers : false);
   const resolvedShowDecimals =
     showDecimals ?? (roundToWhole ? false : storeShowPoisha);
+
+  const shouldAnimate =
+    (animate ?? (variant === 'hero' || variant === 'display')) &&
+    !reducedMotion &&
+    !resolvedHidden;
+
+  const [animatedMinor, setAnimatedMinor] = useState(amountMinor);
+  const fromRef = useRef(amountMinor);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!shouldAnimate || fromRef.current === amountMinor) {
+      fromRef.current = amountMinor;
+      setAnimatedMinor(amountMinor);
+      return;
+    }
+
+    const startVal = fromRef.current;
+    const endVal = amountMinor;
+    const duration = theme.motion.countMs;
+    const startTime = Date.now();
+
+    const step = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Cubic ease-out for crisp deceleration
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(startVal + (endVal - startVal) * eased);
+      fromRef.current = current;
+      setAnimatedMinor(current);
+      if (progress < 1) {
+        rafRef.current = requestAnimationFrame(step);
+      } else {
+        fromRef.current = endVal;
+        setAnimatedMinor(endVal);
+        rafRef.current = null;
+      }
+    };
+
+    rafRef.current = requestAnimationFrame(step);
+    return () => {
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+  }, [amountMinor, shouldAnimate, theme.motion.countMs]);
+
+  const effectiveMinor = shouldAnimate ? animatedMinor : amountMinor;
 
   const typeStyle = theme.typography[variant];
   const flattened = Array.isArray(style)
@@ -147,8 +205,8 @@ export function Money({
   }
 
   const normalizedMinor = roundToWhole
-    ? roundMinorToWhole(amountMinor)
-    : Math.trunc(amountMinor);
+    ? roundMinorToWhole(effectiveMinor)
+    : Math.trunc(effectiveMinor);
   const isNegative = normalizedMinor < 0;
   const absMinor = Math.abs(normalizedMinor);
 
@@ -175,12 +233,34 @@ export function Money({
           ? '−'
           : '';
 
-  const formattedPlain = `${resolvedSign}${symbol}${numberPart}`;
+  // Compute exact accessibility label from target amountMinor
+  const targetNormalized = roundToWhole ? roundMinorToWhole(amountMinor) : Math.trunc(amountMinor);
+  const targetAbs = Math.abs(targetNormalized);
+  const targetNumberPart = resolvedCompact
+    ? getCompactNumberPart(targetNormalized).numberPart
+    : (() => {
+        const frac = targetAbs % 100;
+        const wholeStr = groupThousands(String((targetAbs - frac) / 100));
+        return frac !== 0 || resolvedShowDecimals
+          ? `${wholeStr}.${String(frac).padStart(2, '0')}`
+          : wholeStr;
+      })();
+  const targetSign =
+    prefix === '-'
+      ? '−'
+      : prefix.length > 0
+        ? prefix
+        : showSign === 'auto' && targetNormalized < 0
+          ? '−'
+          : '';
+  const formattedPlain = `${targetSign}${symbol}${targetNumberPart}`;
   const computedA11y =
     accessibilityLabel ??
-    (resolvedSign && !formattedPlain.startsWith(resolvedSign)
-      ? `${resolvedSign}${formattedPlain}`
+    (targetSign && !formattedPlain.startsWith(targetSign)
+      ? `${targetSign}${formattedPlain}`
       : formattedPlain);
+
+  const needsBanglaPrefix = getLocale() === 'bn' || containsBengali(resolvedSign);
 
   return (
     <Text
@@ -197,7 +277,17 @@ export function Money({
         style,
       ]}
     >
-      {resolvedSign ? <Text>{resolvedSign}</Text> : null}
+      {resolvedSign ? (
+        <Text
+          style={
+            needsBanglaPrefix
+              ? { fontFamily: mapFontToBangla(typeStyle.fontFamily), letterSpacing: 0 }
+              : undefined
+          }
+        >
+          {resolvedSign}
+        </Text>
+      ) : null}
       <TakaSign
         testID={testID ? `${testID}-taka` : undefined}
         numberFontSize={mainFontSize}

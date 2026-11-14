@@ -57,6 +57,8 @@ jest.mock('react-native-reanimated', () => {
     FadeIn: builder(),
     FadeOut: builder(),
     FadeInDown: builder(),
+    FadeInUp: builder(),
+    FadeOutDown: builder(),
     LinearTransition: builder(),
   };
 });
@@ -70,5 +72,7 @@ jest.mock('react-native-keyboard-controller', () => {
   return {
     KeyboardProvider: ({ children }) => React.createElement(View, null, children),
     KeyboardAwareScrollView: ScrollView,
+    KeyboardAvoidingView: ({ children, ...props }) => React.createElement(View, props, children),
+    KeyboardStickyView: ({ children, ...props }) => React.createElement(View, props, children),
   };
 });

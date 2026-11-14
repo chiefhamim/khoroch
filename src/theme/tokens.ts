@@ -7,6 +7,33 @@ export type ResolvedColorMode = 'light' | 'dark' | 'black';
 export const TAKA_FONT_FAMILY = 'HindSiliguri_600SemiBold';
 export const BANGLA_FONT_FAMILY = 'HindSiliguri_600SemiBold';
 
+export const BANGLA_FONTS = {
+  regular: 'HindSiliguri_400Regular',
+  medium: 'HindSiliguri_500Medium',
+  semibold: 'HindSiliguri_600SemiBold',
+  bold: 'HindSiliguri_700Bold',
+} as const;
+
+const BENGALI_CHAR_REGEX = /[\u0980-\u09FF]/;
+
+export function containsBengali(text: string): boolean {
+  return BENGALI_CHAR_REGEX.test(text);
+}
+
+export function mapFontToBangla(fontFamily?: string): string {
+  if (!fontFamily) return BANGLA_FONTS.regular;
+  if (fontFamily.includes('700') || fontFamily.includes('Bold')) {
+    return BANGLA_FONTS.bold;
+  }
+  if (fontFamily.includes('600') || fontFamily.includes('SemiBold')) {
+    return BANGLA_FONTS.semibold;
+  }
+  if (fontFamily.includes('500') || fontFamily.includes('Medium')) {
+    return BANGLA_FONTS.medium;
+  }
+  return BANGLA_FONTS.regular;
+}
+
 export const spacing = {
   xs: 4,
   sm: 8,
@@ -19,13 +46,13 @@ export const spacing = {
 } as const;
 
 export const geometry = {
-  screenMargin: 20,
+  screenMargin: 16,
   cardPadding: 18,
   listRowHeight: 62,
-  iconTile: 36,
+  iconTile: 38,
   sectionGap: 24,
   cardGap: 12,
-  progressBarHeight: 5,
+  progressBarHeight: 6,
   buttonHeight: 50,
   smallButtonHeight: 40,
   sheetHandleWidth: 36,
@@ -33,20 +60,20 @@ export const geometry = {
 } as const;
 
 export const radius = {
-  card: 18,
-  heroCard: 22,
+  card: 20,
+  heroCard: 20,
   sheetTop: 28,
   button: 14,
   input: 14,
-  iconTile: 11,
-  monogram: 9,
+  iconTile: 12,
+  monogram: 10,
   chip: 999,
-  keypadKey: 12,
+  keypadKey: 14,
   // Scale aliases
   sm: 8,
   md: 12,
   lg: 16,
-  xl: 18,
+  xl: 20,
   pill: 999,
 } as const;
 
@@ -58,6 +85,8 @@ export const motion = {
   fast: 150,
   normal: 200,
   slow: 250,
+  staggerMs: 40,
+  countMs: 400,
 } as const;
 
 export const typography = {
@@ -68,22 +97,22 @@ export const typography = {
     fontFamily: 'Manrope_700Bold',
   },
   display: {
-    fontSize: 28,
-    lineHeight: 34,
-    letterSpacing: -0.7,
+    fontSize: 34,
+    lineHeight: 40,
+    letterSpacing: -0.9,
     fontFamily: 'Manrope_700Bold',
   },
   title: {
-    fontSize: 24,
-    lineHeight: 30,
-    letterSpacing: -0.6,
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.5,
     fontFamily: 'Manrope_700Bold',
   },
   headline: {
     fontSize: 17,
-    lineHeight: 23,
+    lineHeight: 22,
     letterSpacing: -0.2,
-    fontFamily: 'Manrope_700Bold',
+    fontFamily: 'Manrope_600SemiBold',
   },
   body: {
     fontSize: 15,
@@ -102,9 +131,8 @@ export const typography = {
     fontFamily: 'Manrope_500Medium',
   },
   caption: {
-    fontSize: 12,
-    lineHeight: 16,
-    letterSpacing: 0.2,
+    fontSize: 13,
+    lineHeight: 18,
     fontFamily: 'Manrope_500Medium',
   },
   overline: {
@@ -153,7 +181,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       hero: '#123227',
       heroText: '#F3F6F4',
       heroTextSecondary: '#C2CDC7',
-      heroLine: 'rgba(243, 246, 244, 0.14)',
+      heroLine: 'rgba(243, 246, 244, 0.16)',
       heroBar: '#5FD3A3',
     },
     dark: {
@@ -163,7 +191,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       hero: '#173A2C',
       heroText: '#F3F6F4',
       heroTextSecondary: '#B8C7C0',
-      heroLine: 'rgba(243, 246, 244, 0.12)',
+      heroLine: 'rgba(243, 246, 244, 0.14)',
       heroBar: '#4CCB97',
     },
   },
@@ -178,7 +206,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       hero: '#1B2F5C',
       heroText: '#F3F6F4',
       heroTextSecondary: '#C2CDC7',
-      heroLine: 'rgba(243, 246, 244, 0.14)',
+      heroLine: 'rgba(243, 246, 244, 0.16)',
       heroBar: '#7FB2F0',
     },
     dark: {
@@ -188,7 +216,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       hero: '#1A2D57',
       heroText: '#F3F6F4',
       heroTextSecondary: '#B9C5D9',
-      heroLine: 'rgba(243, 246, 244, 0.12)',
+      heroLine: 'rgba(243, 246, 244, 0.14)',
       heroBar: '#7FB2F0',
     },
   },
@@ -203,7 +231,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       hero: '#43245E',
       heroText: '#F3F6F4',
       heroTextSecondary: '#C2CDC7',
-      heroLine: 'rgba(243, 246, 244, 0.14)',
+      heroLine: 'rgba(243, 246, 244, 0.16)',
       heroBar: '#D4B0FA',
     },
     dark: {
@@ -213,7 +241,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       hero: '#34204D',
       heroText: '#F3F6F4',
       heroTextSecondary: '#C6BAD6',
-      heroLine: 'rgba(243, 246, 244, 0.12)',
+      heroLine: 'rgba(243, 246, 244, 0.14)',
       heroBar: '#C59DF5',
     },
   },
@@ -228,7 +256,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       hero: '#7A2E12',
       heroText: '#F3F6F4',
       heroTextSecondary: '#D1C7C2',
-      heroLine: 'rgba(243, 246, 244, 0.16)',
+      heroLine: 'rgba(243, 246, 244, 0.18)',
       heroBar: '#F5B864',
     },
     dark: {
@@ -238,7 +266,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       hero: '#4A2414',
       heroText: '#F3F6F4',
       heroTextSecondary: '#D2BEB3',
-      heroLine: 'rgba(243, 246, 244, 0.14)',
+      heroLine: 'rgba(243, 246, 244, 0.16)',
       heroBar: '#F0A35E',
     },
   },
@@ -253,7 +281,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       hero: '#26262A',
       heroText: '#F3F6F4',
       heroTextSecondary: '#C2CDC7',
-      heroLine: 'rgba(243, 246, 244, 0.14)',
+      heroLine: 'rgba(243, 246, 244, 0.16)',
       heroBar: '#C9C6BE',
     },
     dark: {
@@ -263,7 +291,7 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       hero: '#232327',
       heroText: '#F3F6F4',
       heroTextSecondary: '#C1C1C7',
-      heroLine: 'rgba(243, 246, 244, 0.12)',
+      heroLine: 'rgba(243, 246, 244, 0.14)',
       heroBar: '#C4C4CC',
     },
   },
@@ -299,15 +327,15 @@ export interface ColorPalette {
 }
 
 const LIGHT_BASE = {
-  bg: '#F6F5F1',
+  bg: '#F2F1EC',
   surface: '#FFFFFF',
   surfaceRaised: '#FFFFFF',
-  surfaceSunken: '#EEEDE8',
-  separator: '#E5E2DB',
-  cardBorder: '#E5E2DB',
+  surfaceSunken: '#EAE8E0',
+  separator: '#E2DFD6',
+  cardBorder: '#E5E2D9',
   text: '#16150F',
-  textSecondary: '#5F5C54',
-  textTertiary: '#6E6B63',
+  textSecondary: '#5B5850',
+  textTertiary: '#68655D',
   ink: '#16150F',
   onInk: '#F6F5F1',
   income: '#0B7A55',
@@ -316,40 +344,40 @@ const LIGHT_BASE = {
   danger: '#B42318',
   onDanger: '#FFFFFF',
   dangerSoft: '#FDECEA',
-  scrim: 'rgba(22, 21, 15, 0.38)',
+  scrim: 'rgba(22, 21, 15, 0.42)',
 } as const;
 
 const DARK_BASE = {
-  bg: '#0B0B0C',
-  surface: '#151517',
-  surfaceRaised: '#1C1C1F',
-  surfaceSunken: '#1C1C1F',
-  separator: '#26262A',
-  cardBorder: '#26262A',
+  bg: '#0B0B0E',
+  surface: '#16161B',
+  surfaceRaised: '#222229',
+  surfaceSunken: '#101014',
+  separator: '#282832',
+  cardBorder: '#2A2A34',
   text: '#F2F1EE',
-  textSecondary: '#A6A39C',
-  textTertiary: '#8E8B84',
+  textSecondary: '#ABA8A0',
+  textTertiary: '#98958E',
   ink: '#F2F1EE',
-  onInk: '#0B0B0C',
+  onInk: '#0B0B0E',
   income: '#4CCB97',
   warning: '#F2B04A',
   warningBg: '#2A2013',
   danger: '#F08A7E',
-  onDanger: '#0B0B0C',
+  onDanger: '#0B0B0E',
   dangerSoft: '#2E1615',
-  scrim: 'rgba(0, 0, 0, 0.65)',
+  scrim: 'rgba(0, 0, 0, 0.68)',
 } as const;
 
 const BLACK_BASE = {
   bg: '#000000',
-  surface: '#0B0B0D',
-  surfaceRaised: '#141417',
-  surfaceSunken: '#141417',
-  separator: '#222226',
-  cardBorder: '#222226',
+  surface: '#111115',
+  surfaceRaised: '#1D1D24',
+  surfaceSunken: '#08080B',
+  separator: '#24242D',
+  cardBorder: '#25252F',
   text: '#F2F1EE',
-  textSecondary: '#A6A39C',
-  textTertiary: '#8E8B84',
+  textSecondary: '#ABA8A0',
+  textTertiary: '#96938C',
   ink: '#F2F1EE',
   onInk: '#000000',
   income: '#4CCB97',
@@ -358,7 +386,7 @@ const BLACK_BASE = {
   danger: '#F08A7E',
   onDanger: '#000000',
   dangerSoft: '#2A1212',
-  scrim: 'rgba(0, 0, 0, 0.78)',
+  scrim: 'rgba(0, 0, 0, 0.8)',
 } as const;
 
 export function getPalette(
@@ -380,9 +408,47 @@ export const lightColors: ColorPalette = getPalette('light', 'forest');
 export const darkColors: ColorPalette = getPalette('dark', 'forest');
 export const blackColors: ColorPalette = getPalette('black', 'forest');
 
-// v1.2 uses flat hairline-bordered surfaces with zero drop shadow.
-export const lightCardShadow: ViewStyle = {};
-export const darkCardShadow: ViewStyle = {};
+export interface ElevationTokens {
+  none: ViewStyle;
+  e1: ViewStyle;
+  e2: ViewStyle;
+  e3: ViewStyle;
+}
+
+export const lightElevation: ElevationTokens = {
+  none: {},
+  e1: {
+    boxShadow:
+      '0 0 0 0.5px rgba(22,22,44,0.06), 0 1px 2px rgba(22,22,44,0.04), 0 8px 22px -12px rgba(22,22,44,0.18)',
+  },
+  e2: {
+    boxShadow:
+      '0 0 0 0.5px rgba(22,22,44,0.07), 0 2px 5px rgba(22,22,44,0.06), 0 14px 30px -14px rgba(22,22,44,0.28)',
+  },
+  e3: {
+    boxShadow:
+      '0 0 0 0.5px rgba(22,22,44,0.08), 0 6px 14px rgba(22,22,44,0.08), 0 26px 52px -18px rgba(22,22,44,0.38)',
+  },
+};
+
+export const darkElevation: ElevationTokens = {
+  none: {},
+  e1: {
+    boxShadow:
+      '0 0 0 0.5px rgba(255,255,255,0.08), 0 1px 2px rgba(0,0,0,0.45), 0 10px 24px -12px rgba(0,0,0,0.70)',
+  },
+  e2: {
+    boxShadow:
+      '0 0 0 0.5px rgba(255,255,255,0.10), 0 2px 5px rgba(0,0,0,0.50), 0 16px 32px -14px rgba(0,0,0,0.80)',
+  },
+  e3: {
+    boxShadow:
+      '0 0 0 0.5px rgba(255,255,255,0.12), 0 6px 14px rgba(0,0,0,0.50), 0 28px 56px -18px rgba(0,0,0,0.85)',
+  },
+};
+
+export const lightCardShadow: ViewStyle = lightElevation.e1;
+export const darkCardShadow: ViewStyle = darkElevation.e1;
 
 export interface AppTheme {
   scheme: 'light' | 'dark';
@@ -397,6 +463,7 @@ export interface AppTheme {
   touch: typeof touch;
   motion: typeof motion;
   typography: typeof typography;
+  elevation: ElevationTokens;
   cardShadow: ViewStyle;
 }
 
@@ -407,6 +474,7 @@ export function buildTheme(
   const accentDef = ACCENT_DEFINITIONS[accent] ?? ACCENT_DEFINITIONS.forest;
   const colors = getPalette(mode, accent);
   const scheme: 'light' | 'dark' = mode === 'light' ? 'light' : 'dark';
+  const elevation = scheme === 'light' ? lightElevation : darkElevation;
   return {
     scheme,
     mode,
@@ -420,7 +488,8 @@ export function buildTheme(
     touch,
     motion,
     typography,
-    cardShadow: scheme === 'light' ? lightCardShadow : darkCardShadow,
+    elevation,
+    cardShadow: elevation.e1,
   };
 }
 

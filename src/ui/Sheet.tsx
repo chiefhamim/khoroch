@@ -5,16 +5,15 @@ import {
   usePanGesture,
 } from "react-native-gesture-handler";
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   View,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import Animated, {
   Easing,
   runOnJS,
@@ -121,7 +120,7 @@ export function Sheet({
       }
     },
   });
-  // A drag past the threshold asks the parent to close; the parent flips `visible`.
+
   useEffect(() => {
     if (dragCloses > 0) onClose();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -139,9 +138,10 @@ export function Sheet({
     : Math.max(insets.bottom, theme.spacing.lg) + theme.spacing.sm;
 
   const content = scroll ? (
-    <KeyboardAwareScrollView
+    <ScrollView
       keyboardShouldPersistTaps="handled"
       bounces={false}
+      showsVerticalScrollIndicator={false}
       contentContainerStyle={{
         paddingHorizontal: theme.geometry.screenMargin,
         paddingBottom: bottomPad,
@@ -149,7 +149,7 @@ export function Sheet({
       }}
     >
       {children}
-    </KeyboardAwareScrollView>
+    </ScrollView>
   ) : (
     <View
       style={{
@@ -171,10 +171,7 @@ export function Sheet({
       statusBarTranslucent
     >
       <GestureHandlerRootView style={styles.flex}>
-        <KeyboardAvoidingView
-          style={styles.root}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
-        >
+        <KeyboardAvoidingView style={styles.root} behavior="padding">
           <Animated.View style={[styles.backdrop, backdropStyle]}>
             <Pressable
               accessibilityRole="button"
@@ -190,6 +187,7 @@ export function Sheet({
             }}
             style={[
               styles.sheet,
+              theme.elevation.e3,
               {
                 backgroundColor:
                   theme.scheme === "dark"
@@ -197,75 +195,83 @@ export function Sheet({
                     : theme.colors.surface,
                 borderTopLeftRadius: theme.radius.sheetTop,
                 borderTopRightRadius: theme.radius.sheetTop,
-                borderColor: theme.colors.separator,
-                borderTopWidth: theme.scheme === "dark" ? 1 : 0,
               },
               style,
               sheetStyle,
             ]}
           >
-            <GestureDetector gesture={pan}>
-              <View>
-                <View style={styles.handleWrap}>
-                  <View
-                    style={[
-                      styles.handle,
-                      {
-                        width: theme.geometry.sheetHandleWidth,
-                        height: theme.geometry.sheetHandleHeight,
-                        borderRadius: theme.radius.pill,
-                        backgroundColor: theme.colors.separator,
-                      },
-                    ]}
-                  />
-                </View>
-                {title || headerRight ? (
-                  <View
-                    style={[
-                      styles.header,
-                      {
-                        paddingHorizontal: theme.geometry.screenMargin,
-                        paddingBottom: theme.spacing.sm,
-                      },
-                    ]}
-                  >
-                    <AppText
-                      variant="headline"
-                      style={styles.title}
-                      numberOfLines={1}
-                    >
-                      {title ?? ""}
-                    </AppText>
+            <View
+              style={[
+                styles.sheetInner,
+                {
+                  borderTopLeftRadius: theme.radius.sheetTop,
+                  borderTopRightRadius: theme.radius.sheetTop,
+                },
+              ]}
+            >
+              <GestureDetector gesture={pan}>
+                <View>
+                  <View style={styles.handleWrap}>
                     <View
-                      style={[styles.headerRight, { gap: theme.spacing.sm }]}
-                    >
-                      {headerRight}
-                      <IconButton
-                        icon="x"
-                        size={34}
-                        iconSize={18}
-                        accessibilityLabel="Close"
-                        onPress={onClose}
-                      />
-                    </View>
+                      style={[
+                        styles.handle,
+                        {
+                          width: theme.geometry.sheetHandleWidth,
+                          height: theme.geometry.sheetHandleHeight,
+                          borderRadius: theme.radius.pill,
+                          backgroundColor: theme.colors.separator,
+                        },
+                      ]}
+                    />
                   </View>
-                ) : null}
-              </View>
-            </GestureDetector>
-            {content}
-            {footer ? (
-              <View
-                style={{
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: theme.colors.separator,
-                  paddingHorizontal: theme.geometry.screenMargin,
-                  paddingTop: theme.spacing.sm + 2,
-                  paddingBottom: Math.max(insets.bottom, theme.spacing.md),
-                }}
-              >
-                {footer}
-              </View>
-            ) : null}
+                  {title || headerRight ? (
+                    <View
+                      style={[
+                        styles.header,
+                        {
+                          paddingHorizontal: theme.geometry.screenMargin,
+                          paddingBottom: theme.spacing.sm,
+                        },
+                      ]}
+                    >
+                      <AppText
+                        variant="headline"
+                        style={styles.title}
+                        numberOfLines={1}
+                      >
+                        {title ?? ""}
+                      </AppText>
+                      <View
+                        style={[styles.headerRight, { gap: theme.spacing.sm }]}
+                      >
+                        {headerRight}
+                        <IconButton
+                          icon="x"
+                          size={34}
+                          iconSize={18}
+                          accessibilityLabel="Close"
+                          onPress={onClose}
+                        />
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+              </GestureDetector>
+              {content}
+              {footer ? (
+                <View
+                  style={{
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: theme.colors.separator,
+                    paddingHorizontal: theme.geometry.screenMargin,
+                    paddingTop: theme.spacing.sm + 2,
+                    paddingBottom: Math.max(insets.bottom, theme.spacing.md),
+                  }}
+                >
+                  {footer}
+                </View>
+              ) : null}
+            </View>
           </Animated.View>
         </KeyboardAvoidingView>
       </GestureHandlerRootView>
@@ -275,7 +281,6 @@ export function Sheet({
 
 const OFFSCREEN = 900;
 
-/** Unmount on the next frame (reduced-motion close has no animation callback to wait for). */
 function setMountedLater(set: (v: boolean) => void) {
   requestAnimationFrame(() => set(false));
 }
@@ -306,7 +311,11 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 520,
     maxHeight: "88%",
+  },
+  sheetInner: {
     overflow: "hidden",
+    flexShrink: 1,
+    maxHeight: "100%",
   },
   handleWrap: {
     alignItems: "center",

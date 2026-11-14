@@ -47,8 +47,7 @@ export function hexToRgba(hex: string, alpha: number): string {
 }
 
 /**
- * In v1.2, category glyphs carry their category colour on a neutral sunken tile
- * (`#EEEDE8` light / `#1C1C1F` dark) — never a coloured tinted square.
+ * Category glyphs keep their category colour paired with a soft tinted background.
  */
 export function getCategoryTileVisual(
   colorKey: string | null | undefined,
@@ -57,6 +56,6 @@ export function getCategoryTileVisual(
   const key = normalizeCategoryColorKey(colorKey);
   const spec = CATEGORY_COLORS[key];
   const fg = scheme === 'dark' ? spec.dark : spec.light;
-  const bg = scheme === 'dark' ? '#1C1C1F' : '#EEEDE8';
+  const bg = hexToRgba(fg, scheme === 'dark' ? 0.18 : 0.12);
   return { fg, bg };
 }

@@ -71,6 +71,7 @@ function GalleryBody({
   const [padDraft, setPadDraft] = useState('1250');
   const [switchVal, setSwitchVal] = useState(true);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetFieldText, setSheetFieldText] = useState('Office lunch');
 
   const parsedPad = parseMoneyInput(padDraft);
   const padMinor = parsedPad.ok && parsedPad.minor !== null ? parsedPad.minor : 0;
@@ -249,9 +250,33 @@ function GalleryBody({
 
         <View style={{ gap: theme.spacing.sm }}>
           <AppText variant="caption" color="textSecondary">
-            TYPOGRAPHY
+            ELEVATION & SURFACES
+          </AppText>
+          <View style={{ gap: theme.spacing.sm }}>
+            <Surface variant="sunken">
+              <AppText variant="label" color="textSecondary">Sunken surface (no shadow)</AppText>
+            </Surface>
+            <Surface elevation="e1">
+              <AppText variant="label">Elevated e1 (standard card)</AppText>
+            </Surface>
+            <Surface elevation="e2">
+              <AppText variant="label">Elevated e2 (hero & active card)</AppText>
+            </Surface>
+            <Surface elevation="e3" variant="raised">
+              <AppText variant="label">Elevated e3 (raised sheet & toast)</AppText>
+            </Surface>
+          </View>
+        </View>
+
+        <View style={{ gap: theme.spacing.sm }}>
+          <AppText variant="caption" color="textSecondary">
+            TYPOGRAPHY & BANGLA
           </AppText>
           <Surface style={{ gap: theme.spacing.sm }}>
+            <AppText variant="title">খরচ · দৈনন্দিন হিসাব</AppText>
+            <AppText variant="body" color="textSecondary">
+              খাবার ও মুদি · ৳ ১২,৪৫০ · সিস্টেম ও ডার্ক থিম
+            </AppText>
             <View style={styles.inlineRow}>
               <Money amountMinor={-60_000} currency="BDT" variant="bodyStrong" />
               <Money
@@ -470,6 +495,14 @@ function GalleryBody({
         <AppText variant="body" color="textSecondary">
           Sheets use 28dp top corners, a centered handle, and keyboard avoidance.
         </AppText>
+        <Field
+          testID="gallery-sheet-field"
+          label="Sheet Note"
+          value={sheetFieldText}
+          onChangeText={setSheetFieldText}
+          placeholder="Tap to test keyboard avoidance"
+          onClear={() => setSheetFieldText('')}
+        />
         <Button title="Got it" onPress={() => setSheetOpen(false)} />
       </Sheet>
     </SafeAreaView>

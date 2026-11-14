@@ -35,9 +35,9 @@ export function IconTile({
           : theme.geometry.iconTile;
   const glyphSize = Math.round(boxSize * 0.5);
 
-  const fg = neutral
-    ? theme.colors.textSecondary
-    : getCategoryTileVisual(colorKey, theme.scheme).fg;
+  const visual = getCategoryTileVisual(colorKey, theme.scheme);
+  const fg = neutral ? theme.colors.textSecondary : visual.fg;
+  const bg = neutral ? theme.colors.surfaceSunken : visual.bg;
 
   return (
     <View
@@ -48,7 +48,7 @@ export function IconTile({
           width: boxSize,
           height: boxSize,
           borderRadius: theme.radius.iconTile,
-          backgroundColor: theme.colors.surfaceSunken,
+          backgroundColor: bg,
           borderWidth: selected ? 2 : 0,
           borderColor: selected ? fg : 'transparent',
         },

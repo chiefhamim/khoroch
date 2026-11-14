@@ -3,11 +3,10 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   StyleSheet,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { buildCustomCategory } from '@/domain/categories';
 import type { Account, Category, LocalDate, Transaction } from '@/domain/types';
@@ -227,7 +226,7 @@ export default function NewTransactionScreen() {
       style={[styles.flex1, { backgroundColor: theme.colors.bg }]}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={styles.flex1}
       >
         <TransactionForm

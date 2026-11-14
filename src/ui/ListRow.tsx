@@ -1,9 +1,11 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import Animated from 'react-native-reanimated';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
 import { AppText } from './AppText';
 import { PressableScale } from '@/ui/PressableScale';
+import { listLayoutTransition } from './motion';
 
 export interface ListRowProps {
   title: string;
@@ -16,6 +18,7 @@ export interface ListRowProps {
   showDivider?: boolean;
   dividerInset?: number;
   compact?: boolean;
+  animateLayout?: boolean;
   accessibilityLabel?: string;
   testID?: string;
 }
@@ -31,6 +34,7 @@ export function ListRow({
   showDivider = false,
   dividerInset,
   compact = false,
+  animateLayout = false,
   accessibilityLabel,
   testID,
 }: ListRowProps) {
@@ -73,7 +77,7 @@ export function ListRow({
       {showDivider ? (
         <View
           style={{
-            height: StyleSheet.hairlineWidth > 0 ? 1 : 1,
+            height: Math.max(StyleSheet.hairlineWidth, 0.5),
             backgroundColor: theme.colors.separator,
             marginLeft: resolvedInset,
             marginRight: theme.spacing.lg,
@@ -83,21 +87,32 @@ export function ListRow({
     </View>
   );
 
-  if (!onPress) return rowInner;
-
-  return (
-    <PressableScale pressScale={0.985}
+  const pressable = onPress ? (
+    <PressableScale
+      pressScale={0.985}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
       onPress={onPress}
       style={({ pressed }) => ({
-        opacity: pressed && !reducedMotion ? 0.72 : 1,
+        opacity: pressed && !reducedMotion ? 0.78 : 1,
       })}
     >
       {rowInner}
     </PressableScale>
+  ) : (
+    rowInner
   );
+
+  if (animateLayout) {
+    return (
+      <Animated.View layout={listLayoutTransition(reducedMotion)}>
+        {pressable}
+      </Animated.View>
+    );
+  }
+
+  return pressable;
 }
 
 const styles = StyleSheet.create({

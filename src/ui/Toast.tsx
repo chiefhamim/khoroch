@@ -7,9 +7,11 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
+import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/useTheme';
+import { PressableScale } from '@/ui/PressableScale';
 import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
 
@@ -78,12 +80,10 @@ export function ToastView({
       accessibilityLiveRegion="polite"
       style={[
         styles.toast,
-        theme.cardShadow,
+        theme.elevation.e3,
         {
           backgroundColor: bg,
           borderRadius: theme.radius.pill,
-          borderColor: theme.colors.separator,
-          borderWidth: theme.scheme === 'dark' ? 1 : 0,
           paddingHorizontal: theme.spacing.lg,
           paddingVertical: theme.spacing.md,
           gap: theme.spacing.sm,
@@ -95,7 +95,8 @@ export function ToastView({
         {message}
       </AppText>
       {actionLabel && onAction ? (
-        <Pressable
+        <PressableScale
+          pressScale={0.94}
           accessibilityRole="button"
           accessibilityLabel={actionLabel}
           hitSlop={8}
@@ -108,13 +109,14 @@ export function ToastView({
           <AppText variant="label" style={{ color: '#34D399' }}>
             {actionLabel}
           </AppText>
-        </Pressable>
+        </PressableScale>
       ) : null}
     </View>
   );
 }
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
+  const { reducedMotion } = useTheme();
   const [toast, setToast] = useState<ActiveToast | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
@@ -150,7 +152,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {toast ? (
-        <View
+        <Animated.View
+          entering={reducedMotion ? undefined : FadeInUp.duration(180).springify()}
+          exiting={reducedMotion ? undefined : FadeOutDown.duration(150)}
           pointerEvents="box-none"
           style={[styles.overlay, { bottom: Math.max(insets.bottom, 16) + 72 }]}
         >
@@ -162,7 +166,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             onAction={toast.onAction}
             onDismiss={hideToast}
           />
-        </View>
+        </Animated.View>
       ) : null}
     </ToastContext.Provider>
   );

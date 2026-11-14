@@ -38,16 +38,15 @@ export function Chip({
       ? theme.colors.surfaceSunken
       : theme.colors.surface;
 
-  const borderColor = selected
-    ? theme.colors.accent
-    : variant === 'sunken'
-      ? 'transparent'
-      : theme.colors.separator;
+  const borderColor = selected ? theme.colors.accent : 'transparent';
+  const elevationStyle =
+    !selected && variant === 'surface' ? theme.elevation.e1 : theme.elevation.none;
 
   const fgColor = selected ? theme.colors.accent : theme.colors.text;
 
   return (
-    <PressableScale pressScale={0.94}
+    <PressableScale
+      pressScale={0.95}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
@@ -56,6 +55,7 @@ export function Chip({
       onPress={onPress}
       style={({ pressed }) => [
         styles.chip,
+        elevationStyle,
         {
           minHeight: theme.touch.min,
           borderRadius: theme.radius.chip,
@@ -63,7 +63,8 @@ export function Chip({
           gap: theme.spacing.sm,
           backgroundColor,
           borderColor,
-          opacity: pressed && !reducedMotion ? 0.85 : 1,
+          borderWidth: selected ? 1.5 : 0,
+          opacity: pressed && !reducedMotion ? 0.88 : 1,
         },
         style,
       ]}
@@ -93,7 +94,6 @@ export function Chip({
 
 const styles = StyleSheet.create({
   chip: {
-    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

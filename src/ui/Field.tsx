@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import {
   Platform,
-  Pressable,
   StyleSheet,
   TextInput,
   View,
@@ -10,7 +9,10 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
+import { getLocale } from '@/i18n';
+import { containsBengali, mapFontToBangla } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
+import { PressableScale } from '@/ui/PressableScale';
 import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
 
@@ -37,6 +39,7 @@ export function Field({
   pill = false,
   inputRef,
   value,
+  placeholder,
   multiline,
   containerStyle,
   inputStyle,
@@ -52,6 +55,11 @@ export function Field({
     : focused
       ? theme.colors.accent
       : 'transparent';
+
+  const useBanglaFont =
+    getLocale() === 'bn' ||
+    containsBengali(value ?? '') ||
+    containsBengali(placeholder ?? '');
 
   return (
     <View style={[{ gap: theme.spacing.xs }, containerStyle]}>
@@ -83,6 +91,7 @@ export function Field({
         <TextInput
           ref={inputRef}
           value={value}
+          placeholder={placeholder}
           multiline={multiline}
           placeholderTextColor={theme.colors.textTertiary}
           onFocus={(e) => {
@@ -102,11 +111,18 @@ export function Field({
             { color: theme.colors.text },
             multiline ? { textAlignVertical: 'top', minHeight: 68 } : null,
             inputStyle,
+            useBanglaFont
+              ? {
+                  fontFamily: mapFontToBangla(theme.typography.body.fontFamily),
+                  letterSpacing: 0,
+                }
+              : null,
           ]}
           {...rest}
         />
         {onClear && value && value.length > 0 ? (
-          <Pressable
+          <PressableScale
+            pressScale={0.88}
             accessibilityRole="button"
             accessibilityLabel="Clear"
             hitSlop={10}
@@ -114,7 +130,7 @@ export function Field({
             style={styles.clearBtn}
           >
             <AppIcon name="x" size={16} color={theme.colors.textSecondary} />
-          </Pressable>
+          </PressableScale>
         ) : null}
       </View>
       {error ? (
@@ -143,6 +159,7 @@ const styles = StyleSheet.create({
   clearBtn: {
     width: 28,
     height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },

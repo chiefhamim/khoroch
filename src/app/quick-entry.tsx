@@ -2,12 +2,11 @@ import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   currentLocalTime,
@@ -391,7 +390,7 @@ export default function QuickEntryScreen() {
       style={[styles.flex1, { backgroundColor: theme.colors.bg }]}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={styles.flex1}
       >
         {/* Top Bar */}

@@ -67,6 +67,7 @@ export function buildAppConfig(
         'android.permission.WRITE_EXTERNAL_STORAGE',
       ],
       predictiveBackGestureEnabled: false,
+      softwareKeyboardLayoutMode: 'resize',
     },
     web: {
       output: 'single',

@@ -330,6 +330,7 @@ export function FastTransactionEntry({
               amountMinor={parsedAmount ?? 0}
               currency={currency}
               variant="hero"
+              animate={false}
               showDecimals={amountText.includes('.')}
               color={parsedAmount === null ? 'textTertiary' : isIncome ? 'income' : 'text'}
             />

@@ -2,11 +2,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   StyleSheet,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Account, Category, Transfer } from '@/domain/types';
 import { t } from '@/i18n';
@@ -164,7 +163,7 @@ export default function EditTransferScreen() {
       style={[styles.flex1, { backgroundColor: theme.colors.bg }]}
     >
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        behavior="padding"
         style={styles.flex1}
       >
         <TransactionForm

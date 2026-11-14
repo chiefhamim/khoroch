@@ -55,9 +55,18 @@ export function IconButton({
         : theme.colors.text;
 
   const hitMargin = Math.max(0, Math.ceil((theme.touch.min - size) / 2));
+  const elevationStyle =
+    disabled
+      ? theme.elevation.none
+      : variant === 'accent'
+        ? theme.elevation.e2
+        : variant === 'surface'
+          ? theme.elevation.e1
+          : theme.elevation.none;
 
   return (
-    <PressableScale pressScale={0.9}
+    <PressableScale
+      pressScale={0.9}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
@@ -67,13 +76,12 @@ export function IconButton({
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
+        elevationStyle,
         {
           width: size,
           height: size,
           borderRadius: theme.radius.pill,
           backgroundColor,
-          borderWidth: variant === 'surface' ? 1 : 0,
-          borderColor: variant === 'surface' ? theme.colors.separator : 'transparent',
           opacity: disabled ? 0.45 : pressed && !reducedMotion ? 0.78 : 1,
         },
         style,

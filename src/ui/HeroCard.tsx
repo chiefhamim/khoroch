@@ -1,5 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { useTheme } from '@/theme/useTheme';
 import { PressableScale } from '@/ui/PressableScale';
 
@@ -13,7 +18,7 @@ export interface HeroCardProps {
 }
 
 /**
- * Solid-filled hero summary container (no gradient, no glow, no shadow per PLAN §3).
+ * Solid-filled raised hero card (`e2` elevation, zero gradients/glass).
  */
 export function HeroCard({
   children,
@@ -27,6 +32,7 @@ export function HeroCard({
 
   const cardStyle: StyleProp<ViewStyle> = [
     styles.card,
+    theme.elevation.e2,
     {
       backgroundColor: theme.colors.hero,
       borderRadius: theme.radius.heroCard,
@@ -37,7 +43,8 @@ export function HeroCard({
 
   if (onPress) {
     return (
-      <PressableScale pressScale={0.985}
+      <PressableScale
+        pressScale={0.985}
         testID={testID}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
@@ -45,7 +52,7 @@ export function HeroCard({
         onPress={onPress}
         style={({ pressed }) => [
           cardStyle,
-          { opacity: pressed && !reducedMotion ? 0.92 : 1 },
+          { opacity: pressed && !reducedMotion ? 0.94 : 1 },
         ]}
       >
         {children}
@@ -65,8 +72,21 @@ export interface HeroProgressBarProps {
 }
 
 export function HeroProgressBar({ pct }: HeroProgressBarProps) {
-  const { theme } = useTheme();
+  const { theme, reducedMotion } = useTheme();
   const clamped = pct === null ? 0 : Math.max(0, Math.min(100, pct));
+  const widthPct = useSharedValue(clamped);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      widthPct.set(clamped);
+    } else {
+      widthPct.set(withSpring(clamped, { damping: 24, stiffness: 220, mass: 0.9 }));
+    }
+  }, [clamped, reducedMotion, widthPct]);
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: `${widthPct.get()}%`,
+  }));
 
   return (
     <View
@@ -81,13 +101,15 @@ export function HeroProgressBar({ pct }: HeroProgressBarProps) {
         },
       ]}
     >
-      <View
-        style={{
-          width: `${clamped}%`,
-          height: theme.geometry.progressBarHeight,
-          borderRadius: theme.radius.pill,
-          backgroundColor: theme.colors.heroBar,
-        }}
+      <Animated.View
+        style={[
+          {
+            height: theme.geometry.progressBarHeight,
+            borderRadius: theme.radius.pill,
+            backgroundColor: theme.colors.heroBar,
+          },
+          fillStyle,
+        ]}
       />
     </View>
   );

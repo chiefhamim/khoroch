@@ -1,12 +1,15 @@
 import React from 'react';
 import {
-  KeyboardAvoidingView,
   ScrollView,
   StyleSheet,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import {
+  KeyboardAwareScrollView,
+  KeyboardAvoidingView,
+} from 'react-native-keyboard-controller';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/useTheme';
 
@@ -48,22 +51,35 @@ export function Screen({
   const { theme } = useTheme();
   const tabScrollPadding = useTabScrollPadding();
 
+  const scrollContentStyle: StyleProp<ViewStyle> = [
+    {
+      paddingHorizontal: theme.geometry.screenMargin,
+      paddingTop: theme.spacing.lg,
+      paddingBottom: bottomSpacer ? tabScrollPadding : theme.spacing.xxl,
+      gap: theme.spacing.lg,
+    },
+    contentContainerStyle,
+  ];
+
   const inner = scroll ? (
-    <ScrollView
-      style={styles.flex}
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={[
-        {
-          paddingHorizontal: theme.geometry.screenMargin,
-          paddingTop: theme.spacing.lg,
-          paddingBottom: bottomSpacer ? tabScrollPadding : theme.spacing.xxl,
-          gap: theme.spacing.lg,
-        },
-        contentContainerStyle,
-      ]}
-    >
-      {children}
-    </ScrollView>
+    keyboardAvoiding ? (
+      <KeyboardAwareScrollView
+        style={styles.flex}
+        keyboardShouldPersistTaps="handled"
+        bottomOffset={24}
+        contentContainerStyle={scrollContentStyle}
+      >
+        {children}
+      </KeyboardAwareScrollView>
+    ) : (
+      <ScrollView
+        style={styles.flex}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={scrollContentStyle}
+      >
+        {children}
+      </ScrollView>
+    )
   ) : (
     <View
       style={[
@@ -80,13 +96,14 @@ export function Screen({
     </View>
   );
 
-  const wrapped = keyboardAvoiding ? (
-    <KeyboardAvoidingView style={styles.flex} behavior="padding">
-      {inner}
-    </KeyboardAvoidingView>
-  ) : (
-    inner
-  );
+  const wrapped =
+    keyboardAvoiding && !scroll ? (
+      <KeyboardAvoidingView style={styles.flex} behavior="padding">
+        {inner}
+      </KeyboardAvoidingView>
+    ) : (
+      inner
+    );
 
   return (
     <SafeAreaView

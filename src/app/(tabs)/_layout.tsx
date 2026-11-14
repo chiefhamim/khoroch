@@ -46,7 +46,7 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
   const renderTab = (tab: TabItemConfig) => {
     const route = state.routes.find((r) => r.name === tab.routeName);
     const isFocused = activeRouteName === tab.routeName;
-    const color = isFocused ? theme.colors.text : theme.colors.textTertiary;
+    const color = isFocused ? theme.colors.accent : theme.colors.textTertiary;
 
     const handlePress = () => {
       if (!route) return;
@@ -86,12 +86,19 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
           },
         ]}
       >
-        <TabIcon
-          icon={tab.icon}
-          focused={isFocused}
-          color={color}
-          reducedMotion={reducedMotion}
-        />
+        <View
+          style={[
+            styles.tabPill,
+            isFocused && { backgroundColor: theme.colors.accentSoft },
+          ]}
+        >
+          <TabIcon
+            icon={tab.icon}
+            focused={isFocused}
+            color={color}
+            reducedMotion={reducedMotion}
+          />
+        </View>
         <AppText variant="tab" numberOfLines={1} style={{ color }}>
           {t(tab.labelKey)}
         </AppText>
@@ -107,8 +114,12 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
         {
           height: tabBarHeight,
           paddingBottom: bottomPadding,
-          backgroundColor: theme.colors.bg,
+          backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.separator,
+          boxShadow:
+            theme.mode === "light"
+              ? "0 -3px 14px rgba(17, 17, 22, 0.06)"
+              : "0 -3px 16px rgba(0, 0, 0, 0.35)",
         },
       ]}
     >
@@ -131,8 +142,9 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
           }}
           style={({ pressed }) => [
             styles.addSquircle,
+            theme.elevation.e2,
             {
-              backgroundColor: theme.colors.ink,
+              backgroundColor: theme.colors.accent,
               opacity: pressed ? 0.9 : 1,
             },
           ]}
@@ -141,7 +153,7 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
             name="plus"
             size={22}
             strokeWidth={2.25}
-            color={theme.colors.onInk}
+            color={theme.colors.onAccent}
           />
         </PressableScale>
       </View>
@@ -220,7 +232,7 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: "row",
     alignItems: "center",
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: 6,
   },
   tabSlot: {
@@ -228,7 +240,14 @@ const styles = StyleSheet.create({
     minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
-    gap: 3,
+    gap: 2,
+  },
+  tabPill: {
+    width: 48,
+    height: 28,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   addSlot: {
     flex: 1,

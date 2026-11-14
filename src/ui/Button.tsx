@@ -38,30 +38,41 @@ export function Button({
   const { theme, reducedMotion } = useTheme();
   const isDisabled = disabled || loading;
 
-  const backgroundColor =
-    variant === 'primary'
-      ? theme.colors.ink
-      : variant === 'secondary'
-        ? theme.colors.surface
-        : variant === 'danger'
-          ? theme.colors.danger
-          : variant === 'dangerSoft'
-            ? theme.colors.dangerSoft
-            : 'transparent';
+  const isFilled = variant === 'primary' || variant === 'danger';
 
-  const borderColor =
-    variant === 'secondary' ? theme.colors.cardBorder : 'transparent';
+  const backgroundColor =
+    isDisabled && isFilled
+      ? theme.colors.surfaceSunken
+      : variant === 'primary'
+        ? theme.colors.accent
+        : variant === 'secondary'
+          ? theme.colors.surface
+          : variant === 'danger'
+            ? theme.colors.danger
+            : variant === 'dangerSoft'
+              ? theme.colors.dangerSoft
+              : 'transparent';
 
   const textColor =
-    variant === 'primary'
-      ? 'onInk'
-      : variant === 'danger'
-        ? 'onDanger'
-        : variant === 'dangerSoft'
-          ? 'danger'
-          : variant === 'ghost'
-            ? 'accent'
-            : 'text';
+    isDisabled && isFilled
+      ? 'textTertiary'
+      : variant === 'primary'
+        ? 'onAccent'
+        : variant === 'danger'
+          ? 'onDanger'
+          : variant === 'dangerSoft'
+            ? 'danger'
+            : variant === 'ghost'
+              ? 'accent'
+              : 'text';
+
+  const elevationStyle = isDisabled
+    ? theme.elevation.none
+    : isFilled
+      ? theme.elevation.e2
+      : variant === 'secondary'
+        ? theme.elevation.e1
+        : theme.elevation.none;
 
   const height =
     size === 'sm' ? theme.geometry.smallButtonHeight : theme.geometry.buttonHeight;
@@ -72,7 +83,8 @@ export function Button({
   };
 
   return (
-    <PressableScale pressScale={0.97}
+    <PressableScale
+      pressScale={0.97}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? title}
@@ -82,20 +94,20 @@ export function Button({
       onPress={handlePress}
       style={({ pressed }) => [
         styles.base,
+        elevationStyle,
         {
           minHeight: size === 'sm' ? height : Math.max(height, theme.touch.min),
-          borderRadius: size === 'sm' ? theme.radius.button : theme.radius.button,
+          borderRadius: theme.radius.button,
           paddingHorizontal: size === 'sm' ? theme.spacing.lg : theme.spacing.xl,
           paddingVertical: size === 'sm' ? theme.spacing.sm : theme.spacing.md,
           gap: theme.spacing.sm,
           backgroundColor,
-          borderColor,
-          borderWidth: variant === 'secondary' ? 1 : 0,
-          opacity: isDisabled
-            ? 0.45
-            : pressed && !reducedMotion
-              ? 0.84
-              : 1,
+          opacity:
+            isDisabled && !isFilled
+              ? 0.55
+              : pressed && !reducedMotion
+                ? 0.88
+                : 1,
         },
         style,
       ]}
@@ -131,5 +143,6 @@ const styles = StyleSheet.create({
   },
   label: {
     textAlign: 'center',
+    flexShrink: 1,
   },
 });

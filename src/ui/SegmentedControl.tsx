@@ -37,7 +37,6 @@ export function SegmentedControl<T extends string>({
   const padding = 3;
   const itemMinHeight = isCompact ? 32 : theme.touch.min - padding * 2;
 
-  // One thumb slides between options instead of each option painting its own background.
   const [layouts, setLayouts] = useState<
     Record<string, { x: number; width: number }>
   >({});
@@ -45,6 +44,7 @@ export function SegmentedControl<T extends string>({
   const thumbW = useSharedValue(0);
   const ready = useRef(false);
   const target = layouts[value];
+
   useEffect(() => {
     if (!target) return;
     if (!ready.current || reducedMotion) {
@@ -56,6 +56,7 @@ export function SegmentedControl<T extends string>({
     thumbX.set(withSpring(target.x, THUMB_SPRING));
     thumbW.set(withSpring(target.width, THUMB_SPRING));
   }, [target?.x, target?.width, reducedMotion, thumbX, thumbW, target]);
+
   const thumbStyle = useAnimatedStyle(() => ({
     width: thumbW.get(),
     transform: [{ translateX: thumbX.get() }],
@@ -81,14 +82,12 @@ export function SegmentedControl<T extends string>({
           pointerEvents="none"
           style={[
             styles.thumb,
+            theme.elevation.e1,
             {
               top: padding,
               bottom: padding,
               borderRadius: theme.radius.pill,
               backgroundColor: theme.colors.surfaceRaised,
-              borderColor: theme.colors.separator,
-              borderWidth:
-                theme.scheme === "light" ? StyleSheet.hairlineWidth : 0,
             },
             thumbStyle,
           ]}
@@ -123,22 +122,22 @@ export function SegmentedControl<T extends string>({
               {
                 minHeight: itemMinHeight,
                 paddingHorizontal: isCompact
-                  ? theme.spacing.sm + 4
-                  : theme.spacing.lg,
+                  ? theme.spacing.sm + 2
+                  : theme.spacing.md,
                 borderRadius: theme.radius.pill,
-                // Before the first layout pass, paint the active option directly.
                 backgroundColor:
                   active && !target
                     ? theme.colors.surfaceRaised
                     : "transparent",
-                opacity: pressed && !reducedMotion ? 0.84 : 1,
+                opacity: pressed && !reducedMotion ? 0.86 : 1,
               },
             ]}
           >
             <AppText
               variant={isCompact ? "caption" : "label"}
               color={active ? "text" : "textSecondary"}
-              numberOfLines={isCompact ? undefined : 1}
+              numberOfLines={1}
+              style={active ? styles.activeLabel : undefined}
             >
               {opt.label}
             </AppText>
@@ -171,9 +170,12 @@ const styles = StyleSheet.create({
   },
   compactOption: {
     flexShrink: 0,
-    minWidth: 50,
+    minWidth: 46,
   },
   optionFill: {
     flex: 1,
+  },
+  activeLabel: {
+    fontFamily: "Manrope_600SemiBold",
   },
 });
