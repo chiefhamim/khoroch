@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useState } from 
 import { AccessibilityInfo, useColorScheme } from 'react-native';
 
 import type { AccentTheme, ThemePreference } from '@/domain/types';
+import { useLocale, type Locale } from '@/i18n';
 import {
   buildTheme,
   lightTheme,
@@ -19,6 +20,7 @@ export interface ThemeContextValue {
   setAccent: (accent: AccentTheme) => void;
   heroGradient: readonly [string, string];
   reducedMotion: boolean;
+  locale: Locale;
 }
 
 export const ThemeContext = createContext<ThemeContextValue>({
@@ -31,6 +33,7 @@ export const ThemeContext = createContext<ThemeContextValue>({
   setAccent: () => {},
   heroGradient: lightTheme.heroGradient,
   reducedMotion: false,
+  locale: 'en',
 });
 
 export interface ThemeProviderProps {
@@ -49,6 +52,7 @@ export function ThemeProvider({
   children,
 }: ThemeProviderProps) {
   const systemScheme = useColorScheme();
+  const locale = useLocale();
   const [uncontrolledPreference, setUncontrolledPreference] =
     useState<ThemePreference>('system');
   const [uncontrolledAccent, setUncontrolledAccent] =
@@ -112,8 +116,9 @@ export function ThemeProvider({
       setAccent,
       heroGradient: theme.heroGradient,
       reducedMotion,
+      locale,
     };
-  }, [mode, accent, colorScheme, preference, setPreference, setAccent, reducedMotion]);
+  }, [mode, accent, colorScheme, preference, setPreference, setAccent, reducedMotion, locale]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

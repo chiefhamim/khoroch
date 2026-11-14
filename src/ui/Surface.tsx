@@ -23,6 +23,46 @@ export interface SurfaceProps {
   testID?: string;
 }
 
+const INNER_STYLE_KEYS = new Set<string>([
+  'padding',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'paddingHorizontal',
+  'paddingVertical',
+  'paddingStart',
+  'paddingEnd',
+  'gap',
+  'rowGap',
+  'columnGap',
+  'flexDirection',
+  'flexWrap',
+  'justifyContent',
+  'alignItems',
+  'alignContent',
+]);
+
+function splitSurfaceStyle(style: StyleProp<ViewStyle>): {
+  outer: ViewStyle;
+  inner: ViewStyle;
+} {
+  if (!style) return { outer: {}, inner: {} };
+  const flat = StyleSheet.flatten(style) as Record<string, unknown> | undefined;
+  if (!flat) return { outer: {}, inner: {} };
+  const outer: Record<string, unknown> = {};
+  const inner: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(flat)) {
+    if (v === undefined) continue;
+    if (INNER_STYLE_KEYS.has(k)) {
+      inner[k] = v;
+    } else {
+      outer[k] = v;
+    }
+  }
+  return { outer: outer as ViewStyle, inner: inner as ViewStyle };
+}
+
 export function Surface({
   children,
   variant = 'card',
@@ -57,17 +97,30 @@ export function Surface({
 
   const resolvedPadding = padding ?? (padded ? theme.geometry.cardPadding : 0);
   const resolvedRadius = radiusOverride ?? theme.radius.card;
+  const { outer: outerCustom, inner: innerCustom } = splitSurfaceStyle(style);
+  const borderWidth = Number(outerCustom.borderWidth) || 0;
+  const innerRadius = Math.max(0, resolvedRadius - borderWidth);
 
-  const surfaceStyle: StyleProp<ViewStyle> = [
+  const outerStyle: StyleProp<ViewStyle> = [
     styles.base,
     elevationStyle,
     {
       backgroundColor,
       borderRadius: resolvedRadius,
+    },
+    outerCustom,
+  ];
+
+  const innerStyle: StyleProp<ViewStyle> = [
+    styles.innerClip,
+    {
+      borderRadius: innerRadius,
       padding: resolvedPadding,
     },
-    style,
+    innerCustom,
   ];
+
+  const wrappedChildren = <View style={innerStyle}>{children}</View>;
 
   const entering =
     enterIndex !== undefined ? staggerEnter(enterIndex, reducedMotion) : undefined;
@@ -82,11 +135,11 @@ export function Surface({
         accessibilityLabel={accessibilityLabel}
         onPress={onPress}
         style={({ pressed }) => [
-          surfaceStyle,
+          outerStyle,
           { opacity: pressed && !reducedMotion ? 0.92 : 1 },
         ]}
       >
-        {children}
+        {wrappedChildren}
       </PressableScale>
     );
     if (entering || layout) {
@@ -101,19 +154,23 @@ export function Surface({
 
   if (entering || layout) {
     return (
-      <Animated.View testID={testID} entering={entering} layout={layout} style={surfaceStyle}>
-        {children}
+      <Animated.View testID={testID} entering={entering} layout={layout} style={outerStyle}>
+        {wrappedChildren}
       </Animated.View>
     );
   }
 
   return (
-    <View testID={testID} style={surfaceStyle}>
-      {children}
+    <View testID={testID} style={outerStyle}>
+      {wrappedChildren}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   base: {},
+  innerClip: {
+    flexGrow: 1,
+    overflow: 'hidden',
+  },
 });

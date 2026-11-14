@@ -67,7 +67,7 @@ export function SettingsRow({
           {label}
         </AppText>
         {subtitle ? (
-          <AppText variant="caption" color="textSecondary" numberOfLines={2}>
+          <AppText variant="caption" color="textSecondary">
             {subtitle}
           </AppText>
         ) : null}

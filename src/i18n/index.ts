@@ -1,16 +1,34 @@
+import { useSyncExternalStore } from 'react';
 import { bn } from './bn';
 import { en, type TranslationKey } from './en';
 
 export type Locale = 'en' | 'bn';
 
 let currentLocale: Locale = 'en';
+const listeners = new Set<() => void>();
+
+function subscribeLocale(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 export function setLocale(locale: Locale): void {
-  currentLocale = locale === 'bn' ? 'bn' : 'en';
+  const next: Locale = locale === 'bn' ? 'bn' : 'en';
+  if (next === currentLocale) return;
+  currentLocale = next;
+  for (const listener of listeners) {
+    listener();
+  }
 }
 
 export function getLocale(): Locale {
   return currentLocale;
+}
+
+export function useLocale(): Locale {
+  return useSyncExternalStore(subscribeLocale, getLocale, getLocale);
 }
 
 export function t(key: TranslationKey, params?: Record<string, string | number>): string {

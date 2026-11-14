@@ -1,7 +1,7 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { getLocale, setLocale, t } from '@/i18n';
+import { setLocale, t } from '@/i18n';
 import { AppContext } from '@/state/AppContext';
 import { useOnboardingDraft } from '@/state/onboardingStore';
 import { useTheme } from '@/theme/useTheme';
@@ -16,12 +16,18 @@ import { Screen } from '@/ui/Screen';
 import { Surface } from '@/ui/Surface';
 
 export default function OnboardingWelcomeScreen() {
-  const { theme, reducedMotion } = useTheme();
+  const { theme, reducedMotion, locale } = useTheme();
   const router = useRouter();
   const appCtx = useContext(AppContext);
   const { currency, language, setLanguage } = useOnboardingDraft();
 
-  const activeLang = language ?? getLocale();
+  useEffect(() => {
+    if (language !== locale) {
+      setLanguage(locale);
+    }
+  }, [language, locale, setLanguage]);
+
+  const activeLang = locale;
 
   const handleSelectLanguage = (nextLang: 'en' | 'bn') => {
     hapticSelection();
@@ -61,7 +67,7 @@ export default function OnboardingWelcomeScreen() {
               styles.langPillGroup,
               {
                 backgroundColor: theme.colors.surfaceSunken,
-                borderColor: theme.colors.cardBorder,
+                borderColor: 'transparent',
                 borderRadius: theme.radius.md,
               },
             ]}
@@ -81,8 +87,9 @@ export default function OnboardingWelcomeScreen() {
                   onPress={() => handleSelectLanguage(lang)}
                   style={({ pressed }) => [
                     styles.langPillBtn,
+                    selected ? theme.elevation.e1 : null,
                     {
-                      backgroundColor: selected ? theme.colors.ink : 'transparent',
+                      backgroundColor: selected ? theme.colors.accent : 'transparent',
                       borderRadius: theme.radius.sm,
                       opacity: pressed && !reducedMotion ? 0.85 : 1,
                     },
@@ -93,7 +100,7 @@ export default function OnboardingWelcomeScreen() {
                     style={[
                       styles.langPillText,
                       {
-                        color: selected ? theme.colors.onInk : theme.colors.textSecondary,
+                        color: selected ? theme.colors.onAccent : theme.colors.textSecondary,
                       },
                     ]}
                   >

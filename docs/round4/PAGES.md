@@ -10,7 +10,7 @@ Live package (untouched until Section 6 step 4 owner approval): `com.hamim.budge
 - [x] 0c. Keyboard behaviour app-wide (`softwareKeyboardLayoutMode`, `KeyboardAwareScrollView`, sticky action bars)
 
 ## Screens
-- [ ] 1. Onboarding, all 7 steps (`src/app/onboarding/*`)
+- [x] 1. Onboarding, all 7 steps (`src/app/onboarding/*`)
 - [ ] 2. Home (`src/app/(tabs)/index.tsx`): hero, backup banner, wallets, people summary, spending chart, top categories, recent
 - [ ] 3. Ledger, Day Book view (`src/ui/DayBookView.tsx`): day navigator, week strip, summary card, timeline rows, empty day
 - [ ] 4. Ledger, All entries view (`src/app/(tabs)/ledger.tsx`): search, wallet tabs, filter sheet, period sheet, section headers

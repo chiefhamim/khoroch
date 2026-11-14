@@ -58,6 +58,7 @@ export function AppText({
     <Text
       numberOfLines={numberOfLines}
       ellipsizeMode={resolvedEllipsize}
+      textBreakStrategy="simple"
       style={[
         typeStyle,
         { color: theme.colors[color] },

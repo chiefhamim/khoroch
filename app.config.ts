@@ -76,7 +76,7 @@ export function buildAppConfig(
     plugins,
     experiments: {
       typedRoutes: true,
-      reactCompiler: true,
+      reactCompiler: false,
     },
     extra: {
       ...(baseConfig.extra ?? {}),

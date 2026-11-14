@@ -111,7 +111,6 @@ export const typography = {
   headline: {
     fontSize: 17,
     lineHeight: 22,
-    letterSpacing: -0.2,
     fontFamily: 'Manrope_600SemiBold',
   },
   body: {
@@ -121,8 +120,7 @@ export const typography = {
   },
   bodyStrong: {
     fontSize: 15,
-    lineHeight: 20,
-    letterSpacing: -0.1,
+    lineHeight: 21,
     fontFamily: 'Manrope_600SemiBold',
   },
   label: {

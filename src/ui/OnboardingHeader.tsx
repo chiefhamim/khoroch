@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { t, type TranslationKey } from '@/i18n';
 import { useTheme } from '@/theme/useTheme';
@@ -40,12 +40,14 @@ export function OnboardingHeader({
   subtitle,
 }: OnboardingHeaderProps) {
   const { theme } = useTheme();
+  const scrollRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const resolvedOverline =
     overline ?? (step >= 1 && step <= OVERLINE_KEYS.length ? t(OVERLINE_KEYS[step - 1]) : undefined);
 
   return (
     <View style={{ gap: 4 }}>
       <ScrollView
+        ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={[styles.chaptersRow, { gap: 4, marginBottom: 8 }]}
@@ -64,12 +66,25 @@ export function OnboardingHeader({
           return (
             <View
               key={index}
+              onLayout={
+                active
+                  ? (e) => {
+                      const x = e.nativeEvent.layout.x;
+                      if (x > 160) {
+                        scrollRef.current?.scrollTo({
+                          x: Math.max(0, x - 90),
+                          animated: false,
+                        });
+                      }
+                    }
+                  : undefined
+              }
               style={[
                 styles.chapterPill,
                 {
                   borderRadius: 6,
                   backgroundColor: active
-                    ? theme.colors.ink
+                    ? theme.colors.accent
                     : done
                       ? theme.colors.accentSoft
                       : theme.colors.surfaceSunken,
@@ -82,7 +97,7 @@ export function OnboardingHeader({
                   styles.chapterText,
                   {
                     color: active
-                      ? theme.colors.onInk
+                      ? theme.colors.onAccent
                       : done
                         ? theme.colors.accent
                         : theme.colors.textTertiary,
