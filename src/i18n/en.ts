@@ -556,6 +556,7 @@ export const en = {
   'activity.applyFilters': 'Apply filters',
   'activity.resetFilters': 'Reset',
   'activity.showResults': 'Show {count} results',
+  'activity.showResultsOne': 'Show 1 result',
   'activity.emptyFilterTitle': 'No matching transactions',
   'activity.emptyFilterBody': 'Try clearing a filter or searching with another keyword.',
 

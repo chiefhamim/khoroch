@@ -103,37 +103,33 @@ export function maxLocalDate(a: LocalDate, b: LocalDate): LocalDate {
   return a >= b ? a : b;
 }
 
-const SHORT_WEEKDAYS = ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'] as const;
-const SHORT_MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const;
+export type DateLocale = 'en' | 'bn';
 
-export function formatShortDate(date: LocalDate): string {
+const SHORT_WEEKDAYS_BY_LOCALE: Record<DateLocale, readonly string[]> = {
+  en: ['Thu', 'Fri', 'Sat', 'Sun', 'Mon', 'Tue', 'Wed'],
+  bn: ['বৃহঃ', 'শুক্র', 'শনি', 'রবি', 'সোম', 'মঙ্গল', 'বুধ'],
+};
+
+const SHORT_MONTHS_BY_LOCALE: Record<DateLocale, readonly string[]> = {
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  bn: ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'],
+};
+
+export function formatShortDate(date: LocalDate, locale: DateLocale = 'en'): string {
   const { month, day } = parseLocalDate(date);
-  return `${day} ${SHORT_MONTHS[month - 1]}`;
+  return `${day} ${SHORT_MONTHS_BY_LOCALE[locale][month - 1]}`;
 }
 
-export function formatShortMonthYear(date: LocalDate): string {
+export function formatShortMonthYear(date: LocalDate, locale: DateLocale = 'en'): string {
   const { year, month } = parseLocalDate(date);
-  return `${SHORT_MONTHS[month - 1]} ${year}`;
+  return `${SHORT_MONTHS_BY_LOCALE[locale][month - 1]} ${year}`;
 }
 
-export function formatWeekdayShortDate(date: LocalDate): string {
+export function formatWeekdayShortDate(date: LocalDate, locale: DateLocale = 'en'): string {
   const { year, month, day } = parseLocalDate(date);
   const epochDay = toEpochDay(date);
   const weekdayIdx = ((epochDay % 7) + 7) % 7;
-  return `${SHORT_WEEKDAYS[weekdayIdx]}, ${day} ${SHORT_MONTHS[month - 1]} ${year}`;
+  return `${SHORT_WEEKDAYS_BY_LOCALE[locale][weekdayIdx]}, ${day} ${SHORT_MONTHS_BY_LOCALE[locale][month - 1]} ${year}`;
 }
 
 export function formatPeriodRange(start: LocalDate, endExcl: LocalDate): string {
@@ -147,15 +143,16 @@ export function formatPeriodRange(start: LocalDate, endExcl: LocalDate): string 
  */
 export function formatFriendlyDate(
   date: LocalDate,
-  today: LocalDate = todayLocalDate()
+  today: LocalDate = todayLocalDate(),
+  locale: DateLocale = 'en'
 ): string {
-  if (date === today) return 'Today';
-  if (date === addDays(today, -1)) return 'Yesterday';
+  if (date === today) return locale === 'bn' ? 'আজ' : 'Today';
+  if (date === addDays(today, -1)) return locale === 'bn' ? 'গতকাল' : 'Yesterday';
   const { year, month, day } = parseLocalDate(date);
   const { year: todayYear } = parseLocalDate(today);
   const epochDay = toEpochDay(date);
   const weekdayIdx = ((epochDay % 7) + 7) % 7;
-  const base = `${SHORT_WEEKDAYS[weekdayIdx]}, ${day} ${SHORT_MONTHS[month - 1]}`;
+  const base = `${SHORT_WEEKDAYS_BY_LOCALE[locale][weekdayIdx]}, ${day} ${SHORT_MONTHS_BY_LOCALE[locale][month - 1]}`;
   return year === todayYear ? base : `${base} ${year}`;
 }
 

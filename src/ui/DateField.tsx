@@ -6,9 +6,10 @@ import {
   todayLocalDate,
 } from '@/domain/dates';
 import type { LocalDate } from '@/domain/types';
+import { useLocale } from '@/i18n';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { DateTimeSheet } from './DateTimeSheet';
 import { PressableScale } from '@/ui/PressableScale';
 
@@ -34,11 +35,12 @@ export function DateField({
   testID,
 }: DateFieldProps) {
   const { theme, reducedMotion } = useTheme();
+  const locale = useLocale();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const todayRef = today ?? todayLocalDate();
   const display = isValidLocalDate(value)
-    ? formatFriendlyDate(value, todayRef)
+    ? formatFriendlyDate(value, todayRef, locale)
     : value;
 
   const handleOpenPicker = () => {
@@ -72,7 +74,13 @@ export function DateField({
           ]}
         >
           <AppIcon name="calendar" size={16} color={theme.colors.textSecondary} />
-          <AppText variant="label" numberOfLines={1}>
+          <AppText
+            variant="label"
+            numberOfLines={1}
+            style={{
+              minWidth: estimateSingleLineMinWidth(display, theme.typography.label.fontSize),
+            }}
+          >
             {display}
           </AppText>
           <AppIcon name="chevron-down" size={15} color={theme.colors.textTertiary} />

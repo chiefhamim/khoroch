@@ -20,7 +20,20 @@ export function containsBengali(text: string): boolean {
   return BENGALI_CHAR_REGEX.test(text);
 }
 
-export function mapFontToBangla(fontFamily?: string): string {
+export function mapFontToBangla(
+  fontFamily?: string,
+  fontWeight?: string | number
+): string {
+  const weightStr = fontWeight !== undefined ? String(fontWeight) : '';
+  if (weightStr === '700' || weightStr === '800' || weightStr === '900' || weightStr === 'bold') {
+    return BANGLA_FONTS.bold;
+  }
+  if (weightStr === '600') {
+    return BANGLA_FONTS.semibold;
+  }
+  if (weightStr === '500') {
+    return BANGLA_FONTS.medium;
+  }
   if (!fontFamily) return BANGLA_FONTS.regular;
   if (fontFamily.includes('600') || fontFamily.includes('SemiBold')) {
     return BANGLA_FONTS.semibold;

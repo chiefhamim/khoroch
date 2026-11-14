@@ -5,6 +5,9 @@ import {
   diffDays,
   formatFriendlyDate,
   formatFriendlyTime,
+  formatShortDate,
+  formatShortMonthYear,
+  formatWeekdayShortDate,
   fromEpochDay,
   getStartOfWeek,
   getWeekRange,
@@ -39,6 +42,14 @@ describe('dates', () => {
     expect(formatFriendlyDate('2026-11-11', today)).toBe('Wed, 11 Nov');
     expect(formatFriendlyDate('2026-11-09', today)).toBe('Mon, 9 Nov');
     expect(formatFriendlyDate('2025-12-25', today)).toBe('Thu, 25 Dec 2025');
+
+    expect(formatFriendlyDate('2026-11-13', today, 'bn')).toBe('আজ');
+    expect(formatFriendlyDate('2026-11-12', today, 'bn')).toBe('গতকাল');
+    expect(formatFriendlyDate('2026-11-11', today, 'bn')).toBe('বুধ, 11 নভে');
+    expect(formatFriendlyDate('2025-12-25', today, 'bn')).toBe('বৃহঃ, 25 ডিসে 2025');
+    expect(formatShortDate('2026-11-11', 'bn')).toBe('11 নভে');
+    expect(formatShortMonthYear('2026-11-11', 'bn')).toBe('নভে 2026');
+    expect(formatWeekdayShortDate('2026-11-11', 'bn')).toBe('বুধ, 11 নভে 2026');
   });
 
   it('formats 12-hour and 24-hour times cleanly', () => {

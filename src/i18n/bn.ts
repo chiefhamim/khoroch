@@ -573,6 +573,7 @@ export const bn: Record<TranslationKey, string> = {
   'activity.applyFilters': 'ফিল্টার প্রয়োগ করুন',
   'activity.resetFilters': 'রিসেট',
   'activity.showResults': '{count}টি ফলাফল দেখান',
+  'activity.showResultsOne': '{count}টি ফলাফল দেখান',
   'activity.emptyFilterTitle': 'মিলে যাওয়ার মতো কোনো হিসাব নেই',
   'activity.emptyFilterBody': 'ফিল্টার পরিবর্তন করে বা অন্য শব্দ দিয়ে খুঁজে দেখুন।',
 

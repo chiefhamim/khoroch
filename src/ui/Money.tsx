@@ -8,7 +8,7 @@ import {
   roundMinorToWhole,
 } from '@/domain/money';
 import type { CurrencyCode } from '@/domain/types';
-import { getLocale } from '@/i18n';
+import { useLocale } from '@/i18n';
 import { usePrivacyStore } from '@/state/privacyStore';
 import {
   containsBengali,
@@ -115,6 +115,7 @@ export function Money({
   testID,
 }: MoneyProps) {
   const { theme, reducedMotion } = useTheme();
+  const locale = useLocale();
   const storeHideAmounts = usePrivacyStore((s) => s.hideAmounts);
   const storeShowPoisha = usePrivacyStore((s) => s.showPoisha);
   const storeCompactNumbers = usePrivacyStore((s) => s.compactNumbers);
@@ -260,7 +261,7 @@ export function Money({
       ? `${targetSign}${formattedPlain}`
       : formattedPlain);
 
-  const needsBanglaPrefix = getLocale() === 'bn' || containsBengali(resolvedSign);
+  const needsBanglaPrefix = locale === 'bn' || containsBengali(resolvedSign);
 
   return (
     <Text

@@ -20,6 +20,7 @@ import {
 import { resolveInsightsWindow } from '@/domain/insights';
 import { formatMoney, parseMoneyInput } from '@/domain/money';
 import type {
+  Account,
   LocalDate,
   Transaction,
   TransactionType,
@@ -27,7 +28,7 @@ import type {
   TxQuery,
   WeekStartDay,
 } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import {
   type ActivityDatePreset,
   useActivityFilterStore,
@@ -35,9 +36,10 @@ import {
 import { useAppContext } from '@/state/AppContext';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useTransactions } from '@/state/useTransactions';
+import { containsBengali, mapFontToBangla } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
 import { DateField } from '@/ui/DateField';
@@ -148,6 +150,30 @@ function buildTxQueryFromState(params: {
   return query;
 }
 
+function filterVisibleTransfers(
+  transferList: readonly Transfer[],
+  params: {
+    search: string;
+    minMinor: number | null;
+    maxMinor: number | null;
+    accountsById: ReadonlyMap<string, Account>;
+  }
+): Transfer[] {
+  const searchNeedle = params.search.trim().toLowerCase();
+  return transferList.filter((tr) => {
+    if (tr.deletedAt != null) return false;
+    if (params.minMinor !== null && tr.amountMinor < params.minMinor) return false;
+    if (params.maxMinor !== null && tr.amountMinor > params.maxMinor) return false;
+    if (searchNeedle) {
+      const fromName = params.accountsById.get(tr.fromAccountId)?.name ?? '';
+      const toName = params.accountsById.get(tr.toAccountId)?.name ?? '';
+      const hay = `${fromName} ${toName} ${tr.note} transfer ট্রান্সফার`.toLowerCase();
+      if (!hay.includes(searchNeedle)) return false;
+    }
+    return true;
+  });
+}
+
 type LedgerRowItem =
   | { kind: 'tx'; id: string; tx: Transaction; createdAt: number }
   | { kind: 'transfer'; id: string; transfer: Transfer; createdAt: number };
@@ -163,6 +189,7 @@ interface ActivitySection {
 
 function AllEntriesScreen({ header }: { header: React.ReactNode }) {
   const { repo, settings } = useAppContext();
+  const locale = useLocale();
   const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
   const showPoisha = usePrivacyStore((s) => s.showPoisha);
   const { theme, reducedMotion } = useTheme();
@@ -290,10 +317,38 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
       monthStartDay: settings.monthStartDay,
       weekStartsOn: settings.weekStartsOn,
     });
-    repo
-      .summarizeTransactions(draftQuery, settings.currency)
-      .then((res) => {
-        if (active) setDraftCount(res.count);
+    const shouldLoadDraftTransfers =
+      !draftType && draftCategoryIds.length === 0 && draftAccountId !== null;
+    const draftMinParsed = draftMin.trim() ? parseMoneyInput(draftMin) : null;
+    const draftMaxParsed = draftMax.trim() ? parseMoneyInput(draftMax) : null;
+    const draftMinMinor =
+      draftMinParsed?.ok && draftMinParsed.minor && draftMinParsed.minor > 0
+        ? draftMinParsed.minor
+        : null;
+    const draftMaxMinor =
+      draftMaxParsed?.ok && draftMaxParsed.minor && draftMaxParsed.minor > 0
+        ? draftMaxParsed.minor
+        : null;
+
+    Promise.all([
+      repo.summarizeTransactions(draftQuery, settings.currency),
+      shouldLoadDraftTransfers
+        ? repo.listTransfers({
+            accountId: draftAccountId ?? undefined,
+            fromIncl: draftQuery.fromIncl,
+            toExcl: draftQuery.toExcl,
+          })
+        : Promise.resolve([] as Transfer[]),
+    ])
+      .then(([res, trList]) => {
+        if (!active) return;
+        const matchedTransfers = filterVisibleTransfers(trList, {
+          search,
+          minMinor: draftMinMinor,
+          maxMinor: draftMaxMinor,
+          accountsById,
+        });
+        setDraftCount(res.count + matchedTransfers.length);
       })
       .catch(() => {
         // Ignore transient preview errors
@@ -317,6 +372,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
     draftTo,
     draftMin,
     draftMax,
+    accountsById,
   ]);
 
   const allCategories = useMemo(
@@ -362,7 +418,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
     setDraftMin(minAmountText);
     setDraftMax(maxAmountText);
     setSheetError(null);
-    setDraftCount(summary.count);
+    setDraftCount(visibleRowCount);
     setFilterSheetOpen(true);
   };
 
@@ -409,24 +465,18 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
   const minParsed = minAmountText.trim() ? parseMoneyInput(minAmountText) : null;
   const maxParsed = maxAmountText.trim() ? parseMoneyInput(maxAmountText) : null;
 
-  const sections = useMemo<ActivitySection[]>(() => {
-    const searchNeedle = debouncedSearch.trim().toLowerCase();
+  const visibleTransfers = useMemo(() => {
     const minVal = minParsed?.ok && minParsed.minor && minParsed.minor > 0 ? minParsed.minor : null;
     const maxVal = maxParsed?.ok && maxParsed.minor && maxParsed.minor > 0 ? maxParsed.minor : null;
-
-    const visibleTransfers = transfers.filter((tr) => {
-      if (tr.deletedAt != null) return false;
-      if (minVal !== null && tr.amountMinor < minVal) return false;
-      if (maxVal !== null && tr.amountMinor > maxVal) return false;
-      if (searchNeedle) {
-        const fromName = accountsById.get(tr.fromAccountId)?.name ?? '';
-        const toName = accountsById.get(tr.toAccountId)?.name ?? '';
-        const hay = `${fromName} ${toName} ${tr.note} transfer`.toLowerCase();
-        if (!hay.includes(searchNeedle)) return false;
-      }
-      return true;
+    return filterVisibleTransfers(transfers, {
+      search: debouncedSearch,
+      minMinor: minVal,
+      maxMinor: maxVal,
+      accountsById,
     });
+  }, [transfers, debouncedSearch, minParsed, maxParsed, accountsById]);
 
+  const sections = useMemo<ActivitySection[]>(() => {
     const visibleTransferIds = new Set(visibleTransfers.map((tr) => tr.id));
     const bucketMap = new Map<
       LocalDate,
@@ -476,7 +526,9 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
           return bb.id.localeCompare(a.id);
         }),
       }));
-  }, [groups, transfers, debouncedSearch, minParsed, maxParsed, accountsById]);
+  }, [groups, visibleTransfers]);
+
+  const visibleRowCount = summary.count + visibleTransfers.length;
 
   const periodLabel = useMemo(() => {
     switch (datePreset) {
@@ -490,13 +542,13 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
         return t('activity.dateLastMonth');
       case 'custom':
         if (customFromIncl && customToIncl) {
-          return `${formatShortDate(customFromIncl)} – ${formatShortDate(customToIncl)}`;
+          return `${formatShortDate(customFromIncl, locale)} – ${formatShortDate(customToIncl, locale)}`;
         }
         return t('activity.dateCustom');
       default:
         return t('activity.dateAll');
     }
-  }, [datePreset, customFromIncl, customToIncl]);
+  }, [datePreset, customFromIncl, customToIncl, locale]);
 
   const searchBg =
     theme.scheme === 'dark' ? theme.colors.surfaceSunken : theme.colors.surface;
@@ -533,7 +585,10 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
               styles.searchInput,
               {
                 color: theme.colors.text,
-                fontFamily: theme.typography.body.fontFamily,
+                fontFamily:
+                  locale === 'bn' || containsBengali(search)
+                    ? mapFontToBangla(theme.typography.body.fontFamily)
+                    : theme.typography.body.fontFamily,
                 fontSize: theme.typography.body.fontSize,
               },
               Platform.OS === 'web'
@@ -670,6 +725,12 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
             variant="label"
             color={datePreset !== 'all' ? 'accent' : 'text'}
             numberOfLines={1}
+            style={{
+              minWidth: estimateSingleLineMinWidth(
+                periodLabel,
+                theme.typography.label.fontSize
+              ),
+            }}
           >
             {periodLabel}
           </AppText>
@@ -796,6 +857,8 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
           keyExtractor={(item) => item.id}
           stickySectionHeadersEnabled
           showsVerticalScrollIndicator={false}
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           initialNumToRender={16}
           maxToRenderPerBatch={16}
           windowSize={9}
@@ -807,6 +870,11 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
           renderSectionHeader={({ section }) => {
             const netMinor =
               section.group.incomeMinor - section.group.expenseMinor;
+            const sectionDateLabel = formatFriendlyDate(
+              section.group.date,
+              today,
+              locale
+            ).toUpperCase();
             return (
               <View
                 style={[
@@ -822,9 +890,19 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                 <AppText
                   variant="caption"
                   color="textTertiary"
-                  style={styles.sectionDateText}
+                  numberOfLines={1}
+                  style={[
+                    styles.sectionDateText,
+                    {
+                      fontFamily: theme.typography.bodyStrong.fontFamily,
+                      minWidth: estimateSingleLineMinWidth(
+                        sectionDateLabel,
+                        theme.typography.caption.fontSize
+                      ),
+                    },
+                  ]}
                 >
-                  {formatFriendlyDate(section.group.date, today).toUpperCase()}
+                  {sectionDateLabel}
                 </AppText>
                 <Money
                   variant="caption"
@@ -877,7 +955,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
               subParts.push(
                 tr.occurredTime
                   ? formatFriendlyTime(tr.occurredTime, use24Hour)
-                  : formatShortDate(tr.occurredOn)
+                  : formatShortDate(tr.occurredOn, locale)
               );
 
               return (
@@ -931,7 +1009,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
             subtitleParts.push(
               tx.occurredTime
                 ? formatFriendlyTime(tx.occurredTime, use24Hour)
-                : formatShortDate(tx.occurredOn)
+                : formatShortDate(tx.occurredOn, locale)
             );
             const isIncome = tx.type === 'income';
 
@@ -1051,7 +1129,12 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
             />
             <Button
               testID="filter-apply-btn"
-              title={t('activity.showResults', { count: draftCount ?? summary.count })}
+              title={t(
+                (draftCount ?? visibleRowCount) === 1
+                  ? 'activity.showResultsOne'
+                  : 'activity.showResults',
+                { count: draftCount ?? visibleRowCount }
+              )}
               variant="primary"
               onPress={handleApplyFilters}
               style={styles.applyBtn}
@@ -1086,12 +1169,14 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
               <Chip
                 testID="filter-wallet-all"
                 label={t('activity.filterAllWallets')}
+                variant="sunken"
                 selected={draftAccountId === undefined}
                 onPress={() => setDraftAccountId(undefined)}
               />
               <Chip
                 testID="filter-wallet-none"
                 label={t('tx.noWallet')}
+                variant="sunken"
                 selected={draftAccountId === null}
                 onPress={() => setDraftAccountId(null)}
               />
@@ -1180,6 +1265,12 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                     variant="label"
                     color={selected ? 'accent' : 'text'}
                     numberOfLines={1}
+                    style={{
+                      minWidth: estimateSingleLineMinWidth(
+                        c.name,
+                        theme.typography.label.fontSize
+                      ),
+                    }}
                   >
                     {c.name}
                   </AppText>
@@ -1209,6 +1300,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                 key={presetVal}
                 testID={`filter-date-${presetVal}`}
                 label={presetLabel}
+                variant="sunken"
                 selected={draftPreset === presetVal}
                 onPress={() => {
                   setDraftPreset(presetVal);
@@ -1333,7 +1425,6 @@ const styles = StyleSheet.create({
   },
   sectionDateText: {
     letterSpacing: 0.6,
-    fontWeight: '600',
   },
   categoryGrid: {
     flexDirection: 'row',
@@ -1382,6 +1473,7 @@ type LedgerMode = 'day' | 'all';
 
 export default function LedgerScreen() {
   const { theme } = useTheme();
+  useLocale();
   const [mode, setMode] = useState<LedgerMode>('day');
   const externalFilterActive = useActivityFilterStore(
     (s) =>

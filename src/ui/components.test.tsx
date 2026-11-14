@@ -8,6 +8,7 @@ import { setLocale } from '@/i18n';
 import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { Banner } from './Banner';
 import { Button } from './Button';
+import { Chip } from './Chip';
 import { DateField } from './DateField';
 import { DayOfMonthGrid } from './DayOfMonthGrid';
 import { DayToggles } from './DayToggles';
@@ -262,6 +263,60 @@ describe('v2 design system components', () => {
       expect(StyleSheet.flatten(view.getByTestId('locale-sample').props.style).fontFamily).toBe(
         'HindSiliguri_600SemiBold'
       );
+    } finally {
+      await act(async () => {
+        setLocale('en');
+      });
+    }
+  });
+
+  it('keeps multi-word Bangla Chip and DateField labels on a single line without truncation', async () => {
+    setLocale('bn');
+    try {
+      const view = await render(
+        <ThemeProvider preference="light" accent="forest">
+          <Chip testID="bn-chip-all" label="সব তারিখ" onPress={() => {}} />
+          <Chip testID="bn-chip-month" label="এই মাস" onPress={() => {}} />
+          <DateField
+            testID="bn-date-field"
+            value="2026-11-11"
+            today="2026-11-14"
+            onChange={() => {}}
+          />
+        </ThemeProvider>
+      );
+
+      const chipText = view.getByText('সব তারিখ');
+      const monthText = view.getByText('এই মাস');
+      expect(StyleSheet.flatten(chipText.props.style).minWidth).toBe(
+        estimateSingleLineMinWidth('সব তারিখ', 13)
+      );
+      expect(StyleSheet.flatten(monthText.props.style).minWidth).toBe(
+        estimateSingleLineMinWidth('এই মাস', 13)
+      );
+
+      const dfText = view.getByText('বুধ, 11 নভে');
+      expect(StyleSheet.flatten(dfText.props.style).minWidth).toBe(
+        estimateSingleLineMinWidth('বুধ, 11 নভে', 13)
+      );
+
+      await view.rerender(
+        <ThemeProvider preference="light" accent="forest">
+          <AppText
+            testID="bn-weight-clear"
+            variant="caption"
+            style={{ fontWeight: '600', letterSpacing: 0.6 }}
+          >
+            রবি, 8 নভে
+          </AppText>
+        </ThemeProvider>
+      );
+      const weightedStyle = StyleSheet.flatten(
+        view.getByTestId('bn-weight-clear').props.style
+      );
+      expect(weightedStyle.fontFamily).toBe('HindSiliguri_600SemiBold');
+      expect(weightedStyle.fontWeight).toBeUndefined();
+      expect(weightedStyle.letterSpacing).toBe(0);
     } finally {
       await act(async () => {
         setLocale('en');

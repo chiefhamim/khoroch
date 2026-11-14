@@ -60,12 +60,13 @@ export function AppText({
   const useBanglaFont = locale === 'bn' || containsBengali(textSample);
   const baseFontFamily = flatStyle?.fontFamily ?? typeStyle.fontFamily ?? 'default';
   const resolvedFontFamily = useBanglaFont
-    ? mapFontToBangla(flatStyle?.fontFamily ?? typeStyle.fontFamily)
+    ? mapFontToBangla(flatStyle?.fontFamily ?? typeStyle.fontFamily, flatStyle?.fontWeight)
     : baseFontFamily;
 
   const resolvedFontStyle: TextStyle | null = useBanglaFont
     ? {
         fontFamily: resolvedFontFamily,
+        fontWeight: undefined,
         letterSpacing: 0,
       }
     : null;

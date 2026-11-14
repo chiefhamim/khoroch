@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { PressableScale } from '@/ui/PressableScale';
 
 export interface ChipProps {
@@ -78,7 +78,15 @@ export function Chip({
           color={selected ? theme.colors.accent : theme.colors.textSecondary}
         />
       ) : null}
-      <AppText variant="label" style={{ color: fgColor }} numberOfLines={1}>
+      <AppText
+        variant="label"
+        style={{
+          color: fgColor,
+          minWidth: estimateSingleLineMinWidth(label, theme.typography.label.fontSize),
+          textAlign: 'center',
+        }}
+        numberOfLines={1}
+      >
         {label}
       </AppText>
       {rightIcon ? (
