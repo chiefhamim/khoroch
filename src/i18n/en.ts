@@ -68,6 +68,8 @@ export const en = {
   'daybook.previousDay': 'Previous day',
   'daybook.nextDay': 'Next day',
   'daybook.untrackedNote': 'Entries without a wallet are listed but do not change what is left.',
+  'daybook.beforeOpeningNote': "Entries dated before a wallet's opening balance are listed but do not change what is left.",
+  'daybook.untrackedMixedNote': "Entries without a wallet or before a wallet's opening balance are listed but do not change what is left.",
   'daybook.emptyTitle': 'Nothing written for this day',
   'daybook.emptyBodyToday': 'Log each taka as it goes: bus fare, snacks, the money you got in the morning.',
   'daybook.emptyBody': 'No money moved on this day.',

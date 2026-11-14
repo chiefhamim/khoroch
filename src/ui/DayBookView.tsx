@@ -10,7 +10,7 @@ import {
   todayLocalDate,
 } from '@/domain/dates';
 import type { Category, LocalDate } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale, type Locale } from '@/i18n';
 import { useAccounts } from '@/state/useAccounts';
 import { useAppContext } from '@/state/AppContext';
 import { useDataVersionStore } from '@/state/dataVersion';
@@ -27,21 +27,28 @@ import { Money } from './Money';
 import { PressableScale } from './PressableScale';
 import { useTabScrollPadding } from './Screen';
 
-const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const WEEKDAY_SHORT: Record<Locale, readonly string[]> = {
+  en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  bn: ['রবি', 'সোম', 'মঙ্গল', 'বুধ', 'বৃহঃ', 'শুক্র', 'শনি'],
+};
+const MONTH_SHORT: Record<Locale, readonly string[]> = {
+  en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+  bn: ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'],
+};
 
 function weekdayIndex(date: LocalDate): number {
   const { year, month, day } = parseLocalDate(date);
   return new Date(year, month - 1, day).getDay();
 }
 
-function longDate(date: LocalDate): string {
+function longDate(date: LocalDate, locale: Locale): string {
   const { month, day, year } = parseLocalDate(date);
-  return `${WEEKDAY_SHORT[weekdayIndex(date)]}, ${day} ${MONTH_SHORT[month - 1]} ${year}`;
+  return `${WEEKDAY_SHORT[locale][weekdayIndex(date)]}, ${day} ${MONTH_SHORT[locale][month - 1]} ${year}`;
 }
 
 export function DayBookView({ header }: { header: React.ReactNode }) {
   const { theme } = useTheme();
+  const locale = useLocale();
   const router = useRouter();
   const { repo, settings } = useAppContext();
   const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
@@ -109,9 +116,27 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
   };
 
   const dayTitle =
-    day === today ? t('common.today') : day === addDays(today, -1) ? t('common.yesterday') : longDate(day).split(',')[0];
+    day === today
+      ? t('common.today')
+      : day === addDays(today, -1)
+        ? t('common.yesterday')
+        : longDate(day, locale).split(',')[0];
   const isToday = day === today;
   const net = book.closingMinor - book.openingMinor;
+  const untrackedNoteKey = useMemo(() => {
+    if (book.untrackedOutMinor + book.untrackedInMinor === 0) return null;
+    let hasNoWallet = false;
+    let hasBeforeOpening = false;
+    for (const entry of book.entries) {
+      if (entry.runningMinor !== null || entry.kind === 'transfer') continue;
+      const accountId = entry.transaction?.accountId ?? entry.due?.accountId ?? null;
+      if (accountId) hasBeforeOpening = true;
+      else hasNoWallet = true;
+    }
+    if (hasBeforeOpening && hasNoWallet) return 'daybook.untrackedMixedNote';
+    if (hasBeforeOpening) return 'daybook.beforeOpeningNote';
+    return 'daybook.untrackedNote';
+  }, [book]);
 
   const entryView = (entry: DayBookEntry, index: number) => {
     const isLast = index === book.entries.length - 1;
@@ -196,7 +221,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
               },
             ]}
           />
-          {isLast ? null : <View style={[styles.railLine, { backgroundColor: theme.colors.separator }]} />}
+          {isLast ? <View style={styles.railSpacer} /> : <View style={[styles.railLine, { backgroundColor: theme.colors.separator }]} />}
         </View>
         <View
           style={[
@@ -292,7 +317,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
         </PressableScale>
         <PressableScale
           accessibilityRole="button"
-          accessibilityLabel={`${t('common.pickDate')}: ${longDate(day)}`}
+          accessibilityLabel={`${t('common.pickDate')}: ${longDate(day, locale)}`}
           onPress={() => setPickerOpen(true)}
           style={styles.navCenter}
           testID="daybook-date"
@@ -302,7 +327,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
             <AppIcon name="chevron-down" size={16} color={theme.colors.textTertiary} />
           </View>
           <AppText variant="caption" color="textTertiary">
-            {longDate(day)}
+            {longDate(day, locale)}
           </AppText>
         </PressableScale>
         <PressableScale
@@ -330,7 +355,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
               key={d}
               pressScale={0.94}
               accessibilityRole="button"
-              accessibilityLabel={longDate(d)}
+              accessibilityLabel={longDate(d, locale)}
               accessibilityState={{ selected }}
               onPress={() => {
                 hapticSelection();
@@ -346,9 +371,16 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
             >
               <AppText
                 variant="caption"
-                style={{ color: selected ? theme.colors.onInk : theme.colors.textTertiary }}
+                numberOfLines={1}
+                style={{
+                  alignSelf: 'stretch',
+                  textAlign: 'center',
+                  color: selected ? theme.colors.onInk : theme.colors.textTertiary,
+                }}
               >
-                {WEEKDAY_SHORT[weekdayIndex(d)].slice(0, 2)}
+                {locale === 'bn'
+                  ? WEEKDAY_SHORT.bn[weekdayIndex(d)]
+                  : WEEKDAY_SHORT.en[weekdayIndex(d)].slice(0, 2)}
               </AppText>
               <AppText
                 variant="bodyStrong"
@@ -410,6 +442,11 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
             <Money amountMinor={book.outMinor} currency={settings.currency} variant="bodyStrong" hidden={hideAmounts} />
           </View>
           <View style={[styles.stat, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.md }]}>
+            <AppIcon
+              name={net > 0 ? 'trending-up' : net < 0 ? 'trending-down' : 'minus'}
+              size={15}
+              color={net > 0 ? theme.colors.income : theme.colors.textTertiary}
+            />
             <AppText variant="caption" color="textSecondary">
               {t('daybook.net')}
             </AppText>
@@ -423,9 +460,9 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
             />
           </View>
         </View>
-        {book.untrackedOutMinor + book.untrackedInMinor > 0 ? (
+        {untrackedNoteKey ? (
           <AppText variant="caption" color="textTertiary">
-            {t('daybook.untrackedNote')}
+            {t(untrackedNoteKey)}
           </AppText>
         ) : null}
       </View>
@@ -495,12 +532,13 @@ const styles = StyleSheet.create({
   timeText: { textAlign: 'right' },
   railCol: { width: 28, alignItems: 'center' },
   railLine: { width: 1.5, flex: 1 },
+  railSpacer: { width: 1.5, flex: 1 },
   node: { width: 12, height: 12, borderRadius: 6, borderWidth: 2.5 },
   balanceNode: { width: 8, height: 8, borderRadius: 2, marginTop: 18 },
   entryCard: { flex: 1, flexDirection: 'row', alignItems: 'center', borderWidth: 1, padding: 12, gap: 12, marginVertical: 5 },
   entryText: { flex: 1, gap: 2 },
   entryAmounts: { alignItems: 'flex-end', gap: 2 },
   leftRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  balanceText: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingRight: 4 },
+  balanceText: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingRight: 13 },
   empty: { borderWidth: 1, alignItems: 'center', padding: 24 },
 });

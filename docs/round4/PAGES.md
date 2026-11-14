@@ -12,7 +12,7 @@ Live package (untouched until Section 6 step 4 owner approval): `com.hamim.budge
 ## Screens
 - [x] 1. Onboarding, all 7 steps (`src/app/onboarding/*`)
 - [x] 2. Home (`src/app/(tabs)/index.tsx`): hero, backup banner, wallets, people summary, spending chart, top categories, recent
-- [ ] 3. Ledger, Day Book view (`src/ui/DayBookView.tsx`): day navigator, week strip, summary card, timeline rows, empty day
+- [x] 3. Ledger, Day Book view (`src/ui/DayBookView.tsx`): day navigator, week strip, summary card, timeline rows, empty day
 - [ ] 4. Ledger, All entries view (`src/app/(tabs)/ledger.tsx`): search, wallet tabs, filter sheet, period sheet, section headers
 - [ ] 5. Add entry (`src/ui/FastTransactionEntry.tsx`, `src/app/transaction/new.tsx`): Spent/Received, amount, What for and suggestions, categories and the All categories sheet, wallet picker, When sheet (`src/ui/DateTimeSheet.tsx`), note, Save, Save & next
 - [ ] 6. Transaction detail and edit (`src/app/transaction/[id].tsx`, `src/ui/TransactionForm.tsx`): **Delete must stay visible with the keyboard open**

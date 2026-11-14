@@ -22,11 +22,11 @@ export function containsBengali(text: string): boolean {
 
 export function mapFontToBangla(fontFamily?: string): string {
   if (!fontFamily) return BANGLA_FONTS.regular;
-  if (fontFamily.includes('700') || fontFamily.includes('Bold')) {
-    return BANGLA_FONTS.bold;
-  }
   if (fontFamily.includes('600') || fontFamily.includes('SemiBold')) {
     return BANGLA_FONTS.semibold;
+  }
+  if (fontFamily.includes('700') || fontFamily.includes('Bold')) {
+    return BANGLA_FONTS.bold;
   }
   if (fontFamily.includes('500') || fontFamily.includes('Medium')) {
     return BANGLA_FONTS.medium;

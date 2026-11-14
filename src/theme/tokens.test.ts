@@ -1,5 +1,11 @@
 import { ACCENT_THEMES } from '@/domain/types';
-import { getPalette, type ColorPalette, type ResolvedColorMode } from './tokens';
+import {
+  BANGLA_FONTS,
+  getPalette,
+  mapFontToBangla,
+  type ColorPalette,
+  type ResolvedColorMode,
+} from './tokens';
 
 function relativeLuminance(hex: string): number {
   const num = Number.parseInt(hex.slice(1), 16);
@@ -74,4 +80,12 @@ describe('v1.2 token WCAG AA contrast across all 5 accents x 3 resolved modes', 
       });
     }
   }
+
+  it('maps each Manrope weight cleanly without matching SemiBold as Bold', () => {
+    expect(mapFontToBangla('Manrope_400Regular')).toBe(BANGLA_FONTS.regular);
+    expect(mapFontToBangla('Manrope_500Medium')).toBe(BANGLA_FONTS.medium);
+    expect(mapFontToBangla('Manrope_600SemiBold')).toBe(BANGLA_FONTS.semibold);
+    expect(mapFontToBangla('Manrope_700Bold')).toBe(BANGLA_FONTS.bold);
+    expect(mapFontToBangla(undefined)).toBe(BANGLA_FONTS.regular);
+  });
 });

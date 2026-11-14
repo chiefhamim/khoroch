@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { PressableScale } from '@/ui/PressableScale';
 
 export interface SettingsRowProps {
@@ -75,7 +75,15 @@ export function SettingsRow({
 
       <View style={[styles.right, { gap: theme.spacing.xs }]}>
         {value ? (
-          <AppText variant="body" color="textSecondary" numberOfLines={1}>
+          <AppText
+            variant="body"
+            color="textSecondary"
+            numberOfLines={1}
+            style={{
+              minWidth: Math.min(estimateSingleLineMinWidth(value, 15), 145),
+              textAlign: 'right',
+            }}
+          >
             {value}
           </AppText>
         ) : null}

@@ -6,7 +6,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { StyleSheet, View } from "react-native";
 import { useTheme } from "@/theme/useTheme";
-import { AppText } from "./AppText";
+import { AppText, estimateSingleLineMinWidth } from "./AppText";
 import { hapticSelection } from "./haptics";
 import { PressableScale } from "@/ui/PressableScale";
 
@@ -98,7 +98,7 @@ export function SegmentedControl<T extends string>({
         return (
           <PressableScale
             pressScale={0.96}
-            key={opt.value}
+            key={`${opt.value}:${opt.label}`}
             disabled={disabled}
             hitSlop={isCompact ? 6 : undefined}
             accessibilityRole="button"
@@ -137,7 +137,13 @@ export function SegmentedControl<T extends string>({
               variant={isCompact ? "caption" : "label"}
               color={active ? "text" : "textSecondary"}
               numberOfLines={1}
-              style={styles.label}
+              style={[
+                styles.label,
+                !isCompact && styles.labelStretch,
+                isCompact
+                  ? { minWidth: estimateSingleLineMinWidth(opt.label, 13) }
+                  : null,
+              ]}
             >
               {opt.label}
             </AppText>
@@ -178,6 +184,8 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: "Manrope_600SemiBold",
     textAlign: "center",
+  },
+  labelStretch: {
     alignSelf: "stretch",
   },
 });

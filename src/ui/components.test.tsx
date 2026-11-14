@@ -4,6 +4,8 @@ import { fireEvent, render, act } from '@testing-library/react-native';
 import { addDays, diffDays } from '@/domain/dates';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { ThemeProvider } from '@/theme/ThemeProvider';
+import { setLocale } from '@/i18n';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { Banner } from './Banner';
 import { Button } from './Button';
 import { DateField } from './DateField';
@@ -225,6 +227,45 @@ describe('v2 design system components', () => {
         expect(days[lastIdx]).toBe(today);
         expect(labels[lastIdx]).toBe('Today');
       }
+    }
+  });
+
+  it('estimates single-line minWidth wider for Bengali labels and updates AppText font when locale switches', async () => {
+    expect(estimateSingleLineMinWidth('আজকের খাতা', 13)).toBeGreaterThan(
+      estimateSingleLineMinWidth('Day book', 13)
+    );
+    expect(estimateSingleLineMinWidth('আজকের খাতা', 13)).toBeGreaterThanOrEqual(85);
+
+    setLocale('en');
+    try {
+      const view = await render(
+        <ThemeProvider preference="light" accent="forest">
+          <AppText testID="locale-sample" variant="headline">
+            Today
+          </AppText>
+        </ThemeProvider>
+      );
+      expect(StyleSheet.flatten(view.getByTestId('locale-sample').props.style).fontFamily).toBe(
+        'Manrope_600SemiBold'
+      );
+
+      await act(async () => {
+        setLocale('bn');
+      });
+      await view.rerender(
+        <ThemeProvider preference="light" accent="forest">
+          <AppText testID="locale-sample" variant="headline">
+            আজ
+          </AppText>
+        </ThemeProvider>
+      );
+      expect(StyleSheet.flatten(view.getByTestId('locale-sample').props.style).fontFamily).toBe(
+        'HindSiliguri_600SemiBold'
+      );
+    } finally {
+      await act(async () => {
+        setLocale('en');
+      });
     }
   });
 });

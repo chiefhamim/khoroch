@@ -86,6 +86,8 @@ export const bn: Record<TranslationKey, string> = {
   'daybook.previousDay': 'আগের দিন',
   'daybook.nextDay': 'পরের দিন',
   'daybook.untrackedNote': 'ওয়ালেট ছাড়া হিসাবগুলো তালিকায় থাকে কিন্তু মোট ব্যালেন্স পরিবর্তন করে না।',
+  'daybook.beforeOpeningNote': 'ওয়ালেট যোগ করার আগের তারিখের হিসাবগুলো তালিকায় থাকে কিন্তু মোট ব্যালেন্স পরিবর্তন করে না।',
+  'daybook.untrackedMixedNote': 'ওয়ালেট ছাড়া বা ওয়ালেট যোগ করার আগের হিসাবগুলো তালিকায় থাকে কিন্তু মোট ব্যালেন্স পরিবর্তন করে না।',
   'daybook.emptyTitle': 'এই দিনে কোনো হিসাব লেখা হয়নি',
   'daybook.emptyBodyToday': 'প্রতিদিনের ছোট-বড় সব খরচ লিখে রাখুন: রিকশা ভাড়া, নাস্তা বা সকালের বাজার।',
   'daybook.emptyBody': 'এই দিনে কোনো লেনদেন হয়নি।',

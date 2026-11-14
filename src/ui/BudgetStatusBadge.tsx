@@ -1,11 +1,11 @@
 import React from 'react';
-import { PixelRatio, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { BudgetStatus } from '@/domain/types';
 import { t, type TranslationKey } from '@/i18n';
 import { hexToRgba } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 
 interface StatusVisual {
   icon: AppIconName;
@@ -93,9 +93,7 @@ export function BudgetStatusBadge({
           ? theme.colors.accentSoft
           : theme.colors.surfaceSunken;
 
-  // Android Fabric can drop the trailing word/glyph if Yoga quantizes text width down by <1px across locale/theme changes.
-  const fontScale = Math.max(1, PixelRatio.getFontScale());
-  const minTextWidth = Math.ceil((displayLabel.length * 6.5 + 8) * fontScale);
+  const minTextWidth = estimateSingleLineMinWidth(displayLabel, 12);
 
   return (
     <View
