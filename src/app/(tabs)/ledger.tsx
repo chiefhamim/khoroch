@@ -55,6 +55,7 @@ import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
 import { WalletAvatar } from '@/ui/WalletAvatar';
 import { PressableScale } from '@/ui/PressableScale';
+import { DayBookView } from '@/ui/DayBookView';
 
 function resolveDateRange(
   preset: ActivityDatePreset,
@@ -160,7 +161,7 @@ interface ActivitySection {
   data: LedgerRowItem[];
 }
 
-export default function ActivityScreen() {
+function AllEntriesScreen({ header }: { header: React.ReactNode }) {
   const { repo, settings } = useAppContext();
   const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
   const showPoisha = usePrivacyStore((s) => s.showPoisha);
@@ -502,9 +503,7 @@ export default function ActivityScreen() {
 
   return (
     <Screen contentContainerStyle={{ paddingBottom: 0 }}>
-      <AppText variant="title" style={{ marginBottom: theme.spacing.md }}>
-        {t('tabs.ledger')}
-      </AppText>
+      <View style={{ marginBottom: theme.spacing.md }}>{header}</View>
 
       {/* Search + Filter icon button with badge */}
       <View style={[styles.searchRow, { gap: theme.spacing.sm, marginBottom: theme.spacing.md }]}>
@@ -1291,6 +1290,7 @@ export default function ActivityScreen() {
 }
 
 const styles = StyleSheet.create({
+  ledgerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1377,3 +1377,53 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
 });
+
+type LedgerMode = 'day' | 'all';
+
+export default function LedgerScreen() {
+  const { theme } = useTheme();
+  const [mode, setMode] = useState<LedgerMode>('day');
+  const externalFilterActive = useActivityFilterStore(
+    (s) =>
+      Boolean(s.type) ||
+      s.categoryIds.length > 0 ||
+      Boolean(s.categoryId) ||
+      s.accountId !== undefined ||
+      s.datePreset !== 'all' ||
+      s.search.trim().length > 0
+  );
+  const [lastFilterActive, setLastFilterActive] = useState(externalFilterActive);
+  if (externalFilterActive !== lastFilterActive) {
+    // "See all" links from Home arrive with filters set: show them the full list.
+    setLastFilterActive(externalFilterActive);
+    if (externalFilterActive) setMode('all');
+  }
+
+  const header = (
+    <View style={[styles.ledgerHeader, { gap: theme.spacing.md }]}>
+      <AppText variant="title">{t('tabs.ledger')}</AppText>
+      <SegmentedControl<LedgerMode>
+        size="sm"
+        testID="ledger-mode"
+        value={mode}
+        onChange={(next) => {
+          hapticSelection();
+          setMode(next);
+        }}
+        options={[
+          { value: 'day', label: t('daybook.tabDay') },
+          { value: 'all', label: t('daybook.tabAll') },
+        ]}
+      />
+    </View>
+  );
+
+  if (mode === 'day') {
+    return (
+      <Screen contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}>
+        <DayBookView header={header} />
+      </Screen>
+    );
+  }
+  return <AllEntriesScreen header={header} />;
+}

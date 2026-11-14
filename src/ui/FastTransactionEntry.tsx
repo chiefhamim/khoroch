@@ -1,21 +1,49 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Keyboard, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { addDays, formatFriendlyDate, todayLocalDate } from '@/domain/dates';
+import {
+  addDays,
+  currentLocalTime,
+  formatFriendlyDate,
+  formatFriendlyTime,
+  isDevice24HourClock,
+  todayLocalDate,
+} from '@/domain/dates';
 import { parseMoneyInput } from '@/domain/money';
-import type { Account, Category, CurrencyCode, LocalDate, Transaction } from '@/domain/types';
+import type {
+  Account,
+  Category,
+  CurrencyCode,
+  LocalDate,
+  LocalTime,
+  Transaction,
+  TransactionType,
+  WeekStartDay,
+} from '@/domain/types';
 import { t } from '@/i18n';
 import { useTheme } from '@/theme/useTheme';
-import { AppIcon } from './AppIcon';
+import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
 import { Button } from './Button';
-import { Chip } from './Chip';
 import { DateTimeSheet } from './DateTimeSheet';
+import { hapticSelection } from './haptics';
+import { IconTile } from './IconTile';
 import { Keypad } from './Keypad';
 import { Money } from './Money';
+import { PressableScale } from './PressableScale';
 import { Sheet } from './Sheet';
 import { WalletAvatar } from './WalletAvatar';
 import { WalletPickerSheet } from './WalletPickerSheet';
-import { PressableScale } from './PressableScale';
+
+export interface FastEntryValues {
+  type: TransactionType;
+  amountMinor: number;
+  categoryId: string;
+  accountId: string | null;
+  description: string;
+  note: string;
+  occurredOn: LocalDate;
+  occurredTime: string | null;
+}
 
 export interface FastTransactionEntryProps {
   currency: CurrencyCode;
@@ -23,32 +51,49 @@ export interface FastTransactionEntryProps {
   accounts: Account[];
   defaultAccountId?: string | null;
   recentTransactions?: Transaction[];
+  weekStartsOn?: WeekStartDay;
   onClose: () => void;
-  onSubmit: (values: {
-    type: 'expense';
-    amountMinor: number;
-    categoryId: string;
-    accountId: string | null;
-    description: string;
-    note: string;
-    occurredOn: LocalDate;
-    occurredTime: string | null;
-  }) => Promise<void>;
-  onSubmitAndAddAnother?: (values: {
-    type: 'expense';
-    amountMinor: number;
-    categoryId: string;
-    accountId: string | null;
-    description: string;
-    note: string;
-    occurredOn: LocalDate;
-    occurredTime: string | null;
-  }) => Promise<void>;
+  onSubmit: (values: FastEntryValues) => Promise<void>;
+  onSubmitAndAddAnother?: (values: FastEntryValues) => Promise<void>;
+}
+
+interface Suggestion {
+  description: string;
+  categoryId: string | null;
+  accountId: string | null;
 }
 
 function draftAmount(text: string): number | null {
   const parsed = parseMoneyInput(text);
   return parsed.ok && parsed.minor !== null && parsed.minor > 0 ? parsed.minor : null;
+}
+
+/** Most frequent recent descriptions for one direction, newest first on ties. */
+export function buildDescriptionSuggestions(
+  transactions: readonly Transaction[],
+  type: TransactionType,
+  categoryNames: ReadonlySet<string>,
+  limit = 8
+): Suggestion[] {
+  const byKey = new Map<string, Suggestion & { count: number; order: number }>();
+  let order = 0;
+  for (const tx of transactions) {
+    if (tx.deletedAt != null || tx.type !== type || tx.transferId) continue;
+    const description = tx.description.trim();
+    if (!description || categoryNames.has(description)) continue;
+    const key = description.toLowerCase();
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      byKey.set(key, { description, categoryId: tx.categoryId, accountId: tx.accountId, count: 1, order });
+      order += 1;
+    }
+  }
+  return [...byKey.values()]
+    .sort((a, b) => b.count - a.count || a.order - b.order)
+    .slice(0, limit)
+    .map(({ description, categoryId, accountId }) => ({ description, categoryId, accountId }));
 }
 
 export function FastTransactionEntry({
@@ -57,22 +102,30 @@ export function FastTransactionEntry({
   accounts,
   defaultAccountId,
   recentTransactions = [],
+  weekStartsOn,
   onClose,
   onSubmit,
   onSubmitAndAddAnother,
 }: FastTransactionEntryProps) {
   const { theme } = useTheme();
   const today = todayLocalDate();
+  const use24Hour = isDevice24HourClock();
+
+  const [type, setType] = useState<TransactionType>('expense');
   const [amountText, setAmountText] = useState('');
-  const [categoryId, setCategoryId] = useState<string | null>(
-    () => categories.find((category) => category.kind === 'expense' && category.isSelected)?.id ?? null
-  );
+  const [description, setDescription] = useState('');
+  const [categoryByType, setCategoryByType] = useState<Record<TransactionType, string | null>>({
+    expense: null,
+    income: null,
+  });
   const [accountId, setAccountId] = useState<string | null>(
     defaultAccountId && accounts.some((account) => account.id === defaultAccountId)
       ? defaultAccountId
       : accounts[0]?.id ?? null
   );
   const [occurredOn, setOccurredOn] = useState<LocalDate>(today);
+  const [occurredTime, setOccurredTime] = useState<LocalTime>(currentLocalTime());
+  const [timeTouched, setTimeTouched] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState('');
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -80,31 +133,9 @@ export function FastTransactionEntry({
   const [walletOpen, setWalletOpen] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [savedRows, setSavedRows] = useState<{ amountMinor: number; categoryName: string }[]>([]);
-
-  const expenseCategories = useMemo(
-    () => categories.filter((category) => category.kind === 'expense' && category.archivedAt === null),
-    [categories]
-  );
-  const recentCategoryIds = useMemo(() => {
-    const ids: string[] = [];
-    for (const transaction of recentTransactions) {
-      if (transaction.type !== 'expense' || !transaction.categoryId || ids.includes(transaction.categoryId)) continue;
-      ids.push(transaction.categoryId);
-      if (ids.length === 5) break;
-    }
-    return ids;
-  }, [recentTransactions]);
-  const quickCategories = useMemo(() => {
-    const recent = recentCategoryIds
-      .map((id) => expenseCategories.find((category) => category.id === id))
-      .filter((category): category is Category => Boolean(category));
-    return [...recent, ...expenseCategories.filter((category) => !recentCategoryIds.includes(category.id))].slice(0, 5);
-  }, [expenseCategories, recentCategoryIds]);
-  const selectedCategory = expenseCategories.find((category) => category.id === categoryId) ?? quickCategories[0] ?? null;
-  const selectedAccount = accounts.find((account) => account.id === accountId) ?? null;
-  const parsedAmount = draftAmount(amountText);
-  const canSave = parsedAmount !== null && selectedCategory !== null && !saving;
+  const [savedRows, setSavedRows] = useState<
+    { key: string; type: TransactionType; amountMinor: number; label: string; time: LocalTime }[]
+  >([]);
 
   useEffect(() => {
     const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
@@ -115,26 +146,107 @@ export function FastTransactionEntry({
     };
   }, []);
 
+  // Keep "now" fresh while the screen stays open, until the person picks a time.
+  useEffect(() => {
+    if (timeTouched) return;
+    const timer = setInterval(() => setOccurredTime(currentLocalTime()), 30_000);
+    return () => clearInterval(timer);
+  }, [timeTouched]);
+
+  const typeCategories = useMemo(
+    () =>
+      categories
+        .filter((category) => category.kind === type && category.archivedAt === null)
+        .sort((a, b) => a.sortOrder - b.sortOrder),
+    [categories, type]
+  );
+  const categoryNames = useMemo(() => new Set(categories.map((c) => c.name)), [categories]);
+
+  const quickCategories = useMemo(() => {
+    const ids: string[] = [];
+    for (const tx of recentTransactions) {
+      if (tx.deletedAt != null || tx.type !== type || !tx.categoryId || ids.includes(tx.categoryId)) continue;
+      ids.push(tx.categoryId);
+      if (ids.length === 6) break;
+    }
+    const recent = ids
+      .map((id) => typeCategories.find((c) => c.id === id))
+      .filter((c): c is Category => Boolean(c));
+    return [...recent, ...typeCategories.filter((c) => !ids.includes(c.id))].slice(0, 6);
+  }, [recentTransactions, type, typeCategories]);
+
+  const suggestions = useMemo(
+    () => buildDescriptionSuggestions(recentTransactions, type, categoryNames),
+    [recentTransactions, type, categoryNames]
+  );
+  const visibleSuggestions = useMemo(() => {
+    const needle = description.trim().toLowerCase();
+    if (!needle) return suggestions;
+    return suggestions.filter(
+      (s) => s.description.toLowerCase().includes(needle) && s.description.toLowerCase() !== needle
+    );
+  }, [description, suggestions]);
+
+  const categoryId = categoryByType[type];
+  const selectedCategory = typeCategories.find((c) => c.id === categoryId) ?? null;
+  const selectedAccount = accounts.find((account) => account.id === accountId) ?? null;
+  const parsedAmount = draftAmount(amountText);
+  const canSave = parsedAmount !== null && selectedCategory !== null && !saving;
+  const isIncome = type === 'income';
+
+  const setCategory = (id: string | null) =>
+    setCategoryByType((prev) => ({ ...prev, [type]: id }));
+
+  const applySuggestion = (s: Suggestion) => {
+    hapticSelection();
+    setDescription(s.description);
+    if (s.categoryId && typeCategories.some((c) => c.id === s.categoryId)) setCategory(s.categoryId);
+    Keyboard.dismiss();
+  };
+
+  const whenLabel = (() => {
+    const day =
+      occurredOn === today
+        ? t('common.today')
+        : occurredOn === addDays(today, -1)
+          ? t('common.yesterday')
+          : formatFriendlyDate(occurredOn, today);
+    return `${day}, ${formatFriendlyTime(occurredTime, use24Hour)}`;
+  })();
+
   const submit = async (keepOpen: boolean) => {
     if (!canSave || !selectedCategory || parsedAmount === null) return;
     setSaving(true);
-    const values = {
-      type: 'expense' as const,
+    const values: FastEntryValues = {
+      type,
       amountMinor: parsedAmount,
       categoryId: selectedCategory.id,
       accountId,
-      description: selectedCategory.name,
+      description: description.trim() || selectedCategory.name,
       note: note.trim(),
       occurredOn,
-      occurredTime: null,
+      occurredTime,
     };
     try {
       if (keepOpen && onSubmitAndAddAnother) {
         await onSubmitAndAddAnother(values);
-        setSavedRows((rows) => [{ amountMinor: parsedAmount, categoryName: selectedCategory.name }, ...rows].slice(0, 4));
+        setSavedRows((rows) =>
+          [
+            {
+              key: `${Date.now()}`,
+              type,
+              amountMinor: parsedAmount,
+              label: values.description,
+              time: occurredTime,
+            },
+            ...rows,
+          ].slice(0, 5)
+        );
         setAmountText('');
+        setDescription('');
         setNote('');
         setNoteOpen(false);
+        if (!timeTouched) setOccurredTime(currentLocalTime());
       } else {
         await onSubmit(values);
       }
@@ -143,91 +255,296 @@ export function FastTransactionEntry({
     }
   };
 
+  const fieldStyle = {
+    borderRadius: theme.radius.input,
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.separator,
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: theme.colors.bg }]}>
-      <View style={[styles.header, { paddingHorizontal: theme.geometry.screenMargin }]}>
+      {/* Header */}
+      <View style={[styles.header, { paddingHorizontal: theme.spacing.sm }]}>
         <PressableScale
           accessibilityRole="button"
           accessibilityLabel={t('common.close')}
           onPress={onClose}
-          style={styles.close}
+          style={styles.headerBtn}
         >
           <AppIcon name="x" size={22} color={theme.colors.text} />
         </PressableScale>
-        <AppText variant="headline">{t('tx.newTitle')}</AppText>
-        <View style={styles.close} />
+        <View style={[styles.typeSwitch, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.pill }]}>
+          {(['expense', 'income'] as const).map((key) => {
+            const active = type === key;
+            return (
+              <PressableScale
+                key={key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={key === 'expense' ? t('fast.spent') : t('fast.received')}
+                onPress={() => {
+                  hapticSelection();
+                  setType(key);
+                }}
+                style={[
+                  styles.typeBtn,
+                  {
+                    borderRadius: theme.radius.pill,
+                    backgroundColor: active ? theme.colors.surfaceRaised : 'transparent',
+                    borderColor: active ? theme.colors.separator : 'transparent',
+                  },
+                ]}
+              >
+                <AppIcon
+                  name={key === 'expense' ? 'arrow-up-right' : 'arrow-down-left'}
+                  size={15}
+                  color={active ? (key === 'income' ? theme.colors.income : theme.colors.text) : theme.colors.textTertiary}
+                />
+                <AppText
+                  variant="label"
+                  style={{
+                    color: active ? theme.colors.text : theme.colors.textTertiary,
+                    fontFamily: active ? 'Manrope_700Bold' : 'Manrope_500Medium',
+                  }}
+                >
+                  {key === 'expense' ? t('fast.spent') : t('fast.received')}
+                </AppText>
+              </PressableScale>
+            );
+          })}
+        </View>
+        <View style={styles.headerBtn} />
       </View>
 
       <ScrollView
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.content, { paddingHorizontal: theme.geometry.screenMargin }]}
+        contentContainerStyle={[styles.content, { paddingHorizontal: theme.geometry.screenMargin, gap: theme.spacing.md }]}
       >
+        {/* Amount */}
         <View style={styles.amount}>
-          <Money
-            amountMinor={parsedAmount ?? 0}
-            currency={currency}
-            variant="hero"
-            showDecimals
-            color={parsedAmount === null ? 'textTertiary' : 'text'}
-          />
+          <View style={styles.amountRow}>
+            {isIncome && parsedAmount !== null ? (
+              <AppText variant="hero" style={{ color: theme.colors.income }}>+</AppText>
+            ) : null}
+            <Money
+              amountMinor={parsedAmount ?? 0}
+              currency={currency}
+              variant="hero"
+              showDecimals={amountText.includes('.')}
+              color={parsedAmount === null ? 'textTertiary' : isIncome ? 'income' : 'text'}
+            />
+          </View>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          <Chip
-            label={selectedCategory?.name ?? t('common.category')}
-            icon="shapes"
-            selected={categoryOpen}
-            onPress={() => setCategoryOpen(true)}
+        {/* What for */}
+        <View style={[styles.field, fieldStyle]}>
+          <AppIcon name="pencil" size={17} color={theme.colors.textTertiary} />
+          <TextInput
+            accessibilityLabel={t('fast.whatFor')}
+            placeholder={isIncome ? t('fast.whereFromPlaceholder') : t('fast.whatForPlaceholder')}
+            placeholderTextColor={theme.colors.textTertiary}
+            value={description}
+            onChangeText={setDescription}
+            returnKeyType="done"
+            maxLength={80}
+            style={[styles.input, { color: theme.colors.text, fontFamily: 'Manrope_600SemiBold' }]}
+            testID="fast-description"
           />
-          <Chip
-            label={selectedAccount?.name ?? t('tx.noWallet')}
-            left={selectedAccount ? <WalletAvatar account={selectedAccount} size="xs" /> : undefined}
-            selected={Boolean(selectedAccount)}
+          {description ? (
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel={t('fast.clearDescription')}
+              onPress={() => setDescription('')}
+              style={styles.clearBtn}
+            >
+              <AppIcon name="x" size={16} color={theme.colors.textTertiary} />
+            </PressableScale>
+          ) : null}
+        </View>
+
+        {visibleSuggestions.length > 0 ? (
+          <ScrollView
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: theme.spacing.sm }}
+            style={styles.bleed}
+          >
+            <View style={{ width: theme.geometry.screenMargin - theme.spacing.sm }} />
+            {visibleSuggestions.map((s) => (
+              <PressableScale
+                key={s.description}
+                accessibilityRole="button"
+                accessibilityLabel={s.description}
+                onPress={() => applySuggestion(s)}
+                style={[
+                  styles.suggestion,
+                  { borderRadius: theme.radius.pill, borderColor: theme.colors.separator, backgroundColor: theme.colors.surface },
+                ]}
+              >
+                <AppText variant="label" color="textSecondary">
+                  {s.description}
+                </AppText>
+              </PressableScale>
+            ))}
+            <View style={{ width: theme.geometry.screenMargin - theme.spacing.sm }} />
+          </ScrollView>
+        ) : null}
+
+        {/* Category */}
+        <View style={{ gap: theme.spacing.sm }}>
+          <View style={styles.labelRow}>
+            <AppText variant="overline" color="textTertiary">
+              {t('common.category').toUpperCase()}
+            </AppText>
+            <PressableScale
+              accessibilityRole="button"
+              accessibilityLabel={t('fast.allCategories')}
+              onPress={() => setCategoryOpen(true)}
+              style={styles.linkBtn}
+            >
+              <AppText variant="label" color="accent">
+                {t('fast.allCategories')}
+              </AppText>
+            </PressableScale>
+          </View>
+          <View style={[styles.catGrid, { gap: theme.spacing.sm }]}>
+            {quickCategories.map((category) => {
+              const active = category.id === categoryId;
+              return (
+                <PressableScale
+                  key={category.id}
+                  pressScale={0.96}
+                  accessibilityRole="button"
+                  accessibilityLabel={category.name}
+                  accessibilityState={{ selected: active }}
+                  onPress={() => {
+                    hapticSelection();
+                    setCategory(active ? null : category.id);
+                  }}
+                  style={[
+                    styles.catCell,
+                    {
+                      borderRadius: theme.radius.md,
+                      borderColor: active ? theme.colors.accent : theme.colors.separator,
+                      backgroundColor: active ? theme.colors.accentSoft : theme.colors.surface,
+                    },
+                  ]}
+                >
+                  <IconTile icon={category.icon as AppIconName} colorKey={category.colorKey} size={30} />
+                  <AppText
+                    variant="caption"
+                    style={[styles.catLabel, { color: active ? theme.colors.text : theme.colors.textSecondary }]}
+                  >
+                    {category.name}
+                  </AppText>
+                </PressableScale>
+              );
+            })}
+          </View>
+          {selectedCategory && !quickCategories.some((c) => c.id === selectedCategory.id) ? (
+            <AppText variant="caption" color="textSecondary">
+              {t('fast.selectedCategory', { name: selectedCategory.name })}
+            </AppText>
+          ) : null}
+        </View>
+
+        {/* Wallet + When */}
+        <View style={[styles.detailRow, { gap: theme.spacing.sm }]}>
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel={`${t('fast.wallet')}: ${selectedAccount?.name ?? t('tx.noWallet')}`}
             onPress={() => setWalletOpen(true)}
-          />
-          <Chip
-            label={occurredOn === today ? t('common.today') : occurredOn === addDays(today, -1) ? t('common.yesterday') : formatFriendlyDate(occurredOn, today)}
-            icon="calendar"
-            selected={whenOpen}
+            style={[styles.detail, fieldStyle]}
+          >
+            {selectedAccount ? (
+              <WalletAvatar account={selectedAccount} size="xs" />
+            ) : (
+              <AppIcon name="wallet" size={16} color={theme.colors.textTertiary} />
+            )}
+            <View style={styles.detailText}>
+              <AppText variant="caption" color="textTertiary">
+                {isIncome ? t('fast.into') : t('fast.from')}
+              </AppText>
+              <AppText variant="label" numberOfLines={1} ellipsizeMode="clip">
+                {selectedAccount?.name ?? t('tx.noWallet')}
+              </AppText>
+            </View>
+            <AppIcon name="chevron-down" size={15} color={theme.colors.textTertiary} />
+          </PressableScale>
+          <PressableScale
+            accessibilityRole="button"
+            accessibilityLabel={`${t('dateTime.when')}: ${whenLabel}`}
             onPress={() => setWhenOpen(true)}
-          />
-        </ScrollView>
+            style={[styles.detail, styles.detailWide, fieldStyle]}
+            testID="fast-when"
+          >
+            <AppIcon name="calendar" size={16} color={theme.colors.textTertiary} />
+            <View style={styles.detailText}>
+              <AppText variant="caption" color="textTertiary">
+                {t('dateTime.when')}
+              </AppText>
+              <AppText variant="label" numberOfLines={1} ellipsizeMode="clip" tabularNums>
+                {whenLabel}
+              </AppText>
+            </View>
+            <AppIcon name="chevron-down" size={15} color={theme.colors.textTertiary} />
+          </PressableScale>
+        </View>
 
         {noteOpen ? (
-          <View style={[styles.noteRow, { borderColor: theme.colors.separator }]}>
-            <AppIcon name="pencil" size={18} color={theme.colors.textSecondary} />
+          <View style={[styles.field, fieldStyle]}>
+            <AppIcon name="message-circle" size={17} color={theme.colors.textTertiary} />
             <TextInput
               accessibilityLabel={t('common.note')}
               placeholder={t('tx.notePlaceholder')}
               placeholderTextColor={theme.colors.textTertiary}
               value={note}
               onChangeText={setNote}
-              style={[styles.noteInput, { color: theme.colors.text }]}
+              autoFocus
+              style={[styles.input, { color: theme.colors.text }]}
             />
           </View>
-        ) : (
-          <PressableScale
-            accessibilityRole="button"
-            accessibilityLabel={t('tx.addNoteCta')}
-            onPress={() => setNoteOpen(true)}
-            style={styles.addNote}
-          >
-            <AppIcon name="plus" size={16} color={theme.colors.accent} />
-            <AppText variant="label" color="accent">{t('tx.addNoteCta')}</AppText>
-          </PressableScale>
-        )}
+        ) : null}
 
-        {!keyboardVisible && !noteOpen ? (
-          <Keypad value={amountText} onChange={setAmountText} keyHeight={56} testID="fast-keypad" />
+        {!keyboardVisible ? (
+          <View style={{ gap: theme.spacing.sm }}>
+            {!noteOpen ? (
+              <PressableScale
+                accessibilityRole="button"
+                accessibilityLabel={t('tx.addNoteCta')}
+                onPress={() => setNoteOpen(true)}
+                style={styles.addNote}
+              >
+                <AppIcon name="plus" size={15} color={theme.colors.textSecondary} />
+                <AppText variant="label" color="textSecondary">
+                  {t('tx.addNoteCta')}
+                </AppText>
+              </PressableScale>
+            ) : null}
+            <Keypad value={amountText} onChange={setAmountText} keyHeight={52} testID="fast-keypad" />
+          </View>
         ) : null}
 
         {savedRows.length > 0 ? (
-          <View style={[styles.saved, { borderColor: theme.colors.separator }]}>
-            <AppText variant="caption" color="textSecondary">{t('tx.saved')}</AppText>
-            {savedRows.map((row, index) => (
-              <View key={`${row.categoryName}-${index}`} style={styles.savedRow}>
-                <AppText variant="label" style={styles.savedLabel}>{row.categoryName}</AppText>
-                <Money amountMinor={row.amountMinor} currency={currency} variant="label" />
+          <View style={[styles.saved, { borderRadius: theme.radius.card, borderColor: theme.colors.separator, backgroundColor: theme.colors.surface }]}>
+            <AppText variant="overline" color="textTertiary">
+              {t('fast.addedNow').toUpperCase()}
+            </AppText>
+            {savedRows.map((row) => (
+              <View key={row.key} style={styles.savedRow}>
+                <AppText variant="caption" color="textTertiary" tabularNums style={styles.savedTime}>
+                  {formatFriendlyTime(row.time, use24Hour)}
+                </AppText>
+                <AppText variant="label" style={styles.flex}>
+                  {row.label}
+                </AppText>
+                <Money
+                  amountMinor={row.type === 'income' ? row.amountMinor : -row.amountMinor}
+                  currency={currency}
+                  variant="label"
+                  color={row.type === 'income' ? 'income' : 'text'}
+                />
               </View>
             ))}
           </View>
@@ -235,39 +552,73 @@ export function FastTransactionEntry({
       </ScrollView>
 
       {!keyboardVisible ? (
-        <View style={[styles.footer, { borderTopColor: theme.colors.separator, paddingHorizontal: theme.geometry.screenMargin }]}>
-          <Button title={t('common.save')} disabled={!canSave} loading={saving} onPress={() => void submit(false)} style={styles.flex} />
+        <View style={[styles.footer, { borderTopColor: theme.colors.separator, paddingHorizontal: theme.geometry.screenMargin, gap: theme.spacing.sm }]}>
           <Button
-            title={t('tx.saveAndAddAnother')}
+            title={t('fast.saveNext')}
             variant="secondary"
             disabled={!canSave || !onSubmitAndAddAnother}
             onPress={() => void submit(true)}
             style={styles.flex}
+            testID="fast-save-next"
+          />
+          <Button
+            title={t('common.save')}
+            disabled={!canSave}
+            loading={saving}
+            onPress={() => void submit(false)}
+            style={styles.flex}
+            testID="fast-save"
           />
         </View>
       ) : null}
 
       <Sheet visible={categoryOpen} onClose={() => setCategoryOpen(false)} title={t('common.category')} testID="fast-category-sheet">
-        <View style={styles.categoryGrid}>
-          {[...quickCategories, ...expenseCategories.filter((category) => !quickCategories.includes(category))].map((category) => (
-            <Chip
-              key={category.id}
-              label={category.name}
-              selected={category.id === categoryId}
-              onPress={() => {
-                setCategoryId(category.id);
-                setCategoryOpen(false);
-              }}
-            />
-          ))}
+        <View style={[styles.sheetGrid, { gap: theme.spacing.sm }]}>
+          {typeCategories.map((category) => {
+            const active = category.id === categoryId;
+            return (
+              <PressableScale
+                key={category.id}
+                accessibilityRole="button"
+                accessibilityLabel={category.name}
+                accessibilityState={{ selected: active }}
+                onPress={() => {
+                  hapticSelection();
+                  setCategory(category.id);
+                  setCategoryOpen(false);
+                }}
+                style={[
+                  styles.sheetCell,
+                  {
+                    borderRadius: theme.radius.md,
+                    borderColor: active ? theme.colors.accent : theme.colors.separator,
+                    backgroundColor: active ? theme.colors.accentSoft : 'transparent',
+                  },
+                ]}
+              >
+                <IconTile icon={category.icon as AppIconName} colorKey={category.colorKey} size={36} />
+                <AppText variant="caption" style={styles.sheetLabel}>
+                  {category.name}
+                </AppText>
+              </PressableScale>
+            );
+          })}
         </View>
       </Sheet>
 
       <DateTimeSheet
         visible={whenOpen}
-        mode="date"
+        mode="datetime"
         date={occurredOn}
-        onDateChange={setOccurredOn}
+        time={occurredTime}
+        maxDate={today}
+        weekStartsOn={weekStartsOn}
+        use24Hour={use24Hour}
+        onChange={({ date, time }) => {
+          setOccurredOn(date);
+          setOccurredTime(time);
+          setTimeTouched(true);
+        }}
         onClose={() => setWhenOpen(false)}
       />
       <WalletPickerSheet
@@ -290,18 +641,33 @@ export function FastTransactionEntry({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { minHeight: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  close: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  content: { gap: 16, paddingTop: 12, paddingBottom: 16 },
-  amount: { alignItems: 'center', minHeight: 64, justifyContent: 'center' },
-  chips: { gap: 8, paddingVertical: 2 },
-  addNote: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  noteRow: { minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  noteText: { flex: 1 },
-  noteInput: { flex: 1, minHeight: 48, fontSize: 15 },
-  saved: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, gap: 8 },
-  savedRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  savedLabel: { flex: 1 },
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, paddingBottom: 12, flexDirection: 'row', gap: 8 },
+  headerBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  typeSwitch: { flexDirection: 'row', padding: 4 },
+  typeBtn: { minHeight: 40, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1 },
+  content: { paddingTop: 4, paddingBottom: 16 },
+  amount: { alignItems: 'center', justifyContent: 'center', minHeight: 72 },
+  amountRow: { flexDirection: 'row', alignItems: 'center' },
+  field: { minHeight: 52, borderWidth: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, gap: 10 },
+  input: { flex: 1, minHeight: 50, fontSize: 16 },
+  clearBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  bleed: { marginHorizontal: -20 },
+  suggestion: { minHeight: 36, paddingHorizontal: 14, borderWidth: 1, justifyContent: 'center' },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  linkBtn: { minHeight: 32, justifyContent: 'center', paddingLeft: 12 },
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  catCell: { width: '31.6%', minHeight: 76, borderWidth: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 8, gap: 6 },
+  catLabel: { textAlign: 'center' },
+  detailRow: { flexDirection: 'row' },
+  detail: { flex: 1, minHeight: 56, borderWidth: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, gap: 10 },
+  detailWide: { flex: 1.35 },
+  detailText: { flex: 1 },
+  addNote: { minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
+  saved: { borderWidth: 1, padding: 14, gap: 10 },
+  savedRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  savedTime: { width: 64 },
   flex: { flex: 1 },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 10, paddingBottom: 12, flexDirection: 'row' },
+  sheetGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  sheetCell: { width: '23%', minHeight: 88, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 6 },
+  sheetLabel: { textAlign: 'center' },
 });

@@ -271,11 +271,14 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
     expect(view.getByText('Add time')).toBeTruthy();
 
     await fireEvent.press(view.getByTestId('tx-date-field'));
-    expect(view.getByText('Done')).toBeTruthy();
-    await fireEvent.press(view.getByText('Done'));
+    expect(view.getByTestId('datetime-done')).toBeTruthy();
+    await fireEvent.press(view.getByTestId('datetime-done'));
 
     await fireEvent.press(view.getByTestId('tx-time-field'));
-    await fireEvent.press(view.getByText('Evening'));
+    await fireEvent.press(view.getByLabelText('PM'));
+    await fireEvent.press(view.getByLabelText('6'));
+    await fireEvent.press(view.getByLabelText('00'));
+    await fireEvent.press(view.getByTestId('datetime-done'));
 
     await fireEvent.press(view.getByTestId('save-tx-button'));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));

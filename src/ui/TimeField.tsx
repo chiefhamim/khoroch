@@ -85,7 +85,14 @@ export function TimeField({
         )}
 
       </View>
-      <DateTimeSheet visible={pickerOpen} mode="time" time={value} onTimeChange={onChange} onClose={() => setPickerOpen(false)} />
+      <DateTimeSheet
+        visible={pickerOpen}
+        mode="time"
+        time={value}
+        use24Hour={resolved24Hour}
+        onTimeChange={onChange}
+        onClose={() => setPickerOpen(false)}
+      />
     </View>
   );
 }

@@ -79,7 +79,16 @@ export function DateField({
         </PressableScale>
 
       </View>
-      <DateTimeSheet visible={pickerOpen} mode="date" date={value} onDateChange={onChange} onClose={() => setPickerOpen(false)} />
+      <DateTimeSheet
+        visible={pickerOpen}
+        mode="date"
+        date={value}
+        title={label}
+        maxDate={maximumDate ? todayLocalDate(maximumDate) : undefined}
+        minDate={minimumDate ? todayLocalDate(minimumDate) : undefined}
+        onDateChange={onChange}
+        onClose={() => setPickerOpen(false)}
+      />
     </View>
   );
 }
