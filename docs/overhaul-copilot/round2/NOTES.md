@@ -16,7 +16,7 @@ The seven-entry walkthrough is not yet complete; the remaining phone work is to 
 
 The date picker is a custom bottom sheet with a horizontal day strip and no Android wheel or clock dialog. The visible sheet has strong hierarchy and a solid action button.
 
-The month grid and exact-time state still need a separate phone capture and visual pass; the current date-sheet screenshot does not prove those states.
+The month-grid and exact-time controls exist in the custom sheet implementation, but the phone accessibility tree did not expose their off-screen triggers during this pass, so dedicated captures remain omitted rather than claimed.
 
 ## Step 4
 
@@ -33,6 +33,8 @@ Settings and the appearance sheet were also reviewed in dark mode. Contrast is u
 ## Step 6
 
 The wallet opening-balance editor and transaction note input are keyboard-capable and use the app's keyboard-aware form primitives. A complete keyboard screenshot matrix for every text-input sheet was not completed; this remains listed as not done in the final report.
+
+The final live-bundle capture `step6-keyboard-note-final.png` shows the note field focused with the Android keyboard open while the transaction keypad and footer are hidden, so the primary fast-entry keyboard obstruction is fixed.
 
 ## Verification
 

@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Keyboard, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { addDays, formatFriendlyDate, todayLocalDate } from '@/domain/dates';
 import { parseMoneyInput } from '@/domain/money';
 import type { Account, Category, CurrencyCode, LocalDate, Transaction } from '@/domain/types';
@@ -78,6 +78,7 @@ export function FastTransactionEntry({
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [whenOpen, setWhenOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savedRows, setSavedRows] = useState<{ amountMinor: number; categoryName: string }[]>([]);
 
@@ -104,6 +105,15 @@ export function FastTransactionEntry({
   const selectedAccount = accounts.find((account) => account.id === accountId) ?? null;
   const parsedAmount = draftAmount(amountText);
   const canSave = parsedAmount !== null && selectedCategory !== null && !saving;
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   const submit = async (keepOpen: boolean) => {
     if (!canSave || !selectedCategory || parsedAmount === null) return;
@@ -207,7 +217,9 @@ export function FastTransactionEntry({
           </PressableScale>
         )}
 
-        <Keypad value={amountText} onChange={setAmountText} keyHeight={56} testID="fast-keypad" />
+        {!keyboardVisible && !noteOpen ? (
+          <Keypad value={amountText} onChange={setAmountText} keyHeight={56} testID="fast-keypad" />
+        ) : null}
 
         {savedRows.length > 0 ? (
           <View style={[styles.saved, { borderColor: theme.colors.separator }]}>
@@ -222,16 +234,18 @@ export function FastTransactionEntry({
         ) : null}
       </ScrollView>
 
-      <View style={[styles.footer, { borderTopColor: theme.colors.separator, paddingHorizontal: theme.geometry.screenMargin }]}>
-        <Button title={t('common.save')} disabled={!canSave} loading={saving} onPress={() => void submit(false)} style={styles.flex} />
-        <Button
-          title={t('tx.saveAndAddAnother')}
-          variant="secondary"
-          disabled={!canSave || !onSubmitAndAddAnother}
-          onPress={() => void submit(true)}
-          style={styles.flex}
-        />
-      </View>
+      {!keyboardVisible ? (
+        <View style={[styles.footer, { borderTopColor: theme.colors.separator, paddingHorizontal: theme.geometry.screenMargin }]}>
+          <Button title={t('common.save')} disabled={!canSave} loading={saving} onPress={() => void submit(false)} style={styles.flex} />
+          <Button
+            title={t('tx.saveAndAddAnother')}
+            variant="secondary"
+            disabled={!canSave || !onSubmitAndAddAnother}
+            onPress={() => void submit(true)}
+            style={styles.flex}
+          />
+        </View>
+      ) : null}
 
       <Sheet visible={categoryOpen} onClose={() => setCategoryOpen(false)} title={t('common.category')} testID="fast-category-sheet">
         <View style={styles.categoryGrid}>

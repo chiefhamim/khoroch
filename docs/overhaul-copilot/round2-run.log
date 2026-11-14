@@ -594,3 +594,310 @@ The phone review confirms the fast-entry flow and custom date sheet are function
     print(label,m.group(1) if m else 'missing')
    '@ | python -
 
+ $ Shell Restore System theme in dev app 1 line…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input tap 357 2570; Start-Sleep 2; adb
+   -s $env:PHONE shell screencap -p /sdcard/ui.png; adb -s $env:PHONE pull /sdcard/ui.png
+   docs\overhaul-copilot\round2\step6-system-restored.png
+
+ ● Read docs\overhaul-copilot\round2\step6-system-restored.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step6-system-restored.png
+   [image/png] 923x2000]
+
+ $ Shell Find appearance sheet close bound 6 lines…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell uiautomator dump /sdcard/ui.xml; adb -s
+   $env:PHONE pull /sdcard/ui.xml docs\overhaul-copilot\round2\appearance-system-ui.xml; @'
+   import re
+   s=open(r'docs\overhaul-copilot\round2\appearance-system-ui.xml',encoding='utf-8').read()
+   m=re.search(r'content-desc="Close".*?bounds="(.*?)"',s)
+   print(m.group(1) if m else 'missing')
+   '@ | python -
+
+ $ Shell Open fast entry and locate note control 13 lines…                                        5s
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input tap 1310 1700; Start-Sleep 1; adb
+   -s $env:PHONE shell am start -a android.intent.action.VIEW -d 'budgetapp-dev://transaction/new';
+   Start-Sleep 2; adb -s $env:PHONE shell uiautomator dump /sdcard/ui.xml; adb -s $env:PHONE pull
+   /sdcard/ui.xml docs\overhaul-copilot\round2\step6-entry-ui.xml; @'
+   import re
+   s=open(r'docs\overhaul-copilot\round2\step6-entry-ui.xml',encoding='utf-8').read()
+   for label in ['Add a note','Today']:
+    for attr in ['text','content-desc']:
+     m=re.search(attr+'="'+re.escape(label)+r'".*?bounds="(.*?)"',s)
+     if m: print(label,m.group(1))
+   '@ | python -
+
+ / Search "Add a note" (docs\overhaul-copilot\round2\step6-entr… results too large to list (31.1 KB)
+
+ $ Shell Inspect note control node metadata 1 line…
+   @'
+   s=open(r'docs\overhaul-copilot\round2\step6-entry-ui.xml',encoding='utf-8').read()
+   i=s.find('Add a note'); print(s[i-250:i+250])
+   '@ | python -
+
+ $ Shell Open note input with keyboard and capture coverage 1 line…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input tap 720 982; Start-Sleep 1; adb
+   -s $env:PHONE shell screencap -p /sdcard/ui.png; adb -s $env:PHONE pull /sdcard/ui.png
+   docs\overhaul-copilot\round2\step6-keyboard-note.png
+
+ ● Read docs\overhaul-copilot\round2\step6-keyboard-note.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step6-keyboard-note.png
+   [image/png] 923x2000]
+
+ $ Shell Inspect note input focusability 5 lines…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell uiautomator dump /sdcard/ui.xml; adb -s
+   $env:PHONE pull /sdcard/ui.xml docs\overhaul-copilot\round2\step6-note-ui.xml; @'
+   import re
+   s=open(r'docs\overhaul-copilot\round2\step6-note-ui.xml',encoding='utf-8').read()
+   for m in re.finditer('Optional note',s): print(s[m.start()-300:m.start()+300])
+   '@ | python -
+
+ $ Shell Focus note input and capture keyboard state 1 line…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input tap 700 982; Start-Sleep 2; adb
+   -s $env:PHONE shell screencap -p /sdcard/ui.png; adb -s $env:PHONE pull /sdcard/ui.png
+   docs\overhaul-copilot\round2\step6-keyboard-note.png
+
+ ● Read docs\overhaul-copilot\round2\step6-keyboard-note.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step6-keyboard-note.png
+   [image/png] 923x2000]
+
+ ● Edit  Edit src\ui\FastTransactionEntry.tsx (+27 -13)
+
+ TX Read src\ui\FastTransactionEntry.tsx L1:18 (18 lines read)
+
+ / Search "keyboardVisible|Keyboard.add|fast-keypad|styles.footer" (src\ui\FastTransa… 7 lines found
+
+ $ Shell Validate keyboard-safe fast entry changes 2 lines…
+   npm run typecheck
+
+ $ Shell Recheck keyboard coverage after fix 1 line…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input keyevent KEYCODE_BACK;
+   Start-Sleep 2; adb -s $env:PHONE shell input tap 700 982; Start-Sleep 2; adb -s $env:PHONE shell
+   screencap -p /sdcard/ui.png; adb -s $env:PHONE pull /sdcard/ui.png
+   docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+
+ ● Read docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+   [image/png] 923x2000]
+
+ ● Read shell output Reading command output 30 lines…
+
+ $ Shell Rebuild and install keyboard-safe dev APK output too large to show (52.3 KB)…           36s
+   $env:CI='1'; $env:APP_VARIANT='dev'; cd android; .\gradlew.bat assembleDebug --console=plain
+   --init-script ..\scripts\short-cxx-paths.gradle; cd ..; $env:PHONE='192.168.0.154:38657'; adb -s
+   $env:PHONE install -r android\app\build\outputs\apk\debug\app-debug.apk; adb -s $env:PHONE
+   reverse tcp:8081 tcp:8081; adb -s $env:PHONE shell am force-stop com.hamim.budgetapp.dev; adb -s
+   $env:PHONE shell monkey -p com.hamim.budgetapp.dev -c android.intent.category.LAUNCHER 1
+
+ $ Shell Verify keyboard-safe layout on rebuilt dev APK 3 lines…                                  8s
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell am start -a android.intent.action.VIEW
+   -d 'budgetapp-dev://transaction/new'; Start-Sleep 5; adb -s $env:PHONE shell input tap 700 982;
+   Start-Sleep 2; adb -s $env:PHONE shell screencap -p /sdcard/ui.png; adb -s $env:PHONE pull
+   /sdcard/ui.png docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+
+ ● Read docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+   [image/png] 923x2000]
+
+ $ Shell Find rebuilt note control bounds 4 lines…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell uiautomator dump /sdcard/ui.xml; adb -s
+   $env:PHONE pull /sdcard/ui.xml docs\overhaul-copilot\round2\step6-entry-ui-fixed.xml; @'
+   import re
+   s=open(r'docs\overhaul-copilot\round2\step6-entry-ui-fixed.xml',encoding='utf-8').read()
+   i=s.find('Add a note'); print(s[i-220:i+180])
+   '@ | python -
+
+ $ Shell Inspect note labels in rebuilt hierarchy 2 lines…
+   @'
+   s=open(r'docs\overhaul-copilot\round2\step6-entry-ui-fixed.xml',encoding='utf-8').read()
+   for term in ['Add a note','Optional note']:
+    i=s.find(term); print(term, i, s[i-180:i+220] if i>=0 else '')
+   '@ | python -
+
+ $ Shell Focus rebuilt note field and verify keyboard behavior 1 line…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input tap 700 982; Start-Sleep 2; adb
+   -s $env:PHONE shell screencap -p /sdcard/ui.png; adb -s $env:PHONE pull /sdcard/ui.png
+   docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+
+ ● Read docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+   [image/png] 923x2000]
+
+ ● Edit  Edit src\ui\FastTransactionEntry.tsx (+1 -1)
+
+ $ Shell Rebuild and verify note keyboard hides covered con… output too large to show (52.6 KB)… 47s
+   $env:CI='1'; $env:APP_VARIANT='dev'; cd android; .\gradlew.bat assembleDebug --console=plain
+   --init-script ..\scripts\short-cxx-paths.gradle; cd ..; $env:PHONE='192.168.0.154:38657'; adb -s
+   $env:PHONE install -r android\app\build\outputs\apk\debug\app-debug.apk; adb -s $env:PHONE shell
+   am force-stop com.hamim.budgetapp.dev; adb -s $env:PHONE shell monkey -p com.hamim.budgetapp.dev
+   -c android.intent.category.LAUNCHER 1; Start-Sleep 5; adb -s $env:PHONE shell am start -a
+   android.intent.action.VIEW -d 'budgetapp-dev://transaction/new'; Start-Sleep 3; adb -s $env:PHONE
+   shell input tap 700 982; Start-Sleep 2; adb -s $env:PHONE shell screencap -p /sdcard/ui.png; adb
+   -s $env:PHONE pull /sdcard/ui.png docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+
+ ● Read docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+   [image/png] 923x2000]
+
+ $ Shell Confirm stable rebuilt fast-entry note bounds 6 lines…                                   5s
+   $env:PHONE='192.168.0.154:38657'; Start-Sleep 3; adb -s $env:PHONE shell uiautomator dump
+   /sdcard/ui.xml; adb -s $env:PHONE pull /sdcard/ui.xml
+   docs\overhaul-copilot\round2\step6-entry-ui-fixed.xml; @'
+   s=open(r'docs\overhaul-copilot\round2\step6-entry-ui-fixed.xml',encoding='utf-8').read()
+   for term in ['Add a note','Optional note']:
+    i=s.find(term); print(term, i, s[i-120:i+120] if i>=0 else '')
+   '@ | python -
+
+ $ Shell Capture final rebuilt keyboard-safe note state 1 line…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input tap 700 982; Start-Sleep 2; adb
+   -s $env:PHONE shell screencap -p /sdcard/ui.png; adb -s $env:PHONE pull /sdcard/ui.png
+   docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+
+ ● Read docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+   [image/png] 923x2000]
+
+ ● Stop shell  1 line…
+
+ $ Shell Restart Metro with latest source bundle 1 line…
+   $env:CI='1'; npx expo start --port 8081
+
+ ✗ Read shell output Waiting up to 15 seconds for command output Failed with exit code 1  Starting …
+   Starting project at C:\Users\hamim\Desktop\budget-app
+   › Port 8081 is being used by another process
+   CommandError: Port 8081 is unavailable and 'npx expo' is running in non-interactive mode, so it 
+   can't prompt to use another port. Free port 8081 by stopping the process using it, or re-run with
+    an available '--port'.
+   Failed with exit code 1
+
+ $ Shell Replace stale Metro process with fresh bundle server 1 line…
+   $conn=Get-NetTCPConnection -LocalPort 8081 -State Listen -ErrorAction SilentlyContinue; $conn |
+   Select-Object OwningProcess,LocalAddress,LocalPort; foreach($c in $conn){ Stop-Process -Id
+   $c.OwningProcess -Force }; Start-Sleep 1; $env:CI='1'; npx expo start --port 8081
+
+ ● Read shell output Waiting up to 15 seconds for command output 26 lines…                       15s
+
+ $ Shell Verify latest Metro bundle keyboard layout 20 lines…                                    16s
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell am force-stop com.hamim.budgetapp.dev;
+   adb -s $env:PHONE shell monkey -p com.hamim.budgetapp.dev -c android.intent.category.LAUNCHER 1;
+   Start-Sleep 8; adb -s $env:PHONE shell am start -a android.intent.action.VIEW -d
+   'budgetapp-dev://transaction/new'; Start-Sleep 5; adb -s $env:PHONE shell input tap 700 982;
+   Start-Sleep 2; adb -s $env:PHONE shell screencap -p /sdcard/ui.png; adb -s $env:PHONE pull
+   /sdcard/ui.png docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+
+ ● Read docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step6-keyboard-note-fixed.png
+   [image/png] 923x2000]
+
+ $ Shell Locate note field for keyboard verification output too large to show (21.8 KB)…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell uiautomator dump /sdcard/ui.xml |
+   Out-Null; adb -s $env:PHONE shell cat /sdcard/ui.xml | Select-String -Pattern 'Optional note|Add
+   transaction'
+
+ $ Shell Read note field bounds 1 line…
+   $env:PHONE='192.168.0.154:38657'; $xml=adb -s $env:PHONE shell cat /sdcard/ui.xml; $xml -split
+   '<node' | Where-Object {$_ -match 'Optional note'} | Select-Object -First 1
+
+ $ Shell Capture final keyboard-safe note state 1 line…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input tap 765 980; Start-Sleep 2; adb
+   -s $env:PHONE shell screencap -p /sdcard/ui.png; adb -s $env:PHONE pull /sdcard/ui.png
+   docs\overhaul-copilot\round2\step6-keyboard-note-final.png
+
+ ● Read docs\overhaul-copilot\round2\step6-keyboard-note-final.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step6-keyboard-note-final.png
+   [image/png] 923x2000]
+
+ $ Shell Locate date control in fast entry 1 line…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input keyevent 4; Start-Sleep 1; adb -s
+   $env:PHONE shell uiautomator dump /sdcard/ui.xml | Out-Null; $xml=adb -s $env:PHONE shell cat
+   /sdcard/ui.xml; $xml -split '<node' | Where-Object {$_ -match 'Today'} | Select-Object -First 1
+
+ $ Shell Capture and inspect custom date sheet 4 lines…                                           5s
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input tap 1135 750; Start-Sleep 2; adb
+   -s $env:PHONE shell screencap -p /sdcard/ui.png; adb -s $env:PHONE pull /sdcard/ui.png
+   docs\overhaul-copilot\round2\step3-date-sheet.png; adb -s $env:PHONE shell uiautomator dump
+   /sdcard/ui.xml | Out-Null; $xml=adb -s $env:PHONE shell cat /sdcard/ui.xml; $xml -split '<node' |
+   Where-Object {$_ -match 'Next month|Previous month|Time|Done|June|May|April'} | Select-Object
+   -First 12
+
+ ● Read docs\overhaul-copilot\round2\step3-date-sheet.png 1 line read
+
+   [Image: Image file at path
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\round2\step3-date-sheet.png [image/png]
+   923x2000]
+
+ TX Read src\ui\DateTimeSheet.tsx L1:260 (168 lines read)
+
+ / Search "DateTimeSheet" (src) 4 files found
+
+ TX Read src\ui\FastTransactionEntry.tsx L1:220 (220 lines read)
+
+ TX Read src\ui\FastTransactionEntry.tsx L220:400 (88 lines read)
+
+ MD Read docs\overhaul-copilot\ROUND2.md 61 lines read
+
+ MD Read docs\overhaul-copilot\round2\NOTES.md 45 lines read
+
+ MD Read docs\overhaul-copilot\REPORT.md 30 lines read
+
+ $ Shell Inspect pending work and commits 18 lines…
+   git status --short; git log --oneline -8
+
+ $ Shell Locate earlier-date control No Content
+   $env:PHONE='192.168.0.154:38657'; $xml=adb -s $env:PHONE shell cat /sdcard/ui.xml; $xml -split
+   '<node' | Where-Object {$_ -match 'Earlier'} | Select-Object -First 1
+
+ $ Shell Inspect date sheet accessibility nodes 7 lines…
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell uiautomator dump /sdcard/ui2.xml |
+   Out-Null; $xml=adb -s $env:PHONE shell cat /sdcard/ui2.xml; ($xml -split '<node' | Where-Object
+   {$_ -match 'Yesterday|12 Thu|Earlier|Today|Pick date'} | Select-Object -First 10)
+
+ $ Shell Reveal earlier-date control No Content
+   $env:PHONE='192.168.0.154:38657'; adb -s $env:PHONE shell input swipe 1250 2730 200 2730 500;
+   Start-Sleep 1; adb -s $env:PHONE shell uiautomator dump /sdcard/ui3.xml | Out-Null; $xml=adb -s
+   $env:PHONE shell cat /sdcard/ui3.xml; ($xml -split '<node' | Where-Object {$_ -match 'Earlier'} |
+   Select-Object -First 1)
+
+ $ Shell Reveal month-grid trigger 4 lines…                                                       5s
+   $env:PHONE='192.168.0.154:38657'; 1..3 | ForEach-Object { adb -s $env:PHONE shell input swipe
+   1250 2730 200 2730 500; Start-Sleep -Milliseconds 300 }; adb -s $env:PHONE shell uiautomator dump
+   /sdcard/ui4.xml | Out-Null; $xml=adb -s $env:PHONE shell cat /sdcard/ui4.xml; ($xml -split
+   '<node' | Where-Object {$_ -match 'Earlier|14'} | Select-Object -First 4)
+
+The fresh Metro bundle is now verified on the dev phone: opening the note shows the keyboard without the keypad or footer being covered. I’m finishing the required release validation and consolidating the report with the remaining phone-verification limits stated honestly.
+
+ ✗ Edit  Edit docs\overhaul-copilot\round2\NOTES.md  Edit docs\overhaul-copilot\REPORT.md  Error: F…
+   Error: Failed to find expected lines in 
+   C:\Users\hamim\Desktop\budget-app\docs\overhaul-copilot\REPORT.md:
+   - Installed with `adb install -r` and launched only `com.hamim.budgetapp.dev`.
+   - Metro was already running on port 8081; the phone used `adb reverse tcp:8081:tcp:8081`.
+
+ ● Edit  Edit docs\overhaul-copilot\REPORT.md (+4 -4)
+
+ $ Shell Run required checks and build dev release APK output too large to show (97.0 KB)…     3m 0s
+   $env:CI='1'; npm run typecheck; if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}; npm test --
+   --runInBand; if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}; npx expo lint; if($LASTEXITCODE -ne
+   0){exit $LASTEXITCODE}; if(-not (Select-String -Path android\app\build.gradle -Pattern
+   "com.hamim.budgetapp.dev" -Quiet)){throw 'Dev applicationId not confirmed'};
+   $env:APP_VARIANT='dev'; npx expo prebuild -p android; if($LASTEXITCODE -ne 0){exit
+   $LASTEXITCODE}; Push-Location android; .\gradlew.bat assembleRelease --console=plain
+   --init-script ..\scripts\short-cxx-paths.gradle; $code=$LASTEXITCODE; Pop-Location; exit $code
+
