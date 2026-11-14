@@ -687,6 +687,11 @@ export const bn: Record<TranslationKey, string> = {
   'overview.nothingWrittenSub': 'নিচের + চাপুন বা বলুন "৩৫০ টাকা দুপুরের খাবার"',
   'overview.walletsNetHeader': 'ওয়ালেট · নিট {amount}',
   'overview.spendingPulseTitle': 'খরচের গতিবিধি',
+  'overview.perDayAmount': '{amount} / দিন',
+  'overview.duePersonOwesYou': '{name}-এর কাছে পাওনা {amount}',
+  'overview.dueYouOwePerson': '{name}-কে দেবেন {amount}',
+  'overview.dueYouWillGet': 'আপনি পাবেন {amount}',
+  'overview.dueYouOwe': 'আপনার দেনা {amount}',
 
   'tx.typeOut': 'খরচ',
   'tx.typeIn': 'আয়',
@@ -777,6 +782,7 @@ export const bn: Record<TranslationKey, string> = {
   'wallets.tagOlderApplyCta': '{count}টি হিসাবে যুক্ত করুন',
   'wallets.tagOlderSuccess': 'ওয়ালেট যুক্ত হয়েছে',
   'wallets.tagOlderEmpty': 'সব সচল হিসাবে ইতোমধ্যে ওয়ালেট যুক্ত করা আছে।',
+  'wallets.dueSuffix': 'বকেয়া',
 
   'people.title': 'লেনদেন ও পাওনা',
   'people.addPerson': 'যোগ করুন',

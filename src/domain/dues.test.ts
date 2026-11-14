@@ -173,6 +173,15 @@ describe('dues domain helpers (TEST-CASES-v1.2 §B)', () => {
       [makeDue({ id: 'd1', personId: 'p-rafi', kind: 'lent', amountMinor: 150_000 })]
     );
     expect(formatHomeDuesSummaryLine(onlyRafi, 'BDT')).toBe('Rafi owes you ৳1,500');
+
+    expect(
+      formatHomeDuesSummaryLine(twoPeople, 'BDT', undefined, {
+        personOwesYou: (name, amount) => `${name}-এর কাছে পাওনা ${amount}`,
+        youOwePerson: (name, amount) => `${name}-কে দেবেন ${amount}`,
+        youWillGet: (amount) => `আপনি পাবেন ${amount}`,
+        youOwe: (amount) => `আপনার দেনা ${amount}`,
+      })
+    ).toBe('Rafi-এর কাছে পাওনা ৳1,500 · Shuvo-কে দেবেন ৳300');
   });
 
   it('detects overpayment gently without blocking and flips balance sign when applied', () => {

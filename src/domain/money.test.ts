@@ -9,6 +9,7 @@ import {
   MISSING_METRIC_DASH,
   normalizeDigits,
   parseMoneyInput,
+  parseNonNegativeMoneyInput,
   roundMinorToWhole,
 } from './money';
 
@@ -39,6 +40,15 @@ describe('money parsing (TEST-CASES §1)', () => {
     expect(parseMoneyInput('0.005')).toEqual({ ok: false, error: 'too_many_decimals' });
     expect(parseMoneyInput('abc')).toEqual({ ok: false, error: 'invalid' });
     expect(parseMoneyInput('1.2.3')).toEqual({ ok: false, error: 'invalid' });
+  });
+
+  it('allows zero when using parseNonNegativeMoneyInput (e.g. optional fees)', () => {
+    expect(parseNonNegativeMoneyInput('0')).toEqual({ ok: true, minor: 0 });
+    expect(parseNonNegativeMoneyInput('0.00')).toEqual({ ok: true, minor: 0 });
+    expect(parseNonNegativeMoneyInput('০')).toEqual({ ok: true, minor: 0 });
+    expect(parseNonNegativeMoneyInput('15.5')).toEqual({ ok: true, minor: 1550 });
+    expect(parseNonNegativeMoneyInput('')).toEqual({ ok: true, minor: null });
+    expect(parseNonNegativeMoneyInput('-1')).toEqual({ ok: false, error: 'invalid' });
   });
 });
 

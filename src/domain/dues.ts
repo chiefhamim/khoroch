@@ -406,36 +406,62 @@ export function buildReminderMessage(params: {
   return `Hi ${addressedEn}, quick reminder about the ${amountStr}${dateClause}. Whenever works for you.`;
 }
 
+export interface HomeDuesSummaryLabels {
+  personOwesYou: (name: string, amount: string) => string;
+  youOwePerson: (name: string, amount: string) => string;
+  youWillGet: (amount: string) => string;
+  youOwe: (amount: string) => string;
+}
+
+const DEFAULT_HOME_DUES_LABELS: HomeDuesSummaryLabels = {
+  personOwesYou: (name, amount) => `${name} owes you ${amount}`,
+  youOwePerson: (name, amount) => `You owe ${name} ${amount}`,
+  youWillGet: (amount) => `You'll get ${amount}`,
+  youOwe: (amount) => `You owe ${amount}`,
+};
+
 export function formatHomeDuesSummaryLine(
   overview: DuesOverview,
   currency: CurrencyCode,
-  options?: FormatMoneyOptions
+  options?: FormatMoneyOptions,
+  labels?: Partial<HomeDuesSummaryLabels>
 ): string | null {
   if (overview.openPeople.length === 0) return null;
   if (options?.hidden) return HIDDEN_AMOUNT_TEXT;
+
+  const l: HomeDuesSummaryLabels = {
+    ...DEFAULT_HOME_DUES_LABELS,
+    ...labels,
+  };
 
   if (overview.openPeople.length === 1) {
     const only = overview.openPeople[0];
     const amt = formatInlineMoney(Math.abs(only.netMinor), currency, options);
     return only.netMinor > 0
-      ? `${only.person.name} owes you ${amt}`
-      : `You owe ${only.person.name} ${amt}`;
+      ? l.personOwesYou(only.person.name, amt)
+      : l.youOwePerson(only.person.name, amt);
   }
 
   if (overview.openReceivableCount === 1 && overview.openPayableCount === 1) {
     const rec = overview.openPeople.find((p) => p.netMinor > 0);
     const pay = overview.openPeople.find((p) => p.netMinor < 0);
     if (rec && pay) {
-      return `${rec.person.name} owes you ${formatInlineMoney(rec.netMinor, currency, options)} · You owe ${pay.person.name} ${formatInlineMoney(-pay.netMinor, currency, options)}`;
+      return `${l.personOwesYou(
+        rec.person.name,
+        formatInlineMoney(rec.netMinor, currency, options)
+      )} · ${l.youOwePerson(
+        pay.person.name,
+        formatInlineMoney(-pay.netMinor, currency, options)
+      )}`;
     }
   }
 
   const parts: string[] = [];
   if (overview.youWillGetMinor > 0) {
-    parts.push(`You'll get ${formatInlineMoney(overview.youWillGetMinor, currency, options)}`);
+    parts.push(l.youWillGet(formatInlineMoney(overview.youWillGetMinor, currency, options)));
   }
   if (overview.youOweMinor > 0) {
-    parts.push(`You owe ${formatInlineMoney(overview.youOweMinor, currency, options)}`);
+    parts.push(l.youOwe(formatInlineMoney(overview.youOweMinor, currency, options)));
   }
   return parts.join(' · ');
 }

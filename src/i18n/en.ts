@@ -674,6 +674,11 @@ export const en = {
   'overview.nothingWrittenSub': 'Tap + below or say "350 taka lunch"',
   'overview.walletsNetHeader': 'Wallets · {amount} net',
   'overview.spendingPulseTitle': 'Spending pulse',
+  'overview.perDayAmount': '{amount} / day',
+  'overview.duePersonOwesYou': '{name} owes you {amount}',
+  'overview.dueYouOwePerson': 'You owe {name} {amount}',
+  'overview.dueYouWillGet': "You'll get {amount}",
+  'overview.dueYouOwe': 'You owe {amount}',
 
   'tx.typeOut': 'Out',
   'tx.typeIn': 'In',
@@ -764,6 +769,7 @@ export const en = {
   'wallets.tagOlderApplyCta': 'Tag {count} entries',
   'wallets.tagOlderSuccess': 'Entries tagged',
   'wallets.tagOlderEmpty': 'All active entries already have a wallet assigned.',
+  'wallets.dueSuffix': 'due',
 
   'people.title': 'People',
   'people.addPerson': 'Add',

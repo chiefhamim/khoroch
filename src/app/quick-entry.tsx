@@ -13,7 +13,12 @@ import {
   isValidLocalDate,
   todayLocalDate,
 } from '@/domain/dates';
-import { formatMinorToDraft, getCurrencySymbol, parseMoneyInput } from '@/domain/money';
+import {
+  formatMinorToDraft,
+  getCurrencySymbol,
+  parseMoneyInput,
+  parseNonNegativeMoneyInput,
+} from '@/domain/money';
 import type { Category, DueKind, LocalDate, TransactionType } from '@/domain/types';
 import {
   MAX_DESCRIPTION_LENGTH,
@@ -276,7 +281,7 @@ export default function QuickEntryScreen() {
         }
         const cleanFee = d.feeText.trim();
         if (cleanFee.length > 0) {
-          const parsedFee = parseMoneyInput(cleanFee);
+          const parsedFee = parseNonNegativeMoneyInput(cleanFee);
           if (!parsedFee.ok || parsedFee.minor === null || parsedFee.minor < 0) {
             setSaveError(t('quickEntry.fixErrorsBeforeSave'));
             return;

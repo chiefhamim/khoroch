@@ -99,7 +99,7 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
             reducedMotion={reducedMotion}
           />
         </View>
-        <AppText variant="tab" numberOfLines={1} style={{ color }}>
+        <AppText variant="tab" numberOfLines={1} style={[styles.tabLabel, { color }]}>
           {t(tab.labelKey)}
         </AppText>
       </PressableScale>
@@ -248,6 +248,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
+  },
+  tabLabel: {
+    alignSelf: "stretch",
+    textAlign: "center",
+    paddingHorizontal: 2,
   },
   addSlot: {
     flex: 1,

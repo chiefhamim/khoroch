@@ -19,6 +19,7 @@ import {
   getCurrencySymbol,
   groupThousands,
   parseMoneyInput,
+  parseNonNegativeMoneyInput,
 } from '@/domain/money';
 import type {
   Account,
@@ -673,7 +674,7 @@ function LegacyTransactionForm({
 
   const feeTrimmed = feeText.trim();
   const parsedFee = useMemo(
-    () => (feeTrimmed.length > 0 ? parseMoneyInput(feeTrimmed) : null),
+    () => (feeTrimmed.length > 0 ? parseNonNegativeMoneyInput(feeTrimmed) : null),
     [feeTrimmed]
   );
   const feeMinorValid =

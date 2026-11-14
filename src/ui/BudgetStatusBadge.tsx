@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { PixelRatio, StyleSheet, View } from 'react-native';
 import type { BudgetStatus } from '@/domain/types';
 import { t, type TranslationKey } from '@/i18n';
 import { hexToRgba } from '@/theme/categoryColors';
@@ -93,8 +93,13 @@ export function BudgetStatusBadge({
           ? theme.colors.accentSoft
           : theme.colors.surfaceSunken;
 
+  // Android Fabric can drop the trailing word/glyph if Yoga quantizes text width down by <1px across locale/theme changes.
+  const fontScale = Math.max(1, PixelRatio.getFontScale());
+  const minTextWidth = Math.ceil((displayLabel.length * 6.5 + 8) * fontScale);
+
   return (
     <View
+      key={`${displayLabel}:${fgColor}`}
       testID={testID}
       accessibilityLabel={displayLabel}
       style={[
@@ -108,8 +113,16 @@ export function BudgetStatusBadge({
         },
       ]}
     >
-      <AppIcon name={cfg.icon} size={13} color={fgColor} />
-      <AppText variant="caption" style={[styles.text, { color: fgColor }]}>
+      <AppIcon name={cfg.icon} size={14} color={fgColor} />
+      <AppText
+        variant="caption"
+        numberOfLines={1}
+        style={[
+          styles.text,
+          { color: fgColor, minWidth: minTextWidth, textAlign: 'center' },
+          isHero && styles.heroText,
+        ]}
+      >
         {displayLabel}
       </AppText>
     </View>
@@ -120,9 +133,13 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     alignSelf: 'flex-start',
   },
   text: {
-    fontWeight: '600',
+    fontFamily: 'Manrope_600SemiBold',
+  },
+  heroText: {
+    flexShrink: 0,
   },
 });

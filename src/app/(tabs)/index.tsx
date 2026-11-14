@@ -5,7 +5,7 @@ import { epochMsToLocalDate, isBackupDue } from '@/data/backup';
 import { resolveWalletColorHex } from '@/domain/accounts';
 import { formatUtilizationPct } from '@/domain/calc';
 import {
-  formatFriendlyDate,
+  addDays,
   formatFriendlyTime,
   formatShortDate,
   formatWeekdayShortDate,
@@ -119,7 +119,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     userHeroMode ?? (hasWallets && overallBudgetMinor === null ? 'wallets' : 'budget');
 
   const { overview: duesOverview } = usePeople();
-  const duesSummaryLine = formatHomeDuesSummaryLine(duesOverview, settings.currency);
+  const duesSummaryLine = formatHomeDuesSummaryLine(duesOverview, settings.currency, undefined, {
+    personOwesYou: (name, amount) => t('overview.duePersonOwesYou', { name, amount }),
+    youOwePerson: (name, amount) => t('overview.dueYouOwePerson', { name, amount }),
+    youWillGet: (amount) => t('overview.dueYouWillGet', { amount }),
+    youOwe: (amount) => t('overview.dueYouOwe', { amount }),
+  });
 
   const hour = hourOverride ?? new Date().getHours();
   const greeting = buildGreeting(hour);
@@ -245,13 +250,16 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             >
               <AppText
                 variant="tab"
-                style={{
-                  color:
-                    effectiveHeroMode === 'budget'
-                      ? theme.colors.hero
-                      : theme.colors.heroTextSecondary,
-                  fontWeight: '700',
-                }}
+                numberOfLines={1}
+                style={[
+                  styles.heroTabLabel,
+                  {
+                    color:
+                      effectiveHeroMode === 'budget'
+                        ? theme.colors.hero
+                        : theme.colors.heroTextSecondary,
+                  },
+                ]}
               >
                 {tr('overview.heroTabBudget')}
               </AppText>
@@ -271,13 +279,16 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             >
               <AppText
                 variant="tab"
-                style={{
-                  color:
-                    effectiveHeroMode === 'wallets'
-                      ? theme.colors.hero
-                      : theme.colors.heroTextSecondary,
-                  fontWeight: '700',
-                }}
+                numberOfLines={1}
+                style={[
+                  styles.heroTabLabel,
+                  {
+                    color:
+                      effectiveHeroMode === 'wallets'
+                        ? theme.colors.hero
+                        : theme.colors.heroTextSecondary,
+                  },
+                ]}
               >
                 {tr('overview.heroTabWallets')}
               </AppText>
@@ -333,7 +344,9 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     {hideAmounts
                       ? HIDDEN_AMOUNT_TEXT
                       : summary.safeToSpendPerDayMinor !== null
-                        ? `${formatMoney(summary.safeToSpendPerDayMinor, settings.currency)} / day`
+                        ? t('overview.perDayAmount', {
+                            amount: formatMoney(summary.safeToSpendPerDayMinor, settings.currency),
+                          })
                         : MISSING_METRIC_DASH}
                   </AppText>
                 </View>
@@ -864,7 +877,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                             { color: theme.colors.danger },
                           ]}
                         >
-                          {' due'}
+                          {` ${t('wallets.dueSuffix')}`}
                         </Text>
                       </Text>
                     ) : (
@@ -1098,9 +1111,15 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 const catName = cat?.name ?? t('common.uncategorized');
                 const wallet = tx.accountId ? accountsById.get(tx.accountId) : undefined;
                 const isIncome = tx.type === 'income';
+                const dateLabel =
+                  tx.occurredOn === today
+                    ? t('common.today')
+                    : tx.occurredOn === addDays(today, -1)
+                      ? t('common.yesterday')
+                      : formatShortDate(tx.occurredOn);
                 const whenLabel = tx.occurredTime
-                  ? formatFriendlyTime(tx.occurredTime, use24Hour)
-                  : formatFriendlyDate(tx.occurredOn, today);
+                  ? `${dateLabel}, ${formatFriendlyTime(tx.occurredTime, use24Hour)}`
+                  : dateLabel;
                 const subtitleParts = [catName];
                 if (wallet) subtitleParts.push(wallet.name);
                 subtitleParts.push(whenLabel);
@@ -1218,9 +1237,17 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   heroTab: {
-    paddingHorizontal: 9,
+    minWidth: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 7,
+  },
+  heroTabLabel: {
+    alignSelf: 'stretch',
+    textAlign: 'center',
+    fontFamily: 'Manrope_700Bold',
   },
   heroTopRight: {
     flexDirection: 'row',

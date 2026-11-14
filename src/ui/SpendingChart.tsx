@@ -304,36 +304,34 @@ export function SpendingChart({
           {bars.map((bar, idx) => {
             const xCenter = idx * slotWidth + slotWidth / 2;
             const x = xCenter - barWidth / 2;
+            const hasSpend = bar.spentMinor > 0;
             const rawH = maxMinor > 0 ? (bar.spentMinor / maxMinor) * PLOT_HEIGHT : 0;
-            const barH = bar.spentMinor > 0 ? Math.max(5, rawH) : 2;
+            const barH = hasSpend ? Math.max(5, rawH) : 0;
             const y = TOP_PAD + PLOT_HEIGHT - barH;
             const isSelected = selectedIndex === idx;
-            const fill =
-              bar.spentMinor === 0
-                ? theme.colors.textTertiary
-                : theme.colors.accent;
+            const fill = theme.colors.accent;
             const fillOpacity =
-              bar.spentMinor === 0
-                ? 0.3
-                : selectedIndex !== null
-                  ? isSelected
-                    ? 1
-                    : 0.25
-                  : bar.isCurrent
-                    ? 1
-                    : 0.35;
+              selectedIndex !== null
+                ? isSelected
+                  ? 1
+                  : 0.25
+                : bar.isCurrent
+                  ? 1
+                  : 0.35;
 
             return (
               <React.Fragment key={bar.key}>
-                <Rect
-                  x={x}
-                  y={y}
-                  width={barWidth}
-                  height={barH}
-                  rx={bar.spentMinor === 0 ? 1 : Math.min(5, barWidth / 2)}
-                  fill={fill}
-                  fillOpacity={fillOpacity}
-                />
+                {hasSpend ? (
+                  <Rect
+                    x={x}
+                    y={y}
+                    width={barWidth}
+                    height={barH}
+                    rx={Math.min(5, barWidth / 2)}
+                    fill={fill}
+                    fillOpacity={fillOpacity}
+                  />
+                ) : null}
                 {bar.axisLabel ? (
                   <SvgText
                     x={

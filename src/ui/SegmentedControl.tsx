@@ -137,7 +137,7 @@ export function SegmentedControl<T extends string>({
               variant={isCompact ? "caption" : "label"}
               color={active ? "text" : "textSecondary"}
               numberOfLines={1}
-              style={active ? styles.activeLabel : undefined}
+              style={styles.label}
             >
               {opt.label}
             </AppText>
@@ -170,12 +170,14 @@ const styles = StyleSheet.create({
   },
   compactOption: {
     flexShrink: 0,
-    minWidth: 46,
+    minWidth: 68,
   },
   optionFill: {
     flex: 1,
   },
-  activeLabel: {
+  label: {
     fontFamily: "Manrope_600SemiBold",
+    textAlign: "center",
+    alignSelf: "stretch",
   },
 });

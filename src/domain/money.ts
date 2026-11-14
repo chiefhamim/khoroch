@@ -83,6 +83,18 @@ export function parseMoneyInput(raw: string): MoneyParseResult {
   return { ok: true, minor };
 }
 
+/**
+ * Parses a decimal money string into non-negative integer minor units (allowing explicit 0),
+ * used for optional fees or zero-allowed inputs while preserving strict decimal validation.
+ */
+export function parseNonNegativeMoneyInput(raw: string): MoneyParseResult {
+  const parsed = parseMoneyInput(raw);
+  if (!parsed.ok && parsed.error === 'must_be_positive') {
+    return { ok: true, minor: 0 };
+  }
+  return parsed;
+}
+
 export interface CurrencyMeta {
   code: CurrencyCode;
   symbol: string;
