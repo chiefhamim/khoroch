@@ -321,13 +321,14 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
       </AppContext.Provider>
     );
 
-    await waitFor(() => expect(view.getByTestId('tx-more-button')).toBeTruthy());
+    await waitFor(() => expect(view.getByTestId('tx-delete-button')).toBeTruthy());
 
-    // Open ⋯ action menu -> Delete transaction -> Confirm Delete
-    await fireEvent.press(view.getByTestId('tx-more-button'));
-    expect(view.getByTestId('tx-more-sheet')).toBeTruthy();
+    // Simulate opening the keyboard while editing description — Delete must remain visible in the sticky dock.
+    await fireEvent(view.getByTestId('description-input'), 'focus');
+    expect(view.getByTestId('tx-delete-button')).toBeTruthy();
 
-    await fireEvent.press(view.getByTestId('tx-action-delete'));
+    // Direct Delete button -> Confirm Delete
+    await fireEvent.press(view.getByTestId('tx-delete-button'));
     expect(view.getByTestId('tx-delete-confirm-sheet')).toBeTruthy();
     expect(view.getByText(t('tx.deleteConfirmTitle'))).toBeTruthy();
 

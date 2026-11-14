@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { formatFriendlyTime, isDevice24HourClock } from '@/domain/dates';
 import type { LocalTime } from '@/domain/types';
+import { t, useLocale } from '@/i18n';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { DateTimeSheet } from './DateTimeSheet';
 import { SettingsRow } from './SettingsRow';
 import { PressableScale } from '@/ui/PressableScale';
@@ -31,10 +32,11 @@ export function TimeField({
   testID,
 }: TimeFieldProps) {
   const { theme, reducedMotion } = useTheme();
+  const locale = useLocale();
   const [pickerOpen, setPickerOpen] = useState(false);
 
   const resolved24Hour = use24Hour ?? isDevice24HourClock();
-  const display = value.trim() ? formatFriendlyTime(value, resolved24Hour) : 'Add time';
+  const display = value.trim() ? formatFriendlyTime(value, resolved24Hour) : t('common.addTime');
 
   const handleOpenPicker = () => {
     setPickerOpen(true);
@@ -47,14 +49,14 @@ export function TimeField({
           {label}
         </AppText>
       ) : null}
-      <View style={variant === 'row' ? styles.customWrap : styles.wrap}>
+      <View key={locale} style={variant === 'row' ? styles.customWrap : styles.wrap}>
         {variant === 'row' ? (
           <SettingsRow
             testID={testID}
-            label={rowLabel ?? label ?? 'Time'}
+            label={rowLabel ?? label ?? t('common.time')}
             value={display}
             showChevron
-            accessibilityLabel={accessibilityLabel ?? `${rowLabel ?? label ?? 'Time'}, ${display}`}
+            accessibilityLabel={accessibilityLabel ?? `${rowLabel ?? label ?? t('common.time')}, ${display}`}
             onPress={handleOpenPicker}
           />
         ) : (
@@ -77,7 +79,14 @@ export function TimeField({
             ]}
           >
             <AppIcon name="clock" size={16} color={theme.colors.textSecondary} />
-            <AppText variant="label" numberOfLines={1} tabularNums>
+            <AppText
+              variant="label"
+              numberOfLines={1}
+              tabularNums
+              style={{
+                minWidth: estimateSingleLineMinWidth(display, theme.typography.label.fontSize),
+              }}
+            >
               {display}
             </AppText>
             <AppIcon name="chevron-down" size={15} color={theme.colors.textTertiary} />

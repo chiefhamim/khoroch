@@ -39,7 +39,6 @@ export default function EditTransactionScreen() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [moreSheetOpen, setMoreSheetOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -212,35 +211,14 @@ export default function EditTransactionScreen() {
           }}
           submitLabel={t('common.save')}
           onClose={handleClose}
-          onMorePress={() => setMoreSheetOpen(true)}
+          onDeletePress={() => {
+            setDeleteError(null);
+            setDeleteConfirmOpen(true);
+          }}
           onCreateCategory={handleCreateCategory}
           onSubmit={handleUpdate}
         />
       </KeyboardAvoidingView>
-
-      <Sheet
-        visible={moreSheetOpen}
-        onClose={() => setMoreSheetOpen(false)}
-        title={t('tx.moreActions')}
-        testID="tx-more-sheet"
-      >
-        <Button
-          testID="tx-action-delete"
-          title={t('tx.deleteButton')}
-          leftIcon="trash-2"
-          variant="dangerSoft"
-          onPress={() => {
-            setMoreSheetOpen(false);
-            setDeleteError(null);
-            setDeleteConfirmOpen(true);
-          }}
-        />
-        <Button
-          title={t('common.cancel')}
-          variant="secondary"
-          onPress={() => setMoreSheetOpen(false)}
-        />
-      </Sheet>
 
       <Sheet
         visible={deleteConfirmOpen}

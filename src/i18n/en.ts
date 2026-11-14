@@ -40,6 +40,7 @@ export const en = {
   'common.description': 'Description',
   'common.date': 'Date',
   'common.time': 'Time',
+  'common.addTime': 'Add time',
   'common.note': 'Note',
   'common.more': 'More options',
   'common.less': 'Fewer options',

@@ -48,6 +48,7 @@ export const bn: Record<TranslationKey, string> = {
   'common.description': 'বিবরণ',
   'common.date': 'তারিখ',
   'common.time': 'সময়',
+  'common.addTime': 'সময় যোগ করুন',
   'common.note': 'নোট',
   'common.more': 'আরও অপশন',
   'common.less': 'কম অপশন',

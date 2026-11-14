@@ -35,9 +35,13 @@ import {
   MAX_NOTE_LENGTH,
   isValidLocalTime,
 } from '@/domain/validation';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { CATEGORY_COLORS, CATEGORY_COLOR_KEYS } from '@/theme/categoryColors';
-import { TAKA_FONT_FAMILY } from '@/theme/tokens';
+import {
+  TAKA_FONT_FAMILY,
+  containsBengali,
+  mapFontToBangla,
+} from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, CATEGORY_ICON_CHOICES } from './AppIcon';
 import { AppText } from './AppText';
@@ -127,6 +131,7 @@ export interface TransactionFormProps {
   };
   submitLabel?: string;
   onClose?: () => void;
+  onDeletePress?: () => void;
   onMorePress?: () => void;
   onCreateCategory?: (input: CreateCategoryInput) => Promise<Category>;
   onSubmit: (values: TransactionFormValues) => Promise<void>;
@@ -529,12 +534,14 @@ function LegacyTransactionForm({
   initialTransferValues,
   submitLabel,
   onClose,
+  onDeletePress,
   onMorePress,
   onCreateCategory,
   onSubmit,
   onSubmitTransfer,
 }: TransactionFormProps) {
   const { theme } = useTheme();
+  const locale = useLocale();
   const isEditing = mode === 'edit';
   const activeAccounts = useMemo(
     () => accounts.filter((a) => a.archivedAt == null),
@@ -897,7 +904,7 @@ function LegacyTransactionForm({
             }
           />
         </View>
-        {isEditing && onMorePress ? (
+        {isEditing && !onDeletePress && onMorePress ? (
           <IconButton
             testID="tx-more-button"
             icon="sliders-horizontal"
@@ -918,13 +925,15 @@ function LegacyTransactionForm({
       {/* Scrollable Middle Controls */}
       <KeyboardAwareScrollView
         style={styles.flex1}
+        keyboardDismissMode="on-drag"
         keyboardShouldPersistTaps="handled"
+        bottomOffset={88}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           paddingHorizontal: theme.geometry.screenMargin,
-          paddingTop: theme.spacing.sm,
-          paddingBottom: theme.spacing.md,
-          gap: theme.spacing.md,
+          paddingTop: 2,
+          paddingBottom: theme.spacing.lg,
+          gap: 10,
         }}
       >
         {/* Hero Amount + Optional Note CTA */}
@@ -1129,7 +1138,10 @@ function LegacyTransactionForm({
                     styles.feeInput,
                     {
                       color: feeMinorValid ? theme.colors.text : theme.colors.danger,
-                      fontFamily: theme.typography.bodyStrong.fontFamily,
+                      fontFamily:
+                        locale === 'bn' || containsBengali(feeText)
+                          ? mapFontToBangla(theme.typography.bodyStrong.fontFamily)
+                          : theme.typography.bodyStrong.fontFamily,
                       fontSize: theme.typography.bodyStrong.fontSize,
                     },
                   ]}
@@ -1240,7 +1252,6 @@ function LegacyTransactionForm({
                     <AppText
                       variant="caption"
                       color={selected ? 'text' : 'textSecondary'}
-                      numberOfLines={1}
                       style={[
                         styles.catLabel,
                         selected ? { fontFamily: 'Manrope_600SemiBold' } : null,
@@ -1269,7 +1280,7 @@ function LegacyTransactionForm({
                   style={({ pressed }) => [styles.catCell, { opacity: pressed ? 0.78 : 1 }]}
                 >
                   <IconTile icon="hand-coins" colorKey="teal" size="md" />
-                  <AppText variant="caption" color="textSecondary" numberOfLines={1} style={styles.catLabel}>
+                  <AppText variant="caption" color="textSecondary" style={styles.catLabel}>
                     {t('tx.lendBorrowTile')}
                   </AppText>
                 </PressableScale>
@@ -1287,7 +1298,7 @@ function LegacyTransactionForm({
                 style={({ pressed }) => [styles.catCell, { opacity: pressed ? 0.78 : 1 }]}
               >
                 <IconTile icon="layout-grid" neutral size="md" />
-                <AppText variant="caption" color="textSecondary" numberOfLines={1} style={styles.catLabel}>
+                <AppText variant="caption" color="textSecondary" style={styles.catLabel}>
                   {t('tx.allCategories')}
                 </AppText>
               </PressableScale>
@@ -1315,7 +1326,11 @@ function LegacyTransactionForm({
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
-                  contentContainerStyle={[styles.suggestionRow, { gap: theme.spacing.xs }]}
+                  style={{ marginHorizontal: -theme.geometry.screenMargin }}
+                  contentContainerStyle={[
+                    styles.suggestionRow,
+                    { paddingHorizontal: theme.geometry.screenMargin, gap: theme.spacing.xs },
+                  ]}
                 >
                   {suggestions.map((item, idx) => (
                     <Chip
@@ -1364,17 +1379,46 @@ function LegacyTransactionForm({
           />
         ) : null}
 
-        <Button
-          testID="save-tx-button"
-          title={saving ? t('common.saving') : primaryLabel}
-          variant="primary"
-          size="md"
-          disabled={!canSave}
-          loading={saving}
-          onPress={() => {
-            void handleSubmit();
-          }}
-        />
+        {isEditing && onDeletePress ? (
+          <View style={[styles.dockActionsRow, { gap: theme.spacing.sm }]}>
+            <Button
+              testID="tx-delete-button"
+              title={t('common.delete')}
+              leftIcon="trash-2"
+              variant="dangerSoft"
+              size="md"
+              onPress={() => {
+                dismissTextInputs();
+                onDeletePress();
+              }}
+              style={styles.dockDeleteButton}
+            />
+            <Button
+              testID="save-tx-button"
+              title={saving ? t('common.saving') : primaryLabel}
+              variant="primary"
+              size="md"
+              disabled={!canSave}
+              loading={saving}
+              onPress={() => {
+                void handleSubmit();
+              }}
+              style={styles.dockSaveButton}
+            />
+          </View>
+        ) : (
+          <Button
+            testID="save-tx-button"
+            title={saving ? t('common.saving') : primaryLabel}
+            variant="primary"
+            size="md"
+            disabled={!canSave}
+            loading={saving}
+            onPress={() => {
+              void handleSubmit();
+            }}
+          />
+        )}
       </View>
 
       <AllCategoriesSheet
@@ -1440,9 +1484,9 @@ const styles = StyleSheet.create({
     height: 40,
   },
   heroAmountTap: {
-    paddingVertical: 4,
+    paddingVertical: 2,
     paddingHorizontal: 16,
-    minHeight: 48,
+    minHeight: 42,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1473,12 +1517,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    minHeight: 48,
+    paddingVertical: 8,
+    minHeight: 44,
     gap: 10,
   },
   rowLabel: {
-    width: 44,
+    minWidth: 44,
+    flexShrink: 0,
   },
   rowValue: {
     flex: 1,
@@ -1530,14 +1575,16 @@ const styles = StyleSheet.create({
     width: '25%',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 2,
+    paddingVertical: 4,
+    paddingHorizontal: 3,
     gap: 4,
-    minHeight: 68,
+    minHeight: 58,
   },
   catLabel: {
     textAlign: 'center',
     width: '100%',
+    fontSize: 12,
+    lineHeight: 16,
   },
   suggestionRow: {
     flexDirection: 'row',
@@ -1546,6 +1593,17 @@ const styles = StyleSheet.create({
   },
   bottomDock: {
     borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  dockActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dockDeleteButton: {
+    flex: 1.1,
+    paddingHorizontal: 14,
+  },
+  dockSaveButton: {
+    flex: 1.5,
   },
   paletteRow: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { PixelRatio, StyleSheet, View } from 'react-native';
 import { fireEvent, render, act } from '@testing-library/react-native';
 import { addDays, diffDays } from '@/domain/dates';
 import { usePrivacyStore } from '@/state/privacyStore';
@@ -317,6 +317,42 @@ describe('v2 design system components', () => {
       expect(weightedStyle.fontFamily).toBe('HindSiliguri_600SemiBold');
       expect(weightedStyle.fontWeight).toBeUndefined();
       expect(weightedStyle.letterSpacing).toBe(0);
+    } finally {
+      await act(async () => {
+        setLocale('en');
+      });
+    }
+  });
+
+  it('gives short multi-word Bangla Button CTA labels a compact minWidth without over-pushing icons', async () => {
+    setLocale('bn');
+    try {
+      const view = await render(
+        <ThemeProvider preference="dark" accent="forest">
+          <Button
+            testID="bn-delete-btn"
+            title="মুছে ফেলুন"
+            leftIcon="trash-2"
+            variant="dangerSoft"
+            onPress={() => {}}
+          />
+          <Button
+            testID="bn-long-btn"
+            title="আপনার সমস্ত হিসাবের ব্যাকআপ নিন"
+            variant="primary"
+            onPress={() => {}}
+          />
+        </ThemeProvider>
+      );
+
+      const scale = Math.max(1, PixelRatio.getFontScale?.() ?? 1);
+      const deleteText = view.getByText('মুছে ফেলুন');
+      const deleteMinWidth = StyleSheet.flatten(deleteText.props.style).minWidth as number;
+      expect(deleteMinWidth).toBeGreaterThanOrEqual(75 * scale);
+      expect(deleteMinWidth).toBeLessThanOrEqual(98 * scale);
+
+      const longText = view.getByText('আপনার সমস্ত হিসাবের ব্যাকআপ নিন');
+      expect(StyleSheet.flatten(longText.props.style).minWidth).toBeUndefined();
     } finally {
       await act(async () => {
         setLocale('en');
