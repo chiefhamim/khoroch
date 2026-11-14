@@ -6,7 +6,7 @@ export type Locale = 'en' | 'bn';
 let currentLocale: Locale = 'en';
 
 export function setLocale(locale: Locale): void {
-  currentLocale = locale;
+  currentLocale = locale === 'bn' ? 'bn' : 'en';
 }
 
 export function getLocale(): Locale {

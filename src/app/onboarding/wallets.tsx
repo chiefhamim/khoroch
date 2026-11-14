@@ -1,24 +1,38 @@
 import React, { useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { WALLET_PRESETS, type WalletPresetKey } from '@/domain/accounts';
+import {
+  formatAccountBalance,
+  WALLET_PRESETS,
+  type WalletPresetKey,
+} from '@/domain/accounts';
 import { CURRENCIES as CURRENCY_META, parseMoneyInput } from '@/domain/money';
 import { t } from '@/i18n';
-import { useOnboardingDraft } from '@/state/onboardingStore';
+import { useOnboardingDraft, type OnboardingWalletDraft } from '@/state/onboardingStore';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
-import { Banner } from '@/ui/Banner';
 import { Button } from '@/ui/Button';
 import { Field } from '@/ui/Field';
+import { hapticSelection } from '@/ui/haptics';
+import { Money } from '@/ui/Money';
 import { OnboardingHeader } from '@/ui/OnboardingHeader';
+import { PressableScale } from '@/ui/PressableScale';
 import { Screen } from '@/ui/Screen';
 import { Surface } from '@/ui/Surface';
 import { WalletAvatar } from '@/ui/WalletAvatar';
-import { hapticSelection } from '@/ui/haptics';
-import { PressableScale } from '@/ui/PressableScale';
 
 const PRESET_MAP = new Map(WALLET_PRESETS.map((p) => [p.key, p]));
+
+function getDraftBalanceMinor(draft: OnboardingWalletDraft): number {
+  const cleanBal = draft.balanceInput.trim();
+  if (!cleanBal) return 0;
+  const isExplicitNeg = cleanBal.startsWith('-');
+  const rawAbs = isExplicitNeg ? cleanBal.slice(1).trim() : cleanBal;
+  const parsed = parseMoneyInput(rawAbs);
+  if (!parsed.ok || parsed.minor === null) return 0;
+  return isExplicitNeg || draft.isDueNegative ? -parsed.minor : parsed.minor;
+}
 
 export default function OnboardingWalletsScreen() {
   const { theme, reducedMotion } = useTheme();
@@ -72,7 +86,11 @@ export default function OnboardingWalletsScreen() {
     toggleWalletPreset(key);
   };
 
-  const enabledCount = walletDrafts.filter((w) => w.enabled).length;
+  const enabledWallets = walletDrafts.filter((w) => w.enabled);
+  const enabledCount = enabledWallets.length;
+  const netIncludedMinor = enabledWallets
+    .filter((w) => w.includeInTotal)
+    .reduce((sum, w) => sum + getDraftBalanceMinor(w), 0);
 
   return (
     <Screen
@@ -81,148 +99,192 @@ export default function OnboardingWalletsScreen() {
       keyboardAvoiding
       contentContainerStyle={styles.container}
     >
-      <View style={{ gap: theme.spacing.lg }}>
+      <View style={{ gap: theme.spacing.md }}>
         <OnboardingHeader
           step={6}
-          title={t('onboarding.walletsTitle')}
-          subtitle={t('onboarding.walletsSubtitle')}
+          title={t('onboarding.accountRegisterTitle')}
+          subtitle={t('onboarding.accountRegisterSub')}
         />
 
-        <Banner tone="neutral" icon="wallet" message={t('onboarding.walletsTip')} />
-
-        <View style={[styles.chipGrid, { gap: theme.spacing.sm }]}>
-          {walletDrafts.map((draft) => {
+        {/* Single-Screen Account Register Table */}
+        <Surface padded={false}>
+          {walletDrafts.map((draft, idx) => {
             const preset = PRESET_MAP.get(draft.presetKey);
             if (!preset) return null;
+            const balMinor = getDraftBalanceMinor(draft);
+            const displayLabel = draft.last4.trim()
+              ? `${draft.name || preset.name} · ${draft.last4.trim()}`
+              : draft.name || preset.name;
+
             return (
-              <PressableScale pressScale={0.98}
-                key={draft.presetKey}
-                testID={`onboarding-wallet-preset-${draft.presetKey}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: draft.enabled }}
-                onPress={() => handleToggle(draft.presetKey)}
-                style={({ pressed }) => [
-                  styles.presetChip,
-                  {
-                    minHeight: theme.touch.min,
-                    backgroundColor: draft.enabled
-                      ? theme.colors.accentSoft
-                      : theme.colors.surface,
-                    borderColor: draft.enabled
-                      ? theme.colors.accent
-                      : theme.colors.cardBorder,
-                    borderRadius: theme.radius.pill,
-                    paddingLeft: 8,
-                    paddingRight: theme.spacing.md,
-                    gap: theme.spacing.sm,
-                    opacity: pressed && !reducedMotion ? 0.78 : 1,
-                  },
-                ]}
-              >
-                <WalletAvatar account={preset} size="xs" />
-                <AppText
-                  variant="label"
-                  color={draft.enabled ? 'accent' : 'text'}
-                  numberOfLines={1}
-                >
-                  {preset.name}
-                </AppText>
-                {draft.enabled ? (
-                  <AppIcon name="check" size={14} color={theme.colors.accent} />
+              <React.Fragment key={draft.presetKey}>
+                {idx > 0 ? (
+                  <View
+                    style={{
+                      height: 1,
+                      backgroundColor: theme.colors.separator,
+                    }}
+                  />
                 ) : null}
-              </PressableScale>
+                <PressableScale
+                  pressScale={0.99}
+                  testID={`onboarding-wallet-preset-${draft.presetKey}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: draft.enabled }}
+                  onPress={() => handleToggle(draft.presetKey)}
+                  style={({ pressed }) => [
+                    styles.registerRow,
+                    {
+                      opacity: pressed && !reducedMotion ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        backgroundColor: draft.enabled
+                          ? theme.colors.accent
+                          : 'transparent',
+                        borderColor: draft.enabled
+                          ? theme.colors.accent
+                          : theme.colors.cardBorder,
+                      },
+                    ]}
+                  >
+                    {draft.enabled ? (
+                      <AppIcon name="check" size={12} color={theme.colors.onAccent} />
+                    ) : null}
+                  </View>
+                  <WalletAvatar account={preset} size="sm" />
+                  <View style={styles.flex1}>
+                    <AppText
+                      variant="bodyStrong"
+                      color={draft.enabled ? 'text' : 'textSecondary'}
+                      numberOfLines={1}
+                    >
+                      {displayLabel}
+                    </AppText>
+                  </View>
+                  {draft.enabled ? (
+                    <AppText
+                      variant="bodyStrong"
+                      tabularNums
+                      color={balMinor < 0 ? 'danger' : 'accent'}
+                    >
+                      {`${formatAccountBalance(preset.kind, balMinor, currency)} ✎`}
+                    </AppText>
+                  ) : (
+                    <AppText variant="caption" color="textTertiary">
+                      {t('onboarding.tapToEnable')}
+                    </AppText>
+                  )}
+                </PressableScale>
+              </React.Fragment>
             );
           })}
+        </Surface>
+
+        {/* Bottom Net Included Summary Row */}
+        <View style={styles.netSummaryRow}>
+          <AppText variant="label" color="textSecondary">
+            {t('onboarding.netIncludedLabel', { count: enabledCount })}
+          </AppText>
+          <Money
+            amountMinor={netIncludedMinor}
+            currency={currency}
+            variant="headline"
+            color={netIncludedMinor < 0 ? 'danger' : 'text'}
+          />
         </View>
 
         {enabledCount > 0 ? (
-          <View style={{ gap: theme.spacing.md }}>
-            {walletDrafts
-              .filter((d) => d.enabled)
-              .map((draft) => {
-                const preset = PRESET_MAP.get(draft.presetKey);
-                if (!preset) return null;
-                return (
-                  <Surface
-                    key={draft.presetKey}
-                    testID={`onboarding-wallet-card-${draft.presetKey}`}
-                    style={{ gap: theme.spacing.sm }}
-                  >
-                    <View style={styles.cardHeader}>
-                      <WalletAvatar account={preset} size="sm" />
-                      <AppText variant="bodyStrong" style={styles.flex1}>
-                        {preset.name}
+          <View style={{ gap: theme.spacing.sm }}>
+            {enabledWallets.map((draft) => {
+              const preset = PRESET_MAP.get(draft.presetKey);
+              if (!preset) return null;
+              return (
+                <Surface
+                  key={draft.presetKey}
+                  testID={`onboarding-wallet-card-${draft.presetKey}`}
+                  style={{ gap: theme.spacing.sm }}
+                >
+                  <View style={styles.cardHeader}>
+                    <WalletAvatar account={preset} size="sm" />
+                    <AppText variant="bodyStrong" style={styles.flex1}>
+                      {preset.name}
+                    </AppText>
+                    <PressableScale
+                      pressScale={0.98}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('common.close')}
+                      hitSlop={8}
+                      onPress={() => handleToggle(draft.presetKey)}
+                    >
+                      <AppIcon name="x" size={18} color={theme.colors.textTertiary} />
+                    </PressableScale>
+                  </View>
+
+                  <View style={[styles.twoCol, { gap: theme.spacing.sm }]}>
+                    <Field
+                      testID={`onboarding-wallet-name-${draft.presetKey}`}
+                      label={t('wallets.nameLabel')}
+                      value={draft.name}
+                      onChangeText={(name) => updateWalletDraft(draft.presetKey, { name })}
+                      placeholder={preset.name}
+                      containerStyle={styles.flex1}
+                    />
+                    <Field
+                      testID={`onboarding-wallet-bal-${draft.presetKey}`}
+                      label={`${t('onboarding.walletsBalanceLabel')} (${currencySymbol})`}
+                      value={draft.balanceInput}
+                      onChangeText={(balanceInput) =>
+                        updateWalletDraft(draft.presetKey, { balanceInput })
+                      }
+                      placeholder="0"
+                      keyboardType="decimal-pad"
+                      containerStyle={styles.flex1}
+                    />
+                  </View>
+
+                  {preset.supportsLast4 ? (
+                    <Field
+                      testID={`onboarding-wallet-last4-${draft.presetKey}`}
+                      label={t('wallets.cardLast4Label')}
+                      value={draft.last4}
+                      onChangeText={(next) =>
+                        updateWalletDraft(draft.presetKey, {
+                          last4: next.replace(/\D/g, '').slice(0, 4),
+                        })
+                      }
+                      placeholder={t('wallets.cardLast4Placeholder')}
+                      keyboardType="number-pad"
+                      maxLength={4}
+                    />
+                  ) : null}
+
+                  {preset.kind === 'credit_card' ? (
+                    <View style={styles.switchRow}>
+                      <AppText variant="label" color="textSecondary" style={styles.flex1}>
+                        {t('onboarding.walletsAmountDueToggle')}
                       </AppText>
-                      <PressableScale pressScale={0.98}
-                        accessibilityRole="button"
-                        accessibilityLabel={t('common.close')}
-                        hitSlop={8}
-                        onPress={() => handleToggle(draft.presetKey)}
-                      >
-                        <AppIcon name="x" size={18} color={theme.colors.textTertiary} />
-                      </PressableScale>
-                    </View>
-
-                    <View style={[styles.twoCol, { gap: theme.spacing.sm }]}>
-                      <Field
-                        testID={`onboarding-wallet-name-${draft.presetKey}`}
-                        label={t('wallets.nameLabel')}
-                        value={draft.name}
-                        onChangeText={(name) => updateWalletDraft(draft.presetKey, { name })}
-                        placeholder={preset.name}
-                        containerStyle={styles.flex1}
-                      />
-                      <Field
-                        testID={`onboarding-wallet-bal-${draft.presetKey}`}
-                        label={`${t('onboarding.walletsBalanceLabel')} (${currencySymbol})`}
-                        value={draft.balanceInput}
-                        onChangeText={(balanceInput) =>
-                          updateWalletDraft(draft.presetKey, { balanceInput })
+                      <Switch
+                        testID={`onboarding-wallet-due-${draft.presetKey}`}
+                        value={draft.isDueNegative}
+                        onValueChange={(isDueNegative) =>
+                          updateWalletDraft(draft.presetKey, { isDueNegative })
                         }
-                        placeholder="0"
-                        keyboardType="decimal-pad"
-                        containerStyle={styles.flex1}
+                        trackColor={{
+                          false: theme.colors.surfaceSunken,
+                          true: theme.colors.accent,
+                        }}
+                        thumbColor="#ffffff"
                       />
                     </View>
-
-                    {preset.supportsLast4 ? (
-                      <Field
-                        testID={`onboarding-wallet-last4-${draft.presetKey}`}
-                        label={t('wallets.cardLast4Label')}
-                        value={draft.last4}
-                        onChangeText={(next) =>
-                          updateWalletDraft(draft.presetKey, {
-                            last4: next.replace(/\D/g, '').slice(0, 4),
-                          })
-                        }
-                        placeholder={t('wallets.cardLast4Placeholder')}
-                        keyboardType="number-pad"
-                        maxLength={4}
-                      />
-                    ) : null}
-
-                    {preset.kind === 'credit_card' ? (
-                      <View style={styles.switchRow}>
-                        <AppText variant="label" color="textSecondary" style={styles.flex1}>
-                          {t('onboarding.walletsAmountDueToggle')}
-                        </AppText>
-                        <Switch
-                          testID={`onboarding-wallet-due-${draft.presetKey}`}
-                          value={draft.isDueNegative}
-                          onValueChange={(isDueNegative) =>
-                            updateWalletDraft(draft.presetKey, { isDueNegative })
-                          }
-                          trackColor={{
-                            false: theme.colors.surfaceSunken,
-                            true: theme.colors.accent,
-                          }}
-                          thumbColor="#ffffff"
-                        />
-                      </View>
-                    ) : null}
-                  </Surface>
-                );
-              })}
+                  ) : null}
+                </Surface>
+              );
+            })}
           </View>
         ) : null}
 
@@ -233,7 +295,7 @@ export default function OnboardingWalletsScreen() {
         ) : null}
       </View>
 
-      <View style={{ gap: theme.spacing.xs, paddingTop: theme.spacing.lg }}>
+      <View style={{ gap: theme.spacing.xs, paddingTop: theme.spacing.md }}>
         <View style={[styles.navRow, { gap: theme.spacing.sm }]}>
           <Button
             title={t('common.back')}
@@ -265,14 +327,28 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'space-between',
   },
-  chipGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  presetChip: {
+  registerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minHeight: 48,
+    gap: 11,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  netSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    gap: 8,
   },
   cardHeader: {
     flexDirection: 'row',

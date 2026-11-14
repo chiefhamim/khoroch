@@ -66,6 +66,7 @@ export function SegmentedControl<T extends string>({
       testID={testID}
       style={[
         styles.container,
+        isCompact && styles.compactNoShrink,
         {
           backgroundColor: theme.colors.surfaceSunken,
           borderRadius: theme.radius.pill,
@@ -118,11 +119,11 @@ export function SegmentedControl<T extends string>({
             }}
             style={({ pressed }) => [
               styles.option,
-              !isCompact && styles.optionFill,
+              isCompact ? styles.compactOption : styles.optionFill,
               {
                 minHeight: itemMinHeight,
                 paddingHorizontal: isCompact
-                  ? theme.spacing.md
+                  ? theme.spacing.sm + 4
                   : theme.spacing.lg,
                 borderRadius: theme.radius.pill,
                 // Before the first layout pass, paint the active option directly.
@@ -137,7 +138,7 @@ export function SegmentedControl<T extends string>({
             <AppText
               variant={isCompact ? "caption" : "label"}
               color={active ? "text" : "textSecondary"}
-              numberOfLines={1}
+              numberOfLines={isCompact ? undefined : 1}
             >
               {opt.label}
             </AppText>
@@ -160,10 +161,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexShrink: 1,
   },
+  compactNoShrink: {
+    flexShrink: 0,
+  },
   option: {
     flexShrink: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  compactOption: {
+    flexShrink: 0,
+    minWidth: 50,
   },
   optionFill: {
     flex: 1,

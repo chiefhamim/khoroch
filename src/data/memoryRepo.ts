@@ -10,6 +10,7 @@ import {
   isValidBudgetAmount,
 } from '@/domain/validation';
 import {
+  normalizeAppLanguage,
   normalizeAvatarColorKey,
   normalizeHomeSections,
   normalizeReminderSettings,
@@ -83,6 +84,7 @@ function isAfterCursor(tx: Transaction, c: CursorKey): boolean {
 function cloneSettings(s: Settings): Settings {
   return {
     ...s,
+    language: normalizeAppLanguage(s.language, DEFAULT_SETTINGS.language),
     avatarColorKey: normalizeAvatarColorKey(s.avatarColorKey, DEFAULT_SETTINGS.avatarColorKey),
     weekStartsOn: normalizeWeekStartDay(s.weekStartsOn, DEFAULT_SETTINGS.weekStartsOn),
     homeSections: normalizeHomeSections(s.homeSections),
@@ -857,7 +859,9 @@ export class MemoryRepo implements Repo {
           ? normalizeReminderSettings(v, DEFAULT_SETTINGS.reminder)
           : k === 'homeSections'
             ? normalizeHomeSections(v)
-            : v,
+            : k === 'language'
+              ? normalizeAppLanguage(v, DEFAULT_SETTINGS.language)
+              : v,
     };
   }
 

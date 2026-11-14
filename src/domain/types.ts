@@ -2,6 +2,17 @@ export type CurrencyCode = 'BDT' | 'USD' | 'EUR';
 
 export const CURRENCIES: readonly CurrencyCode[] = ['BDT', 'USD', 'EUR'];
 
+export type AppLanguage = 'en' | 'bn';
+
+export const APP_LANGUAGES: readonly AppLanguage[] = ['en', 'bn'];
+
+export function normalizeAppLanguage(
+  raw: unknown,
+  fallback: AppLanguage = 'en'
+): AppLanguage {
+  return raw === 'bn' || raw === 'en' ? raw : fallback;
+}
+
 export type TransactionType = 'expense' | 'income';
 
 export type TransactionSource = 'manual' | 'quick' | 'voice' | 'sample';
@@ -369,6 +380,7 @@ export interface Settings {
   name: string;
   avatarColorKey: AvatarColorKey;
   currency: CurrencyCode;
+  language: AppLanguage;
   monthStartDay: number;
   theme: ThemePreference;
   accent: AccentTheme;

@@ -126,6 +126,7 @@ export const DEFAULT_SETTINGS: Settings = {
   name: '',
   avatarColorKey: 'accent',
   currency: 'BDT',
+  language: 'en',
   monthStartDay: 1,
   theme: 'system',
   accent: 'forest',

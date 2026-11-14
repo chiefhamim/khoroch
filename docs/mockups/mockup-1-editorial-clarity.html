@@ -1,0 +1,1585 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-accent="forest">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LenDen Mockup 1 — Editorial Clarity (7 Onboarding Slides + Homepage)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ==========================================================================
+     LENDEN DESIGN TOKENS (Flat surfaces, solid hairlines, zero gradients/glow,
+     no ellipsis anywhere, raised Hind Siliguri Taka symbol)
+     ========================================================================== */
+  :root, [data-theme="light"] {
+    --bg: #F6F5F1;
+    --surface: #FFFFFF;
+    --surface-raised: #FFFFFF;
+    --sunken: #EEEDE8;
+    --line: #E5E2DB;
+    --text: #16150F;
+    --text2: #5F5C54;
+    --text3: #6E6B63;
+    --ink: #16150F;
+    --on-ink: #F6F5F1;
+    --in: #0B7A55;
+    --in-soft: #E5F5EE;
+    --warn: #964207;
+    --warn-bg: #FBF1E4;
+    --danger: #B42318;
+    --danger-soft: #FDECEA;
+    --page-bg: #E7E5DE;
+    --page-card: #F2F0EA;
+  }
+
+  [data-theme="dark"] {
+    --bg: #0B0B0C;
+    --surface: #151517;
+    --surface-raised: #1C1C1F;
+    --sunken: #1C1C1F;
+    --line: #26262A;
+    --text: #F2F1EE;
+    --text2: #A6A39C;
+    --text3: #8E8B84;
+    --ink: #F2F1EE;
+    --on-ink: #0B0B0C;
+    --in: #4CCB97;
+    --in-soft: #10291F;
+    --warn: #F2B04A;
+    --warn-bg: #2A2013;
+    --danger: #F08A7E;
+    --danger-soft: #2E1615;
+    --page-bg: #050506;
+    --page-card: #111114;
+  }
+
+  [data-theme="black"] {
+    --bg: #000000;
+    --surface: #0B0B0D;
+    --surface-raised: #141417;
+    --sunken: #141417;
+    --line: #222226;
+    --text: #F2F1EE;
+    --text2: #A6A39C;
+    --text3: #8E8B84;
+    --ink: #F2F1EE;
+    --on-ink: #000000;
+    --in: #4CCB97;
+    --in-soft: #0D2219;
+    --warn: #F2B04A;
+    --warn-bg: #241B10;
+    --danger: #F08A7E;
+    --danger-soft: #2A1212;
+    --page-bg: #000000;
+    --page-card: #0B0B0D;
+  }
+
+  /* Accent Palettes */
+  [data-accent="forest"][data-theme="light"] {
+    --accent: #0B6B4B; --on-accent: #FFFFFF; --accent-soft: #E5F3EC;
+    --hero: #123227; --hero-text: #F3F6F4; --hero-text2: #C2CDC7; --hero-line: rgba(243,246,244,0.14); --hero-bar: #5FD3A3;
+  }
+  [data-accent="forest"][data-theme="dark"], [data-accent="forest"][data-theme="black"] {
+    --accent: #4CCB97; --on-accent: #04231A; --accent-soft: #10291F;
+    --hero: #173A2C; --hero-text: #F3F6F4; --hero-text2: #B8C7C0; --hero-line: rgba(243,246,244,0.12); --hero-bar: #4CCB97;
+  }
+
+  [data-accent="ocean"][data-theme="light"] {
+    --accent: #1B4D99; --on-accent: #FFFFFF; --accent-soft: #EAF1FC;
+    --hero: #1B2F5C; --hero-text: #F3F6F4; --hero-text2: #C2CDC7; --hero-line: rgba(243,246,244,0.14); --hero-bar: #7FB2F0;
+  }
+  [data-accent="ocean"][data-theme="dark"], [data-accent="ocean"][data-theme="black"] {
+    --accent: #7FB2F0; --on-accent: #0B1B33; --accent-soft: #132036;
+    --hero: #1A2D57; --hero-text: #F3F6F4; --hero-text2: #B9C5D9; --hero-line: rgba(243,246,244,0.12); --hero-bar: #7FB2F0;
+  }
+
+  [data-accent="saffron"][data-theme="light"] {
+    --accent: #9A3B12; --on-accent: #FFFFFF; --accent-soft: #F9EDE6;
+    --hero: #7A2E12; --hero-text: #F3F6F4; --hero-text2: #D1C7C2; --hero-line: rgba(243,246,244,0.16); --hero-bar: #F5B864;
+  }
+  [data-accent="saffron"][data-theme="dark"], [data-accent="saffron"][data-theme="black"] {
+    --accent: #F0A35E; --on-accent: #2A1205; --accent-soft: #2D1B12;
+    --hero: #4A2414; --hero-text: #F3F6F4; --hero-text2: #D2BEB3; --hero-line: rgba(243,246,244,0.14); --hero-bar: #F0A35E;
+  }
+
+  [data-accent="plum"][data-theme="light"] {
+    --accent: #5B2C82; --on-accent: #FFFFFF; --accent-soft: #F3ECF9;
+    --hero: #43245E; --hero-text: #F3F6F4; --hero-text2: #C2CDC7; --hero-line: rgba(243,246,244,0.14); --hero-bar: #D4B0FA;
+  }
+  [data-accent="plum"][data-theme="dark"], [data-accent="plum"][data-theme="black"] {
+    --accent: #C59DF5; --on-accent: #1F0F30; --accent-soft: #231732;
+    --hero: #34204D; --hero-text: #F3F6F4; --hero-text2: #C6BAD6; --hero-line: rgba(243,246,244,0.12); --hero-bar: #C59DF5;
+  }
+
+  [data-accent="graphite"][data-theme="light"] {
+    --accent: #26262A; --on-accent: #FFFFFF; --accent-soft: #EAEAE6;
+    --hero: #26262A; --hero-text: #F3F6F4; --hero-text2: #C2CDC7; --hero-line: rgba(243,246,244,0.14); --hero-bar: #C9C6BE;
+  }
+  [data-accent="graphite"][data-theme="dark"], [data-accent="graphite"][data-theme="black"] {
+    --accent: #C4C4CC; --on-accent: #121214; --accent-soft: #222226;
+    --hero: #232327; --hero-text: #F3F6F4; --hero-text2: #C1C1C7; --hero-line: rgba(243,246,244,0.12); --hero-bar: #C4C4CC;
+  }
+
+  /* Wallet & Category Tokens */
+  :root {
+    --bkash: #E2136E; --nagad: #F15A22; --upay: #0F4C9C; --cash: #0B6B4B; --bank: #1E3A8A; --card: #334155;
+    --c-food-bg: #FDECE6; --c-food-fg: #C93B14;
+    --c-groc-bg: #E6F4EA; --c-groc-fg: #1E7E34;
+    --c-move-bg: #E8F1FD; --c-move-fg: #1967D2;
+    --c-bills-bg: #FEF3DE; --c-bills-fg: #B06000;
+    --c-shop-bg: #FCE8F1; --c-shop-fg: #B81D65;
+    --c-home-bg: #EFEBE9; --c-home-fg: #5D4037;
+    --c-tea-bg: #F3ECF9; --c-tea-fg: #673AB7;
+  }
+  [data-theme="dark"], [data-theme="black"] {
+    --c-food-bg: #2E1812; --c-food-fg: #F28B6D;
+    --c-groc-bg: #12281A; --c-groc-fg: #6DD58C;
+    --c-move-bg: #122238; --c-move-fg: #8AB4F8;
+    --c-bills-bg: #2D2110; --c-bills-fg: #FDD663;
+    --c-shop-bg: #2E1421; --c-shop-fg: #F48FB1;
+    --c-home-bg: #241E1C; --c-home-fg: #BCAAA4;
+    --c-tea-bg: #221830; --c-tea-fg: #C59DF5;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 0 0 80px;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Top Sticky Showcase Toolbar */
+  .studio-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 24px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .studio-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .studio-badge {
+    background: var(--hero);
+    color: var(--hero-text);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 6px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .studio-title h1 {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+  .studio-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .ctrl-group {
+    display: flex;
+    align-items: center;
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .ctrl-btn {
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 11px;
+    border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .ctrl-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .swatch-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    margin: 0 2px;
+  }
+  .swatch-btn.active {
+    border-color: var(--text);
+    transform: scale(1.1);
+  }
+
+  /* Page Header & Audit Summary */
+  .container {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 28px 24px 0;
+  }
+  .audit-banner {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+  }
+  .audit-col h3 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .audit-col p, .audit-col li {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--text2);
+  }
+  .audit-col ul {
+    padding-left: 16px;
+  }
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 36px 0 18px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 12px;
+  }
+  .section-head h2 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .section-head span {
+    font-size: 13.5px;
+    color: var(--text2);
+    font-weight: 500;
+  }
+
+  /* Grid of Phone Mockups */
+  .phones-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 28px 22px;
+    justify-content: flex-start;
+  }
+  .phone-col {
+    width: 360px;
+    flex: 0 0 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .phone-caption {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text2);
+  }
+  .phone-caption strong {
+    display: block;
+    color: var(--text);
+    font-size: 13.5px;
+    margin-bottom: 3px;
+  }
+
+  /* Phone Hardware Frame (360 x 780) */
+  .phone {
+    width: 360px;
+    height: 780px;
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 38px;
+    border: 7px solid #18181B;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .status-bar {
+    height: 32px;
+    padding: 0 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .status-icons {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+  }
+  .screen-body {
+    flex: 1;
+    padding: 8px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .screen-body::-webkit-scrollbar { display: none; }
+  .screen-scroll {
+    flex: 1;
+    padding: 6px 20px 82px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    scrollbar-width: none;
+  }
+  .screen-scroll::-webkit-scrollbar { display: none; }
+
+  /* Raised Superscript Taka Sign (Step 1 Rule: 60% size, top-aligned cap height) */
+  .tk {
+    font-family: "Hind Siliguri", sans-serif;
+    font-weight: 600;
+    font-size: 0.6em;
+    line-height: 1;
+    vertical-align: top;
+    position: relative;
+    top: 0.08em;
+    margin-right: 0.05em;
+    display: inline-block;
+  }
+
+  /* Onboarding Header (Mockup 1: Segmented 7-bar track + step pill + skip) */
+  .ob-top {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .ob-progress-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .ob-bars {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 5px;
+    flex: 1;
+  }
+  .ob-bar {
+    height: 5px;
+    border-radius: 99px;
+    background: var(--sunken);
+  }
+  .ob-bar.done {
+    background: var(--accent);
+    opacity: 0.45;
+  }
+  .ob-bar.active {
+    background: var(--accent);
+  }
+  .ob-step-tag {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+  .ob-title {
+    font-size: 25px;
+    line-height: 30px;
+    font-weight: 800;
+    letter-spacing: -0.6px;
+    color: var(--text);
+  }
+  .ob-sub {
+    font-size: 13.5px;
+    line-height: 19px;
+    color: var(--text2);
+    font-weight: 500;
+  }
+
+  /* Reusable Surfaces & Components */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px;
+  }
+  .card.pad-sm { padding: 11px 13px; }
+  .card.flush { padding: 0; overflow: hidden; }
+  .hero-card {
+    background: var(--hero);
+    color: var(--hero-text);
+    border-radius: 20px;
+    padding: 18px;
+  }
+  .row-between {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .pill-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    color: var(--hero-text);
+  }
+  .pill-badge.accent {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+  .btn-row {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .btn {
+    height: 48px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    font-family: inherit;
+    font-size: 14.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    width: 100%;
+  }
+  .btn-primary {
+    background: var(--ink);
+    color: var(--on-ink);
+  }
+  .btn-accent {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+  .btn-secondary {
+    background: var(--surface);
+    color: var(--text);
+    border-color: var(--line);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text2);
+    height: 36px;
+    font-size: 13px;
+  }
+  .btn-back {
+    flex: 0 0 88px;
+  }
+  .btn-next {
+    flex: 1;
+  }
+
+  /* Icon Tiles */
+  .tile {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    font-weight: 800;
+    font-size: 12px;
+  }
+  .tile svg, .btn svg, .pill-badge svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  /* List Rows */
+  .list-row {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 11px 14px;
+  }
+  .list-row + .list-row {
+    border-top: 1px solid var(--line);
+  }
+  .list-mid {
+    flex: 1;
+    min-width: 0;
+  }
+  .list-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .list-sub {
+    font-size: 12px;
+    color: var(--text2);
+    margin-top: 1px;
+  }
+  .list-right {
+    text-align: right;
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  /* Chips */
+  .chip-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .chip.on {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* Mini Keypad for Budget & Wallets */
+  .mini-keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .key {
+    height: 38px;
+    border-radius: 10px;
+    background: var(--sunken);
+    color: var(--text);
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  /* Segmented Control (Fixed so "Week" never clips to "Wee"!) */
+  .seg-ctrl {
+    display: inline-grid;
+    grid-template-columns: repeat(3, minmax(54px, auto));
+    background: var(--sunken);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg-item {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 7px;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+  .seg-item.on {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  /* Bottom Tab Bar */
+  .tabbar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 62px;
+    background: var(--bg);
+    border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    padding: 0 6px;
+  }
+  .tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text3);
+  }
+  .tab.on { color: var(--text); font-weight: 700; }
+  .tab svg {
+    width: 19px;
+    height: 19px;
+    stroke: currentColor;
+    stroke-width: 2;
+    fill: none;
+  }
+  .tab-add {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: var(--ink);
+    color: var(--on-ink);
+    display: grid;
+    place-items: center;
+    margin: 0 auto;
+  }
+  .tab-add svg {
+    width: 21px;
+    height: 21px;
+    stroke: currentColor;
+    stroke-width: 2.4;
+  }
+</style>
+</head>
+<body>
+
+  <!-- TOP STUDIO BAR -->
+  <header class="studio-bar">
+    <div class="studio-title">
+      <span class="studio-badge">Mockup 1 of 3</span>
+      <h1>Editorial Clarity — Linear / Wise Precision</h1>
+    </div>
+    <div class="studio-controls">
+      <div class="ctrl-group" aria-label="Mockup Switcher">
+        <a class="ctrl-btn" href="index.html">All 3 Hub</a>
+        <a class="ctrl-btn active" href="mockup-1-editorial-clarity.html">1 · Editorial Clarity</a>
+        <a class="ctrl-btn" href="mockup-2-action-flow.html">2 · Action &amp; Flow</a>
+        <a class="ctrl-btn" href="mockup-3-modern-notebook.html">3 · Modern Notebook</a>
+      </div>
+      <div class="ctrl-group" aria-label="Theme Mode">
+        <button class="ctrl-btn active" onclick="setTheme('light', this)">Light</button>
+        <button class="ctrl-btn" onclick="setTheme('dark', this)">Dark</button>
+        <button class="ctrl-btn" onclick="setTheme('black', this)">OLED Black</button>
+      </div>
+      <div class="ctrl-group" style="padding: 4px 8px;" aria-label="Accent Swatches">
+        <button class="swatch-btn active" style="background:#123227" title="Forest" onclick="setAccent('forest', this)"></button>
+        <button class="swatch-btn" style="background:#1B2F5C" title="Ocean" onclick="setAccent('ocean', this)"></button>
+        <button class="swatch-btn" style="background:#7A2E12" title="Saffron" onclick="setAccent('saffron', this)"></button>
+        <button class="swatch-btn" style="background:#43245E" title="Plum" onclick="setAccent('plum', this)"></button>
+        <button class="swatch-btn" style="background:#26262A" title="Graphite" onclick="setAccent('graphite', this)"></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- AUDIT SUMMARY OF WHAT WE FOUND ON YOUR S25 ULTRA -->
+    <section class="audit-banner">
+      <div class="audit-col">
+        <h3>What We Found on Your Phone</h3>
+        <ul>
+          <li><strong>"Wee" Clipping Bug:</strong> On your live Home screen, the Spending switcher clips <code>Week</code> into <code>Wee</code> due to tight segmented width + clip mode.</li>
+          <li><strong>Hero Card Trade-off:</strong> Adding a wallet replaces <code>Left to spend</code> &amp; <code>Safe today</code> with Wallet Total, hiding your daily spending pace.</li>
+          <li><strong>Below-the-Fold Recent:</strong> Two tall empty boxes (Spending chart + Recent) push activity below the fold.</li>
+        </ul>
+      </div>
+      <div class="audit-col">
+        <h3>Why the Current 7 Slides Feel Dry</h3>
+        <ul>
+          <li><strong>Slide 1:</strong> Three generic icon boxes with empty space below.</li>
+          <li><strong>Slide 2:</strong> Confronts users with 28 tiny calendar numbers immediately.</li>
+          <li><strong>Slide 3 &amp; 6:</strong> System decimal keyboard pops up over text inputs; selecting 3 wallets spawns a long multi-input form wall.</li>
+          <li><strong>Slide 7:</strong> Looks like a plain Settings table with no preview of your setup.</li>
+        </ul>
+      </div>
+      <div class="audit-col">
+        <h3>Mockup 1 Core Upgrades</h3>
+        <ul>
+          <li><strong>Live Preview Hero on Slide 1 &amp; Slide 7:</strong> Shows how Safe Today + Wallets work together before you even finish setup.</li>
+          <li><strong>Smart Cycle Presets (Slide 2):</strong> <code>1st</code>, <code>5th</code>, <code>10th</code>, <code>25th</code> or expandable grid.</li>
+          <li><strong>In-App Keypad &amp; Daily Math (Slide 3 &amp; 6):</strong> Instant <code>= ৳1,176 / day</code> feedback and inline wallet balance entry.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         PART 1: THE 7 WELCOME & ONBOARDING SLIDES
+         ==================================================================== -->
+    <div class="section-head">
+      <h2>Part 1 · The 7 Welcome &amp; Onboarding Slides</h2>
+      <span>All 7 steps redesigned for clarity, live feedback, and zero keyboard obstruction</span>
+    </div>
+
+    <div class="phones-grid">
+
+      <!-- SLIDE 1: WELCOME -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="ob-top">
+                <div class="ob-progress-row">
+                  <div class="ob-bars">
+                    <span class="ob-bar active"></span><span class="ob-bar"></span><span class="ob-bar"></span><span class="ob-bar"></span><span class="ob-bar"></span><span class="ob-bar"></span><span class="ob-bar"></span>
+                  </div>
+                  <span class="ob-step-tag">Step 1 of 7</span>
+                </div>
+                <div class="row-between" style="margin-top:2px;">
+                  <span class="pill-badge accent">LenDen · লেনদেন</span>
+                  <span style="font-size:11.5px;font-weight:700;color:var(--text2);">100% Offline SQLite</span>
+                </div>
+                <h1 class="ob-title">Your money.<br>Your daily clarity.</h1>
+                <p class="ob-sub">Know what is safe to spend today, what sits in bKash or Cash, and who owes you — in seconds.</p>
+              </div>
+
+              <!-- Live Mini Preview of the Hero Card -->
+              <div class="hero-card" style="padding:14px 16px;margin-bottom:12px;">
+                <div class="row-between" style="font-size:11.5px;color:var(--hero-text2);font-weight:600;">
+                  <span>SAFE TO SPEND TODAY</span>
+                  <span class="pill-badge" style="padding:2px 8px;font-size:10.5px;">On track</span>
+                </div>
+                <div style="font-size:30px;font-weight:800;letter-spacing:-1px;margin:4px 0 8px;">
+                  <span class="tk">৳</span>1,176
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-top:1px solid var(--hero-line);padding-top:8px;font-size:11.5px;">
+                  <div><div style="color:var(--hero-text2)">Left in cycle</div><div style="font-weight:700;"><span class="tk">৳</span>20,000</div></div>
+                  <div><div style="color:var(--hero-text2)">3 Wallets</div><div style="font-weight:700;"><span class="tk">৳</span>12,131</div></div>
+                  <div><div style="color:var(--hero-text2)">People owe</div><div style="font-weight:700;color:var(--hero-bar);">+<span class="tk">৳</span>500</div></div>
+                </div>
+              </div>
+
+              <!-- 3 Compact Value Pillars -->
+              <div class="card flush">
+                <div class="list-row">
+                  <div class="tile" style="background:var(--c-groc-bg);color:var(--c-groc-fg);">
+                    <svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  </div>
+                  <div class="list-mid">
+                    <div class="list-title">4-tap fast expense entry</div>
+                    <div class="list-sub">Keypad-first or say "350 taka lunch" offline</div>
+                  </div>
+                </div>
+                <div class="list-row">
+                  <div class="tile" style="background:var(--c-move-bg);color:var(--c-move-fg);">
+                    <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                  </div>
+                  <div class="list-mid">
+                    <div class="list-title">Cash, bKash, Nagad &amp; Cards</div>
+                    <div class="list-sub">Track real wallet balances &amp; cash-out fees</div>
+                  </div>
+                </div>
+                <div class="list-row">
+                  <div class="tile" style="background:var(--c-tea-bg);color:var(--c-tea-fg);">
+                    <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                  </div>
+                  <div class="list-mid">
+                    <div class="list-title">Strictly on your phone</div>
+                    <div class="list-sub">No account, no cloud servers, no SMS reading</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-primary">Get started (60 sec)</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 1 · Welcome (Upgraded)</strong>
+          Replaces empty whitespace with a live preview of the Hero Card so the user immediately sees how Daily Safe Spend + Wallets + Dues fit together.
+        </div>
+      </div>
+
+      <!-- SLIDE 2: PREFERENCES & CYCLE -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="ob-top">
+                <div class="ob-progress-row">
+                  <div class="ob-bars">
+                    <span class="ob-bar done"></span><span class="ob-bar active"></span><span class="ob-bar"></span><span class="ob-bar"></span><span class="ob-bar"></span><span class="ob-bar"></span><span class="ob-bar"></span>
+                  </div>
+                  <span class="ob-step-tag">Step 2 of 7</span>
+                </div>
+                <h1 class="ob-title">Your basics</h1>
+                <p class="ob-sub">Set your name, currency, and the day your monthly budget cycle begins.</p>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:12px;">
+                <div class="card pad-sm">
+                  <div style="font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;">YOUR NAME OR NICKNAME</div>
+                  <div class="row-between" style="background:var(--sunken);padding:10px 12px;border-radius:11px;border:1px solid var(--line);">
+                    <span style="font-size:15px;font-weight:700;">Hamim</span>
+                    <span style="font-size:11.5px;color:var(--text3);font-weight:600;">Optional</span>
+                  </div>
+                </div>
+
+                <div class="card pad-sm">
+                  <div style="font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:8px;">CURRENCY</div>
+                  <div class="chip-wrap">
+                    <span class="chip on"><span class="tk">৳</span> BDT (Taka)</span>
+                    <span class="chip">$ USD</span>
+                    <span class="chip">€ EUR</span>
+                  </div>
+                </div>
+
+                <div class="card pad-sm">
+                  <div class="row-between" style="margin-bottom:8px;">
+                    <span style="font-size:11.5px;font-weight:700;color:var(--text2);">BUDGET CYCLE STARTS ON</span>
+                    <span style="font-size:11.5px;font-weight:700;color:var(--accent);">Day 1 of month</span>
+                  </div>
+                  <!-- Smart Presets instead of 28 tiny circles first -->
+                  <div class="chip-wrap" style="margin-bottom:10px;">
+                    <span class="chip on">1st (Calendar)</span>
+                    <span class="chip">5th (Payday)</span>
+                    <span class="chip">7th</span>
+                    <span class="chip">10th</span>
+                    <span class="chip">25th</span>
+                    <span class="chip">Other day (1–28)</span>
+                  </div>
+                  <div style="background:var(--accent-soft);border-radius:11px;padding:10px 12px;display:flex;justify-content:space-between;align-items:center;">
+                    <div>
+                      <div style="font-size:11.5px;font-weight:700;color:var(--accent);">Current cycle window</div>
+                      <div style="font-size:13.5px;font-weight:800;color:var(--text);">1 Nov – 30 Nov · 17 days left</div>
+                    </div>
+                    <span class="pill-badge accent">Active</span>
+                  </div>
+                </div>
+
+                <div class="card pad-sm">
+                  <div class="row-between">
+                    <div>
+                      <div style="font-size:11.5px;font-weight:700;color:var(--text2);">THEME COLOUR</div>
+                      <div style="font-size:13px;font-weight:700;margin-top:2px;">Forest Green</div>
+                    </div>
+                    <div style="display:flex;gap:6px;">
+                      <span style="width:22px;height:22px;border-radius:50%;background:#123227;border:2px solid var(--text);"></span>
+                      <span style="width:22px;height:22px;border-radius:50%;background:#1B2F5C;"></span>
+                      <span style="width:22px;height:22px;border-radius:50%;background:#7A2E12;"></span>
+                      <span style="width:22px;height:22px;border-radius:50%;background:#43245E;"></span>
+                      <span style="width:22px;height:22px;border-radius:50%;background:#26262A;"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-primary btn-next">Continue</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 2 · Preferences &amp; Cycle (Upgraded)</strong>
+          Replaces the intimidating 28-button wall with quick Payday/Calendar presets + live cycle countdown + theme colour picker.
+        </div>
+      </div>
+
+      <!-- SLIDE 3: MONTHLY SPENDING BUDGET -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="ob-top">
+                <div class="ob-progress-row">
+                  <div class="ob-bars">
+                    <span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar active"></span><span class="ob-bar"></span><span class="ob-bar"></span><span class="ob-bar"></span><span class="ob-bar"></span>
+                  </div>
+                  <span class="ob-step-tag">Step 3 of 7</span>
+                </div>
+                <div class="row-between">
+                  <h1 class="ob-title">Monthly budget</h1>
+                  <span style="font-size:12.5px;font-weight:700;color:var(--accent);">Skip for now</span>
+                </div>
+                <p class="ob-sub">Your spending limit for the month — separate from your wallet balances.</p>
+              </div>
+
+              <!-- Live Budget Display + Safe Per Day Math -->
+              <div class="card" style="text-align:center;padding:16px 14px;margin-bottom:10px;">
+                <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">Monthly Spending Target</div>
+                <div style="font-size:38px;font-weight:800;letter-spacing:-1.2px;margin:4px 0 8px;">
+                  <span class="tk">৳</span>20,000
+                </div>
+                <div style="display:inline-flex;align-items:center;gap:8px;background:var(--accent-soft);color:var(--accent);padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:700;">
+                  <span>Safe today: <span class="tk">৳</span>1,176.47 / day</span>
+                  <span>·</span>
+                  <span>17 days left</span>
+                </div>
+              </div>
+
+              <!-- Quick Presets -->
+              <div class="chip-wrap" style="justify-content:center;margin-bottom:8px;">
+                <span class="chip"><span class="tk">৳</span>15,000</span>
+                <span class="chip on"><span class="tk">৳</span>20,000</span>
+                <span class="chip"><span class="tk">৳</span>30,000</span>
+                <span class="chip"><span class="tk">৳</span>40,000</span>
+                <span class="chip"><span class="tk">৳</span>60,000</span>
+              </div>
+
+              <!-- In-App Tactile Keypad (Never pops up Android system keyboard!) -->
+              <div class="mini-keypad">
+                <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+                <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+                <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+                <div class="key">000</div><div class="key">0</div><div class="key">⌫</div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-primary btn-next">Set <span class="tk">৳</span>20,000 budget</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 3 · Monthly Budget (Upgraded)</strong>
+          Uses Lenden's in-app keypad (with a handy <code>000</code> key!) and calculates your live daily safe-to-spend (<code>৳1,176.47 / day</code>) as you tap.
+        </div>
+      </div>
+
+      <!-- SLIDE 4: CATEGORIES -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="ob-top">
+                <div class="ob-progress-row">
+                  <div class="ob-bars">
+                    <span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar active"></span><span class="ob-bar"></span><span class="ob-bar"></span><span class="ob-bar"></span>
+                  </div>
+                  <span class="ob-step-tag">Step 4 of 7</span>
+                </div>
+                <h1 class="ob-title">Quick categories</h1>
+                <p class="ob-sub">Pick the categories you spend on most. Your top 5 appear right on the keypad bar.</p>
+              </div>
+
+              <!-- Live Preview of the Add-Screen Quick Chip Strip -->
+              <div class="card pad-sm" style="margin-bottom:12px;background:var(--sunken);">
+                <div class="row-between" style="margin-bottom:6px;">
+                  <span style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;">Your Fast-Entry Bar Preview</span>
+                  <span style="font-size:11px;font-weight:700;color:var(--accent);">7 selected</span>
+                </div>
+                <div style="display:flex;gap:6px;overflow:hidden;">
+                  <span class="chip on" style="padding:4px 9px;font-size:11.5px;">Food</span>
+                  <span class="chip on" style="padding:4px 9px;font-size:11.5px;">Groceries</span>
+                  <span class="chip on" style="padding:4px 9px;font-size:11.5px;">Transport</span>
+                  <span class="chip on" style="padding:4px 9px;font-size:11.5px;">Tea</span>
+                  <span class="chip" style="padding:4px 9px;font-size:11.5px;">All (7)</span>
+                </div>
+              </div>
+
+              <!-- Grouped Category Pills -->
+              <div style="font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;">DAILY SPENDING</div>
+              <div class="chip-wrap" style="margin-bottom:12px;">
+                <span class="chip on">🍽️ Food &amp; Dining ✓</span>
+                <span class="chip on">🧺 Groceries &amp; Bazar ✓</span>
+                <span class="chip on">🛺 Transport ✓</span>
+                <span class="chip on">☕ Tea &amp; Snacks ✓</span>
+                <span class="chip on">🛍️ Shopping ✓</span>
+              </div>
+
+              <div style="font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;">BILLS, HOME &amp; FAMILY</div>
+              <div class="chip-wrap">
+                <span class="chip on">🏠 Housing &amp; Rent ✓</span>
+                <span class="chip on">⚡ Utilities &amp; Bills ✓</span>
+                <span class="chip">📱 Mobile &amp; Net</span>
+                <span class="chip">💊 Health &amp; Meds</span>
+                <span class="chip">🎁 Family &amp; Gifts</span>
+                <span class="chip">📚 Education</span>
+                <span class="chip">+ Custom</span>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-primary btn-next">Continue (7 selected)</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 4 · Categories (Upgraded)</strong>
+          Groups categories into Daily Spending vs Bills &amp; Home, and previews how your selections populate the Fast-Entry chip bar.
+        </div>
+      </div>
+
+      <!-- SLIDE 5: REMINDER -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="ob-top">
+                <div class="ob-progress-row">
+                  <div class="ob-bars">
+                    <span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar active"></span><span class="ob-bar"></span><span class="ob-bar"></span>
+                  </div>
+                  <span class="ob-step-tag">Step 5 of 7</span>
+                </div>
+                <h1 class="ob-title">Evening check-in</h1>
+                <p class="ob-sub">A single quiet nudge at night to log the day's spending in 10 seconds.</p>
+              </div>
+
+              <!-- Lock-Screen Notification Preview -->
+              <div class="card pad-sm" style="background:var(--sunken);margin-bottom:12px;">
+                <div style="font-size:10.5px;font-weight:700;color:var(--text3);text-transform:uppercase;margin-bottom:6px;">Lock Screen Preview (Private)</div>
+                <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;gap:10px;align-items:center;">
+                  <div class="tile" style="width:32px;height:32px;background:var(--hero);color:var(--hero-text);font-size:11px;">LD</div>
+                  <div style="flex:1;">
+                    <div class="row-between">
+                      <span style="font-size:12.5px;font-weight:800;">LenDen Daily Check-in</span>
+                      <span style="font-size:11px;color:var(--text3);">9:00 PM</span>
+                    </div>
+                    <div style="font-size:12px;color:var(--text2);">Take 10 seconds to log today's spending.</div>
+                  </div>
+                </div>
+                <div style="font-size:11.5px;color:var(--text2);margin-top:6px;">Amounts and balances are never shown on your lock screen.</div>
+              </div>
+
+              <!-- Toggle + One-Tap Time Presets -->
+              <div class="card" style="display:flex;flex-direction:column;gap:12px;">
+                <div class="row-between">
+                  <div>
+                    <div style="font-size:14.5px;font-weight:700;">Daily check-in reminder</div>
+                    <div style="font-size:12px;color:var(--text2);">Enabled · Local notification</div>
+                  </div>
+                  <div style="width:44px;height:26px;border-radius:99px;background:var(--accent);position:relative;">
+                    <span style="position:absolute;right:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;"></span>
+                  </div>
+                </div>
+
+                <div style="border-top:1px solid var(--line);padding-top:10px;">
+                  <div style="font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;">TIME OF DAY</div>
+                  <div class="chip-wrap">
+                    <span class="chip">8:00 PM</span>
+                    <span class="chip on">9:00 PM ✓</span>
+                    <span class="chip">10:00 PM</span>
+                    <span class="chip">Custom time</span>
+                  </div>
+                </div>
+
+                <div style="border-top:1px solid var(--line);padding-top:10px;">
+                  <div class="row-between" style="margin-bottom:6px;">
+                    <span style="font-size:11.5px;font-weight:700;color:var(--text2);">REPEAT DAYS</span>
+                    <span style="font-size:11.5px;font-weight:700;color:var(--accent);">Every day</span>
+                  </div>
+                  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">
+                    <span class="chip on" style="justify-content:center;padding:6px 0;">S</span>
+                    <span class="chip on" style="justify-content:center;padding:6px 0;">M</span>
+                    <span class="chip on" style="justify-content:center;padding:6px 0;">T</span>
+                    <span class="chip on" style="justify-content:center;padding:6px 0;">W</span>
+                    <span class="chip on" style="justify-content:center;padding:6px 0;">T</span>
+                    <span class="chip on" style="justify-content:center;padding:6px 0;">F</span>
+                    <span class="chip on" style="justify-content:center;padding:6px 0;">S</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-primary btn-next">Continue</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 5 · Daily Check-in (Upgraded)</strong>
+          Shows a realistic lock-screen preview proving privacy, plus 1-tap evening time chips (8 PM / 9 PM / 10 PM) instead of a buried picker row.
+        </div>
+      </div>
+
+      <!-- SLIDE 6: WALLETS -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="ob-top">
+                <div class="ob-progress-row">
+                  <div class="ob-bars">
+                    <span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar active"></span><span class="ob-bar"></span>
+                  </div>
+                  <span class="ob-step-tag">Step 6 of 7</span>
+                </div>
+                <div class="row-between">
+                  <h1 class="ob-title">Your wallets</h1>
+                  <span style="font-size:12.5px;font-weight:700;color:var(--accent);">Skip</span>
+                </div>
+                <p class="ob-sub">Tap the wallets you use and enter what is in them today. No stacked form wall.</p>
+              </div>
+
+              <!-- Preset Chips -->
+              <div class="chip-wrap" style="margin-bottom:10px;">
+                <span class="chip on">💵 Cash ✓</span>
+                <span class="chip on" style="border-color:var(--bkash);color:var(--bkash);background:rgba(226,19,110,0.08);">bK bKash ✓</span>
+                <span class="chip">N Nagad</span>
+                <span class="chip">🏦 Bank</span>
+                <span class="chip on">💳 Card ✓</span>
+              </div>
+
+              <!-- Clean Compact Wallet Rows (Tap row to edit balance on bottom keypad) -->
+              <div class="card flush" style="margin-bottom:10px;">
+                <div class="list-row">
+                  <div class="tile" style="background:var(--cash);color:#fff;">💵</div>
+                  <div class="list-mid">
+                    <div class="list-title">Cash in hand</div>
+                    <div class="list-sub">As of today</div>
+                  </div>
+                  <div class="list-right"><span class="tk">৳</span>1,500</div>
+                </div>
+                <div class="list-row" style="background:var(--accent-soft);">
+                  <div class="tile" style="background:var(--bkash);color:#fff;">bK</div>
+                  <div class="list-mid">
+                    <div class="list-title">bKash <span style="font-size:11px;color:var(--accent);font-weight:700;">· Editing</span></div>
+                    <div class="list-sub">How much is in bKash right now?</div>
+                  </div>
+                  <div class="list-right" style="color:var(--accent);font-size:16px;"><span class="tk">৳</span>4,200</div>
+                </div>
+                <div class="list-row">
+                  <div class="tile" style="background:var(--card);color:#fff;">💳</div>
+                  <div class="list-mid">
+                    <div class="list-title">City AMEX · 4821</div>
+                    <div class="list-sub">Card bill due</div>
+                  </div>
+                  <div class="list-right" style="color:var(--danger);"><span class="tk">৳</span>5,600 due</div>
+                </div>
+              </div>
+
+              <!-- Inline Compact Keypad for the selected wallet -->
+              <div class="mini-keypad">
+                <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+                <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+                <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+                <div class="key">00</div><div class="key">0</div><div class="key">⌫</div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-primary btn-next">Continue (3 wallets)</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 6 · Wallets (Upgraded)</strong>
+          Instead of spawning giant multi-input cards that push off-screen, enabled wallets sit in a compact register with an inline keypad.
+        </div>
+      </div>
+
+      <!-- SLIDE 7: YOU ARE READY (LAUNCHPAD) -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="ob-top">
+                <div class="ob-progress-row">
+                  <div class="ob-bars">
+                    <span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar done"></span><span class="ob-bar active"></span>
+                  </div>
+                  <span class="ob-step-tag">Step 7 of 7</span>
+                </div>
+                <h1 class="ob-title">Hamim, your notebook is ready.</h1>
+                <p class="ob-sub">Here is your live dashboard preview. Everything stays on this device.</p>
+              </div>
+
+              <!-- Live Personalized Hero Card Preview -->
+              <div class="hero-card" style="margin-bottom:12px;">
+                <div class="row-between" style="font-size:12px;color:var(--hero-text2);">
+                  <span>Safe to spend today</span>
+                  <span class="pill-badge">17 days left</span>
+                </div>
+                <div style="font-size:34px;font-weight:800;letter-spacing:-1.1px;margin:4px 0 10px;">
+                  <span class="tk">৳</span>1,176.47
+                </div>
+                <div style="height:5px;border-radius:99px;background:var(--hero-line);overflow:hidden;margin-bottom:12px;">
+                  <div style="width:12%;height:100%;background:var(--hero-bar);"></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--hero-line);padding-top:10px;font-size:12.5px;">
+                  <div>
+                    <div style="color:var(--hero-text2);">Monthly budget</div>
+                    <div style="font-weight:700;font-size:15px;"><span class="tk">৳</span>20,000</div>
+                  </div>
+                  <div style="border-left:1px solid var(--hero-line);padding-left:12px;">
+                    <div style="color:var(--hero-text2);">In 3 wallets</div>
+                    <div style="font-weight:700;font-size:15px;"><span class="tk">৳</span>5,700</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tap-to-Edit Summary Grid -->
+              <div class="card flush">
+                <div class="list-row">
+                  <div class="list-mid"><div class="list-title">Budget cycle</div><div class="list-sub">Starts 1st of month</div></div>
+                  <div class="list-right" style="color:var(--accent);font-size:12.5px;">1 Nov – 30 Nov · Edit</div>
+                </div>
+                <div class="list-row">
+                  <div class="list-mid"><div class="list-title">Quick categories</div><div class="list-sub">Food, Groceries, Transport + 4</div></div>
+                  <div class="list-right" style="color:var(--accent);font-size:12.5px;">7 pinned · Edit</div>
+                </div>
+                <div class="list-row">
+                  <div class="list-mid"><div class="list-title">Daily check-in</div><div class="list-sub">Private local notification</div></div>
+                  <div class="list-right" style="color:var(--accent);font-size:12.5px;">9:00 PM · Edit</div>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <button class="btn btn-accent">Open LenDen Home</button>
+              <button class="btn btn-secondary" style="height:42px;font-size:13.5px;">+ Log my first expense now</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 7 · Ready Launchpad (Upgraded)</strong>
+          Instead of a dry text table, Slide 7 shows your personalized Hero Card live and lets you tap any setting to tweak or jump straight into logging.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ====================================================================
+         PART 2: THE REDESIGNED HOMEPAGE (BOTH STATES SIDE BY SIDE)
+         ==================================================================== -->
+    <div class="section-head">
+      <h2>Part 2 · Redesigned Homepage (Your Phone State vs Active Month State)</h2>
+      <span>Fixes the "Wee" clipping bug, unifies Budget + Wallets in the Hero, and brings Recent Activity above the fold</span>
+    </div>
+
+    <div class="phones-grid">
+
+      <!-- HOMEPAGE STATE A: YOUR PHONE RIGHT NOW (৳20,000 BUDGET, FRESH CYCLE) -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-scroll">
+            <!-- Header -->
+            <div class="row-between" style="padding-top:2px;">
+              <div>
+                <div style="font-size:21px;font-weight:800;letter-spacing:-0.5px;">Good afternoon</div>
+                <div style="font-size:12.5px;color:var(--text2);font-weight:500;">Sat, 14 Nov 2026 · Cycle day 14</div>
+              </div>
+              <div style="width:38px;height:38px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:14px;">Y</div>
+            </div>
+
+            <!-- Unified Hero Card: Safe Today + Left to Spend + Quick Actions -->
+            <div class="hero-card">
+              <div class="row-between">
+                <span style="font-size:12px;color:var(--hero-text2);font-weight:600;">Left to spend · 17 days left</span>
+                <span class="pill-badge">✓ On track</span>
+              </div>
+              <div style="font-size:38px;font-weight:800;letter-spacing:-1.3px;margin:4px 0 8px;">
+                <span class="tk">৳</span>20,000
+              </div>
+              <div style="height:5px;border-radius:99px;background:var(--hero-line);margin-bottom:12px;">
+                <div style="width:4%;height:100%;background:var(--hero-bar);border-radius:99px;"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;border-top:1px solid var(--hero-line);padding-top:10px;font-size:12px;">
+                <div>
+                  <div style="color:var(--hero-text2);">Safe today</div>
+                  <div style="font-size:15px;font-weight:800;color:var(--hero-bar);"><span class="tk">৳</span>1,176.47</div>
+                </div>
+                <div style="border-left:1px solid var(--hero-line);padding-left:10px;">
+                  <div style="color:var(--hero-text2);">Spent</div>
+                  <div style="font-size:15px;font-weight:700;"><span class="tk">৳</span>0</div>
+                </div>
+                <div style="border-left:1px solid var(--hero-line);padding-left:10px;">
+                  <div style="color:var(--hero-text2);">Wallets</div>
+                  <div style="font-size:13px;font-weight:700;color:var(--hero-bar);">Set up →</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Strip -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <button class="btn btn-secondary" style="height:40px;font-size:13px;">✨ Say or type it</button>
+              <button class="btn btn-secondary" style="height:40px;font-size:13px;">✓ Daily check-in</button>
+            </div>
+
+            <!-- One-Tap Wallet Setup Strip (Compact, not bulky!) -->
+            <div class="card pad-sm">
+              <div class="row-between" style="margin-bottom:8px;">
+                <div>
+                  <div style="font-size:13.5px;font-weight:800;">Set up your wallets in 1 tap</div>
+                  <div style="font-size:11.5px;color:var(--text2);">Tap a wallet to set today's starting balance</div>
+                </div>
+              </div>
+              <div class="chip-wrap">
+                <span class="chip">+ 💵 Cash</span>
+                <span class="chip">+ bK bKash</span>
+                <span class="chip">+ N Nagad</span>
+                <span class="chip">+ 🏦 Bank</span>
+                <span class="chip">+ 💳 Card</span>
+              </div>
+            </div>
+
+            <!-- Recent & Quick First Entry (ABOVE THE FOLD!) -->
+            <div>
+              <div class="row-between" style="margin-bottom:8px;">
+                <span style="font-size:15px;font-weight:800;">Recent activity</span>
+                <span style="font-size:12.5px;font-weight:700;color:var(--accent);">Ledger →</span>
+              </div>
+              <div class="card pad-sm">
+                <div style="font-size:13px;font-weight:700;margin-bottom:3px;">Nothing logged in this cycle yet</div>
+                <div style="font-size:12px;color:var(--text2);margin-bottom:9px;">Tap a quick category below or press + to log your first expense:</div>
+                <div class="chip-wrap">
+                  <span class="chip on">+ 🍽️ Food</span>
+                  <span class="chip on">+ 🛺 Transport</span>
+                  <span class="chip on">+ 🧺 Bazar</span>
+                  <span class="chip on">+ ☕ Tea</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Compact Spending Section with FIXED "Day | Week | Month" switcher -->
+            <div>
+              <div class="row-between" style="margin-bottom:8px;">
+                <span style="font-size:15px;font-weight:800;">Spending</span>
+                <div class="seg-ctrl">
+                  <span class="seg-item">Day</span>
+                  <span class="seg-item on">Week</span>
+                  <span class="seg-item">Month</span>
+                </div>
+              </div>
+              <div class="card pad-sm" style="display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                  <div style="font-size:12.5px;font-weight:700;">Wk 1 – Wk 5 · <span class="tk">৳</span>0 spent</div>
+                  <div style="font-size:11.5px;color:var(--text2);">Bars appear as soon as you log an expense</div>
+                </div>
+                <span style="font-size:11.5px;font-weight:700;color:var(--text3);">0% of <span class="tk">৳</span>20,000</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Tab Bar -->
+          <nav class="tabbar">
+            <div class="tab on"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Ledger</span></div>
+            <div class="tab-add"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>Plan</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span>People</span></div>
+          </nav>
+        </div>
+        <div class="phone-caption">
+          <strong>Homepage · Your Current Phone State (Fixed)</strong>
+          Compare with your live phone screenshot: fixes the <code>"Wee"</code> clipping bug, collapses the giant empty chart box, and puts 1-tap wallet chips + quick expense chips above the fold.
+        </div>
+      </div>
+
+      <!-- HOMEPAGE STATE B: POPULATED ACTIVE MONTH (WALLETS + BUDGET + DUES + RECENT) -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-scroll">
+            <!-- Header -->
+            <div class="row-between" style="padding-top:2px;">
+              <div>
+                <div style="font-size:21px;font-weight:800;letter-spacing:-0.5px;">Good afternoon</div>
+                <div style="font-size:12.5px;color:var(--text2);font-weight:500;">Hamim · Sat, 14 Nov 2026</div>
+              </div>
+              <div style="width:38px;height:38px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:14px;">H</div>
+            </div>
+
+            <!-- Unified Hero Card: Shows BOTH Budget Remaining AND Wallet Liquidity -->
+            <div class="hero-card">
+              <div class="row-between">
+                <span style="font-size:12px;color:var(--hero-text2);font-weight:600;">Left to spend · 17 days left</span>
+                <span class="pill-badge">12.1% used</span>
+              </div>
+              <div class="row-between" style="align-items:baseline;margin:4px 0 8px;">
+                <div style="font-size:36px;font-weight:800;letter-spacing:-1.2px;">
+                  <span class="tk">৳</span>17,581.50
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:11px;color:var(--hero-text2);">Safe today</div>
+                  <div style="font-size:15px;font-weight:800;color:var(--hero-bar);"><span class="tk">৳</span>1,034 / day</div>
+                </div>
+              </div>
+              <div style="height:5px;border-radius:99px;background:var(--hero-line);margin-bottom:12px;">
+                <div style="width:12.1%;height:100%;background:var(--hero-bar);border-radius:99px;"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1.2fr 1fr 1fr;border-top:1px solid var(--hero-line);padding-top:10px;font-size:12px;">
+                <div>
+                  <div style="color:var(--hero-text2);">In 3 wallets</div>
+                  <div style="font-size:14.5px;font-weight:800;"><span class="tk">৳</span>6,531.50</div>
+                </div>
+                <div style="border-left:1px solid var(--hero-line);padding-left:10px;">
+                  <div style="color:var(--hero-text2);">Out this month</div>
+                  <div style="font-size:14.5px;font-weight:700;"><span class="tk">৳</span>2,418.50</div>
+                </div>
+                <div style="border-left:1px solid var(--hero-line);padding-left:10px;">
+                  <div style="color:var(--hero-text2);">In this month</div>
+                  <div style="font-size:14.5px;font-weight:700;"><span class="tk">৳</span>2,500</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Horizontal 2x2 Compact Wallet Grid + Dues Pill -->
+            <div>
+              <div class="row-between" style="margin-bottom:7px;">
+                <span style="font-size:15px;font-weight:800;">Wallets &amp; Dues</span>
+                <span style="font-size:12.5px;font-weight:700;color:var(--accent);">Manage</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="card pad-sm" style="display:flex;align-items:center;gap:9px;">
+                  <div class="tile" style="width:30px;height:30px;background:var(--cash);color:#fff;">💵</div>
+                  <div>
+                    <div style="font-size:11.5px;color:var(--text2);font-weight:600;">Cash</div>
+                    <div style="font-size:14px;font-weight:800;"><span class="tk">৳</span>1,000</div>
+                  </div>
+                </div>
+                <div class="card pad-sm" style="display:flex;align-items:center;gap:9px;">
+                  <div class="tile" style="width:30px;height:30px;background:var(--bkash);color:#fff;">bK</div>
+                  <div>
+                    <div style="font-size:11.5px;color:var(--text2);font-weight:600;">bKash</div>
+                    <div style="font-size:14px;font-weight:800;"><span class="tk">৳</span>11,131.50</div>
+                  </div>
+                </div>
+                <div class="card pad-sm" style="display:flex;align-items:center;gap:9px;">
+                  <div class="tile" style="width:30px;height:30px;background:var(--card);color:#fff;">💳</div>
+                  <div>
+                    <div style="font-size:11.5px;color:var(--text2);font-weight:600;">Card · 4821</div>
+                    <div style="font-size:13.5px;font-weight:800;color:var(--danger);"><span class="tk">৳</span>5,600 due</div>
+                  </div>
+                </div>
+                <div class="card pad-sm" style="display:flex;align-items:center;gap:9px;">
+                  <div class="tile" style="width:30px;height:30px;background:var(--c-groc-bg);color:var(--c-groc-fg);">👥</div>
+                  <div>
+                    <div style="font-size:11.5px;color:var(--text2);font-weight:600;">People net</div>
+                    <div style="font-size:13.5px;font-weight:800;color:var(--in);">+<span class="tk">৳</span>200 due</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Transactions (Visible without scrolling past charts!) -->
+            <div>
+              <div class="row-between" style="margin-bottom:7px;">
+                <span style="font-size:15px;font-weight:800;">Recent</span>
+                <span style="font-size:12.5px;font-weight:700;color:var(--accent);">See all</span>
+              </div>
+              <div class="card flush">
+                <div class="list-row">
+                  <div class="tile" style="background:var(--c-food-bg);color:var(--c-food-fg);">🍽️</div>
+                  <div class="list-mid">
+                    <div class="list-title">Kacchi Bhai lunch</div>
+                    <div class="list-sub">Food &amp; Dining · bKash · 1:10 PM</div>
+                  </div>
+                  <div class="list-right">−<span class="tk">৳</span>480</div>
+                </div>
+                <div class="list-row">
+                  <div class="tile" style="background:var(--c-move-bg);color:var(--c-move-fg);">🛺</div>
+                  <div class="list-mid">
+                    <div class="list-title">Rickshaw to Banani</div>
+                    <div class="list-sub">Transport · Cash · 10:30 AM</div>
+                  </div>
+                  <div class="list-right">−<span class="tk">৳</span>80</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Spending Chart with Fixed Segmented Control -->
+            <div>
+              <div class="row-between" style="margin-bottom:7px;">
+                <span style="font-size:15px;font-weight:800;">Spending</span>
+                <div class="seg-ctrl">
+                  <span class="seg-item on">Day</span>
+                  <span class="seg-item">Week</span>
+                  <span class="seg-item">Month</span>
+                </div>
+              </div>
+              <div class="card pad-sm">
+                <div style="height:64px;display:flex;align-items:flex-end;gap:6px;padding-bottom:6px;border-bottom:1px solid var(--line);">
+                  <div style="flex:1;height:18%;background:var(--accent);opacity:0.35;border-radius:4px;"></div>
+                  <div style="flex:1;height:32%;background:var(--accent);opacity:0.35;border-radius:4px;"></div>
+                  <div style="flex:1;height:12%;background:var(--accent);opacity:0.35;border-radius:4px;"></div>
+                  <div style="flex:1;height:65%;background:var(--accent);opacity:0.35;border-radius:4px;"></div>
+                  <div style="flex:1;height:28%;background:var(--accent);opacity:0.35;border-radius:4px;"></div>
+                  <div style="flex:1;height:90%;background:var(--accent);opacity:0.45;border-radius:4px;"></div>
+                  <div style="flex:1;height:48%;background:var(--accent);border-radius:4px;"></div>
+                </div>
+                <div class="row-between" style="margin-top:6px;font-size:11px;color:var(--text2);font-weight:600;">
+                  <span>8 Nov</span><span>10 Nov</span><span>12 Nov</span><span style="color:var(--text);font-weight:800;">Today (<span class="tk">৳</span>560)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom Tab Bar -->
+          <nav class="tabbar">
+            <div class="tab on"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Ledger</span></div>
+            <div class="tab-add"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>Plan</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span>People</span></div>
+          </nav>
+        </div>
+        <div class="phone-caption">
+          <strong>Homepage · Active Month State (With Wallets &amp; Dues)</strong>
+          Answers all 3 questions without scrolling: Safe Today (<code>৳1,034/day</code>) + Left in Budget (<code>৳17,581.50</code>) + Wallets Total (<code>৳6,531.50</code>) + Recent expenses right above the fold.
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    function setTheme(mode, btn) {
+      document.documentElement.setAttribute('data-theme', mode);
+      const group = btn.parentElement;
+      Array.from(group.children).forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    function setAccent(accent, btn) {
+      document.documentElement.setAttribute('data-accent', accent);
+      const group = btn.parentElement;
+      Array.from(group.children).forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

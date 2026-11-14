@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LenDen Mockups Studio — 7 Welcome Slides &amp; Homepage (3 Directions)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #F6F5F1;
+    color: #16150F;
+    font-family: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .hub-header {
+    background: #FFFFFF;
+    border-bottom: 1px solid #E5E2DB;
+    padding: 14px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 24px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .hub-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hub-logo {
+    background: #123227;
+    color: #F3F6F4;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 5px 10px;
+    border-radius: 8px;
+    letter-spacing: 0.4px;
+  }
+  .hub-brand h1 {
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+  .hub-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    background: #EEEDE8;
+    border: 1px solid #E5E2DB;
+    border-radius: 12px;
+    padding: 3px;
+  }
+  .hub-tab {
+    border: none;
+    background: transparent;
+    color: #5F5C54;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 7px 14px;
+    border-radius: 9px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .hub-tab.active {
+    background: #123227;
+    color: #F3F6F4;
+  }
+  .hub-links {
+    display: flex;
+    gap: 10px;
+    font-size: 12.5px;
+    font-weight: 700;
+  }
+  .hub-links a {
+    color: #0B6B4B;
+    text-decoration: none;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: #E5F3EC;
+  }
+  .viewer-frame {
+    flex: 1;
+    width: 100%;
+    height: calc(100vh - 64px);
+    border: none;
+    display: block;
+  }
+</style>
+</head>
+<body>
+
+  <header class="hub-header">
+    <div class="hub-brand">
+      <span class="hub-logo">LenDen · লেনদেন</span>
+      <h1>7-Slide Welcome &amp; Homepage Redesign — 3 HTML Mockups</h1>
+    </div>
+
+    <div class="hub-tabs">
+      <button class="hub-tab active" onclick="loadMockup('mockup-1-editorial-clarity.html', this)">Mockup 1 · Editorial Clarity</button>
+      <button class="hub-tab" onclick="loadMockup('mockup-2-action-flow.html', this)">Mockup 2 · Action &amp; Flow First</button>
+      <button class="hub-tab" onclick="loadMockup('mockup-3-modern-notebook.html', this)">Mockup 3 · Modern Money Notebook</button>
+    </div>
+
+    <div class="hub-links">
+      <a id="open-direct" href="mockup-1-editorial-clarity.html" target="_blank">Open current mockup in full tab ↗</a>
+    </div>
+  </header>
+
+  <iframe id="mockup-iframe" class="viewer-frame" src="mockup-1-editorial-clarity.html" title="LenDen Mockup Viewer"></iframe>
+
+  <script>
+    function loadMockup(file, btn) {
+      document.getElementById('mockup-iframe').src = file;
+      document.getElementById('open-direct').href = file;
+      Array.from(btn.parentElement.children).forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>

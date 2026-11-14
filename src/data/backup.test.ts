@@ -274,6 +274,7 @@ async function seedComplexState(repo: MemoryRepo | SqliteRepo) {
   await repo.setSetting('name', 'Hamim');
   await repo.setSetting('avatarColorKey', 'violet');
   await repo.setSetting('currency', 'BDT');
+  await repo.setSetting('language', 'bn');
   await repo.setSetting('monthStartDay', 15);
   await repo.setSetting('onboardingDone', true);
   await repo.setSetting('theme', 'dark');
@@ -462,6 +463,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     delete v1Raw.data.due_entries;
     delete v1Raw.data.day_reviews;
     delete v1Raw.data.settings.lastBackupAt;
+    delete v1Raw.data.settings.language;
     delete v1Raw.data.settings.speechDisclosureAccepted;
     delete v1Raw.data.settings.lastUsedAccountId;
     delete v1Raw.data.settings.avatarColorKey;
@@ -490,6 +492,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     expect(migratedV1.data.people).toEqual([]);
     expect(migratedV1.data.due_entries).toEqual([]);
     expect(migratedV1.data.settings.lastBackupAt).toBeNull();
+    expect(migratedV1.data.settings.language).toBe('en');
     expect(migratedV1.data.settings.speechDisclosureAccepted).toBe(false);
     expect(migratedV1.data.settings.lastUsedAccountId).toBeNull();
     expect(migratedV1.data.settings.avatarColorKey).toBe('accent');

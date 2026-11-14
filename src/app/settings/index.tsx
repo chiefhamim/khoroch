@@ -24,15 +24,17 @@ import { formatCycleLabel, getPeriod } from '@/domain/period';
 import {
   ACCENT_THEMES,
   ALL_REMINDER_DAYS,
+  APP_LANGUAGES,
   CURRENCIES,
   SUN_THU_REMINDER_DAYS,
   type AccentTheme,
+  type AppLanguage,
   type CurrencyCode,
   type ReminderSettings,
   type ThemePreference,
 } from '@/domain/types';
 import { MAX_PROFILE_NAME_LENGTH } from '@/domain/validation';
-import { t, type TranslationKey } from '@/i18n';
+import { setLocale, t, type TranslationKey } from '@/i18n';
 import {
   getNotificationPermissionStatus,
   isNotificationsSupported,
@@ -113,6 +115,7 @@ export default function SettingsScreen() {
   const [nameSheetOpen, setNameSheetOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(settings.name);
 
+  const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
   const [currencySheetOpen, setCurrencySheetOpen] = useState(false);
 
   const [cycleSheetOpen, setCycleSheetOpen] = useState(false);
@@ -515,6 +518,18 @@ export default function SettingsScreen() {
         footer={hasTransactions ? t('settings.currencyLockedNote') : undefined}
       >
         <SettingsRow
+          testID="settings-language-row"
+          label={t('settings.languageLabel')}
+          value={
+            settings.language === 'bn' ? t('settings.languageBn') : t('settings.languageEn')
+          }
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setLanguageSheetOpen(true);
+          }}
+        />
+        <SettingsRow
           testID="settings-currency-row"
           label={t('settings.currencyLabel')}
           value={CURRENCY_SHORT[settings.currency]}
@@ -777,6 +792,40 @@ export default function SettingsScreen() {
           title={t('common.save')}
           onPress={() => void handleSaveName()}
         />
+      </Sheet>
+
+      {/* Language Sheet */}
+      <Sheet
+        testID="settings-language-sheet"
+        visible={languageSheetOpen}
+        onClose={() => setLanguageSheetOpen(false)}
+        title={t('settings.languageLabel')}
+      >
+        <Surface padded={false}>
+          {APP_LANGUAGES.map((code: AppLanguage, idx) => {
+            const active = settings.language === code;
+            const label = code === 'bn' ? 'বাংলা (Bangla)' : 'English';
+            return (
+              <ListRow
+                key={code}
+                testID={`settings-language-${code}`}
+                title={label}
+                showDivider={idx < APP_LANGUAGES.length - 1}
+                right={
+                  active ? (
+                    <AppIcon name="check" size={18} color={theme.colors.accent} />
+                  ) : null
+                }
+                onPress={() => {
+                  hapticSelection();
+                  setLocale(code);
+                  void updateSetting('language', code);
+                  setLanguageSheetOpen(false);
+                }}
+              />
+            );
+          })}
+        </Surface>
       </Sheet>
 
       {/* Currency Sheet */}

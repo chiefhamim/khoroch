@@ -1,9 +1,9 @@
 import { buildAppConfig } from '../../app.config';
 
 describe('app.config variants and S5 blockedPermissions', () => {
-  it('defaults to production LenDen configuration without release signing plugin', () => {
+  it('defaults to production Khoroch configuration without release signing plugin', () => {
     const cfg = buildAppConfig({}, {});
-    expect(cfg.name).toBe('LenDen');
+    expect(cfg.name).toBe('Khoroch');
     expect(cfg.scheme).toBe('budgetapp');
     expect(cfg.icon).toBe('./assets/images/icon.png');
     expect(cfg.android?.package).toBe('com.hamim.budgetapp');
@@ -21,7 +21,7 @@ describe('app.config variants and S5 blockedPermissions', () => {
 
   it('switches package, app name, scheme, and icons cleanly when APP_VARIANT=dev', () => {
     const cfg = buildAppConfig({}, { appVariant: 'dev' });
-    expect(cfg.name).toBe('LenDen Dev');
+    expect(cfg.name).toBe('Khoroch Dev');
     expect(cfg.scheme).toBe('budgetapp-dev');
     expect(cfg.icon).toBe('./assets/images/icon-dev.png');
     expect(cfg.android?.package).toBe('com.hamim.budgetapp.dev');

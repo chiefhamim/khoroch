@@ -1,7 +1,13 @@
 import { create } from 'zustand';
 import { WALLET_PRESETS, type WalletPresetKey } from '@/domain/accounts';
 import { DEFAULT_EXPENSE_CATEGORIES } from '@/domain/categories';
-import { ALL_REMINDER_DAYS, type CurrencyCode, type ReminderDays } from '@/domain/types';
+import {
+  ALL_REMINDER_DAYS,
+  type AccentTheme,
+  type CurrencyCode,
+  type ReminderDays,
+  type ThemePreference,
+} from '@/domain/types';
 
 export interface OnboardingWalletDraft {
   presetKey: WalletPresetKey;
@@ -26,6 +32,9 @@ function buildDefaultWalletDrafts(): OnboardingWalletDraft[] {
 }
 
 export interface OnboardingDraftState {
+  language: 'en' | 'bn';
+  theme: ThemePreference;
+  accent: AccentTheme;
   name: string;
   currency: CurrencyCode;
   monthStartDay: number;
@@ -35,6 +44,9 @@ export interface OnboardingDraftState {
   reminderTime: string;
   reminderDays: ReminderDays;
   walletDrafts: OnboardingWalletDraft[];
+  setLanguage: (language: 'en' | 'bn') => void;
+  setTheme: (theme: ThemePreference) => void;
+  setAccent: (accent: AccentTheme) => void;
   setName: (name: string) => void;
   setCurrency: (currency: CurrencyCode) => void;
   setMonthStartDay: (day: number) => void;
@@ -55,6 +67,9 @@ export interface OnboardingDraftState {
 const DEFAULT_SELECTED = DEFAULT_EXPENSE_CATEGORIES.slice(0, 10).map((c) => c.id);
 
 export const useOnboardingDraft = create<OnboardingDraftState>((set) => ({
+  language: 'en',
+  theme: 'system',
+  accent: 'forest',
   name: '',
   currency: 'BDT',
   monthStartDay: 1,
@@ -64,6 +79,9 @@ export const useOnboardingDraft = create<OnboardingDraftState>((set) => ({
   reminderTime: '21:00',
   reminderDays: [...ALL_REMINDER_DAYS],
   walletDrafts: buildDefaultWalletDrafts(),
+  setLanguage: (language) => set({ language }),
+  setTheme: (theme) => set({ theme }),
+  setAccent: (accent) => set({ accent }),
   setName: (name) => set({ name }),
   setCurrency: (currency) => set({ currency }),
   setMonthStartDay: (monthStartDay) => set({ monthStartDay }),
@@ -95,6 +113,9 @@ export const useOnboardingDraft = create<OnboardingDraftState>((set) => ({
     })),
   reset: () =>
     set({
+      language: 'en',
+      theme: 'system',
+      accent: 'forest',
       name: '',
       currency: 'BDT',
       monthStartDay: 1,

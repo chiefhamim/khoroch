@@ -22,8 +22,8 @@ import { isDevVariant } from "@/config/appVariant";
 
 import { initRepo } from "@/data/db";
 import { DEFAULT_SETTINGS, type Repo } from "@/data/repo";
-import type { Settings } from "@/domain/types";
-import { t } from "@/i18n";
+import { normalizeAppLanguage, type Settings } from "@/domain/types";
+import { setLocale, t } from "@/i18n";
 import {
   configureNotificationHandler,
   subscribeToCheckInResponses,
@@ -144,6 +144,7 @@ export default function RootLayout() {
         const { repo, backend } = await initRepo();
         const settings = await repo.getSettings();
         if (!cancelled) {
+          setLocale(normalizeAppLanguage(settings.language));
           setRepoState({ repo, backend, settings });
           if (
             settings.onboardingDone &&
@@ -183,14 +184,19 @@ export default function RootLayout() {
   const refreshSettings = useCallback(async () => {
     if (!repoState) return;
     const latest = await repoState.repo.getSettings();
+    setLocale(normalizeAppLanguage(latest.language));
     setRepoState((prev) => (prev ? { ...prev, settings: latest } : null));
   }, [repoState]);
 
   const updateSetting = useCallback(
     async <K extends keyof Settings>(key: K, value: Settings[K]) => {
       if (!repoState) return;
+      if (key === "language") {
+        setLocale(normalizeAppLanguage(value));
+      }
       await repoState.repo.setSetting(key, value);
       const latest = await repoState.repo.getSettings();
+      setLocale(normalizeAppLanguage(latest.language));
       setRepoState((prev) => (prev ? { ...prev, settings: latest } : null));
       bumpDataVersion();
     },

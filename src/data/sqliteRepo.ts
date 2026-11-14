@@ -11,6 +11,7 @@ import {
 } from '@/domain/validation';
 import {
   normalizeAccentTheme,
+  normalizeAppLanguage,
   normalizeAvatarColorKey,
   normalizeHomeSections,
   normalizeReminderSettings,
@@ -147,6 +148,7 @@ const SETTING_DB_KEYS: Record<keyof Settings, string> = {
   name: 'name',
   avatarColorKey: 'avatar_color_key',
   currency: 'currency',
+  language: 'language',
   monthStartDay: 'month_start_day',
   theme: 'theme',
   accent: 'theme_accent',
@@ -1283,6 +1285,10 @@ export class SqliteRepo implements Repo {
         DEFAULT_SETTINGS.avatarColorKey
       ),
       currency: parseJson(SETTING_DB_KEYS.currency, DEFAULT_SETTINGS.currency),
+      language: normalizeAppLanguage(
+        parseJson<unknown>(SETTING_DB_KEYS.language, DEFAULT_SETTINGS.language),
+        DEFAULT_SETTINGS.language
+      ),
       monthStartDay: parseJson(SETTING_DB_KEYS.monthStartDay, DEFAULT_SETTINGS.monthStartDay),
       theme: parseJson(SETTING_DB_KEYS.theme, DEFAULT_SETTINGS.theme),
       accent: normalizeAccentTheme(

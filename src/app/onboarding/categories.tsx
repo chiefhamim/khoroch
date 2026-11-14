@@ -5,13 +5,15 @@ import { DEFAULT_EXPENSE_CATEGORIES } from '@/domain/categories';
 import { t } from '@/i18n';
 import { useOnboardingDraft } from '@/state/onboardingStore';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { hapticSelection } from '@/ui/haptics';
 import { IconTile } from '@/ui/IconTile';
 import { OnboardingHeader } from '@/ui/OnboardingHeader';
-import { Screen } from '@/ui/Screen';
 import { PressableScale } from '@/ui/PressableScale';
+import { Screen } from '@/ui/Screen';
+import { Surface } from '@/ui/Surface';
 
 export default function OnboardingCategoriesScreen() {
   const { theme, reducedMotion } = useTheme();
@@ -24,59 +26,82 @@ export default function OnboardingCategoriesScreen() {
       edges={['top', 'bottom', 'left', 'right']}
       contentContainerStyle={styles.container}
     >
-      <View style={{ gap: theme.spacing.lg }}>
+      <View style={{ gap: theme.spacing.md }}>
         <OnboardingHeader
           step={4}
-          title={t('onboarding.categoriesTitle')}
-          subtitle={t('onboarding.categoriesSubtitle')}
+          title={t('onboarding.pinCategoriesTitle')}
+          subtitle={t('onboarding.pinCategoriesSub')}
         />
 
-        <View style={[styles.grid, { gap: theme.spacing.sm }]}>
-          {DEFAULT_EXPENSE_CATEGORIES.map((cat) => {
+        <Surface padded={false}>
+          {DEFAULT_EXPENSE_CATEGORIES.map((cat, idx) => {
             const selected = selectedCategoryIds.includes(cat.id);
             return (
-              <PressableScale pressScale={0.98}
-                key={cat.id}
-                testID={`onboarding-cat-${cat.id}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                onPress={() => {
-                  hapticSelection();
-                  toggleCategory(cat.id);
-                }}
-                style={({ pressed }) => [
-                  styles.pill,
-                  {
-                    backgroundColor: selected
-                      ? theme.colors.accentSoft
-                      : theme.colors.surface,
-                    borderColor: selected ? theme.colors.accent : 'transparent',
-                    borderRadius: theme.radius.pill,
-                    paddingLeft: 6,
-                    paddingRight: theme.spacing.md,
-                    paddingVertical: 6,
-                    gap: theme.spacing.xs + 2,
-                    opacity: pressed && !reducedMotion ? 0.78 : 1,
-                  },
-                ]}
-              >
-                <IconTile
-                  icon={cat.icon}
-                  colorKey={cat.colorKey}
-                  size="sm"
-                  selected={selected}
-                />
-                <AppText
-                  variant="label"
-                  color={selected ? 'accent' : 'text'}
-                  numberOfLines={1}
+              <React.Fragment key={cat.id}>
+                {idx > 0 ? (
+                  <View
+                    style={{
+                      height: 1,
+                      backgroundColor: theme.colors.separator,
+                    }}
+                  />
+                ) : null}
+                <PressableScale
+                  pressScale={0.99}
+                  testID={`onboarding-cat-${cat.id}`}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => {
+                    hapticSelection();
+                    toggleCategory(cat.id);
+                  }}
+                  style={({ pressed }) => [
+                    styles.registerRow,
+                    {
+                      backgroundColor: selected
+                        ? theme.colors.surface
+                        : theme.colors.surface,
+                      opacity: pressed && !reducedMotion ? 0.8 : 1,
+                    },
+                  ]}
                 >
-                  {cat.name}
-                </AppText>
-              </PressableScale>
+                  <IconTile
+                    icon={cat.icon}
+                    colorKey={cat.colorKey}
+                    size={34}
+                    selected={selected}
+                  />
+                  <View style={styles.rowMid}>
+                    <AppText
+                      variant="bodyStrong"
+                      color={selected ? 'text' : 'textSecondary'}
+                      numberOfLines={1}
+                    >
+                      {cat.name}
+                    </AppText>
+                  </View>
+                  <View
+                    style={[
+                      styles.checkbox,
+                      {
+                        backgroundColor: selected
+                          ? theme.colors.accent
+                          : 'transparent',
+                        borderColor: selected
+                          ? theme.colors.accent
+                          : theme.colors.cardBorder,
+                      },
+                    ]}
+                  >
+                    {selected ? (
+                      <AppIcon name="check" size={13} color={theme.colors.onAccent} />
+                    ) : null}
+                  </View>
+                </PressableScale>
+              </React.Fragment>
             );
           })}
-        </View>
+        </Surface>
       </View>
 
       <View style={[styles.navRow, { gap: theme.spacing.sm, paddingTop: theme.spacing.lg }]}>
@@ -88,7 +113,9 @@ export default function OnboardingCategoriesScreen() {
         />
         <Button
           testID="onboarding-categories-continue"
-          title={t('common.continue')}
+          title={t('onboarding.continueSelectedCount', {
+            count: selectedCategoryIds.length,
+          })}
           onPress={() => router.push('/onboarding/reminder')}
           style={styles.navBtnPrimary}
         />
@@ -102,15 +129,25 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'space-between',
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  pill: {
+  registerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minHeight: 48,
+    gap: 12,
+  },
+  rowMid: {
+    flex: 1,
+    minWidth: 0,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   navRow: {
     flexDirection: 'row',

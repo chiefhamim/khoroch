@@ -381,4 +381,72 @@ describe('Overview Scenario A integration', () => {
       expect(view.getByLabelText('৳6,531.50')).toBeTruthy();
     });
   });
+
+  it('supports In-Hero mode switching (Budget plan | Wallets), Today Daybook card, and Wallets proportion bar', async () => {
+    const repo = await seedScenarioARepo();
+    await repo.insertAccount({
+      id: 'acc_bkash',
+      name: 'bKash',
+      kind: 'mobile_wallet',
+      provider: 'bkash',
+      colorKey: '#E2136E',
+      monogram: 'bK',
+      openingBalanceMinor: 1_200_000,
+      openingDate: '2026-11-01',
+      includeInTotal: true,
+      sortOrder: 0,
+    });
+    await repo.insertAccount({
+      id: 'acc_cash',
+      name: 'Cash',
+      kind: 'cash',
+      colorKey: '#123227',
+      openingBalanceMinor: 300_000,
+      openingDate: '2026-11-01',
+      includeInTotal: true,
+      sortOrder: 1,
+    });
+
+    const settings = await repo.getSettings();
+    const view = await render(
+      <AppContext.Provider
+        value={{
+          repo,
+          backend: 'memory',
+          settings,
+          updateSetting: async (k, v) => {
+            await repo.setSetting(k, v);
+          },
+          refreshSettings: async () => {},
+        }}
+      >
+        <ThemeProvider preference="light">
+          <OverviewContent todayOverride="2026-11-13" hourOverride={14} />
+        </ThemeProvider>
+      </AppContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(view.getByTestId('overview-hero-switcher')).toBeTruthy();
+      expect(view.getByTestId('hero-remaining-amount')).toBeTruthy();
+      expect(view.getByTestId('hero-wallets-total')).toBeTruthy();
+    });
+
+    expect(view.getByTestId('overview-daybook-card')).toBeTruthy();
+    expect(view.getByTestId('overview-quick-entry-btn')).toBeTruthy();
+    expect(view.getByTestId('overview-check-in-btn')).toBeTruthy();
+    expect(view.getByTestId('overview-wallets-proportion-bar')).toBeTruthy();
+
+    // Switch Hero card to Wallets mode
+    await fireEvent.press(view.getByTestId('overview-hero-tab-wallets'));
+    await waitFor(() => {
+      expect(view.getByText('Across 2 wallets')).toBeTruthy();
+    });
+
+    // Switch Hero card back to Budget plan mode
+    await fireEvent.press(view.getByTestId('overview-hero-tab-budget'));
+    await waitFor(() => {
+      expect(view.getByText(t('overview.leftToSpend'))).toBeTruthy();
+    });
+  });
 });

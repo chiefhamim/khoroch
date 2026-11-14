@@ -1,0 +1,1370 @@
+<!doctype html>
+<html lang="en" data-theme="light" data-accent="forest">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LenDen Mockup 2 — Action &amp; Flow First (7 Onboarding Slides + Homepage)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root, [data-theme="light"] {
+    --bg: #F6F5F1;
+    --surface: #FFFFFF;
+    --surface-raised: #FFFFFF;
+    --sunken: #EEEDE8;
+    --line: #E5E2DB;
+    --text: #16150F;
+    --text2: #5F5C54;
+    --text3: #6E6B63;
+    --ink: #16150F;
+    --on-ink: #F6F5F1;
+    --in: #0B7A55;
+    --in-soft: #E5F5EE;
+    --warn: #964207;
+    --warn-bg: #FBF1E4;
+    --danger: #B42318;
+    --danger-soft: #FDECEA;
+    --page-bg: #E7E5DE;
+  }
+
+  [data-theme="dark"] {
+    --bg: #0B0B0C;
+    --surface: #151517;
+    --surface-raised: #1C1C1F;
+    --sunken: #1C1C1F;
+    --line: #26262A;
+    --text: #F2F1EE;
+    --text2: #A6A39C;
+    --text3: #8E8B84;
+    --ink: #F2F1EE;
+    --on-ink: #0B0B0C;
+    --in: #4CCB97;
+    --in-soft: #10291F;
+    --warn: #F2B04A;
+    --warn-bg: #2A2013;
+    --danger: #F08A7E;
+    --danger-soft: #2E1615;
+    --page-bg: #050506;
+  }
+
+  [data-theme="black"] {
+    --bg: #000000;
+    --surface: #0B0B0D;
+    --surface-raised: #141417;
+    --sunken: #141417;
+    --line: #222226;
+    --text: #F2F1EE;
+    --text2: #A6A39C;
+    --text3: #8E8B84;
+    --ink: #F2F1EE;
+    --on-ink: #000000;
+    --in: #4CCB97;
+    --in-soft: #0D2219;
+    --warn: #F2B04A;
+    --warn-bg: #241B10;
+    --danger: #F08A7E;
+    --danger-soft: #2A1212;
+    --page-bg: #000000;
+  }
+
+  [data-accent="forest"][data-theme="light"] {
+    --accent: #0B6B4B; --on-accent: #FFFFFF; --accent-soft: #E5F3EC;
+    --hero: #123227; --hero-text: #F3F6F4; --hero-text2: #C2CDC7; --hero-line: rgba(243,246,244,0.14); --hero-bar: #5FD3A3;
+  }
+  [data-accent="forest"][data-theme="dark"], [data-accent="forest"][data-theme="black"] {
+    --accent: #4CCB97; --on-accent: #04231A; --accent-soft: #10291F;
+    --hero: #173A2C; --hero-text: #F3F6F4; --hero-text2: #B8C7C0; --hero-line: rgba(243,246,244,0.12); --hero-bar: #4CCB97;
+  }
+  [data-accent="ocean"][data-theme="light"] {
+    --accent: #1B4D99; --on-accent: #FFFFFF; --accent-soft: #EAF1FC;
+    --hero: #1B2F5C; --hero-text: #F3F6F4; --hero-text2: #C2CDC7; --hero-line: rgba(243,246,244,0.14); --hero-bar: #7FB2F0;
+  }
+  [data-accent="ocean"][data-theme="dark"], [data-accent="ocean"][data-theme="black"] {
+    --accent: #7FB2F0; --on-accent: #0B1B33; --accent-soft: #132036;
+    --hero: #1A2D57; --hero-text: #F3F6F4; --hero-text2: #B9C5D9; --hero-line: rgba(243,246,244,0.12); --hero-bar: #7FB2F0;
+  }
+  [data-accent="saffron"][data-theme="light"] {
+    --accent: #9A3B12; --on-accent: #FFFFFF; --accent-soft: #F9EDE6;
+    --hero: #7A2E12; --hero-text: #F3F6F4; --hero-text2: #D1C7C2; --hero-line: rgba(243,246,244,0.16); --hero-bar: #F5B864;
+  }
+  [data-accent="saffron"][data-theme="dark"], [data-accent="saffron"][data-theme="black"] {
+    --accent: #F0A35E; --on-accent: #2A1205; --accent-soft: #2D1B12;
+    --hero: #4A2414; --hero-text: #F3F6F4; --hero-text2: #D2BEB3; --hero-line: rgba(243,246,244,0.14); --hero-bar: #F0A35E;
+  }
+  [data-accent="plum"][data-theme="light"] {
+    --accent: #5B2C82; --on-accent: #FFFFFF; --accent-soft: #F3ECF9;
+    --hero: #43245E; --hero-text: #F3F6F4; --hero-text2: #C2CDC7; --hero-line: rgba(243,246,244,0.14); --hero-bar: #D4B0FA;
+  }
+  [data-accent="plum"][data-theme="dark"], [data-accent="plum"][data-theme="black"] {
+    --accent: #C59DF5; --on-accent: #1F0F30; --accent-soft: #231732;
+    --hero: #34204D; --hero-text: #F3F6F4; --hero-text2: #C6BAD6; --hero-line: rgba(243,246,244,0.12); --hero-bar: #C59DF5;
+  }
+  [data-accent="graphite"][data-theme="light"] {
+    --accent: #26262A; --on-accent: #FFFFFF; --accent-soft: #EAEAE6;
+    --hero: #26262A; --hero-text: #F3F6F4; --hero-text2: #C2CDC7; --hero-line: rgba(243,246,244,0.14); --hero-bar: #C9C6BE;
+  }
+  [data-accent="graphite"][data-theme="dark"], [data-accent="graphite"][data-theme="black"] {
+    --accent: #C4C4CC; --on-accent: #121214; --accent-soft: #222226;
+    --hero: #232327; --hero-text: #F3F6F4; --hero-text2: #C1C1C7; --hero-line: rgba(243,246,244,0.12); --hero-bar: #C4C4CC;
+  }
+
+  :root {
+    --bkash: #E2136E; --nagad: #F15A22; --upay: #0F4C9C; --cash: #0B6B4B; --bank: #1E3A8A; --card: #334155;
+    --c-food-bg: #FDECE6; --c-food-fg: #C93B14;
+    --c-groc-bg: #E6F4EA; --c-groc-fg: #1E7E34;
+    --c-move-bg: #E8F1FD; --c-move-fg: #1967D2;
+    --c-bills-bg: #FEF3DE; --c-bills-fg: #B06000;
+    --c-shop-bg: #FCE8F1; --c-shop-fg: #B81D65;
+    --c-home-bg: #EFEBE9; --c-home-fg: #5D4037;
+    --c-tea-bg: #F3ECF9; --c-tea-fg: #673AB7;
+  }
+  [data-theme="dark"], [data-theme="black"] {
+    --c-food-bg: #2E1812; --c-food-fg: #F28B6D;
+    --c-groc-bg: #12281A; --c-groc-fg: #6DD58C;
+    --c-move-bg: #122238; --c-move-fg: #8AB4F8;
+    --c-bills-bg: #2D2110; --c-bills-fg: #FDD663;
+    --c-shop-bg: #2E1421; --c-shop-fg: #F48FB1;
+    --c-home-bg: #241E1C; --c-home-fg: #BCAAA4;
+    --c-tea-bg: #221830; --c-tea-fg: #C59DF5;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--page-bg);
+    color: var(--text);
+    font-family: "Manrope", -apple-system, BlinkMacSystemFont, sans-serif;
+    padding: 0 0 80px;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .studio-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 24px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .studio-title { display: flex; align-items: center; gap: 10px; }
+  .studio-badge {
+    background: var(--hero);
+    color: var(--hero-text);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 6px;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .studio-title h1 { font-size: 16px; font-weight: 800; letter-spacing: -0.3px; }
+  .studio-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .ctrl-group {
+    display: flex;
+    align-items: center;
+    background: var(--sunken);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 2px;
+    gap: 2px;
+  }
+  .ctrl-btn {
+    border: none;
+    background: transparent;
+    color: var(--text2);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 6px 11px;
+    border-radius: 7px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .ctrl-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .swatch-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    margin: 0 2px;
+  }
+  .swatch-btn.active { border-color: var(--text); transform: scale(1.1); }
+
+  .container { max-width: 1440px; margin: 0 auto; padding: 28px 24px 0; }
+  .audit-banner {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 20px 24px;
+    margin-bottom: 32px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 18px;
+  }
+  .audit-col h3 {
+    font-size: 13px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .audit-col p, .audit-col li { font-size: 13.5px; line-height: 1.55; color: var(--text2); }
+  .audit-col ul { padding-left: 16px; }
+
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 36px 0 18px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 12px;
+  }
+  .section-head h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.5px; }
+  .section-head span { font-size: 13.5px; color: var(--text2); font-weight: 500; }
+
+  .phones-grid { display: flex; flex-wrap: wrap; gap: 28px 22px; justify-content: flex-start; }
+  .phone-col { width: 360px; flex: 0 0 360px; display: flex; flex-direction: column; gap: 10px; }
+  .phone-caption {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text2);
+  }
+  .phone-caption strong { display: block; color: var(--text); font-size: 13.5px; margin-bottom: 3px; }
+
+  .phone {
+    width: 360px;
+    height: 780px;
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 38px;
+    border: 7px solid #18181B;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .status-bar {
+    height: 32px;
+    padding: 0 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .status-icons { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+  .screen-body {
+    flex: 1;
+    padding: 8px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .screen-body::-webkit-scrollbar { display: none; }
+  .screen-scroll {
+    flex: 1;
+    padding: 6px 20px 82px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    scrollbar-width: none;
+  }
+  .screen-scroll::-webkit-scrollbar { display: none; }
+
+  .tk {
+    font-family: "Hind Siliguri", sans-serif;
+    font-weight: 600;
+    font-size: 0.6em;
+    line-height: 1;
+    vertical-align: top;
+    position: relative;
+    top: 0.08em;
+    margin-right: 0.05em;
+    display: inline-block;
+  }
+
+  /* Mockup 2 Top Nav: Numbered Pill + Compact Track + Skip */
+  .m2-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .m2-step-pill {
+    font-size: 11.5px;
+    font-weight: 800;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 4px 10px;
+    border-radius: 999px;
+    color: var(--text);
+  }
+  .m2-track {
+    flex: 1;
+    height: 4px;
+    background: var(--sunken);
+    border-radius: 99px;
+    margin: 0 12px;
+    overflow: hidden;
+  }
+  .m2-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 99px;
+  }
+  .m2-skip {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text2);
+  }
+  .ob-title { font-size: 24px; line-height: 29px; font-weight: 800; letter-spacing: -0.6px; margin-bottom: 4px; }
+  .ob-sub { font-size: 13px; line-height: 18px; color: var(--text2); font-weight: 500; margin-bottom: 14px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px;
+  }
+  .card.pad-sm { padding: 11px 13px; }
+  .card.flush { padding: 0; overflow: hidden; }
+  .card.selected {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .hero-card {
+    background: var(--hero);
+    color: var(--hero-text);
+    border-radius: 20px;
+    padding: 18px;
+  }
+  .row-between { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .pill-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 4px 9px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.12);
+    color: var(--hero-text);
+  }
+  .pill-badge.accent { background: var(--accent-soft); color: var(--accent); }
+
+  /* 2-Column Bento Grid for Categories & Scenarios */
+  .bento-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .bento-item {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 10px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .bento-item.on {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+  .btn {
+    height: 48px;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    font-family: inherit;
+    font-size: 14.5px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    width: 100%;
+  }
+  .btn-primary { background: var(--ink); color: var(--on-ink); }
+  .btn-accent { background: var(--accent); color: var(--on-accent); }
+  .btn-secondary { background: var(--surface); color: var(--text); border-color: var(--line); }
+  .btn-back { flex: 0 0 84px; }
+  .btn-next { flex: 1; }
+
+  .tile {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    font-weight: 800;
+    font-size: 12px;
+  }
+  .list-row { display: flex; align-items: center; gap: 11px; padding: 11px 14px; }
+  .list-row + .list-row { border-top: 1px solid var(--line); }
+  .list-mid { flex: 1; min-width: 0; }
+  .list-title { font-size: 14px; font-weight: 700; color: var(--text); }
+  .list-sub { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .list-right { text-align: right; font-size: 14px; font-weight: 700; white-space: nowrap; }
+
+  .chip-wrap { display: flex; flex-wrap: wrap; gap: 7px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+
+  .mini-keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+  .key {
+    height: 36px;
+    border-radius: 10px;
+    background: var(--sunken);
+    color: var(--text);
+    display: grid;
+    place-items: center;
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .seg-ctrl {
+    display: inline-grid;
+    grid-template-columns: repeat(3, minmax(54px, auto));
+    background: var(--sunken);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg-item {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 7px;
+    color: var(--text2);
+    white-space: nowrap;
+  }
+  .seg-item.on {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  /* 4-Pill Action Dock */
+  .action-dock {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .dock-btn {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    padding: 8px 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .dock-btn.primary {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .tabbar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 62px;
+    background: var(--bg);
+    border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: center;
+    padding: 0 6px;
+  }
+  .tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text3);
+  }
+  .tab.on { color: var(--text); font-weight: 700; }
+  .tab svg { width: 19px; height: 19px; stroke: currentColor; stroke-width: 2; fill: none; }
+  .tab-add {
+    width: 44px;
+    height: 44px;
+    border-radius: 13px;
+    background: var(--ink);
+    color: var(--on-ink);
+    display: grid;
+    place-items: center;
+    margin: 0 auto;
+  }
+  .tab-add svg { width: 21px; height: 21px; stroke: currentColor; stroke-width: 2.4; }
+</style>
+</head>
+<body>
+
+  <!-- TOP STUDIO BAR -->
+  <header class="studio-bar">
+    <div class="studio-title">
+      <span class="studio-badge">Mockup 2 of 3</span>
+      <h1>Action &amp; Flow First — Tactile Thumb-Zone &amp; Daily Pace</h1>
+    </div>
+    <div class="studio-controls">
+      <div class="ctrl-group">
+        <a class="ctrl-btn" href="index.html">All 3 Hub</a>
+        <a class="ctrl-btn" href="mockup-1-editorial-clarity.html">1 · Editorial Clarity</a>
+        <a class="ctrl-btn active" href="mockup-2-action-flow.html">2 · Action &amp; Flow</a>
+        <a class="ctrl-btn" href="mockup-3-modern-notebook.html">3 · Modern Notebook</a>
+      </div>
+      <div class="ctrl-group">
+        <button class="ctrl-btn active" onclick="setTheme('light', this)">Light</button>
+        <button class="ctrl-btn" onclick="setTheme('dark', this)">Dark</button>
+        <button class="ctrl-btn" onclick="setTheme('black', this)">OLED Black</button>
+      </div>
+      <div class="ctrl-group" style="padding: 4px 8px;">
+        <button class="swatch-btn active" style="background:#123227" title="Forest" onclick="setAccent('forest', this)"></button>
+        <button class="swatch-btn" style="background:#1B2F5C" title="Ocean" onclick="setAccent('ocean', this)"></button>
+        <button class="swatch-btn" style="background:#7A2E12" title="Saffron" onclick="setAccent('saffron', this)"></button>
+        <button class="swatch-btn" style="background:#43245E" title="Plum" onclick="setAccent('plum', this)"></button>
+        <button class="swatch-btn" style="background:#26262A" title="Graphite" onclick="setAccent('graphite', this)"></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <section class="audit-banner">
+      <div class="audit-col">
+        <h3>Design Philosophy</h3>
+        <p>Inspired by <strong>Copilot Money &amp; Wise</strong>: puts the primary question (<em>"How much is safe to spend today?"</em>) at 40px at the top of the Hero Card, clusters actions into a 4-pill thumb dock, and merges Spending + Top Categories into one card.</p>
+      </div>
+      <div class="audit-col">
+        <h3>7-Slide Onboarding Philosophy</h3>
+        <ul>
+          <li><strong>Scenario Cards (Slide 2):</strong> Choose <code>Calendar Month (1st)</code> vs <code>Salary Day (5th/10th/25th)</code> in 1 tap.</li>
+          <li><strong>Linked Daily ↔ Monthly Math (Slide 3):</strong> Pick either your Monthly Cap or your Daily Safe Target.</li>
+          <li><strong>2-Column Bento Grid (Slide 4):</strong> Tactile category cards with real Bangladeshi examples.</li>
+        </ul>
+      </div>
+      <div class="audit-col">
+        <h3>Focused Wallet Carousel (Slide 6)</h3>
+        <p>Instead of stacking multiple multi-field forms on one page, Slide 6 uses a <strong>single focused wallet card + keypad</strong> with a <code>Next wallet →</code> button so you can set up Cash, bKash, and Card in 6 seconds flat.</p>
+      </div>
+    </section>
+
+    <!-- ====================================================================
+         PART 1: THE 7 WELCOME & ONBOARDING SLIDES (ACTION & FLOW)
+         ==================================================================== -->
+    <div class="section-head">
+      <h2>Part 1 · The 7 Welcome &amp; Onboarding Slides (Action &amp; Flow)</h2>
+      <span>Designed for one-handed thumb speed, scenario cards, and linked daily/monthly math</span>
+    </div>
+
+    <div class="phones-grid">
+
+      <!-- SLIDE 1: WELCOME -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="m2-top">
+                <span class="m2-step-pill">01 / 07</span>
+                <div class="m2-track"><div class="m2-fill" style="width:14%"></div></div>
+                <span class="m2-skip">Offline · Private</span>
+              </div>
+              <h1 class="ob-title">Three answers, every time you open LenDen.</h1>
+              <p class="ob-sub">No bank login, no cloud tracking, no clutter. Just your daily money notebook.</p>
+
+              <!-- 3 Interactive Question-Answer Preview Cards -->
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+                <div class="card pad-sm" style="border-left:4px solid var(--accent);">
+                  <div class="row-between">
+                    <span style="font-size:11.5px;font-weight:700;color:var(--text2);">1 · CAN I SPEND RIGHT NOW?</span>
+                    <span class="pill-badge accent">Safe today</span>
+                  </div>
+                  <div class="row-between" style="margin-top:4px;">
+                    <span style="font-size:14px;font-weight:700;">Daily safe allowance</span>
+                    <span style="font-size:18px;font-weight:800;color:var(--accent);"><span class="tk">৳</span>1,176 / day</span>
+                  </div>
+                </div>
+
+                <div class="card pad-sm" style="border-left:4px solid var(--bkash);">
+                  <div class="row-between">
+                    <span style="font-size:11.5px;font-weight:700;color:var(--text2);">2 · WHAT IS IN MY WALLETS?</span>
+                    <span style="font-size:11px;font-weight:700;color:var(--bkash);">Cash · bKash · Bank</span>
+                  </div>
+                  <div class="row-between" style="margin-top:4px;">
+                    <span style="font-size:14px;font-weight:700;">Live across 3 wallets</span>
+                    <span style="font-size:18px;font-weight:800;"><span class="tk">৳</span>12,131.50</span>
+                  </div>
+                </div>
+
+                <div class="card pad-sm" style="border-left:4px solid var(--in);">
+                  <div class="row-between">
+                    <span style="font-size:11.5px;font-weight:700;color:var(--text2);">3 · WHO OWES WHOM?</span>
+                    <span style="font-size:11px;font-weight:700;color:var(--in);">People &amp; Dues</span>
+                  </div>
+                  <div class="row-between" style="margin-top:4px;">
+                    <span style="font-size:14px;font-weight:700;">Sumi owes you · Separate from budget</span>
+                    <span style="font-size:18px;font-weight:800;color:var(--in);">+<span class="tk">৳</span>500</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Pick your look right on Slide 1 -->
+              <div class="card pad-sm">
+                <div class="row-between">
+                  <span style="font-size:12px;font-weight:700;color:var(--text2);">Choose your accent</span>
+                  <div style="display:flex;gap:7px;">
+                    <span style="width:20px;height:20px;border-radius:50%;background:#123227;border:2px solid var(--text);"></span>
+                    <span style="width:20px;height:20px;border-radius:50%;background:#1B2F5C;"></span>
+                    <span style="width:20px;height:20px;border-radius:50%;background:#7A2E12;"></span>
+                    <span style="width:20px;height:20px;border-radius:50%;background:#43245E;"></span>
+                    <span style="width:20px;height:20px;border-radius:50%;background:#26262A;"></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-accent">Set up my notebook →</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 1 · Welcome (3 Core Questions)</strong>
+          Frames LenDen around the 3 concrete daily questions it answers, with real numbers and an instant accent picker.
+        </div>
+      </div>
+
+      <!-- SLIDE 2: PREFERENCES (SCENARIO CARDS) -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="m2-top">
+                <span class="m2-step-pill">02 / 07</span>
+                <div class="m2-track"><div class="m2-fill" style="width:28%"></div></div>
+                <span class="m2-skip">Basics</span>
+              </div>
+              <h1 class="ob-title">How does your month work?</h1>
+              <p class="ob-sub">We align your budget cycle with the day you actually get paid or plan ahead.</p>
+
+              <!-- Name + Currency Inline Row -->
+              <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:8px;margin-bottom:12px;">
+                <div class="card pad-sm">
+                  <div style="font-size:10.5px;font-weight:700;color:var(--text2);">YOUR NAME</div>
+                  <div style="font-size:15px;font-weight:800;margin-top:3px;">Hamim</div>
+                </div>
+                <div class="card pad-sm">
+                  <div style="font-size:10.5px;font-weight:700;color:var(--text2);">CURRENCY</div>
+                  <div style="font-size:15px;font-weight:800;color:var(--accent);margin-top:3px;">BDT (<span class="tk">৳</span>) ▾</div>
+                </div>
+              </div>
+
+              <!-- 3 Scenario Cards for Cycle Start -->
+              <div style="font-size:11.5px;font-weight:700;color:var(--text2);margin-bottom:6px;">WHEN DOES YOUR CYCLE START?</div>
+              <div style="display:flex;flex-direction:column;gap:8px;">
+                <div class="card pad-sm selected">
+                  <div class="row-between">
+                    <span style="font-size:14px;font-weight:800;">1st of every month ✓</span>
+                    <span class="pill-badge accent">1 Nov – 30 Nov</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:2px;">Standard calendar month · 17 days left in this cycle</div>
+                </div>
+
+                <div class="card pad-sm">
+                  <div class="row-between">
+                    <span style="font-size:14px;font-weight:700;">Salary / Payday start</span>
+                    <span style="font-size:12px;font-weight:700;color:var(--accent);">5th · 7th · 10th · 25th</span>
+                  </div>
+                  <div style="font-size:12px;color:var(--text2);margin-top:2px;">Start your fresh budget the day your salary arrives</div>
+                  <div class="chip-wrap" style="margin-top:8px;">
+                    <span class="chip">Day 5</span>
+                    <span class="chip">Day 7</span>
+                    <span class="chip">Day 10</span>
+                    <span class="chip">Day 25</span>
+                  </div>
+                </div>
+
+                <div class="card pad-sm">
+                  <div class="row-between">
+                    <span style="font-size:14px;font-weight:700;">Pick any day (1–28)</span>
+                    <span style="font-size:12px;font-weight:700;color:var(--text2);">Choose →</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-primary btn-next">Continue</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 2 · Cycle Scenarios (No 28-Dot Clutter)</strong>
+          Replaces the 28-button calendar matrix with 3 human scenarios: <code>1st of month</code>, <code>Salary / Payday</code>, or <code>Custom day</code>.
+        </div>
+      </div>
+
+      <!-- SLIDE 3: BUDGET (LINKED DAILY <-> MONTHLY) -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="m2-top">
+                <span class="m2-step-pill">03 / 07</span>
+                <div class="m2-track"><div class="m2-fill" style="width:42%"></div></div>
+                <span class="m2-skip">Skip</span>
+              </div>
+              <h1 class="ob-title">Set your spending pace</h1>
+              <p class="ob-sub">Pick a monthly cap or a daily target — we calculate the other automatically.</p>
+
+              <!-- Linked Dual-Display Card -->
+              <div class="hero-card" style="padding:16px;margin-bottom:10px;">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:center;">
+                  <div>
+                    <div style="font-size:11px;color:var(--hero-text2);font-weight:700;text-transform:uppercase;">Monthly Cap</div>
+                    <div style="font-size:28px;font-weight:800;letter-spacing:-0.9px;margin-top:2px;"><span class="tk">৳</span>20,000</div>
+                  </div>
+                  <div style="border-left:1px solid var(--hero-line);padding-left:12px;">
+                    <div style="font-size:11px;color:var(--hero-text2);font-weight:700;text-transform:uppercase;">Safe Per Day (17d)</div>
+                    <div style="font-size:24px;font-weight:800;color:var(--hero-bar);margin-top:2px;"><span class="tk">৳</span>1,176</div>
+                  </div>
+                </div>
+                <!-- Quick +/- Steppers -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--hero-line);">
+                  <div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:6px;text-align:center;font-size:12.5px;font-weight:700;">− <span class="tk">৳</span>2,000</div>
+                  <div style="background:rgba(255,255,255,0.1);border-radius:10px;padding:6px;text-align:center;font-size:12.5px;font-weight:700;">+ <span class="tk">৳</span>2,000</div>
+                </div>
+              </div>
+
+              <!-- Quick Presets -->
+              <div class="chip-wrap" style="justify-content:center;margin-bottom:8px;">
+                <span class="chip"><span class="tk">৳</span>15,000</span>
+                <span class="chip on"><span class="tk">৳</span>20,000</span>
+                <span class="chip"><span class="tk">৳</span>30,000</span>
+                <span class="chip"><span class="tk">৳</span>40,000</span>
+                <span class="chip"><span class="tk">৳</span>50,000</span>
+              </div>
+
+              <!-- Tactile Keypad -->
+              <div class="mini-keypad">
+                <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+                <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+                <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+                <div class="key">000</div><div class="key">0</div><div class="key">⌫</div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-primary btn-next">Continue</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 3 · Linked Monthly ↔ Daily Pace</strong>
+          Shows Monthly Cap (<code>৳20,000</code>) and Safe Per Day (<code>৳1,176</code>) side-by-side inside a mini Hero with <code>± ৳2,000</code> steppers.
+        </div>
+      </div>
+
+      <!-- SLIDE 4: CATEGORIES (2-COLUMN BENTO GRID) -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="m2-top">
+                <span class="m2-step-pill">04 / 07</span>
+                <div class="m2-track"><div class="m2-fill" style="width:57%"></div></div>
+                <span class="m2-skip">6 selected</span>
+              </div>
+              <h1 class="ob-title">What do you spend on?</h1>
+              <p class="ob-sub">Tap the cards that match your daily life. These appear first when logging.</p>
+
+              <!-- 2-Column Tactile Bento Cards -->
+              <div class="bento-2">
+                <div class="bento-item on">
+                  <div class="row-between">
+                    <span class="tile" style="width:28px;height:28px;background:var(--c-food-bg);color:var(--c-food-fg);">🍽️</span>
+                    <span style="font-size:12px;font-weight:800;color:var(--accent);">✓</span>
+                  </div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px;">Food &amp; Dining</div>
+                  <div style="font-size:11px;color:var(--text2);">Lunch, biriyani, snacks</div>
+                </div>
+
+                <div class="bento-item on">
+                  <div class="row-between">
+                    <span class="tile" style="width:28px;height:28px;background:var(--c-groc-bg);color:var(--c-groc-fg);">🧺</span>
+                    <span style="font-size:12px;font-weight:800;color:var(--accent);">✓</span>
+                  </div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px;">Groceries</div>
+                  <div style="font-size:11px;color:var(--text2);">Bazar, fish, vegetables</div>
+                </div>
+
+                <div class="bento-item on">
+                  <div class="row-between">
+                    <span class="tile" style="width:28px;height:28px;background:var(--c-move-bg);color:var(--c-move-fg);">🛺</span>
+                    <span style="font-size:12px;font-weight:800;color:var(--accent);">✓</span>
+                  </div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px;">Transport</div>
+                  <div style="font-size:11px;color:var(--text2);">Rickshaw, Uber, metro</div>
+                </div>
+
+                <div class="bento-item on">
+                  <div class="row-between">
+                    <span class="tile" style="width:28px;height:28px;background:var(--c-bills-bg);color:var(--c-bills-fg);">⚡</span>
+                    <span style="font-size:12px;font-weight:800;color:var(--accent);">✓</span>
+                  </div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px;">Bills &amp; Net</div>
+                  <div style="font-size:11px;color:var(--text2);">Electricity, Wi-Fi, mobile</div>
+                </div>
+
+                <div class="bento-item on">
+                  <div class="row-between">
+                    <span class="tile" style="width:28px;height:28px;background:var(--c-home-bg);color:var(--c-home-fg);">🏠</span>
+                    <span style="font-size:12px;font-weight:800;color:var(--accent);">✓</span>
+                  </div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px;">Housing &amp; Rent</div>
+                  <div style="font-size:11px;color:var(--text2);">Rent, service charge</div>
+                </div>
+
+                <div class="bento-item on">
+                  <div class="row-between">
+                    <span class="tile" style="width:28px;height:28px;background:var(--c-shop-bg);color:var(--c-shop-fg);">🛍️</span>
+                    <span style="font-size:12px;font-weight:800;color:var(--accent);">✓</span>
+                  </div>
+                  <div style="font-size:13.5px;font-weight:800;margin-top:2px;">Shopping</div>
+                  <div style="font-size:11px;color:var(--text2);">Clothes, household</div>
+                </div>
+
+                <div class="bento-item">
+                  <div class="row-between">
+                    <span class="tile" style="width:28px;height:28px;background:var(--sunken);">💊</span>
+                  </div>
+                  <div style="font-size:13.5px;font-weight:700;margin-top:2px;">Health &amp; Meds</div>
+                  <div style="font-size:11px;color:var(--text2);">Pharmacy, doctor</div>
+                </div>
+
+                <div class="bento-item">
+                  <div class="row-between">
+                    <span class="tile" style="width:28px;height:28px;background:var(--sunken);">🎁</span>
+                  </div>
+                  <div style="font-size:13.5px;font-weight:700;margin-top:2px;">Family &amp; Gifts</div>
+                  <div style="font-size:11px;color:var(--text2);">Parents, occasions</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-primary btn-next">Continue</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 4 · 2-Column Tactile Bento Grid</strong>
+          Replaces small floating pills with easy-to-tap 2-column Bento cards showing local examples (<code>Bazar, Rickshaw, Uber, Wi-Fi</code>).
+        </div>
+      </div>
+
+      <!-- SLIDE 5: REMINDER (PART-OF-DAY CARDS) -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="m2-top">
+                <span class="m2-step-pill">05 / 07</span>
+                <div class="m2-track"><div class="m2-fill" style="width:71%"></div></div>
+                <span class="m2-skip">Habit</span>
+              </div>
+              <h1 class="ob-title">When should we check in?</h1>
+              <p class="ob-sub">Pick a quiet moment in the evening to review today's spending.</p>
+
+              <!-- 2x2 Part-of-Day Cards -->
+              <div class="bento-2" style="margin-bottom:12px;">
+                <div class="bento-item">
+                  <div style="font-size:12px;color:var(--text2);font-weight:700;">Evening</div>
+                  <div style="font-size:18px;font-weight:800;">8:00 PM</div>
+                  <div style="font-size:11px;color:var(--text2);">After tea / commute</div>
+                </div>
+                <div class="bento-item on">
+                  <div class="row-between">
+                    <span style="font-size:12px;color:var(--accent);font-weight:700;">Night · Recommended</span>
+                    <span style="color:var(--accent);font-weight:800;">✓</span>
+                  </div>
+                  <div style="font-size:18px;font-weight:800;">9:00 PM</div>
+                  <div style="font-size:11px;color:var(--text2);">After dinner</div>
+                </div>
+                <div class="bento-item">
+                  <div style="font-size:12px;color:var(--text2);font-weight:700;">Late Night</div>
+                  <div style="font-size:18px;font-weight:800;">10:30 PM</div>
+                  <div style="font-size:11px;color:var(--text2);">Before sleep</div>
+                </div>
+                <div class="bento-item">
+                  <div style="font-size:12px;color:var(--text2);font-weight:700;">Manual only</div>
+                  <div style="font-size:18px;font-weight:800;">Off</div>
+                  <div style="font-size:11px;color:var(--text2);">No notifications</div>
+                </div>
+              </div>
+
+              <!-- Repeat Days -->
+              <div class="card pad-sm" style="margin-bottom:10px;">
+                <div class="row-between" style="margin-bottom:8px;">
+                  <span style="font-size:12px;font-weight:700;color:var(--text2);">REPEAT SCHEDULE</span>
+                  <div style="display:flex;gap:6px;">
+                    <span class="chip on" style="padding:3px 9px;font-size:11px;">Every day</span>
+                    <span class="chip" style="padding:3px 9px;font-size:11px;">Sun–Thu</span>
+                  </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:6px;">
+                  <span class="chip on" style="justify-content:center;padding:6px 0;">S</span>
+                  <span class="chip on" style="justify-content:center;padding:6px 0;">M</span>
+                  <span class="chip on" style="justify-content:center;padding:6px 0;">T</span>
+                  <span class="chip on" style="justify-content:center;padding:6px 0;">W</span>
+                  <span class="chip on" style="justify-content:center;padding:6px 0;">T</span>
+                  <span class="chip on" style="justify-content:center;padding:6px 0;">F</span>
+                  <span class="chip on" style="justify-content:center;padding:6px 0;">S</span>
+                </div>
+              </div>
+
+              <div class="card pad-sm" style="background:var(--sunken);">
+                <div style="font-size:12px;color:var(--text2);font-weight:600;">🔒 Lock-screen privacy: notifications never include any Taka amounts or wallet balances.</div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-primary btn-next">Continue</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 5 · Part-of-Day Check-in Cards</strong>
+          Makes picking a reminder time a single tap on a 2×2 card grid (<code>8:00 PM</code>, <code>9:00 PM</code>, <code>10:30 PM</code>, or <code>Off</code>).
+        </div>
+      </div>
+
+      <!-- SLIDE 6: WALLETS (FOCUSED SINGLE CARD + KEYPAD) -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="m2-top">
+                <span class="m2-step-pill">06 / 07</span>
+                <div class="m2-track"><div class="m2-fill" style="width:85%"></div></div>
+                <span class="m2-skip">Skip</span>
+              </div>
+              <h1 class="ob-title">Starting balances</h1>
+              <p class="ob-sub">Tap a wallet pill and punch in what is inside right now.</p>
+
+              <!-- Wallet Selector Strip -->
+              <div class="chip-wrap" style="margin-bottom:10px;">
+                <span class="chip on">💵 Cash · <span class="tk">৳</span>1,000</span>
+                <span class="chip" style="border-color:var(--bkash);background:rgba(226,19,110,0.1);color:var(--bkash);font-weight:800;">bK bKash · Editing</span>
+                <span class="chip">+ N Nagad</span>
+                <span class="chip">+ 💳 Card</span>
+                <span class="chip">+ 🏦 Bank</span>
+              </div>
+
+              <!-- Focused Active Wallet Card -->
+              <div class="card" style="border-color:var(--bkash);margin-bottom:8px;">
+                <div class="row-between" style="margin-bottom:6px;">
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <div class="tile" style="width:30px;height:30px;background:var(--bkash);color:#fff;">bK</div>
+                    <div>
+                      <div style="font-size:14px;font-weight:800;">bKash Personal</div>
+                      <div style="font-size:11px;color:var(--text2);">How much is in bKash today?</div>
+                    </div>
+                  </div>
+                  <span style="font-size:11.5px;font-weight:700;color:var(--text2);">Remove ✕</span>
+                </div>
+                <div style="background:var(--sunken);border-radius:12px;padding:10px 14px;display:flex;justify-content:space-between;align-items:baseline;">
+                  <span style="font-size:12px;font-weight:700;color:var(--text2);">Balance today</span>
+                  <span style="font-size:28px;font-weight:800;"><span class="tk">৳</span>11,131.50</span>
+                </div>
+              </div>
+
+              <!-- Tactile Keypad -->
+              <div class="mini-keypad">
+                <div class="key">1</div><div class="key">2</div><div class="key">3</div>
+                <div class="key">4</div><div class="key">5</div><div class="key">6</div>
+                <div class="key">7</div><div class="key">8</div><div class="key">9</div>
+                <div class="key">.</div><div class="key">0</div><div class="key">⌫</div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-primary btn-next">Save &amp; review (2 wallets)</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 6 · Focused Wallet Card + Keypad</strong>
+          Eliminates scrolling form cards completely: tap any wallet chip at the top and enter its opening balance right on the built-in keypad.
+        </div>
+      </div>
+
+      <!-- SLIDE 7: READY -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-body">
+            <div>
+              <div class="m2-top">
+                <span class="m2-step-pill">07 / 07</span>
+                <div class="m2-track"><div class="m2-fill" style="width:100%"></div></div>
+                <span class="m2-skip">Ready</span>
+              </div>
+              <h1 class="ob-title">All set, Hamim.</h1>
+              <p class="ob-sub">Your daily safe-to-spend and wallet balances are ready on this device.</p>
+
+              <!-- Daily Pace Highlight Card -->
+              <div class="hero-card" style="text-align:center;padding:20px 16px;margin-bottom:12px;">
+                <span class="pill-badge">1 Nov – 30 Nov · 17 days left</span>
+                <div style="font-size:12px;color:var(--hero-text2);margin-top:10px;">YOUR SAFE DAILY PACE</div>
+                <div style="font-size:40px;font-weight:800;letter-spacing:-1.3px;margin:2px 0 12px;color:var(--hero-bar);">
+                  <span class="tk">৳</span>1,176.47
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--hero-line);padding-top:10px;font-size:12.5px;">
+                  <div>
+                    <div style="color:var(--hero-text2);">Monthly budget</div>
+                    <div style="font-weight:800;font-size:15px;"><span class="tk">৳</span>20,000</div>
+                  </div>
+                  <div style="border-left:1px solid var(--hero-line);">
+                    <div style="color:var(--hero-text2);">Starting wallets</div>
+                    <div style="font-weight:800;font-size:15px;"><span class="tk">৳</span>12,131.50</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Checklist Pills -->
+              <div class="bento-2">
+                <div class="bento-item">
+                  <div style="font-size:11px;color:var(--text2);font-weight:700;">CYCLE START</div>
+                  <div style="font-size:13.5px;font-weight:800;">1st of month</div>
+                </div>
+                <div class="bento-item">
+                  <div style="font-size:11px;color:var(--text2);font-weight:700;">QUICK CHIPS</div>
+                  <div style="font-size:13.5px;font-weight:800;">6 categories</div>
+                </div>
+                <div class="bento-item">
+                  <div style="font-size:11px;color:var(--text2);font-weight:700;">WALLETS</div>
+                  <div style="font-size:13.5px;font-weight:800;">Cash + bKash</div>
+                </div>
+                <div class="bento-item">
+                  <div style="font-size:11px;color:var(--text2);font-weight:700;">CHECK-IN</div>
+                  <div style="font-size:13.5px;font-weight:800;">Daily · 9:00 PM</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="btn-row">
+              <button class="btn btn-secondary btn-back">Back</button>
+              <button class="btn btn-accent btn-next">Start using LenDen</button>
+            </div>
+          </div>
+        </div>
+        <div class="phone-caption">
+          <strong>Slide 7 · Daily Pace Launchpad</strong>
+          Celebrates your calculated Daily Safe Pace (<code>৳1,176.47</code>) with a clean 2×2 setup summary grid.
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ====================================================================
+         PART 2: REDESIGNED HOMEPAGE (ACTION & FLOW FIRST)
+         ==================================================================== -->
+    <div class="section-head">
+      <h2>Part 2 · Redesigned Homepage (Action &amp; Flow First)</h2>
+      <span>Puts "Safe Today" front-and-center, adds a 4-pill thumb action dock, and merges Spending + Categories into one card</span>
+    </div>
+
+    <div class="phones-grid">
+
+      <!-- HOMEPAGE A: YOUR PHONE STATE RIGHT NOW (৳20,000 BUDGET, DAY 1) -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-scroll">
+            <div class="row-between">
+              <div>
+                <div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;">Good afternoon</div>
+                <div style="font-size:12px;color:var(--text2);font-weight:600;">Sat, 14 Nov 2026 · 17 days left</div>
+              </div>
+              <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:14px;">Y</div>
+            </div>
+
+            <!-- "Safe Today" Primary Hero Card -->
+            <div class="hero-card">
+              <div class="row-between">
+                <span style="font-size:11.5px;color:var(--hero-text2);font-weight:700;text-transform:uppercase;letter-spacing:0.4px;">Safe to spend today</span>
+                <span class="pill-badge">✓ On track · 0% used</span>
+              </div>
+              <div style="font-size:40px;font-weight:800;letter-spacing:-1.4px;margin:4px 0 10px;color:var(--hero-bar);">
+                <span class="tk">৳</span>1,176.47
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--hero-line);padding-top:10px;gap:12px;">
+                <div>
+                  <div style="font-size:11.5px;color:var(--hero-text2);">Left in monthly budget</div>
+                  <div style="font-size:16px;font-weight:800;margin-top:1px;"><span class="tk">৳</span>20,000 <span style="font-size:11.5px;font-weight:500;color:var(--hero-text2);">/ 20k</span></div>
+                </div>
+                <div style="border-left:1px solid var(--hero-line);padding-left:12px;">
+                  <div style="font-size:11.5px;color:var(--hero-text2);">Wallets total</div>
+                  <div style="font-size:14px;font-weight:800;color:var(--hero-bar);margin-top:2px;">+ Set starting balance</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4-Pill Quick Action Dock -->
+            <div class="action-dock">
+              <div class="dock-btn primary"><span>＋</span><span>Log spent</span></div>
+              <div class="dock-btn"><span>✨</span><span>Say / Type</span></div>
+              <div class="dock-btn"><span>⇄</span><span>Transfer</span></div>
+              <div class="dock-btn"><span>✓</span><span>Check-in</span></div>
+            </div>
+
+            <!-- Today's Activity / Fast Log Card (No Giant Empty Space!) -->
+            <div class="card pad-sm">
+              <div class="row-between" style="margin-bottom:6px;">
+                <span style="font-size:14px;font-weight:800;">Today's ledger</span>
+                <span style="font-size:12px;font-weight:700;color:var(--accent);">See all →</span>
+              </div>
+              <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">No expenses logged today yet. One-tap quick add:</div>
+              <div class="chip-wrap">
+                <span class="chip on">+ 🍽️ Food</span>
+                <span class="chip on">+ 🛺 Rickshaw</span>
+                <span class="chip on">+ 🧺 Bazar</span>
+                <span class="chip on">+ ☕ Tea</span>
+              </div>
+            </div>
+
+            <!-- Merged Insights Card (Spending + Categories in 1 Compact Card) -->
+            <div class="card pad-sm">
+              <div class="row-between" style="margin-bottom:10px;">
+                <span style="font-size:14px;font-weight:800;">Cycle pulse</span>
+                <div class="seg-ctrl">
+                  <span class="seg-item">Day</span>
+                  <span class="seg-item on">Week</span>
+                  <span class="seg-item">Month</span>
+                </div>
+              </div>
+              <div style="background:var(--sunken);border-radius:11px;padding:12px;display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div style="font-size:12.5px;font-weight:700;">Wk 1 – Wk 5 · <span class="tk">৳</span>0 spent</div>
+                  <div style="font-size:11.5px;color:var(--text2);">Daily average and top categories appear after your first entry</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <nav class="tabbar">
+            <div class="tab on"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Ledger</span></div>
+            <div class="tab-add"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>Plan</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span>People</span></div>
+          </nav>
+        </div>
+        <div class="phone-caption">
+          <strong>Homepage (Fresh Cycle State — Fits on 1 Screen!)</strong>
+          Everything fits cleanly in a single viewport with zero scrolling required on Day 1, and <code>Week</code> is never clipped.
+        </div>
+      </div>
+
+      <!-- HOMEPAGE B: POPULATED STATE -->
+      <div class="phone-col">
+        <div class="phone">
+          <div class="status-bar"><span>1:26</span><div class="status-icons"><span>5G</span><span>100%</span></div></div>
+          <div class="screen-scroll">
+            <div class="row-between">
+              <div>
+                <div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;">Good afternoon</div>
+                <div style="font-size:12px;color:var(--text2);font-weight:600;">Hamim · Sat, 14 Nov · 17d left</div>
+              </div>
+              <div style="width:36px;height:36px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:800;font-size:14px;">H</div>
+            </div>
+
+            <!-- Split Hero Card: Safe Today + Left in Budget + Wallets -->
+            <div class="hero-card">
+              <div class="row-between">
+                <span style="font-size:11.5px;color:var(--hero-text2);font-weight:700;text-transform:uppercase;">Safe to spend today</span>
+                <span class="pill-badge">✓ On track · 12% used</span>
+              </div>
+              <div class="row-between" style="align-items:baseline;margin:4px 0 10px;">
+                <div style="font-size:38px;font-weight:800;letter-spacing:-1.3px;color:var(--hero-bar);">
+                  <span class="tk">৳</span>1,034
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-size:11px;color:var(--hero-text2);">Today spent</div>
+                  <div style="font-size:15px;font-weight:800;"><span class="tk">৳</span>560</div>
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--hero-line);padding-top:10px;gap:12px;">
+                <div>
+                  <div style="font-size:11.5px;color:var(--hero-text2);">Budget remaining</div>
+                  <div style="font-size:15.5px;font-weight:800;"><span class="tk">৳</span>17,581.50</div>
+                </div>
+                <div style="border-left:1px solid var(--hero-line);padding-left:12px;">
+                  <div style="font-size:11.5px;color:var(--hero-text2);">In 3 wallets</div>
+                  <div style="font-size:15.5px;font-weight:800;"><span class="tk">৳</span>6,531.50</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 4-Pill Action Dock -->
+            <div class="action-dock">
+              <div class="dock-btn primary"><span>＋</span><span>Log spent</span></div>
+              <div class="dock-btn"><span>✨</span><span>Say / Type</span></div>
+              <div class="dock-btn"><span>⇄</span><span>Transfer</span></div>
+              <div class="dock-btn"><span>✓</span><span>Check-in</span></div>
+            </div>
+
+            <!-- Wallets Strip (Horizontal Pills) -->
+            <div class="chip-wrap">
+              <span class="chip">💵 Cash <strong><span class="tk">৳</span>1,000</strong></span>
+              <span class="chip">bK bKash <strong><span class="tk">৳</span>11,131</strong></span>
+              <span class="chip" style="color:var(--danger);">💳 Card <strong><span class="tk">৳</span>5,600 due</strong></span>
+              <span class="chip" style="color:var(--in);">👥 Dues <strong>+<span class="tk">৳</span>200</strong></span>
+            </div>
+
+            <!-- Merged Spending & Top Categories Card -->
+            <div class="card pad-sm">
+              <div class="row-between" style="margin-bottom:8px;">
+                <span style="font-size:14px;font-weight:800;">Spending &amp; Top Categories</span>
+                <div class="seg-ctrl">
+                  <span class="seg-item on">Day</span>
+                  <span class="seg-item">Week</span>
+                  <span class="seg-item">Month</span>
+                </div>
+              </div>
+              <!-- Mini Spark Bars -->
+              <div style="height:44px;display:flex;align-items:flex-end;gap:5px;padding-bottom:6px;border-bottom:1px solid var(--line);margin-bottom:8px;">
+                <div style="flex:1;height:25%;background:var(--accent);opacity:0.35;border-radius:3px;"></div>
+                <div style="flex:1;height:40%;background:var(--accent);opacity:0.35;border-radius:3px;"></div>
+                <div style="flex:1;height:20%;background:var(--accent);opacity:0.35;border-radius:3px;"></div>
+                <div style="flex:1;height:85%;background:var(--accent);opacity:0.45;border-radius:3px;"></div>
+                <div style="flex:1;height:35%;background:var(--accent);opacity:0.35;border-radius:3px;"></div>
+                <div style="flex:1;height:55%;background:var(--accent);border-radius:3px;"></div>
+              </div>
+              <!-- Top 2 Categories Inline -->
+              <div style="display:flex;flex-direction:column;gap:6px;font-size:12.5px;">
+                <div class="row-between">
+                  <span>🧺 Groceries · 48%</span>
+                  <strong><span class="tk">৳</span>1,160</strong>
+                </div>
+                <div class="row-between">
+                  <span>🍽️ Food &amp; Dining · 31%</span>
+                  <strong><span class="tk">৳</span>750</strong>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Entries -->
+            <div class="card flush">
+              <div class="list-row">
+                <div class="tile" style="background:var(--c-food-bg);color:var(--c-food-fg);">🍽️</div>
+                <div class="list-mid">
+                  <div class="list-title">Kacchi Bhai lunch</div>
+                  <div class="list-sub">Food · bKash · 1:10 PM</div>
+                </div>
+                <div class="list-right">−<span class="tk">৳</span>480</div>
+              </div>
+              <div class="list-row">
+                <div class="tile" style="background:var(--c-move-bg);color:var(--c-move-fg);">🛺</div>
+                <div class="list-mid">
+                  <div class="list-title">Rickshaw to Banani</div>
+                  <div class="list-sub">Transport · Cash · 10:30 AM</div>
+                </div>
+                <div class="list-right">−<span class="tk">৳</span>80</div>
+              </div>
+            </div>
+          </div>
+
+          <nav class="tabbar">
+            <div class="tab on"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Home</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span>Ledger</span></div>
+            <div class="tab-add"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg><span>Plan</span></div>
+            <div class="tab"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg><span>People</span></div>
+          </nav>
+        </div>
+        <div class="phone-caption">
+          <strong>Homepage (Active Month — High-Speed Cockpit)</strong>
+          Merging Spending + Top Categories into one card and turning Wallets into compact pills cuts vertical scrolling in half!
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    function setTheme(mode, btn) {
+      document.documentElement.setAttribute('data-theme', mode);
+      const group = btn.parentElement;
+      Array.from(group.children).forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+    }
+    function setAccent(accent, btn) {
+      document.documentElement.setAttribute('data-accent', accent);
+      const group = btn.parentElement;
+      Array.from(group.children).forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+    }
+  </script>
+</body>
+</html>
