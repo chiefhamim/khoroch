@@ -27,6 +27,6 @@ Live package (untouched until Section 6 step 4 owner approval): `com.hamim.budge
 - [x] 15. Wallets list (`src/app/wallets/index.tsx`) and the wallet editor sheet
 - [x] 16. Wallet detail (`src/app/wallets/[id].tsx`): balance chart, adjust balance sheet
 - [x] 17. Settings (`src/app/settings/index.tsx`): appearance, reminders, backup and restore, language
-- [ ] 18. Categories settings (`src/app/settings/categories.tsx`)
+- [x] 18. Categories settings (`src/app/settings/categories.tsx`)
 - [ ] 19. Every remaining sheet and toast, re-checked once more with the keyboard open
 - [ ] 20. Final full-app walk: open every page again in light, dark and Bangla, and confirm nothing regressed

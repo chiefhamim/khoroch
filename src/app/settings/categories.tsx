@@ -9,13 +9,13 @@ import {
   type TransactionType,
 } from '@/domain/types';
 import { MAX_CATEGORY_NAME_LENGTH } from '@/domain/validation';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
 import { CATEGORY_COLORS } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, CATEGORY_ICON_CHOICES } from '@/ui/AppIcon';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { ErrorState } from '@/ui/ErrorState';
 import { Field } from '@/ui/Field';
@@ -33,10 +33,22 @@ const PROTECTED_CATEGORY_IDS = new Set(['other', 'other_income', 'fees']);
 
 export default function CategoriesScreen() {
   const { repo } = useAppContext();
+  const locale = useLocale();
   const { theme, reducedMotion } = useTheme();
   const router = useRouter();
   const { showToast } = useToast();
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
+
+  const bnMinWidth = (text: string, fontSize = 15) =>
+    locale === 'bn' ? estimateSingleLineMinWidth(text, fontSize) : undefined;
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/settings');
+    }
+  };
 
   const [kind, setKind] = useState<TransactionType>('expense');
   const [categories, setCategories] = useState<Category[]>([]);
@@ -74,12 +86,12 @@ export default function CategoriesScreen() {
   const { activeList, archivedList } = useMemo(() => {
     const byKind = categories
       .filter((c) => c.kind === kind)
-      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, locale));
     return {
       activeList: byKind.filter((c) => c.archivedAt === null),
       archivedList: byKind.filter((c) => c.archivedAt !== null),
     };
-  }, [categories, kind]);
+  }, [categories, kind, locale]);
 
   const openAdd = () => {
     hapticLight();
@@ -223,7 +235,7 @@ export default function CategoriesScreen() {
           icon="arrow-left"
           variant="surface"
           accessibilityLabel={t('common.back')}
-          onPress={() => router.back()}
+          onPress={handleBack}
         />
         <AppText variant="title" style={styles.headerTitle}>
           {t('categories.title')}
@@ -267,8 +279,19 @@ export default function CategoriesScreen() {
 
           {archivedList.length > 0 ? (
             <View style={{ gap: theme.spacing.sm }}>
-              <AppText variant="caption" color="textSecondary" style={styles.sectionCap}>
-                {t('categories.archivedBadge').toUpperCase()}
+              <AppText
+                variant="caption"
+                color="textSecondary"
+                style={[
+                  styles.sectionCap,
+                  {
+                    minWidth: bnMinWidth(t('categories.archivedBadge'), 12),
+                  },
+                ]}
+              >
+                {locale === 'bn'
+                  ? t('categories.archivedBadge')
+                  : t('categories.archivedBadge').toUpperCase()}
               </AppText>
               <View style={[styles.tileGrid, { marginHorizontal: -theme.spacing.xs }]}>
                 {archivedList.map((cat) => renderTileCard(cat, true))}
@@ -283,7 +306,10 @@ export default function CategoriesScreen() {
         testID="category-edit-sheet"
         visible={sheetOpen}
         onClose={() => {
-          if (!saving) setSheetOpen(false);
+          if (!saving) {
+            setConfirmArchive(false);
+            setSheetOpen(false);
+          }
         }}
         title={editingCat ? t('categories.editTitle') : t('categories.newTitle')}
         footer={
@@ -319,7 +345,7 @@ export default function CategoriesScreen() {
                     size="sm"
                     disabled={saving}
                     onPress={() => setConfirmArchive(false)}
-                    style={styles.flexOne}
+                    style={styles.confirmBtn}
                   />
                   <Button
                     testID="category-archive-confirm-btn"
@@ -329,7 +355,7 @@ export default function CategoriesScreen() {
                     loading={saving}
                     disabled={saving}
                     onPress={() => void handleArchiveOrRestore()}
-                    style={styles.flexOne}
+                    style={styles.confirmBtn}
                   />
                 </View>
               </Surface>
@@ -350,7 +376,7 @@ export default function CategoriesScreen() {
         {/* Live preview */}
         <View style={styles.previewWrap}>
           <IconTile icon={iconInput} colorKey={colorKeyInput} size="lg" />
-          <AppText variant="headline" numberOfLines={1}>
+          <AppText variant="headline" numberOfLines={1} style={styles.previewName}>
             {nameInput.trim() || t('categories.namePlaceholder')}
           </AppText>
         </View>
@@ -366,6 +392,7 @@ export default function CategoriesScreen() {
           placeholder={t('categories.namePlaceholder')}
           maxLength={MAX_CATEGORY_NAME_LENGTH}
           error={formError}
+          errorTestID="category-name-error"
         />
 
         {/* 13 Colour swatches */}
@@ -451,8 +478,10 @@ export default function CategoriesScreen() {
           </View>
         </View>
 
-        <View style={[styles.toggleRow, { minHeight: theme.touch.min }]}>
-          <AppText variant="body">{t('categories.quickChipToggle')}</AppText>
+        <View style={[styles.toggleRow, { minHeight: theme.touch.min, gap: theme.spacing.sm }]}>
+          <AppText variant="body" style={styles.toggleLabel}>
+            {t('categories.quickChipToggle')}
+          </AppText>
           <Switch
             value={isSelectedInput}
             onValueChange={setIsSelectedInput}
@@ -472,6 +501,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
+    minWidth: 0,
   },
   tileGrid: {
     flexDirection: 'row',
@@ -496,6 +526,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  previewName: {
+    flex: 1,
+    minWidth: 0,
   },
   swatchGrid: {
     flexDirection: 'row',
@@ -525,11 +559,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  confirmRow: {
-    flexDirection: 'row',
-  },
-  flexOne: {
+  toggleLabel: {
     flex: 1,
     minWidth: 0,
+  },
+  confirmRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  confirmBtn: {
+    flexGrow: 1,
+    minWidth: 120,
   },
 });
