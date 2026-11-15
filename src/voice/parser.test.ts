@@ -496,4 +496,45 @@ describe('voice/quick-entry parser (TEST-CASES §4)', () => {
       },
     ]);
   });
+
+  it('parses Bangla multi-clause phrases with Bangla digits and connectors', () => {
+    expect(parse('উবারে ৫০০ আর কফিতে ২০০ খরচ', TODAY)).toEqual([
+      {
+        id: 'draft-0',
+        type: 'expense',
+        amountMinor: 50_000,
+        categoryId: 'transportation',
+        description: 'উবার',
+        occurredOn: TODAY,
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+      {
+        id: 'draft-1',
+        type: 'expense',
+        amountMinor: 20_000,
+        categoryId: 'food_dining',
+        description: 'কফি',
+        occurredOn: TODAY,
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    ]);
+
+    expect(parse('২৫০০০ টাকা বেতন পেয়েছি গতকাল', TODAY)).toEqual([
+      {
+        id: 'draft-0',
+        type: 'income',
+        amountMinor: 2_500_000,
+        categoryId: 'salary',
+        description: 'বেতন',
+        occurredOn: '2026-11-12',
+        needsAmount: false,
+        needsCategory: false,
+        requiresConfirmation: true,
+      },
+    ]);
+  });
 });

@@ -29,9 +29,9 @@ function estimateBanglaCtaMinWidth(title: string, fontSize: number): number | un
     else if (HALF_ADVANCE_BN_MARKS.test(ch)) units += 0.5;
     else units += 1;
   }
-  if (units > 16) return undefined;
+  if (units > 18) return undefined;
   const fontScale = Math.max(1, PixelRatio.getFontScale?.() ?? 1);
-  return Math.ceil((units * (fontSize * 0.66) + 12) * fontScale);
+  return Math.ceil((units * (fontSize * 0.64) + 12) * fontScale);
 }
 
 export interface ButtonProps {

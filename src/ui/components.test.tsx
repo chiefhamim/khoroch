@@ -343,6 +343,12 @@ describe('v2 design system components', () => {
             onPress={() => {}}
           />
           <Button
+            testID="bn-confirm-save-btn"
+            title="নিশ্চিত ও সেভ করুন (2)"
+            variant="primary"
+            onPress={() => {}}
+          />
+          <Button
             testID="bn-long-btn"
             title="আপনার সমস্ত হিসাবের ব্যাকআপ নিন"
             variant="primary"
@@ -362,6 +368,12 @@ describe('v2 design system components', () => {
         .minWidth as number;
       expect(transferSaveMinWidth).toBeGreaterThanOrEqual(140 * scale);
       expect(transferSaveMinWidth).toBeLessThanOrEqual(170 * scale);
+
+      const confirmSaveText = view.getByText('নিশ্চিত ও সেভ করুন (2)');
+      const confirmSaveMinWidth = StyleSheet.flatten(confirmSaveText.props.style)
+        .minWidth as number;
+      expect(confirmSaveMinWidth).toBeGreaterThanOrEqual(170 * scale);
+      expect(confirmSaveMinWidth).toBeLessThanOrEqual(210 * scale);
 
       const longText = view.getByText('আপনার সমস্ত হিসাবের ব্যাকআপ নিন');
       expect(StyleSheet.flatten(longText.props.style).minWidth).toBeUndefined();

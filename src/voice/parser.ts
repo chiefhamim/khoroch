@@ -127,10 +127,25 @@ const STOP_WORDS = new Set([
   'dollars',
   'euro',
   'euros',
+  'খরচ',
+  'হয়েছে',
+  'দিয়েছি',
+  'কিনেছি',
+  'পেয়েছি',
+  'লেগেছে',
+  'আজ',
+  'গতকাল',
+  'আমার',
+  'আমি',
+  'থেকে',
+  'জন্য',
+  'দিয়ে',
 ]);
 
-const INCOME_VERB_RE = /\b(received|receive|got|earned|earn|paycheck|salary|income)\b/i;
-const EXPENSE_VERB_RE = /\b(spent|spend|paid|pay|bought|buy|purchased|purchase)\b/i;
+const INCOME_VERB_RE =
+  /(?:\b(received|receive|got|earned|earn|paycheck|salary|income)\b|(?:পেয়েছি|বেতন|আয়|ইনকাম|বোনাস))/i;
+const EXPENSE_VERB_RE =
+  /(?:\b(spent|spend|paid|pay|bought|buy|purchased|purchase)\b|(?:খরচ|দিয়েছি|কিনেছি|লেগেছে))/i;
 const NUMBER_LITERAL_RE = /\b\d+(?:\.\d+)?\b/;
 
 interface WalletAliasRule {
@@ -373,7 +388,13 @@ function escapeRegExp(value: string): string {
 
 function hasKeywordMatch(text: string, keyword: string): boolean {
   const normalizedText = text.replace(/\bwi-fi\b/gi, 'wifi');
-  const pattern = new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(keyword)}(?:$|[^a-z0-9])`, 'i');
+  const hasBengali = /[\u0980-\u09ff]/.test(keyword);
+  const pattern = hasBengali
+    ? new RegExp(
+        `(?:^|[^a-z0-9\\u0980-\\u09ff])${escapeRegExp(keyword)}(?:ে|তে|য়|র|ের|টা|টি)?(?:$|[^a-z0-9\\u0980-\\u09ff])`,
+        'i'
+      )
+    : new RegExp(`(?:^|[^a-z0-9])${escapeRegExp(keyword)}(?:$|[^a-z0-9])`, 'i');
   return pattern.test(normalizedText);
 }
 
@@ -526,7 +547,7 @@ function splitClauses(normalizedText: string, categories?: readonly Category[]):
   const clauses: string[] = [];
   for (const chunk of hardChunks) {
     const parts = chunk
-      .split(/\s*(?:,|\band\b|\s+&\s+)\s*/i)
+      .split(/\s*(?:,|\band\b|\s+&\s+)\s*|\s+(?:আর|এবং|ও)\s+/i)
       .map((p) => p.replace(/food_and_dining_kw/g, 'food & dining').trim())
       .filter(Boolean);
 
@@ -579,10 +600,10 @@ function parseSingleClause(
     occurredOn = isoMatch[1];
     hasExplicitDateWord = true;
     working = working.replace(isoMatch[0], ' ');
-  } else if (/\byesterday\b/i.test(working)) {
+  } else if (/\byesterday\b/i.test(working) || /(?:^|\s)গতকাল(?=$|\s)/.test(working)) {
     occurredOn = addDays(today, -1);
     hasExplicitDateWord = true;
-  } else if (/\btoday\b/i.test(working)) {
+  } else if (/\btoday\b/i.test(working) || /(?:^|\s)আজ(?=$|\s)/.test(working)) {
     occurredOn = today;
     hasExplicitDateWord = true;
   }

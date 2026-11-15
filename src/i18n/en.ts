@@ -870,7 +870,9 @@ export const en = {
   'quickEntry.personPlaceholder': 'e.g. Rafi',
   'quickEntry.dueKindLabel': 'Direction',
   'quickEntry.addWalletCta': 'Add wallet',
+  'quickEntry.missingWalletHint': 'No {name} wallet yet: add it?',
   'quickEntry.needsAccounts': 'Choose two different wallets',
+  'quickEntry.needsFee': 'Enter a valid non-negative fee.',
   'quickEntry.needsPerson': 'Enter a person name',
 } as const;
 

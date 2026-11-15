@@ -883,6 +883,8 @@ export const bn: Record<TranslationKey, string> = {
   'quickEntry.personPlaceholder': 'যেমন: রাফি',
   'quickEntry.dueKindLabel': 'ধরন',
   'quickEntry.addWalletCta': 'ওয়ালেট যোগ করুন',
+  'quickEntry.missingWalletHint': 'এখনও {name} ওয়ালেট নেই: যোগ করবেন?',
   'quickEntry.needsAccounts': 'দুটি ভিন্ন ওয়ালেট বেছে নিন',
+  'quickEntry.needsFee': 'সঠিক চার্জ বা 0 লিখুন।',
   'quickEntry.needsPerson': 'ব্যক্তির নাম লিখুন',
 };

@@ -6,7 +6,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import { KeyboardAvoidingView, KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   currentLocalTime,
@@ -19,18 +19,18 @@ import {
   parseMoneyInput,
   parseNonNegativeMoneyInput,
 } from '@/domain/money';
-import type { Category, DueKind, LocalDate, TransactionType } from '@/domain/types';
+import type { Account, Category, DueKind, LocalDate, TransactionType } from '@/domain/types';
 import {
   MAX_DESCRIPTION_LENGTH,
   MAX_QUICK_ENTRY_LENGTH,
   isValidLocalTime,
 } from '@/domain/validation';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Banner } from '@/ui/Banner';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
@@ -82,7 +82,94 @@ interface EditableDraft {
   needsCategory: boolean;
 }
 
+function prioritizeSelectedById<T extends { id: string }>(
+  items: readonly T[],
+  selectedId: string | null
+): T[] {
+  if (!selectedId) return [...items];
+  const selected = items.find((item) => item.id === selectedId);
+  if (!selected) return [...items];
+  return [selected, ...items.filter((item) => item.id !== selectedId)];
+}
+
+interface QuickWalletChipStripProps {
+  accounts: readonly Account[];
+  selectedAccountId: string | null;
+  onSelect: (accountId: string | null) => void;
+  noneLabel?: string;
+  noneTestID?: string;
+  accountTestIDPrefix?: string;
+}
+
+function QuickWalletChipStrip({
+  accounts,
+  selectedAccountId,
+  onSelect,
+  noneLabel,
+  noneTestID,
+  accountTestIDPrefix,
+}: QuickWalletChipStripProps) {
+  const { theme } = useTheme();
+  const ordered = prioritizeSelectedById(accounts, selectedAccountId);
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      contentContainerStyle={{ gap: theme.spacing.xs, alignItems: 'center' }}
+    >
+      {noneLabel ? (
+        <Chip
+          testID={noneTestID}
+          label={noneLabel}
+          selected={selectedAccountId === null}
+          onPress={() => onSelect(null)}
+        />
+      ) : null}
+      {ordered.map((acc) => {
+        const selected = selectedAccountId === acc.id;
+        return (
+          <PressableScale
+            pressScale={0.98}
+            key={acc.id}
+            testID={accountTestIDPrefix ? `${accountTestIDPrefix}-${acc.id}` : undefined}
+            accessibilityRole="button"
+            accessibilityLabel={acc.name}
+            accessibilityState={{ selected }}
+            onPress={() => {
+              hapticSelection();
+              onSelect(acc.id);
+            }}
+            style={[
+              styles.walletChip,
+              {
+                backgroundColor: selected ? theme.colors.accentSoft : theme.colors.surfaceSunken,
+                borderColor: selected ? theme.colors.accent : 'transparent',
+                borderRadius: theme.radius.pill,
+              },
+            ]}
+          >
+            <WalletAvatar account={acc} size="xs" />
+            <AppText
+              variant="caption"
+              color={selected ? 'accent' : 'text'}
+              numberOfLines={1}
+              style={{
+                minWidth: estimateSingleLineMinWidth(acc.name, theme.typography.caption.fontSize),
+              }}
+            >
+              {acc.name}
+            </AppText>
+          </PressableScale>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export default function QuickEntryScreen() {
+  useLocale();
   const { repo, settings, updateSetting } = useAppContext();
   const { theme } = useTheme();
   const { showToast } = useToast();
@@ -394,10 +481,7 @@ export default function QuickEntryScreen() {
       edges={['top', 'bottom']}
       style={[styles.flex1, { backgroundColor: theme.colors.bg }]}
     >
-      <KeyboardAvoidingView
-        behavior="padding"
-        style={styles.flex1}
-      >
+      <KeyboardAvoidingView behavior="padding" style={styles.flex1}>
         {/* Top Bar */}
         <View
           style={[
@@ -417,17 +501,21 @@ export default function QuickEntryScreen() {
             accessibilityLabel={t('common.close')}
             onPress={handleClose}
           />
-          <AppText variant="headline">{t('quickEntry.title')}</AppText>
+          <AppText variant="headline" numberOfLines={1} style={styles.headerTitle}>
+            {t('quickEntry.title')}
+          </AppText>
           <View style={styles.headerSpacer} />
         </View>
 
-        <ScrollView
+        <KeyboardAwareScrollView
           style={styles.flex1}
+          bottomOffset={drafts.length > 0 ? 88 : 24}
+          keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{
             paddingHorizontal: theme.geometry.screenMargin,
-            paddingBottom: theme.spacing.xxxl,
+            paddingBottom: theme.spacing.xxl,
             gap: theme.spacing.md,
           }}
         >
@@ -521,7 +609,10 @@ export default function QuickEntryScreen() {
               </View>
 
               {drafts.map((draft, idx) => {
-                const catsForType = categories.filter((c) => c.kind === draft.type);
+                const catsForType = prioritizeSelectedById(
+                  categories.filter((c) => c.kind === draft.type),
+                  draft.categoryId
+                );
                 const parsedMoney = parseMoneyInput(draft.amountText);
                 const invalidAmount =
                   !parsedMoney.ok || parsedMoney.minor === null || parsedMoney.minor <= 0;
@@ -531,9 +622,23 @@ export default function QuickEntryScreen() {
                   (!draft.fromAccountId ||
                     !draft.toAccountId ||
                     draft.fromAccountId === draft.toAccountId);
+                const cleanFee = draft.feeText.trim();
+                const parsedFee =
+                  cleanFee.length > 0 ? parseNonNegativeMoneyInput(cleanFee) : null;
+                const invalidFee =
+                  draft.draftKind === 'transfer' &&
+                  cleanFee.length > 0 &&
+                  (!parsedFee || !parsedFee.ok || parsedFee.minor === null || parsedFee.minor < 0);
                 const invalidPerson =
                   draft.draftKind === 'due' && !draft.personId && !draft.personName.trim();
                 const selectedCategory = catsForType.find((c) => c.id === draft.categoryId);
+                const kindTagLabel =
+                  draft.draftKind === 'transfer'
+                    ? t('quickEntry.draftTransfer')
+                    : t('quickEntry.draftDue');
+                const missingWalletLabel = draft.missingWalletName
+                  ? t('quickEntry.missingWalletHint', { name: draft.missingWalletName })
+                  : draft.missingWalletHint;
 
                 return (
                   <Surface
@@ -590,10 +695,18 @@ export default function QuickEntryScreen() {
                               },
                             ]}
                           >
-                            <AppText variant="label" color="text">
-                              {draft.draftKind === 'transfer'
-                                ? t('quickEntry.draftTransfer')
-                                : t('quickEntry.draftDue')}
+                            <AppText
+                              variant="label"
+                              color="text"
+                              numberOfLines={1}
+                              style={{
+                                minWidth: estimateSingleLineMinWidth(
+                                  kindTagLabel,
+                                  theme.typography.label.fontSize
+                                ),
+                              }}
+                            >
+                              {kindTagLabel}
                             </AppText>
                           </View>
                         )}
@@ -610,12 +723,12 @@ export default function QuickEntryScreen() {
                     </View>
 
                     {/* Missing wallet helpful hint */}
-                    {draft.missingWalletHint ? (
+                    {missingWalletLabel ? (
                       <Banner
                         testID={`quick-draft-wallet-hint-${idx}`}
                         tone="accent"
                         icon="wallet"
-                        message={`${draft.missingWalletHint} · ${t('quickEntry.addWalletCta')}`}
+                        message={`${missingWalletLabel} · ${t('quickEntry.addWalletCta')}`}
                         showChevron
                         onPress={() => {
                           handleClose();
@@ -700,6 +813,12 @@ export default function QuickEntryScreen() {
                                     variant="label"
                                     color={selected ? 'accent' : 'text'}
                                     numberOfLines={1}
+                                    style={{
+                                      minWidth: estimateSingleLineMinWidth(
+                                        cat.name,
+                                        theme.typography.label.fontSize
+                                      ),
+                                    }}
                                   >
                                     {cat.name}
                                   </AppText>
@@ -723,58 +842,16 @@ export default function QuickEntryScreen() {
                             <AppText variant="label" color="textSecondary">
                               {t('quickEntry.walletLabel')}
                             </AppText>
-                            <ScrollView
-                              horizontal
-                              showsHorizontalScrollIndicator={false}
-                              keyboardShouldPersistTaps="handled"
-                              contentContainerStyle={{ gap: theme.spacing.xs }}
-                            >
-                              <Chip
-                                testID={`quick-draft-${idx}-wallet-none`}
-                                label={t('tx.noWallet')}
-                                selected={draft.accountId === null}
-                                onPress={() =>
-                                  updateDraft(draft.id, (prev) => ({ ...prev, accountId: null }))
-                                }
-                              />
-                              {accounts.map((acc) => (
-                                <PressableScale pressScale={0.98}
-                                  key={acc.id}
-                                  testID={`quick-draft-${idx}-wallet-${acc.id}`}
-                                  accessibilityRole="button"
-                                  accessibilityState={{ selected: draft.accountId === acc.id }}
-                                  onPress={() => {
-                                    hapticSelection();
-                                    updateDraft(draft.id, (prev) => ({
-                                      ...prev,
-                                      accountId: acc.id,
-                                    }));
-                                  }}
-                                  style={[
-                                    styles.walletChip,
-                                    {
-                                      backgroundColor:
-                                        draft.accountId === acc.id
-                                          ? theme.colors.accentSoft
-                                          : theme.colors.surfaceSunken,
-                                      borderColor:
-                                        draft.accountId === acc.id
-                                          ? theme.colors.accent
-                                          : 'transparent',
-                                      borderRadius: theme.radius.pill,
-                                    },
-                                  ]}
-                                >
-                                  <WalletAvatar account={acc} size="xs" />
-                                  <AppText
-                                    variant="caption"
-                                    color={draft.accountId === acc.id ? 'accent' : 'text'}
-                                  >
-                                    {acc.name}
-                                  </AppText>
-                                </PressableScale>
-                              ))}
-                            </ScrollView>
+                            <QuickWalletChipStrip
+                              accounts={accounts}
+                              selectedAccountId={draft.accountId}
+                              onSelect={(accId) =>
+                                updateDraft(draft.id, (prev) => ({ ...prev, accountId: accId }))
+                              }
+                              noneLabel={t('tx.noWallet')}
+                              noneTestID={`quick-draft-${idx}-wallet-none`}
+                              accountTestIDPrefix={`quick-draft-${idx}-wallet`}
+                            />
                           </View>
                         ) : null}
                       </>
@@ -787,86 +864,34 @@ export default function QuickEntryScreen() {
                           <AppText variant="label" color="textSecondary">
                             {t('quickEntry.fromWallet')}
                           </AppText>
-                          <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
-                            contentContainerStyle={{ gap: theme.spacing.xs }}
-                          >
-                            {accounts.map((acc) => {
-                              const selected = draft.fromAccountId === acc.id;
-                              return (
-                                <PressableScale pressScale={0.98}
-                                  key={acc.id}
-                                  accessibilityRole="button"
-                                  onPress={() =>
-                                    updateDraft(draft.id, (prev) => ({
-                                      ...prev,
-                                      fromAccountId: acc.id,
-                                    }))
-                                  }
-                                  style={[
-                                    styles.walletChip,
-                                    {
-                                      backgroundColor: selected
-                                        ? theme.colors.accentSoft
-                                        : theme.colors.surfaceSunken,
-                                      borderColor: selected ? theme.colors.accent : 'transparent',
-                                      borderRadius: theme.radius.pill,
-                                    },
-                                  ]}
-                                >
-                                  <WalletAvatar account={acc} size="xs" />
-                                  <AppText variant="caption" color={selected ? 'accent' : 'text'}>
-                                    {acc.name}
-                                  </AppText>
-                                </PressableScale>
-                              );
-                            })}
-                          </ScrollView>
+                          <QuickWalletChipStrip
+                            accounts={accounts}
+                            selectedAccountId={draft.fromAccountId}
+                            onSelect={(accId) =>
+                              updateDraft(draft.id, (prev) => ({
+                                ...prev,
+                                fromAccountId: accId,
+                              }))
+                            }
+                            accountTestIDPrefix={`quick-draft-${idx}-from-wallet`}
+                          />
                         </View>
 
                         <View style={{ gap: theme.spacing.xs }}>
                           <AppText variant="label" color="textSecondary">
                             {t('quickEntry.toWallet')}
                           </AppText>
-                          <ScrollView
-                            horizontal
-                            showsHorizontalScrollIndicator={false}
-                            keyboardShouldPersistTaps="handled"
-                            contentContainerStyle={{ gap: theme.spacing.xs }}
-                          >
-                            {accounts.map((acc) => {
-                              const selected = draft.toAccountId === acc.id;
-                              return (
-                                <PressableScale pressScale={0.98}
-                                  key={acc.id}
-                                  accessibilityRole="button"
-                                  onPress={() =>
-                                    updateDraft(draft.id, (prev) => ({
-                                      ...prev,
-                                      toAccountId: acc.id,
-                                    }))
-                                  }
-                                  style={[
-                                    styles.walletChip,
-                                    {
-                                      backgroundColor: selected
-                                        ? theme.colors.accentSoft
-                                        : theme.colors.surfaceSunken,
-                                      borderColor: selected ? theme.colors.accent : 'transparent',
-                                      borderRadius: theme.radius.pill,
-                                    },
-                                  ]}
-                                >
-                                  <WalletAvatar account={acc} size="xs" />
-                                  <AppText variant="caption" color={selected ? 'accent' : 'text'}>
-                                    {acc.name}
-                                  </AppText>
-                                </PressableScale>
-                              );
-                            })}
-                          </ScrollView>
+                          <QuickWalletChipStrip
+                            accounts={accounts}
+                            selectedAccountId={draft.toAccountId}
+                            onSelect={(accId) =>
+                              updateDraft(draft.id, (prev) => ({
+                                ...prev,
+                                toAccountId: accId,
+                              }))
+                            }
+                            accountTestIDPrefix={`quick-draft-${idx}-to-wallet`}
+                          />
                         </View>
 
                         {saveAttempted && invalidTransferAccounts ? (
@@ -881,6 +906,8 @@ export default function QuickEntryScreen() {
                           placeholder="0"
                           keyboardType="decimal-pad"
                           value={draft.feeText}
+                          error={saveAttempted && invalidFee ? t('quickEntry.needsFee') : null}
+                          errorTestID={`quick-draft-needs-fee-${idx}`}
                           onChangeText={(txt) =>
                             updateDraft(draft.id, (prev) => ({ ...prev, feeText: txt }))
                           }
@@ -939,54 +966,16 @@ export default function QuickEntryScreen() {
                             <AppText variant="label" color="textSecondary">
                               {t('due.walletLabel')}
                             </AppText>
-                            <ScrollView
-                              horizontal
-                              showsHorizontalScrollIndicator={false}
-                              keyboardShouldPersistTaps="handled"
-                              contentContainerStyle={{ gap: theme.spacing.xs }}
-                            >
-                              <Chip
-                                label={t('due.noWallet')}
-                                selected={draft.accountId === null}
-                                onPress={() =>
-                                  updateDraft(draft.id, (prev) => ({ ...prev, accountId: null }))
-                                }
-                              />
-                              {accounts.map((acc) => (
-                                <PressableScale pressScale={0.98}
-                                  key={acc.id}
-                                  accessibilityRole="button"
-                                  onPress={() =>
-                                    updateDraft(draft.id, (prev) => ({
-                                      ...prev,
-                                      accountId: acc.id,
-                                    }))
-                                  }
-                                  style={[
-                                    styles.walletChip,
-                                    {
-                                      backgroundColor:
-                                        draft.accountId === acc.id
-                                          ? theme.colors.accentSoft
-                                          : theme.colors.surfaceSunken,
-                                      borderColor:
-                                        draft.accountId === acc.id
-                                          ? theme.colors.accent
-                                          : 'transparent',
-                                      borderRadius: theme.radius.pill,
-                                    },
-                                  ]}
-                                >
-                                  <WalletAvatar account={acc} size="xs" />
-                                  <AppText
-                                    variant="caption"
-                                    color={draft.accountId === acc.id ? 'accent' : 'text'}
-                                  >
-                                    {acc.name}
-                                  </AppText>
-                                </PressableScale>
-                              ))}
-                            </ScrollView>
+                            <QuickWalletChipStrip
+                              accounts={accounts}
+                              selectedAccountId={draft.accountId}
+                              onSelect={(accId) =>
+                                updateDraft(draft.id, (prev) => ({ ...prev, accountId: accId }))
+                              }
+                              noneLabel={t('due.noWallet')}
+                              noneTestID={`quick-draft-${idx}-due-wallet-none`}
+                              accountTestIDPrefix={`quick-draft-${idx}-due-wallet`}
+                            />
                           </View>
                         ) : null}
                       </View>
@@ -1026,27 +1015,43 @@ export default function QuickEntryScreen() {
                   </Surface>
                 );
               })}
-
-              {saveError ? (
-                <AppText testID="quick-entry-save-error" variant="body" color="danger">
-                  {saveError}
-                </AppText>
-              ) : null}
-
-              <Button
-                testID="quick-entry-confirm-btn"
-                title={t('quickEntry.confirmSave', { count: drafts.length })}
-                variant="primary"
-                leftIcon="check"
-                loading={saving}
-                disabled={saving}
-                onPress={() => {
-                  void handleConfirmSave();
-                }}
-              />
             </View>
           ) : null}
-        </ScrollView>
+        </KeyboardAwareScrollView>
+
+        {drafts.length > 0 ? (
+          <View
+            style={[
+              styles.bottomDock,
+              {
+                backgroundColor: theme.colors.bg,
+                borderTopColor: theme.colors.separator,
+                paddingHorizontal: theme.geometry.screenMargin,
+                paddingTop: theme.spacing.sm,
+                paddingBottom: theme.spacing.md,
+                gap: theme.spacing.xs,
+              },
+            ]}
+          >
+            {saveError ? (
+              <AppText testID="quick-entry-save-error" variant="caption" color="danger">
+                {saveError}
+              </AppText>
+            ) : null}
+
+            <Button
+              testID="quick-entry-confirm-btn"
+              title={t('quickEntry.confirmSave', { count: drafts.length })}
+              variant="primary"
+              leftIcon="check"
+              loading={saving}
+              disabled={saving}
+              onPress={() => {
+                void handleConfirmSave();
+              }}
+            />
+          </View>
+        ) : null}
       </KeyboardAvoidingView>
 
       {/* Voice Permission Rationale Bottom Sheet */}
@@ -1142,6 +1147,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
+  },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
   },
   headerSpacer: {
     width: 40,
@@ -1163,10 +1173,14 @@ const styles = StyleSheet.create({
   walletChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 40,
     gap: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
+  },
+  bottomDock: {
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   draftCatChip: {
     flexDirection: 'row',

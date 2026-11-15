@@ -17,7 +17,7 @@ Live package (untouched until Section 6 step 4 owner approval): `com.hamim.budge
 - [x] 5. Add entry (`src/ui/FastTransactionEntry.tsx`, `src/app/transaction/new.tsx`): Spent/Received, amount, What for and suggestions, categories and the All categories sheet, wallet picker, When sheet (`src/ui/DateTimeSheet.tsx`), note, Save, Save & next
 - [x] 6. Transaction detail and edit (`src/app/transaction/[id].tsx`, `src/ui/TransactionForm.tsx`): **Delete must stay visible with the keyboard open**
 - [x] 7. Transfer detail and edit (`src/app/transfer/[id].tsx`)
-- [ ] 8. Quick entry and voice (`src/app/quick-entry.tsx`)
+- [x] 8. Quick entry and voice (`src/app/quick-entry.tsx`)
 - [ ] 9. Daily check-in (`src/app/check-in.tsx`)
 - [ ] 10. Plan (`src/app/(tabs)/plan.tsx`): budget ring, category budgets, past cycles
 - [ ] 11. Insights (`src/app/plan/insights.tsx`, `src/screens/InsightsScreen.tsx`)
