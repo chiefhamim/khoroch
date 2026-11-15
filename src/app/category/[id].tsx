@@ -12,11 +12,11 @@ import {
 } from '@/domain/dates';
 import { getPeriod } from '@/domain/period';
 import type { Category, Transaction } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { useDataVersionStore } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
 import { IconButton } from '@/ui/IconButton';
@@ -33,10 +33,19 @@ export default function CategoryPeriodScreen() {
     periodEnd?: string;
   }>();
   const { repo, settings } = useAppContext();
+  const locale = useLocale();
   const { theme } = useTheme();
   const router = useRouter();
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
   const use24Hour = isDevice24HourClock();
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
 
   const fallbackPeriod = useMemo(
     () => getPeriod(todayLocalDate(), settings.monthStartDay),
@@ -96,6 +105,8 @@ export default function CategoryPeriodScreen() {
   );
 
   const titleName = category?.name ?? t('common.uncategorized');
+  const rangeLabel = formatPeriodRange(rangeStart, rangeEndExcl, locale);
+  const txCountText = t('categoryDetail.txCountLabel', { count: result.count });
 
   return (
     <Screen edges={['top', 'bottom', 'left', 'right']}>
@@ -105,14 +116,19 @@ export default function CategoryPeriodScreen() {
           icon="arrow-left"
           variant="surface"
           accessibilityLabel={t('common.back')}
-          onPress={() => router.back()}
+          onPress={handleBack}
         />
         <View style={styles.headerCenter}>
           <AppText variant="title" numberOfLines={1}>
             {titleName}
           </AppText>
-          <AppText variant="caption" color="textSecondary">
-            {formatPeriodRange(rangeStart, rangeEndExcl)}
+          <AppText
+            variant="caption"
+            color="textSecondary"
+            numberOfLines={1}
+            style={locale === 'bn' ? { minWidth: estimateSingleLineMinWidth(rangeLabel, 12) } : null}
+          >
+            {rangeLabel}
           </AppText>
         </View>
         <View style={{ width: theme.touch.min }} />
@@ -130,8 +146,16 @@ export default function CategoryPeriodScreen() {
           </AppText>
           <Money amountMinor={result.spentMinor} currency={settings.currency} variant="title" />
         </View>
-        <AppText variant="label" color="textSecondary">
-          {t('categoryDetail.txCountLabel', { count: result.count })}
+        <AppText
+          variant="label"
+          color="textSecondary"
+          numberOfLines={1}
+          style={[
+            styles.countBadge,
+            locale === 'bn' ? { minWidth: estimateSingleLineMinWidth(txCountText, 13) } : null,
+          ]}
+        >
+          {txCountText}
         </AppText>
       </Surface>
 
@@ -157,8 +181,8 @@ export default function CategoryPeriodScreen() {
                 title={tx.description.trim() || titleName}
                 subtitle={
                   tx.occurredTime
-                    ? `${formatShortDate(tx.occurredOn)} · ${formatFriendlyTime(tx.occurredTime, use24Hour)}`
-                    : formatShortDate(tx.occurredOn)
+                    ? `${formatShortDate(tx.occurredOn, locale)} · ${formatFriendlyTime(tx.occurredTime, use24Hour)}`
+                    : formatShortDate(tx.occurredOn, locale)
                 }
                 showDivider={idx < result.transactions.length - 1}
                 left={
@@ -196,6 +220,7 @@ const styles = StyleSheet.create({
   },
   headerCenter: {
     flex: 1,
+    minWidth: 0,
     alignItems: 'center',
   },
   summaryCard: {
@@ -204,6 +229,10 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     flex: 1,
+    minWidth: 0,
     gap: 2,
+  },
+  countBadge: {
+    textAlign: 'right',
   },
 });

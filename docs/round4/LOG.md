@@ -149,3 +149,15 @@
   - `src/state/insights.test.tsx`: Added Bangla localization + Fabric `minWidth` + calm baseline color test and empty-state `showBack` back-button test.
 - **Live verification (`com.hamim.budgetapp.dev`):** Verified Light BN (`top`, `bottom`, `tooltip`, `period-sheet`, `custom-sheet`), Dark BN (`top`, `bottom`), Light EN (`top`, `bottom`), and Dark EN (`top`, `bottom`, `period-sheet`, `tooltip`) under `docs/round4/11-insights/`, then returned phone to Home (`৳27,380` / `৳20,230`, Dark EN).
 - **Checks after final edit:** `npm run typecheck` (0 errors), `npx expo lint` (0 errors, 1 pre-existing warning in `src/app/wallets/[id].tsx:258`), `npm test` (29/29 suites, 171/171 tests PASS).
+
+
+## 12. Category detail (`src/app/category/[id].tsx`)
+- **What needed fixing from code & live check:**
+  1. `CategoryPeriodScreen` did not subscribe to `useLocale()`, so `formatPeriodRange` and `formatShortDate` stayed English in Bangla mode.
+  2. The right-aligned count badge (`{count}টি খরচ`) and header date range lacked `numberOfLines={1}` + `estimateSingleLineMinWidth`, risking Android Fabric Bangla word drops, and `headerCenter` / `summaryText` lacked `minWidth: 0`.
+  3. Back handler called `router.back()` without a `canGoBack()` fallback to `/(tabs)`.
+- **Fixes applied:**
+  - `src/app/category/[id].tsx`: Added `useLocale()`, passed `locale` to `formatPeriodRange` and `formatShortDate`, added `estimateSingleLineMinWidth` + `numberOfLines={1}` on the header date range and summary count badge (`countBadge`), added `minWidth: 0` on `headerCenter` and `summaryText`, and added `handleBack` with `router.canGoBack()` fallback.
+  - `src/__tests__/category-detail.test.tsx`: Added integration tests covering English period summary/row press, Bangla localization + Fabric `minWidth` + `canGoBack() === false` fallback, and empty period state.
+- **Live verification (`com.hamim.budgetapp.dev`):** Captured Dark EN, Light EN, Light BN, and Dark BN screenshots under `docs/round4/12-category-detail/`, verified `'1 নভে – 30 নভে'`, `'এই মাসে খরচ'`, `'1টি খরচ'` (no word drops), and `'11 নভে · 4:28 PM'`, then restored Dark EN Home (`৳27,380` / `৳20,230`).
+- **Checks after final edit:** `npm run typecheck` (0 errors), `npx expo lint` (0 errors, 1 pre-existing warning in `src/app/wallets/[id].tsx:258`), `npm test` (30/30 suites, 174/174 tests PASS).
