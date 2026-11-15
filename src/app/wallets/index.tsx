@@ -8,14 +8,15 @@ import {
 import { formatFriendlyDate, todayLocalDate } from '@/domain/dates';
 import { formatMoney, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
 import type { Account, Transaction } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
+import { containsBengali } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
 import { IconButton } from '@/ui/IconButton';
@@ -30,6 +31,7 @@ import { hapticLight, hapticSelection, hapticSuccess } from '@/ui/haptics';
 import { PressableScale } from '@/ui/PressableScale';
 
 export default function ManageWalletsScreen() {
+  const locale = useLocale();
   const { setup, edit } = useLocalSearchParams<{ setup?: string; edit?: string }>();
   const { repo, settings } = useAppContext();
   const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
@@ -37,6 +39,19 @@ export default function ManageWalletsScreen() {
   const { theme } = useTheme();
   const { showToast } = useToast();
   const today = todayLocalDate();
+
+  const bnMinWidth = (text: string, fontSize: number) =>
+    locale === 'bn' && containsBengali(text)
+      ? { minWidth: estimateSingleLineMinWidth(text, fontSize) }
+      : null;
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
 
   const {
     accounts,
@@ -158,7 +173,7 @@ export default function ManageWalletsScreen() {
           testID="wallets-back-btn"
           icon="arrow-left"
           accessibilityLabel={t('common.back')}
-          onPress={() => router.back()}
+          onPress={handleBack}
         />
         <AppText variant="title" style={styles.flex1}>
           {t('wallets.title')}
@@ -206,11 +221,13 @@ export default function ManageWalletsScreen() {
         <Surface padded={false}>
           {accounts.map((acc, idx) => {
             const bal = balanceById.get(acc.id);
-            const formattedBal =
-              bal?.formatted ??
-              formatAccountBalance(acc.kind, acc.openingBalanceMinor, settings.currency);
+            const formattedBal = bal
+              ? bal.isDue
+                ? `${formatAccountBalance('other', Math.abs(bal.minor), settings.currency)} ${t('wallets.dueSuffix')}`
+                : bal.formatted
+              : formatAccountBalance(acc.kind, acc.openingBalanceMinor, settings.currency);
             const metaParts: string[] = [];
-            if (acc.last4) metaParts.push(`Ending ${acc.last4}`);
+            if (acc.last4) metaParts.push(t('wallets.endingLast4', { last4: acc.last4 }));
             if (!acc.includeInTotal) metaParts.push(t('wallets.excludedBadge'));
             const subtitle = metaParts.length > 0 ? metaParts.join(' · ') : undefined;
 
@@ -242,6 +259,8 @@ export default function ManageWalletsScreen() {
                       variant="bodyStrong"
                       color={bal?.isDue ? 'danger' : 'text'}
                       tabularNums
+                      numberOfLines={1}
+                      style={bnMinWidth(formattedBal, 15)}
                     >
                       {hideAmounts ? HIDDEN_AMOUNT_TEXT : formattedBal}
                     </AppText>
@@ -467,7 +486,7 @@ export default function ManageWalletsScreen() {
                     testID={`tag-tx-row-${tx.id}`}
                     compact
                     title={tx.description.trim() || t('activity.noDescription')}
-                    subtitle={formatFriendlyDate(tx.occurredOn, today)}
+                    subtitle={formatFriendlyDate(tx.occurredOn, today, locale)}
                     left={
                       <AppIcon
                         name={selected ? 'circle-check' : 'circle-plus'}
@@ -552,6 +571,7 @@ const styles = StyleSheet.create({
   },
   flex1: {
     flex: 1,
+    minWidth: 0,
   },
   startingBalanceButton: {
     alignSelf: 'flex-start',

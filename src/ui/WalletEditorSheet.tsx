@@ -9,7 +9,7 @@ import {
 import { todayLocalDate } from '@/domain/dates';
 import { CURRENCIES as CURRENCY_META, formatMoney, parseMoneyInput } from '@/domain/money';
 import type { Account, AccountKind, CurrencyCode, LocalDate } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale, type TranslationKey } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
@@ -33,12 +33,12 @@ export interface WalletEditorSheetProps {
   onSaved?: (savedId: string) => void;
 }
 
-const ACCOUNT_KIND_OPTIONS: readonly { kind: AccountKind; label: string }[] = [
-  { kind: 'cash', label: 'Cash' },
-  { kind: 'mobile_wallet', label: 'Mobile' },
-  { kind: 'bank', label: 'Bank' },
-  { kind: 'credit_card', label: 'Card' },
-  { kind: 'other', label: 'Other' },
+const ACCOUNT_KIND_OPTIONS: readonly { kind: AccountKind; labelKey: TranslationKey }[] = [
+  { kind: 'cash', labelKey: 'wallets.kindCash' },
+  { kind: 'mobile_wallet', labelKey: 'wallets.kindMobile' },
+  { kind: 'bank', labelKey: 'wallets.kindBank' },
+  { kind: 'credit_card', labelKey: 'wallets.kindCard' },
+  { kind: 'other', labelKey: 'wallets.kindOther' },
 ];
 
 function formatOpeningBalanceText(openingBalanceMinor: number): string {
@@ -50,6 +50,7 @@ function formatOpeningBalanceText(openingBalanceMinor: number): string {
 }
 
 export function WalletEditorSheet(props: WalletEditorSheetProps) {
+  useLocale();
   if (!props.visible) return null;
   return <WalletEditorDialog key={props.account?.id ?? 'new'} {...props} />;
 }
@@ -62,6 +63,7 @@ function WalletEditorDialog({
   nextSortOrder = 0,
   onSaved,
 }: WalletEditorSheetProps) {
+  useLocale();
   const { repo, settings } = useAppContext();
   const { theme } = useTheme();
   const currency = currencyProp ?? settings.currency;
@@ -315,8 +317,8 @@ function WalletEditorDialog({
                     },
                   ]}
                 >
-                  <AppText variant="label" color={active ? 'accent' : 'text'}>
-                    {opt.label}
+                  <AppText variant="label" color={active ? 'accent' : 'text'} numberOfLines={1}>
+                    {t(opt.labelKey)}
                   </AppText>
                 </PressableScale>
               );
@@ -360,7 +362,7 @@ function WalletEditorDialog({
       </View>
 
       <View style={[styles.twoCol, { gap: theme.spacing.sm }]}>
-        <View style={[styles.flex1, { gap: theme.spacing.xs }]}>
+        <View style={styles.flex1}>
           <Field
             testID="wallet-opening-balance-input"
             label={`${t('wallets.openingBalanceLabel')} (${currencySymbol})`}
@@ -372,51 +374,10 @@ function WalletEditorDialog({
             placeholder="0"
             keyboardType="decimal-pad"
           />
-          <Keypad
-            testID="wallet-opening-keypad"
-            value={balanceText}
-            onChange={(next) => {
-              setBalanceText(next);
-              if (errorMsg) setErrorMsg(null);
-            }}
-            keyHeight={42}
-          />
-          <PressableScale pressScale={0.98}
-            testID="wallet-negative-toggle"
-            accessibilityRole="button"
-            accessibilityState={{ selected: isNegativeBalance }}
-            onPress={() => {
-              hapticSelection();
-              setIsNegativeBalance((prev) => !prev);
-            }}
-            style={[
-              styles.signPill,
-              {
-                backgroundColor: isNegativeBalance
-                  ? theme.colors.dangerSoft
-                  : theme.colors.surfaceSunken,
-                borderColor: isNegativeBalance ? theme.colors.danger : 'transparent',
-                borderRadius: theme.radius.pill,
-              },
-            ]}
-          >
-            <AppText
-              variant="caption"
-              color={isNegativeBalance ? 'danger' : 'textSecondary'}
-            >
-              {kind === 'credit_card'
-                ? isNegativeBalance
-                  ? 'Amount due (−)'
-                  : 'Positive credit (+)'
-                : isNegativeBalance
-                  ? 'Negative balance (−)'
-                  : 'Tap for negative (−)'}
-            </AppText>
-          </PressableScale>
         </View>
 
         <View style={[styles.flex1, { gap: theme.spacing.xs }]}>
-          <AppText variant="label" color="textSecondary">
+          <AppText variant="label" color="textSecondary" numberOfLines={1}>
             {t('wallets.openingDateLabel')}
           </AppText>
           <DateField
@@ -426,6 +387,51 @@ function WalletEditorDialog({
             onChange={(d) => setOpeningDate(d)}
           />
         </View>
+      </View>
+
+      <View style={{ gap: theme.spacing.xs }}>
+        <PressableScale pressScale={0.98}
+          testID="wallet-negative-toggle"
+          accessibilityRole="button"
+          accessibilityState={{ selected: isNegativeBalance }}
+          onPress={() => {
+            hapticSelection();
+            setIsNegativeBalance((prev) => !prev);
+          }}
+          style={[
+            styles.signPill,
+            {
+              backgroundColor: isNegativeBalance
+                ? theme.colors.dangerSoft
+                : theme.colors.surfaceSunken,
+              borderColor: isNegativeBalance ? theme.colors.danger : 'transparent',
+              borderRadius: theme.radius.pill,
+            },
+          ]}
+        >
+          <AppText
+            variant="caption"
+            color={isNegativeBalance ? 'danger' : 'textSecondary'}
+            numberOfLines={1}
+          >
+            {kind === 'credit_card'
+              ? isNegativeBalance
+                ? t('wallets.signAmountDue')
+                : t('wallets.signPositiveCredit')
+              : isNegativeBalance
+                ? t('wallets.signNegativeBalance')
+                : t('wallets.signTapForNegative')}
+          </AppText>
+        </PressableScale>
+        <Keypad
+          testID="wallet-opening-keypad"
+          value={balanceText}
+          onChange={(next) => {
+            setBalanceText(next);
+            if (errorMsg) setErrorMsg(null);
+          }}
+          keyHeight={38}
+        />
       </View>
 
       {showLast4Field ? (
@@ -500,13 +506,14 @@ function WalletEditorDialog({
             <AppText variant="caption" color="textSecondary">
               {t('wallets.archiveConfirmBody')}
             </AppText>
-            <View style={[styles.twoCol, { gap: theme.spacing.sm }]}>
+            <View style={[styles.confirmActions, { gap: theme.spacing.sm }]}>
               <Button
+                testID="wallet-cancel-archive-button"
                 title={t('common.cancel')}
                 variant="secondary"
                 size="sm"
                 onPress={() => setConfirmArchive(false)}
-                style={styles.flex1}
+                style={styles.confirmBtn}
               />
               <Button
                 testID="wallet-confirm-archive-button"
@@ -515,7 +522,7 @@ function WalletEditorDialog({
                 size="sm"
                 loading={saving}
                 onPress={() => void handleArchiveToggle()}
-                style={styles.flex1}
+                style={styles.confirmBtn}
               />
             </View>
           </View>
@@ -532,7 +539,7 @@ function WalletEditorDialog({
       ) : null}
 
       {errorMsg ? (
-        <AppText variant="caption" color="danger">
+        <AppText testID="wallet-editor-error" variant="caption" color="danger">
           {errorMsg}
         </AppText>
       ) : null}
@@ -575,6 +582,14 @@ const styles = StyleSheet.create({
   twoCol: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  confirmBtn: {
+    flexGrow: 1,
   },
   signPill: {
     alignSelf: 'flex-start',
