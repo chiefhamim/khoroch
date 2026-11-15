@@ -97,6 +97,12 @@ export const en = {
   'dateTime.dateTab': 'Date',
   'dateTime.timeTab': 'Time',
   'dateTime.now': 'Now',
+  'dateTime.pickMonthYear': 'Pick month and year',
+  'dateTime.prevYear': 'Previous year',
+  'dateTime.nextYear': 'Next year',
+  'dateTime.keypad': 'Keypad',
+  'dateTime.wheel': 'Scroll',
+  'dateTime.backspace': 'Backspace',
 
   // Onboarding
   'onboarding.stepLabel': 'Step {step} of {total}',

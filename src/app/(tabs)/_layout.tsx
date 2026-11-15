@@ -15,6 +15,7 @@ import { hapticLight, hapticMedium, hapticSelection } from "@/ui/haptics";
 import { TAB_BAR_CONTENT_HEIGHT, useTabBarHeight } from "@/ui/Screen";
 import { PressableScale } from "@/ui/PressableScale";
 import { GlassContext } from "@/ui/glass";
+import { useDayBookStore } from "@/state/dayBookStore";
 
 export type V2TabBarProps = Parameters<
   NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>
@@ -43,11 +44,16 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
   const bottomPadding = Math.max(tabBarHeight - TAB_BAR_CONTENT_HEIGHT, 10);
 
   const activeRouteName = state.routes[state.index]?.name;
+  const ledgerDay = useDayBookStore((s) => s.day);
 
   const renderTab = (tab: TabItemConfig) => {
     const route = state.routes.find((r) => r.name === tab.routeName);
     const isFocused = activeRouteName === tab.routeName;
-    const color = isFocused ? theme.colors.accent : theme.colors.textTertiary;
+    const color = isFocused
+      ? theme.colors.accent
+      : theme.scheme === "dark"
+        ? theme.colors.textSecondary
+        : theme.colors.textTertiary;
 
     const handlePress = () => {
       if (!route) return;
@@ -93,8 +99,12 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
             {
               borderRadius: 999,
               backgroundColor: isFocused ? theme.colors.accentSoft : "transparent",
-              borderWidth: isFocused ? 1 : 0,
-              borderColor: isFocused ? theme.colors.cardBorder : "transparent",
+              borderWidth: 1,
+              borderColor: isFocused
+                ? theme.accent === "graphite"
+                  ? theme.colors.cardBorder
+                  : `${theme.colors.accent}55`
+                : "transparent",
             },
           ]}
         >
@@ -140,7 +150,11 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
           accessibilityHint={t("tabs.addHint")}
           onPress={() => {
             hapticLight();
-            router.push("/transaction/new");
+            if (activeRouteName === "ledger" && ledgerDay) {
+              router.push({ pathname: "/transaction/new", params: { date: ledgerDay } } as never);
+            } else {
+              router.push("/transaction/new");
+            }
           }}
           onLongPress={() => {
             hapticMedium();
@@ -196,10 +210,9 @@ function TabIcon({
     );
   }, [focused, lift, reducedMotion]);
   const style = useAnimatedStyle(() => ({
-    transform: [
-      { translateY: -1.5 * lift.get() },
-      { scale: 1 + 0.08 * lift.get() },
-    ],
+    alignItems: "center",
+    justifyContent: "center",
+    transform: [{ scale: 1 + 0.06 * lift.get() }],
   }));
   return (
     <Animated.View style={style}>

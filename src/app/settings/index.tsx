@@ -1322,13 +1322,13 @@ export default function SettingsScreen() {
                     ? '#F6F5F1'
                     : pref === 'black'
                       ? '#000000'
-                      : '#0B0B0C';
+                      : '#121316';
                 const surfaceHex =
                   pref === 'light'
                     ? '#FFFFFF'
                     : pref === 'black'
-                      ? '#0B0B0D'
-                      : '#151517';
+                      ? '#0C0C0F'
+                      : '#1C1D23';
                 const lineHex =
                   pref === 'light'
                     ? '#161513'

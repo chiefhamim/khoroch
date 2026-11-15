@@ -642,74 +642,76 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               },
             ]}
           >
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.heroPill,
-                { backgroundColor: theme.colors.heroText },
-                tabPillStyle,
-              ]}
-            />
-            <PressableScale
-              pressScale={0.97}
-              testID="overview-hero-tab-budget"
-              accessibilityRole="button"
-              accessibilityState={{ selected: effectiveHeroMode === 'budget' }}
-              onPress={() => setUserHeroMode('budget')}
-              style={[
-                styles.heroTab,
-                {
-                  borderRadius: 999,
-                  backgroundColor: 'transparent',
-                },
-              ]}
-            >
-              <AppText
-                variant="tab"
-                numberOfLines={1}
+            <View style={styles.heroTrack}>
+              <Animated.View
+                pointerEvents="none"
                 style={[
-                  styles.heroTabLabel,
+                  styles.heroPill,
+                  { backgroundColor: theme.colors.accent },
+                  tabPillStyle,
+                ]}
+              />
+              <PressableScale
+                pressScale={0.97}
+                testID="overview-hero-tab-budget"
+                accessibilityRole="button"
+                accessibilityState={{ selected: effectiveHeroMode === 'budget' }}
+                onPress={() => setUserHeroMode('budget')}
+                style={[
+                  styles.heroTab,
                   {
-                    color:
-                      effectiveHeroMode === 'budget'
-                        ? theme.colors.hero
-                        : theme.colors.heroTextSecondary,
+                    borderRadius: 999,
+                    backgroundColor: 'transparent',
                   },
                 ]}
               >
-                {tr('overview.heroTabBudget')}
-              </AppText>
-            </PressableScale>
-            <PressableScale
-              pressScale={0.97}
-              testID="overview-hero-tab-wallets"
-              accessibilityRole="button"
-              accessibilityState={{ selected: effectiveHeroMode === 'wallets' }}
-              onPress={() => setUserHeroMode('wallets')}
-              style={[
-                styles.heroTab,
-                {
-                  borderRadius: 999,
-                  backgroundColor: 'transparent',
-                },
-              ]}
-            >
-              <AppText
-                variant="tab"
-                numberOfLines={1}
+                <AppText
+                  variant="tab"
+                  numberOfLines={1}
+                  style={[
+                    styles.heroTabLabel,
+                    {
+                      color:
+                        effectiveHeroMode === 'budget'
+                          ? theme.colors.onAccent
+                          : theme.colors.heroTextSecondary,
+                    },
+                  ]}
+                >
+                  {tr('overview.heroTabBudget')}
+                </AppText>
+              </PressableScale>
+              <PressableScale
+                pressScale={0.97}
+                testID="overview-hero-tab-wallets"
+                accessibilityRole="button"
+                accessibilityState={{ selected: effectiveHeroMode === 'wallets' }}
+                onPress={() => setUserHeroMode('wallets')}
                 style={[
-                  styles.heroTabLabel,
+                  styles.heroTab,
                   {
-                    color:
-                      effectiveHeroMode === 'wallets'
-                        ? theme.colors.hero
-                        : theme.colors.heroTextSecondary,
+                    borderRadius: 999,
+                    backgroundColor: 'transparent',
                   },
                 ]}
               >
-                {tr('overview.heroTabWallets')}
-              </AppText>
-            </PressableScale>
+                <AppText
+                  variant="tab"
+                  numberOfLines={1}
+                  style={[
+                    styles.heroTabLabel,
+                    {
+                      color:
+                        effectiveHeroMode === 'wallets'
+                          ? theme.colors.onAccent
+                          : theme.colors.heroTextSecondary,
+                    },
+                  ]}
+                >
+                  {tr('overview.heroTabWallets')}
+                </AppText>
+              </PressableScale>
+            </View>
           </View>
 
           <View style={[styles.heroTopRight, { gap: theme.spacing.xs }]}>
@@ -1387,24 +1389,29 @@ const styles = StyleSheet.create({
   },
   heroTabs: {
     width: 188,
-    flexDirection: 'row',
-    alignItems: 'center',
     height: 34,
     borderRadius: 999,
     padding: 3,
+  },
+  heroTrack: {
+    position: 'relative',
+    flex: 1,
+    height: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 2,
   },
   heroPill: {
     position: 'absolute',
-    top: 2,
-    left: 3,
+    top: 0,
+    bottom: 0,
+    left: 0,
     width: 89,
-    height: 28,
     borderRadius: 999,
   },
   heroTab: {
     flex: 1,
-    height: 28,
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
@@ -1413,6 +1420,8 @@ const styles = StyleSheet.create({
   heroTabLabel: {
     alignSelf: 'stretch',
     textAlign: 'center',
+    textAlignVertical: 'center',
+    includeFontPadding: false,
     fontFamily: 'Manrope_700Bold',
   },
   heroTopRight: {

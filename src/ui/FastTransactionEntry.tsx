@@ -146,6 +146,8 @@ function TypeSwitch({ type, onChange }: { type: 'expense' | 'income'; onChange: 
       />
       {items.map((item) => {
         const active = type === item.key;
+        const activeInk = theme.scheme === 'dark' ? '#0A0A0C' : '#FFFFFF';
+        const inactiveColor = theme.scheme === 'dark' ? theme.colors.textSecondary : theme.colors.textTertiary;
         return (
           <PressableScale
             key={item.key}
@@ -158,12 +160,12 @@ function TypeSwitch({ type, onChange }: { type: 'expense' | 'income'; onChange: 
             }}
             style={styles.typeBtn}
           >
-            <AppIcon name={item.icon} size={15} color={active ? '#FFFFFF' : theme.colors.textTertiary} />
+            <AppIcon name={item.icon} size={15} color={active ? activeInk : inactiveColor} />
             <AppText
               variant="label"
               numberOfLines={1}
               style={{
-                color: active ? '#FFFFFF' : theme.colors.textTertiary,
+                color: active ? activeInk : inactiveColor,
                 fontFamily: active ? 'Manrope_700Bold' : 'Manrope_500Medium',
               }}
             >

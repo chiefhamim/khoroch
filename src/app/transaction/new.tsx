@@ -1,5 +1,5 @@
 import * as Crypto from 'expo-crypto';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -28,6 +28,8 @@ import {
 export default function NewTransactionScreen() {
   const { repo, settings, updateSetting } = useAppContext();
   const { theme } = useTheme();
+  const { date: dateParam } = useLocalSearchParams<{ date?: string }>();
+  const presetDate = typeof dateParam === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? (dateParam as LocalDate) : undefined;
   const { showToast } = useToast();
   const txIdRef = useRef<string>(Crypto.randomUUID());
 
@@ -231,6 +233,7 @@ export default function NewTransactionScreen() {
       >
         <TransactionForm
           mode="new"
+          initialValues={presetDate ? { occurredOn: presetDate } : undefined}
           fastEntry
           currency={settings.currency}
           categories={categories}

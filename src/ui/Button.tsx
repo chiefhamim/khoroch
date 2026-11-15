@@ -73,8 +73,10 @@ export function Button({
         ? tint ?? theme.colors.accent
         : variant === 'secondary'
           ? glass
-            ? glassFill(theme.scheme === 'light' ? 'light' : 'dark').fill
-            : theme.colors.surface
+            ? glassFill(theme.mode).fill
+            : theme.scheme === 'dark'
+              ? theme.colors.surfaceRaised
+              : theme.colors.surface
           : variant === 'danger'
             ? theme.colors.danger
             : variant === 'dangerSoft'
@@ -135,9 +137,17 @@ export function Button({
           paddingVertical: size === 'sm' ? theme.spacing.sm : theme.spacing.md,
           gap: theme.spacing.sm,
           backgroundColor,
+          ...(theme.scheme === 'dark' && (variant === 'secondary' || (isDisabled && isFilled))
+            ? {
+                borderWidth: 1,
+                borderColor: theme.colors.cardBorder,
+              }
+            : null),
           opacity:
             isDisabled && !isFilled
-              ? 0.55
+              ? theme.scheme === 'dark'
+                ? 0.65
+                : 0.55
               : pressed && !reducedMotion
                 ? 0.88
                 : 1,

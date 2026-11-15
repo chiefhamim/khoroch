@@ -75,13 +75,20 @@ export function BudgetStatusBadge({
   const displayLabel = label ?? t(cfg.labelKey);
 
   const isHero = surface === 'hero';
+  const isDark = theme.scheme === 'dark';
 
   const fgColor = isHero
-    ? cfg.tone === 'danger'
-      ? '#991B1B'
-      : cfg.tone === 'warning'
-        ? '#92400E'
-        : theme.colors.heroText
+    ? isDark
+      ? cfg.tone === 'danger'
+        ? theme.colors.danger
+        : cfg.tone === 'warning'
+          ? theme.colors.warning
+          : theme.colors.heroText
+      : cfg.tone === 'danger'
+        ? '#991B1B'
+        : cfg.tone === 'warning'
+          ? '#92400E'
+          : theme.colors.heroText
     : cfg.tone === 'danger'
       ? theme.colors.danger
       : cfg.tone === 'warning'
@@ -91,11 +98,17 @@ export function BudgetStatusBadge({
           : theme.colors.textSecondary;
 
   const bgColor = isHero
-    ? cfg.tone === 'danger'
-      ? '#FCEBEB'
-      : cfg.tone === 'warning'
-        ? '#FEF3C7'
-        : theme.colors.heroLine
+    ? isDark
+      ? cfg.tone === 'danger'
+        ? theme.colors.dangerSoft
+        : cfg.tone === 'warning'
+          ? theme.colors.warningBg
+          : theme.colors.heroLine
+      : cfg.tone === 'danger'
+        ? '#FCEBEB'
+        : cfg.tone === 'warning'
+          ? '#FEF3C7'
+          : theme.colors.heroLine
     : cfg.tone === 'danger'
       ? theme.colors.dangerSoft
       : cfg.tone === 'warning'
@@ -160,6 +173,12 @@ export function BudgetStatusBadge({
         styles.badge,
         {
           backgroundColor: bgColor,
+          ...(isDark && (cfg.tone === 'danger' || cfg.tone === 'warning')
+            ? {
+                borderWidth: 1,
+                borderColor: hexToRgba(fgColor, 0.28),
+              }
+            : null),
           borderRadius: theme.radius.pill,
           paddingHorizontal: theme.spacing.sm + 2,
           paddingVertical: theme.spacing.xs,

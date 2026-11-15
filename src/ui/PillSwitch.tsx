@@ -36,7 +36,7 @@ export function PillSwitch({
   testID,
   accessibilityLabel,
   trackColor,
-  thumbColor = '#FFFFFF',
+  thumbColor,
 }: PillSwitchProps) {
   const { theme, reducedMotion } = useTheme();
   const progress = useSharedValue(value ? 1 : 0);
@@ -44,6 +44,9 @@ export function PillSwitch({
   const offTrack = trackColor?.false ?? theme.colors.surfaceSunken;
   const onTrack = trackColor?.true ?? theme.colors.accent;
   const offBorder = theme.colors.cardBorder;
+  const offThumb =
+    thumbColor ?? (theme.scheme === 'dark' ? theme.colors.textSecondary : '#FFFFFF');
+  const onThumb = thumbColor ?? theme.colors.onAccent;
 
   useEffect(() => {
     if (reducedMotion) {
@@ -59,6 +62,7 @@ export function PillSwitch({
   }));
 
   const thumbAnimatedStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(progress.get(), [0, 1], [offThumb, onThumb]),
     transform: [{ translateX: progress.get() * THUMB_TRAVEL }],
   }));
 
@@ -98,7 +102,7 @@ export function PillSwitch({
         <Animated.View
           style={[
             styles.thumb,
-            { backgroundColor: thumbColor },
+            { backgroundColor: value ? onThumb : offThumb },
             thumbAnimatedStyle,
           ]}
         />

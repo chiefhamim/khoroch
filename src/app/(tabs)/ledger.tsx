@@ -661,14 +661,14 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
               styles.underlineTab,
               {
                 borderBottomColor:
-                  accountId === undefined ? theme.colors.text : 'transparent',
+                  accountId === undefined ? theme.colors.accent : 'transparent',
                 opacity: pressed && !reducedMotion ? 0.72 : 1,
               },
             ]}
           >
             <AppText
               variant="label"
-              color={accountId === undefined ? 'text' : 'textSecondary'}
+              color={accountId === undefined ? 'accent' : 'textSecondary'}
               numberOfLines={1}
             >
               {t('activity.allWalletsTab')}
@@ -690,14 +690,14 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                 style={({ pressed }) => [
                   styles.underlineTab,
                   {
-                    borderBottomColor: selected ? theme.colors.text : 'transparent',
+                    borderBottomColor: selected ? theme.colors.accent : 'transparent',
                     opacity: pressed && !reducedMotion ? 0.72 : 1,
                   },
                 ]}
               >
                 <AppText
                   variant="label"
-                  color={selected ? 'text' : 'textSecondary'}
+                  color={selected ? 'accent' : 'textSecondary'}
                   numberOfLines={1}
                 >
                   {w.name}
@@ -727,8 +727,9 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
               borderColor: datePreset !== 'all' ? theme.colors.accent : theme.colors.cardBorder,
               ...(theme.elevation.e1 as object),
               borderRadius: theme.radius.pill,
-              paddingHorizontal: theme.spacing.md,
-              gap: theme.spacing.xs,
+              paddingLeft: 14,
+              paddingRight: 11,
+              gap: 5,
               opacity: pressed && !reducedMotion ? 0.72 : 1,
             },
           ]}
@@ -737,18 +738,23 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
             variant="label"
             color={datePreset !== 'all' ? 'accent' : 'text'}
             numberOfLines={1}
-            style={{
-              minWidth: estimateSingleLineMinWidth(
-                periodLabel,
-                theme.typography.label.fontSize
-              ),
-            }}
+            style={[
+              styles.periodPillLabel,
+              locale === 'bn'
+                ? {
+                    minWidth: estimateSingleLineMinWidth(
+                      periodLabel,
+                      theme.typography.label.fontSize
+                    ),
+                  }
+                : null,
+            ]}
           >
             {periodLabel}
           </AppText>
           <AppIcon
             name="chevron-down"
-            size={14}
+            size={15}
             color={datePreset !== 'all' ? theme.colors.accent : theme.colors.textSecondary}
           />
         </PressableScale>
@@ -1472,6 +1478,11 @@ const styles = StyleSheet.create({
     minHeight: 34,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  periodPillLabel: {
+    includeFontPadding: false,
+    textAlignVertical: 'center',
   },
   summaryRight: {
     flexShrink: 1,
@@ -1581,7 +1592,19 @@ export default function LedgerScreen() {
     <View style={styles.modeStack}>
       <ModeLayer active={mode === 'day'} side={-1}>
         <Screen contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}>
-          <DayBookView header={header} />
+          <DayBookView
+            header={header}
+            active={mode === 'day'}
+            onOpenDayInAll={(date) => {
+              useActivityFilterStore.getState().applyExternalFilters({
+                datePreset: 'custom',
+                customFromIncl: date,
+                customToIncl: date,
+              });
+              hapticSelection();
+              setMode('all');
+            }}
+          />
         </Screen>
       </ModeLayer>
       <ModeLayer active={mode === 'all'} side={1}>

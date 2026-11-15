@@ -110,7 +110,7 @@ const SHORT_WEEKDAYS_BY_LOCALE: Record<DateLocale, readonly string[]> = {
   bn: ['বৃহঃ', 'শুক্র', 'শনি', 'রবি', 'সোম', 'মঙ্গল', 'বুধ'],
 };
 
-const SHORT_MONTHS_BY_LOCALE: Record<DateLocale, readonly string[]> = {
+export const SHORT_MONTHS_BY_LOCALE: Record<DateLocale, readonly string[]> = {
   en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
   bn: ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'],
 };
