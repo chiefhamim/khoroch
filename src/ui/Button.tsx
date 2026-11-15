@@ -9,26 +9,17 @@ import {
 import { containsBengali } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateBanglaWeightedUnits } from './AppText';
 import { hapticLight } from './haptics';
 import { PressableScale } from '@/ui/PressableScale';
 
-const ZERO_ADVANCE_BN_MARKS = /[\u0981\u09BC\u09C1-\u09C4\u09CD\u09E2\u09E3]/;
-const HALF_ADVANCE_BN_MARKS = /[\u09BE\u09BF\u09C0\u09C7\u09C8\u09CB\u09CC]/;
-
 /**
  * Estimates single-line dp width for short Bangla CTA labels in flex-row buttons.
- * Weights zero-advance vowel/virama marks accurately so Yoga never over-pushes icons
+ * Uses weighted glyph units so Yoga never over-pushes icons
  * while preventing Android Fabric from wrapping the trailing word onto a clipped line 2.
  */
 function estimateBanglaCtaMinWidth(title: string, fontSize: number): number | undefined {
-  let units = 0;
-  for (const ch of title) {
-    if (ch === ' ') units += 0.35;
-    else if (ZERO_ADVANCE_BN_MARKS.test(ch)) units += 0.1;
-    else if (HALF_ADVANCE_BN_MARKS.test(ch)) units += 0.5;
-    else units += 1;
-  }
+  const units = estimateBanglaWeightedUnits(title);
   if (units > 18) return undefined;
   const fontScale = Math.max(1, PixelRatio.getFontScale?.() ?? 1);
   return Math.ceil((units * (fontSize * 0.64) + 12) * fontScale);

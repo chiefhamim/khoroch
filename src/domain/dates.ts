@@ -115,7 +115,7 @@ const SHORT_MONTHS_BY_LOCALE: Record<DateLocale, readonly string[]> = {
   bn: ['জানু', 'ফেব্রু', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টে', 'অক্টো', 'নভে', 'ডিসে'],
 };
 
-const FULL_MONTHS_BY_LOCALE: Record<DateLocale, readonly string[]> = {
+export const FULL_MONTHS_BY_LOCALE: Record<DateLocale, readonly string[]> = {
   en: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
   bn: ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'],
 };
@@ -159,9 +159,13 @@ export function formatWeekdayShortDate(date: LocalDate, locale: DateLocale = 'en
   return `${SHORT_WEEKDAYS_BY_LOCALE[locale][weekdayIndexThu0(date)]}, ${day} ${SHORT_MONTHS_BY_LOCALE[locale][month - 1]} ${year}`;
 }
 
-export function formatPeriodRange(start: LocalDate, endExcl: LocalDate): string {
+export function formatPeriodRange(
+  start: LocalDate,
+  endExcl: LocalDate,
+  locale: DateLocale = 'en'
+): string {
   const endIncl = addDays(endExcl, -1);
-  return `${formatShortDate(start)} – ${formatShortDate(endIncl)}`;
+  return `${formatShortDate(start, locale)} – ${formatShortDate(endIncl, locale)}`;
 }
 
 /**

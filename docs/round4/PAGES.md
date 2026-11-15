@@ -19,7 +19,7 @@ Live package (untouched until Section 6 step 4 owner approval): `com.hamim.budge
 - [x] 7. Transfer detail and edit (`src/app/transfer/[id].tsx`)
 - [x] 8. Quick entry and voice (`src/app/quick-entry.tsx`)
 - [x] 9. Daily check-in (`src/app/check-in.tsx`)
-- [ ] 10. Plan (`src/app/(tabs)/plan.tsx`): budget ring, category budgets, past cycles
+- [x] 10. Plan (`src/app/(tabs)/plan.tsx`): budget ring, category budgets, past cycles
 - [ ] 11. Insights (`src/app/plan/insights.tsx`, `src/screens/InsightsScreen.tsx`)
 - [ ] 12. Category detail (`src/app/category/[id].tsx`)
 - [ ] 13. People list (`src/app/(tabs)/people.tsx`) and the Lend or borrow sheet (`src/ui/DueEntrySheet.tsx`)

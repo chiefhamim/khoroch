@@ -72,7 +72,16 @@ export function ProgressRing({
           </G>
         ) : null}
       </Svg>
-      {children ? <View style={styles.center}>{children}</View> : null}
+      {children ? (
+        <View
+          style={[
+            styles.center,
+            { paddingHorizontal: Math.max(16, Math.round(strokeWidth + 6)) },
+          ]}
+        >
+          {children}
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -88,6 +97,5 @@ const styles = StyleSheet.create({
     inset: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
   },
 });

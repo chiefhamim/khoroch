@@ -87,6 +87,20 @@ describe('formatCycleLabel', () => {
       '10 Dec – 9 Jan (2026/2027)'
     );
   });
+
+  it('localizes cycle month and period range when locale is bn', () => {
+    const nov = getPeriod('2026-11-13', 1);
+    expect(formatCycleLabel(nov, 1, { locale: 'bn' })).toBe('নভেম্বর');
+    expect(formatCycleLabel(nov, 1, { includeYear: true, locale: 'bn' })).toBe('নভেম্বর 2026');
+
+    const octNov = getPeriod('2026-11-05', 10);
+    expect(formatCycleLabel(octNov, 10, { locale: 'bn' })).toBe('10 অক্টো – 9 নভে');
+
+    const decJan = getPeriod('2026-12-20', 10);
+    expect(formatCycleLabel(decJan, 10, { includeYear: true, locale: 'bn' })).toBe(
+      '10 ডিসে – 9 জানু (2026/2027)'
+    );
+  });
 });
 
 describe('shouldShowNewCycleHint', () => {

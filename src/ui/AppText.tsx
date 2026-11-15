@@ -9,15 +9,33 @@ import {
 } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
+const ZERO_ADVANCE_BN_MARKS = /[\u0981\u09BC\u09C1-\u09C4\u09CD\u09E2\u09E3]/;
+const HALF_ADVANCE_BN_MARKS = /[\u09BE\u09BF\u09C0\u09C7\u09C8\u09CB\u09CC]/;
+
+/** Counts visual advance units for Bangla text, discounting combining virama/vowel marks. */
+export function estimateBanglaWeightedUnits(text: string): number {
+  let units = 0;
+  for (const ch of text) {
+    if (ch === ' ') units += 0.35;
+    else if (ZERO_ADVANCE_BN_MARKS.test(ch)) units += 0.1;
+    else if (HALF_ADVANCE_BN_MARKS.test(ch)) units += 0.5;
+    else units += 1;
+  }
+  return units;
+}
+
 /**
  * Estimates a generous single-line minimum width (dp) so Android Fabric does not wrap or drop
  * the final word/glyph when Yoga quantizes shrink-wrapped text across locale/theme changes.
  */
 export function estimateSingleLineMinWidth(text: string, fontSize = 13): number {
   const fontScale = Math.max(1, PixelRatio.getFontScale?.() ?? 1);
-  const perChar = fontSize * (containsBengali(text) ? 0.6 : 0.54);
-  const buffer = containsBengali(text) ? 12 : 10;
-  return Math.ceil((text.length * perChar + buffer) * fontScale);
+  if (containsBengali(text)) {
+    const units = estimateBanglaWeightedUnits(text);
+    return Math.ceil((units * (fontSize * 0.68) + 12) * fontScale);
+  }
+  const perChar = fontSize * 0.54;
+  return Math.ceil((text.length * perChar + 10) * fontScale);
 }
 
 export interface AppTextProps extends TextProps {

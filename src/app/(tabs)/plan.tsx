@@ -11,13 +11,13 @@ import {
 } from '@/domain/money';
 import { formatCycleLabel } from '@/domain/period';
 import { isValidBudgetAmount } from '@/domain/validation';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useBudgets } from '@/state/useBudgets';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { BudgetStatusBadge } from '@/ui/BudgetStatusBadge';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
@@ -43,6 +43,7 @@ type SheetMode =
 
 export default function PlanScreen() {
   const router = useRouter();
+  const locale = useLocale();
   const { settings } = useAppContext();
   const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
   const showPoisha = usePrivacyStore((s) => s.showPoisha);
@@ -100,9 +101,15 @@ export default function PlanScreen() {
     );
   }
 
-  const cycleLabel = formatCycleLabel(period, settings.monthStartDay);
+  const cycleLabel = formatCycleLabel(period, settings.monthStartDay, { locale });
   const currencySymbol = getCurrencySymbol(settings.currency);
   const displayAmountDraft = amountDraft ? groupThousands(amountDraft) : '0';
+
+  const bnMinWidth = (text: string, fontSize: number, maxWidth?: number) => {
+    if (locale !== 'bn') return undefined;
+    const width = estimateSingleLineMinWidth(text, fontSize);
+    return { minWidth: maxWidth !== undefined ? Math.min(width, maxWidth) : width };
+  };
 
   const openEditOverall = () => {
     setAmountDraft(overallBudgetMinor !== null ? formatMinorToDraft(overallBudgetMinor) : '');
@@ -230,7 +237,12 @@ export default function PlanScreen() {
       {/* Page header: Title + cycle range */}
       <View style={styles.headerRow}>
         <AppText variant="title">{t('plan.title')}</AppText>
-        <AppText variant="label" color="textSecondary">
+        <AppText
+          variant="label"
+          color="textSecondary"
+          numberOfLines={1}
+          style={[styles.rightText, bnMinWidth(cycleLabel, 13, 180)]}
+        >
           {cycleLabel}
         </AppText>
       </View>
@@ -241,7 +253,7 @@ export default function PlanScreen() {
           <>
             <ProgressRing
               testID="budget-overall-ring"
-              size={164}
+              size={196}
               strokeWidth={12}
               pct={overallSummary.utilizationPct}
               status={overallSummary.status}
@@ -253,14 +265,26 @@ export default function PlanScreen() {
                 currency={settings.currency}
                 color={isNegativeRemaining ? 'danger' : 'text'}
                 allowCompact
+                numberOfLines={1}
+                style={
+                  Math.abs(overallSummary.remainingMinor) >= 10_000_000
+                    ? styles.ringMoneyCompact
+                    : styles.ringMoney
+                }
               />
-              <AppText
-                variant="caption"
-                color={isNegativeRemaining ? 'danger' : 'textSecondary'}
-                style={styles.centerText}
-              >
-                {`${isNegativeRemaining ? t('budget.overSuffix') : t('budget.leftSuffix')} · ${formatUtilizationPct(overallSummary.utilizationPct ?? 0)}`}
-              </AppText>
+              {(() => {
+                const ringCaption = `${isNegativeRemaining ? t('budget.overSuffix') : t('budget.leftSuffix')} · ${formatUtilizationPct(overallSummary.utilizationPct ?? 0)}`;
+                return (
+                  <AppText
+                    variant="caption"
+                    color={isNegativeRemaining ? 'danger' : 'textSecondary'}
+                    numberOfLines={1}
+                    style={[styles.centerText, bnMinWidth(ringCaption, 13, 156)]}
+                  >
+                    {ringCaption}
+                  </AppText>
+                );
+              })()}
             </ProgressRing>
 
             <View style={[styles.heroFooter, { gap: theme.spacing.sm }]}>
@@ -291,7 +315,12 @@ export default function PlanScreen() {
                 ]}
               >
                 <AppIcon name="pencil" size={14} color={theme.colors.accent} />
-                <AppText variant="label" color="accent" style={styles.semiBold}>
+                <AppText
+                  variant="label"
+                  color="accent"
+                  numberOfLines={1}
+                  style={[styles.semiBold, bnMinWidth(t('budget.editShort'), 13)]}
+                >
                   {t('budget.editShort')}
                 </AppText>
               </PressableScale>
@@ -311,13 +340,21 @@ export default function PlanScreen() {
 
       {/* Category budgets section */}
       <View style={{ gap: theme.spacing.md }}>
-        <View style={[styles.headerRow, { gap: theme.spacing.sm }]}>
-          <AppText variant="headline">{t('budget.categorySection')}</AppText>
+        <View style={[styles.catSectionHeader, { gap: theme.spacing.sm }]}>
+          <AppText
+            variant="headline"
+            numberOfLines={1}
+            style={bnMinWidth(t('budget.categorySection'), 17, 220)}
+          >
+            {t('budget.categorySection')}
+          </AppText>
           {allocationSummaryText ? (
             <AppText
               variant="label"
               color={allocationSummaryText.tone}
               tabularNums
+              numberOfLines={1}
+              style={[styles.rightText, bnMinWidth(allocationSummaryText.text, 13, 210)]}
             >
               {allocationSummaryText.text}
             </AppText>
@@ -336,13 +373,36 @@ export default function PlanScreen() {
                   : item.status === 'attention' || item.status === 'reached'
                     ? 'warning'
                     : 'textSecondary';
+              const statusText = isOver
+                ? t('budget.overAmount', {
+                    amount: formatMoney(Math.abs(item.remainingMinor), settings.currency, {
+                      hidden: hideAmounts,
+                      showPoisha,
+                    }),
+                  })
+                : t('budget.leftAmount', {
+                    amount: formatMoney(item.remainingMinor, settings.currency, {
+                      hidden: hideAmounts,
+                      showPoisha,
+                    }),
+                  });
+              const ofLimitText = t('budget.ofLimitLabel', {
+                spent: formatMoney(item.spentMinor, settings.currency, {
+                  hidden: hideAmounts,
+                  showPoisha,
+                }),
+                limit: formatMoney(item.budgetMinor, settings.currency, {
+                  hidden: hideAmounts,
+                  showPoisha,
+                }),
+              });
 
               return (
                 <View key={item.categoryId}>
                   <PressableScale pressScale={0.98}
                     testID={`budget-cat-row-${item.categoryId}`}
                     accessibilityRole="button"
-                    accessibilityLabel={`${catName}: ${formatMoney(item.spentMinor, settings.currency, { hidden: hideAmounts, showPoisha })} of ${formatMoney(item.budgetMinor, settings.currency, { hidden: hideAmounts, showPoisha })}`}
+                    accessibilityLabel={`${catName}: ${ofLimitText}`}
                     onPress={() => openEditCategory(item.categoryId, item.budgetMinor)}
                     style={({ pressed }) => [
                       styles.catRow,
@@ -369,35 +429,18 @@ export default function PlanScreen() {
                         >
                           {catName}
                         </AppText>
-                        <AppText variant="label" color={statusTone} tabularNums>
-                          {isOver
-                            ? t('budget.overAmount', {
-                                amount: formatMoney(
-                                  Math.abs(item.remainingMinor),
-                                  settings.currency,
-                                  { hidden: hideAmounts, showPoisha }
-                                ),
-                              })
-                            : t('budget.leftAmount', {
-                                amount: formatMoney(
-                                  item.remainingMinor,
-                                  settings.currency,
-                                  { hidden: hideAmounts, showPoisha }
-                                ),
-                              })}
+                        <AppText
+                          variant="label"
+                          color={statusTone}
+                          tabularNums
+                          numberOfLines={1}
+                          style={[styles.rightText, bnMinWidth(statusText, 13, 160)]}
+                        >
+                          {statusText}
                         </AppText>
                       </View>
                       <AppText variant="caption" color="textSecondary" tabularNums>
-                        {t('budget.ofLimitLabel', {
-                          spent: formatMoney(item.spentMinor, settings.currency, {
-                            hidden: hideAmounts,
-                            showPoisha,
-                          }),
-                          limit: formatMoney(item.budgetMinor, settings.currency, {
-                            hidden: hideAmounts,
-                            showPoisha,
-                          }),
-                        })}
+                        {ofLimitText}
                       </AppText>
                       <ProgressBar
                         pct={item.utilizationPct}
@@ -438,12 +481,18 @@ export default function PlanScreen() {
                 borderColor: theme.colors.separator,
                 backgroundColor: theme.colors.surface,
                 gap: theme.spacing.sm,
+                paddingHorizontal: theme.spacing.lg,
                 opacity: pressed && !reducedMotion ? 0.68 : 1,
               },
             ]}
           >
             <AppIcon name="plus" size={18} color={theme.colors.accent} />
-            <AppText variant="bodyStrong" color="accent">
+            <AppText
+              variant="bodyStrong"
+              color="accent"
+              numberOfLines={1}
+              style={bnMinWidth(t('budget.addCategoryRow'), 15)}
+            >
               {t('budget.addCategoryRow')}
             </AppText>
           </PressableScale>
@@ -471,7 +520,13 @@ export default function PlanScreen() {
           ]}
         >
           <View style={[styles.pastTitleWrap, { gap: theme.spacing.sm }]}>
-            <AppText variant="headline">{t('budget.pastCyclesTitle')}</AppText>
+            <AppText
+              variant="headline"
+              numberOfLines={1}
+              style={bnMinWidth(t('budget.pastCyclesTitle'), 17, 240)}
+            >
+              {t('budget.pastCyclesTitle')}
+            </AppText>
             {history.length > 0 ? (
               <AppText variant="label" color="textSecondary" tabularNums>
                 {String(history.length)}
@@ -499,7 +554,7 @@ export default function PlanScreen() {
                 <ListRow
                   key={item.period.start}
                   compact
-                  title={formatCycleLabel(item.period, settings.monthStartDay)}
+                  title={formatCycleLabel(item.period, settings.monthStartDay, { locale })}
                   subtitle={
                     item.overallBudgetMinor !== null
                       ? t('budget.ofLimitLabel', {
@@ -622,6 +677,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  catSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+  },
+  ringMoney: {
+    fontSize: 30,
+    lineHeight: 36,
+    letterSpacing: -0.6,
+  },
+  ringMoneyCompact: {
+    fontSize: 24,
+    lineHeight: 30,
+    letterSpacing: -0.4,
+  },
   heroFooter: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -668,6 +739,9 @@ const styles = StyleSheet.create({
   },
   centerText: {
     textAlign: 'center',
+  },
+  rightText: {
+    textAlign: 'right',
   },
   divider: {
     height: 1,

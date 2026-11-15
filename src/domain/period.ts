@@ -3,24 +3,11 @@ import {
   diffDays,
   formatLocalDate,
   formatPeriodRange,
+  FULL_MONTHS_BY_LOCALE,
   parseLocalDate,
+  type DateLocale,
 } from './dates';
 import type { LocalDate, Period } from './types';
-
-const FULL_MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-] as const;
 
 function assertMonthStartDay(monthStartDay: number): void {
   if (!Number.isInteger(monthStartDay) || monthStartDay < 1 || monthStartDay > 28) {
@@ -105,6 +92,7 @@ export function buildRecentPeriodWindows(
 
 export interface FormatCycleLabelOptions {
   includeYear?: boolean;
+  locale?: DateLocale;
 }
 
 /**
@@ -117,12 +105,13 @@ export function formatCycleLabel(
   options?: FormatCycleLabelOptions
 ): string {
   assertMonthStartDay(monthStartDay);
+  const locale = options?.locale ?? 'en';
   const { year, month } = parseLocalDate(period.start);
   if (monthStartDay === 1) {
-    const monthName = FULL_MONTHS[month - 1];
+    const monthName = FULL_MONTHS_BY_LOCALE[locale][month - 1];
     return options?.includeYear ? `${monthName} ${year}` : monthName;
   }
-  const range = formatPeriodRange(period.start, period.endExcl);
+  const range = formatPeriodRange(period.start, period.endExcl, locale);
   if (!options?.includeYear) {
     return range;
   }
