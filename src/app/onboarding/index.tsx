@@ -1,25 +1,37 @@
 import React, { useContext, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
+import Animated, {
+  Easing,
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+} from 'react-native-reanimated';
 import { setLocale, t } from '@/i18n';
 import { AppContext } from '@/state/AppContext';
 import { useOnboardingDraft } from '@/state/onboardingStore';
 import { useTheme } from '@/theme/useTheme';
+import { AppIcon, type AppIconName } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
+import { CoinScene } from '@/ui/CoinScene';
 import { hapticSelection } from '@/ui/haptics';
-import { IconTile } from '@/ui/IconTile';
-import { Money } from '@/ui/Money';
-import { OnboardingHeader } from '@/ui/OnboardingHeader';
 import { PressableScale } from '@/ui/PressableScale';
 import { Screen } from '@/ui/Screen';
-import { Surface } from '@/ui/Surface';
+
+const CHIPS: readonly { icon: AppIconName; key: 'onboarding.chipPrivate' | 'onboarding.chipOffline' | 'onboarding.chipFast' }[] = [
+  { icon: 'lock', key: 'onboarding.chipPrivate' },
+  { icon: 'shield-check', key: 'onboarding.chipOffline' },
+  { icon: 'zap', key: 'onboarding.chipFast' },
+];
 
 export default function OnboardingWelcomeScreen() {
   const { theme, reducedMotion, locale } = useTheme();
   const router = useRouter();
   const appCtx = useContext(AppContext);
-  const { currency, language, setLanguage } = useOnboardingDraft();
+  const { language, setLanguage } = useOnboardingDraft();
 
   useEffect(() => {
     if (language !== locale) {
@@ -27,7 +39,16 @@ export default function OnboardingWelcomeScreen() {
     }
   }, [language, locale, setLanguage]);
 
-  const activeLang = locale;
+  // The taka mark settles in with a soft spring-like ease.
+  const mark = useSharedValue(reducedMotion ? 1 : 0);
+  useEffect(() => {
+    if (reducedMotion) return;
+    mark.set(withDelay(120, withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) })));
+  }, [mark, reducedMotion]);
+  const markStyle = useAnimatedStyle(() => ({
+    opacity: mark.get(),
+    transform: [{ scale: 0.86 + 0.14 * mark.get() }],
+  }));
 
   const handleSelectLanguage = (nextLang: 'en' | 'bn') => {
     hapticSelection();
@@ -39,43 +60,25 @@ export default function OnboardingWelcomeScreen() {
     }
   };
 
-  return (
-    <Screen
-      scroll
-      edges={['top', 'bottom', 'left', 'right']}
-      contentContainerStyle={styles.container}
-    >
-      <View style={{ gap: theme.spacing.md }}>
-        {/* Top bar with prominent English | বাংলা selector */}
-        <View style={styles.topLangRow}>
-          <View
-            style={[
-              styles.brandBadge,
-              {
-                backgroundColor: theme.colors.accentSoft,
-                borderRadius: theme.radius.sm,
-              },
-            ]}
-          >
-            <AppText variant="caption" color="accent" style={styles.brandBadgeText}>
-              {t('app.tagline')}
-            </AppText>
-          </View>
+  const enter = (delay: number) =>
+    reducedMotion ? undefined : FadeInDown.delay(delay).duration(480).easing(Easing.out(Easing.cubic));
 
+  return (
+    <Screen style={{ backgroundColor: 'transparent' }} scroll edges={['top', 'bottom', 'left', 'right']} contentContainerStyle={styles.container}>
+      <View style={{ flex: 1, gap: theme.spacing.xl }}>
+        <View style={styles.topRow}>
+          <AppText variant="headline" style={styles.wordmark}>
+            {t('app.name')}
+          </AppText>
           <View
             style={[
-              styles.langPillGroup,
-              {
-                backgroundColor: theme.colors.surfaceSunken,
-                borderColor: 'transparent',
-                borderRadius: theme.radius.md,
-              },
+              styles.langGroup,
+              { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.pill },
             ]}
           >
             {(['en', 'bn'] as const).map((lang) => {
-              const selected = activeLang === lang;
-              const label =
-                lang === 'en' ? t('settings.languageEn') : t('settings.languageBn');
+              const selected = locale === lang;
+              const label = lang === 'en' ? t('settings.languageEn') : t('settings.languageBn');
               return (
                 <PressableScale
                   key={lang}
@@ -85,24 +88,21 @@ export default function OnboardingWelcomeScreen() {
                   accessibilityState={{ selected }}
                   accessibilityLabel={label}
                   onPress={() => handleSelectLanguage(lang)}
-                  style={({ pressed }) => [
-                    styles.langPillBtn,
+                  style={[
+                    styles.langBtn,
                     selected ? theme.elevation.e1 : null,
                     {
+                      borderRadius: theme.radius.pill,
                       backgroundColor: selected ? theme.colors.accent : 'transparent',
-                      borderRadius: theme.radius.sm,
-                      opacity: pressed && !reducedMotion ? 0.85 : 1,
                     },
                   ]}
                 >
                   <AppText
                     variant="caption"
-                    style={[
-                      styles.langPillText,
-                      {
-                        color: selected ? theme.colors.onAccent : theme.colors.textSecondary,
-                      },
-                    ]}
+                    style={{
+                      fontFamily: 'Manrope_700Bold',
+                      color: selected ? theme.colors.onAccent : theme.colors.textSecondary,
+                    }}
                   >
                     {label}
                   </AppText>
@@ -112,143 +112,52 @@ export default function OnboardingWelcomeScreen() {
           </View>
         </View>
 
-        <OnboardingHeader
-          step={1}
-          title={t('onboarding.notebookTitle')}
-          subtitle={t('onboarding.notebookSubtitle')}
-        />
+        <View style={styles.middle}>
+        <Animated.View entering={enter(60)}>
+          <CoinScene />
+        </Animated.View>
 
-        {/* Live Daybook Sheet Preview Card */}
-        <Surface padded={false}>
-          <View
-            style={[
-              styles.heroHeader,
-              {
-                backgroundColor: theme.colors.hero,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-              },
-            ]}
-          >
-            <View style={styles.rowBetween}>
-              <AppText
-                variant="caption"
-                color="heroTextSecondary"
-                style={styles.heroMetaText}
-              >
-                {t('onboarding.previewDayHeader')}
-              </AppText>
-              <View style={styles.safeTodayInline}>
-                <AppText
-                  variant="caption"
-                  color="heroTextSecondary"
-                  style={styles.heroMetaText}
-                >
-                  {`${t('onboarding.previewSafeToday')}: `}
-                </AppText>
-                <Money
-                  amountMinor={117600}
-                  currency={currency}
-                  variant="caption"
-                  color="heroText"
-                  style={styles.heroMetaText}
-                />
-              </View>
-            </View>
+        <Animated.View entering={enter(180)} style={{ gap: theme.spacing.sm, alignItems: 'center' }}>
+          <AppText variant="display" style={styles.title}>
+            {t('onboarding.notebookTitle')}
+          </AppText>
+          <AppText variant="body" color="textSecondary" style={styles.subtitle}>
+            {t('onboarding.notebookSubtitle')}
+          </AppText>
+        </Animated.View>
 
-            <View style={[styles.rowBetween, { marginTop: 8 }]}>
-              <View style={{ gap: 2 }}>
-                <AppText variant="caption" color="heroTextSecondary">
-                  {t('onboarding.previewStartedWith')}
-                </AppText>
-                <Money
-                  amountMinor={653150}
-                  currency={currency}
-                  variant="headline"
-                  color="heroText"
-                  showDecimals
-                />
-              </View>
-              <View style={styles.rightCol}>
-                <AppText variant="caption" color="heroTextSecondary">
-                  {t('onboarding.previewLeftNow')}
-                </AppText>
-                <Money
-                  amountMinor={597150}
-                  currency={currency}
-                  variant="headline"
-                  color="heroBar"
-                  showDecimals
-                />
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.sampleRow}>
-            <IconTile icon="utensils" colorKey="orange" size={34} />
-            <View style={styles.sampleMid}>
-              <AppText variant="bodyStrong" numberOfLines={1}>
-                {t('onboarding.previewSample1Title')}
-              </AppText>
-              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
-                {t('onboarding.previewSample1Sub')}
+        <Animated.View entering={enter(300)} style={styles.chips}>
+          {CHIPS.map((chip) => (
+            <View
+              key={chip.key}
+              style={[
+                styles.chip,
+                {
+                  backgroundColor: theme.colors.surface,
+                  borderColor: theme.colors.cardBorder,
+                  borderRadius: theme.radius.pill,
+                },
+              ]}
+            >
+              <AppIcon name={chip.icon} size={14} color={theme.colors.accent} />
+              <AppText variant="caption" color="textSecondary" style={styles.chipText}>
+                {t(chip.key)}
               </AppText>
             </View>
-            <Money
-              amountMinor={-48000}
-              currency={currency}
-              variant="bodyStrong"
-              color="text"
-            />
-          </View>
-
-          <View
-            style={{
-              height: 1,
-              backgroundColor: theme.colors.separator,
-            }}
-          />
-
-          <View style={styles.sampleRow}>
-            <IconTile icon="car" colorKey="blue" size={34} />
-            <View style={styles.sampleMid}>
-              <AppText variant="bodyStrong" numberOfLines={1}>
-                {t('onboarding.previewSample2Title')}
-              </AppText>
-              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
-                {t('onboarding.previewSample2Sub')}
-              </AppText>
-            </View>
-            <Money
-              amountMinor={-8000}
-              currency={currency}
-              variant="bodyStrong"
-              color="text"
-            />
-          </View>
-        </Surface>
-
-        {/* Trust & Privacy Ledger Footer */}
-        <Surface variant="sunken" padding={12}>
-          <View style={styles.trustRow}>
-            <AppText variant="caption" color="text" style={styles.trustText}>
-              {`✓ ${t('onboarding.trustBadge1')}`}
-            </AppText>
-            <AppText variant="caption" color="text" style={styles.trustText}>
-              {`✓ ${t('onboarding.trustBadge2')}`}
-            </AppText>
-          </View>
-        </Surface>
+          ))}
+        </Animated.View>
+        </View>
       </View>
 
-      <View style={{ paddingTop: theme.spacing.md }}>
+      <Animated.View entering={enter(420)} style={{ paddingTop: theme.spacing.xl }}>
         <Button
           testID="onboarding-welcome-continue"
+          tint="#4338CA"
           title={t('onboarding.openNotebookCta')}
           rightIcon="chevron-right"
           onPress={() => router.push('/onboarding/preferences')}
         />
-      </View>
+      </Animated.View>
     </Screen>
   );
 }
@@ -258,77 +167,79 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'space-between',
   },
-  topLangRow: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
   },
-  brandBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  brandBadgeText: {
+  wordmark: {
     fontFamily: 'Manrope_700Bold',
+    letterSpacing: -0.4,
   },
-  langPillGroup: {
+  langGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    padding: 2,
+    padding: 3,
     gap: 2,
   },
-  langPillBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  langBtn: {
+    paddingHorizontal: 14,
     minHeight: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  langPillText: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 12.5,
-  },
-  heroHeader: {},
-  rowBetween: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  safeTodayInline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  heroMetaText: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 11,
-  },
-  rightCol: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  sampleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 11,
-  },
-  sampleMid: {
+  middle: {
     flex: 1,
-    minWidth: 0,
-    gap: 1,
+    justifyContent: 'center',
+    gap: 28,
+    paddingBottom: 24,
   },
-  trustRow: {
-    flexDirection: 'row',
+  heroTile: {
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    minHeight: 260,
+  },
+  markWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markRing: {
+    width: 148,
+    height: 148,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markCore: {
+    width: 108,
+    height: 108,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    textAlign: 'center',
+    fontSize: 30,
+    lineHeight: 36,
+    letterSpacing: -0.9,
+  },
+  subtitle: {
+    textAlign: 'center',
+  },
+  chips: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     flexWrap: 'wrap',
     gap: 8,
   },
-  trustText: {
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 12,
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    minHeight: 32,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontFamily: 'Manrope_600SemiBold',
   },
 });

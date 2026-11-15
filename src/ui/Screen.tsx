@@ -12,6 +12,8 @@ import {
 } from 'react-native-keyboard-controller';
 import { SafeAreaView, useSafeAreaInsets, type Edge } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/useTheme';
+import { useGlass } from './glass';
+import { OnboardingBackdrop } from './OnboardingBackdrop';
 
 export const TAB_BAR_CONTENT_HEIGHT = 64;
 export const TAB_SCROLL_EXTRA_GAP = 16;
@@ -49,6 +51,7 @@ export function Screen({
   bottomSpacer = false,
 }: ScreenProps) {
   const { theme } = useTheme();
+  const glass = useGlass();
   const tabScrollPadding = useTabScrollPadding();
 
   const scrollContentStyle: StyleProp<ViewStyle> = [
@@ -108,8 +111,9 @@ export function Screen({
   return (
     <SafeAreaView
       edges={edges}
-      style={[styles.flex, { backgroundColor: theme.colors.bg }, style]}
+      style={[styles.flex, { backgroundColor: glass ? 'transparent' : theme.colors.bg }, style]}
     >
+      {glass?.backdrop ? <OnboardingBackdrop intensity={glass.backdrop} /> : null}
       {wrapped}
     </SafeAreaView>
   );

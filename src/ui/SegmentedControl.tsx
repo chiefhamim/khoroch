@@ -89,7 +89,8 @@ export function SegmentedControl<T extends string>({
               top: padding,
               bottom: padding,
               borderRadius: 999,
-              backgroundColor: theme.colors.surfaceRaised,
+              // Dark mode: a solid light thumb so the selection is unmistakable.
+              backgroundColor: theme.scheme === "dark" ? theme.colors.ink : theme.colors.surfaceRaised,
             },
             thumbStyle,
           ]}
@@ -129,7 +130,9 @@ export function SegmentedControl<T extends string>({
                 borderRadius: theme.radius.pill,
                 backgroundColor:
                   active && !target
-                    ? theme.colors.surfaceRaised
+                    ? theme.scheme === "dark"
+                      ? theme.colors.ink
+                      : theme.colors.surfaceRaised
                     : "transparent",
                 opacity: pressed && !reducedMotion ? 0.86 : 1,
               },
@@ -137,7 +140,7 @@ export function SegmentedControl<T extends string>({
           >
             <AppText
               variant={isCompact ? "caption" : "label"}
-              color={active ? "text" : "textSecondary"}
+              color={active ? (theme.scheme === "dark" ? "onInk" : "text") : "textSecondary"}
               numberOfLines={1}
               style={[
                 styles.label,

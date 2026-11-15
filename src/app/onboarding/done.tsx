@@ -165,6 +165,7 @@ export default function OnboardingDoneScreen() {
 
   return (
     <Screen
+      style={{ backgroundColor: 'transparent' }}
       scroll
       edges={['top', 'bottom', 'left', 'right']}
       contentContainerStyle={styles.container}
@@ -300,6 +301,7 @@ export default function OnboardingDoneScreen() {
         />
         <Button
           testID="onboarding-done-cta"
+          tint="#15803D"
           title={t('onboarding.doneCta')}
           loading={saving}
           disabled={saving}

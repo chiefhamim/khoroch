@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
-import { epochMsToLocalDate, isBackupDue } from '@/data/backup';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { resolveWalletColorHex } from '@/domain/accounts';
 import { formatUtilizationPct } from '@/domain/calc';
 import {
@@ -110,6 +110,15 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
 
   const [chartGranularity, setChartGranularity] = useState<ChartGranularity>('daily');
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
+  const [noticesOpen, setNoticesOpen] = useState(false);
+  const homeParams = useLocalSearchParams<{ howItWorks?: string }>();
+  useEffect(() => {
+    if (homeParams.howItWorks === '1') {
+      setHowItWorksOpen(true);
+      router.setParams({ howItWorks: undefined });
+    }
+  }, [homeParams.howItWorks, router]);
+  const { width: winW } = useWindowDimensions();
   const [userHeroMode, setUserHeroMode] = useState<'budget' | 'wallets' | null>(null);
 
   const { hideAmounts, toggleHideAmounts } = usePrivacyStore();
@@ -134,6 +143,18 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const hasWallets = accountsOverview.balances.length > 0;
   const effectiveHeroMode: 'budget' | 'wallets' =
     userHeroMode ?? (hasWallets && overallBudgetMinor === null ? 'wallets' : 'budget');
+
+  // Sliding indicator for the hero switcher: one pill glides between the two tabs.
+  const tabSlide = useSharedValue(effectiveHeroMode === 'wallets' ? 1 : 0);
+  useEffect(() => {
+    const target = effectiveHeroMode === 'wallets' ? 1 : 0;
+    tabSlide.set(
+      reducedMotion ? target : withTiming(target, { duration: 340, easing: Easing.bezier(0.22, 1, 0.36, 1) })
+    );
+  }, [effectiveHeroMode, reducedMotion, tabSlide]);
+  const tabPillStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: tabSlide.get() * 91 }],
+  }));
 
   const { overview: duesOverview } = usePeople();
   const duesSummaryLine = formatHomeDuesSummaryLine(duesOverview, settings.currency, undefined, {
@@ -208,6 +229,21 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     0
   );
 
+  // The hero amount keeps one line and a fixed card height: it shrinks a little for very large sums.
+  const heroAvail = winW - 2 * theme.geometry.screenMargin - 2 * theme.spacing.xl - 14;
+  const heroAmountStyle = (minor: number) => {
+    const abs = Math.abs(minor);
+    const whole = String(Math.floor(abs / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const chars = whole.length + (abs % 100 !== 0 ? 3 : 0) + 2;
+    const size = Math.max(26, Math.min(36, Math.floor(heroAvail / (chars * 0.62))));
+    return { fontSize: size, lineHeight: Math.round(size * 1.11) };
+  };
+
+  const noticeCount =
+    (summary.ignoredOtherCurrencyCount > 0 ? 1 : 0) +
+    (showNewCycleHint ? 1 : 0) +
+    (predated.count > 0 ? 1 : 0);
+
   const walletsBody = (
           <>
             <AppText variant="label" color="heroTextSecondary">
@@ -221,6 +257,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             <Money
               testID="hero-wallets-total"
               variant="hero"
+              numberOfLines={1}
+              style={heroAmountStyle(Math.abs(accountsOverview.totalMinor))}
               amountMinor={Math.abs(accountsOverview.totalMinor)}
               prefix={accountsOverview.totalMinor < 0 ? '−' : ''}
               currency={settings.currency}
@@ -354,6 +392,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             <Money
               testID="hero-remaining-amount"
               variant="hero"
+              numberOfLines={1}
+              style={heroAmountStyle(Math.abs(summary.remainingMinor))}
               amountMinor={Math.abs(summary.remainingMinor)}
               currency={settings.currency}
               color="heroText"
@@ -491,6 +531,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             <Money
               testID="hero-spent-no-budget"
               variant="hero"
+              numberOfLines={1}
+              style={heroAmountStyle(summary.spentMinor)}
               amountMinor={summary.spentMinor}
               currency={settings.currency}
               color="heroText"
@@ -536,6 +578,18 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             {subtitleLine}
           </AppText>
         </View>
+        {noticeCount > 0 ? (
+          <IconButton
+            testID="overview-notices"
+            icon="bell"
+            variant="surface"
+            size={40}
+            iconSize={19}
+            badgeCount={noticeCount}
+            accessibilityLabel={t('overview.noticesTitle')}
+            onPress={() => setNoticesOpen(true)}
+          />
+        ) : null}
         <PressableScale
           pressScale={0.98}
           testID="overview-settings-shortcut"
@@ -564,16 +618,6 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         </PressableScale>
       </View>
 
-      {summary.ignoredOtherCurrencyCount > 0 ? (
-        <Banner
-          tone="neutral"
-          icon="info"
-          message={t('overview.ignoredCurrencyBanner', {
-            count: summary.ignoredOtherCurrencyCount,
-          })}
-        />
-      ) : null}
-
       {/* Hero summary / budget card with Mockup 3 In-Card Mode Switcher */}
       <HeroCard
         testID="overview-budget-card"
@@ -598,6 +642,14 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               },
             ]}
           >
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.heroPill,
+                { backgroundColor: theme.colors.heroText },
+                tabPillStyle,
+              ]}
+            />
             <PressableScale
               pressScale={0.97}
               testID="overview-hero-tab-budget"
@@ -608,8 +660,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 styles.heroTab,
                 {
                   borderRadius: 999,
-                  backgroundColor:
-                    effectiveHeroMode === 'budget' ? theme.colors.heroText : 'transparent',
+                  backgroundColor: 'transparent',
                 },
               ]}
             >
@@ -639,8 +690,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 styles.heroTab,
                 {
                   borderRadius: 999,
-                  backgroundColor:
-                    effectiveHeroMode === 'wallets' ? theme.colors.heroText : 'transparent',
+                  backgroundColor: 'transparent',
                 },
               ]}
             >
@@ -664,18 +714,19 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
 
           <View style={[styles.heroTopRight, { gap: theme.spacing.xs }]}>
             {overallBudgetMinor !== null ? (
-              <BudgetStatusBadge status={summary.status} surface="hero" />
-            ) : null}
-            <IconButton
-              testID="overview-hero-menu"
-              icon="info"
-              variant="ghost"
-              iconColor={theme.colors.heroTextSecondary}
-              size={34}
-              iconSize={18}
-              accessibilityLabel={t('overview.howNumbersWork')}
-              onPress={() => setHowItWorksOpen(true)}
-            />
+              <BudgetStatusBadge status={summary.status} surface="hero" collapsible />
+            ) : (
+              <IconButton
+                testID="overview-hero-menu"
+                icon="info"
+                variant="ghost"
+                iconColor={theme.colors.heroTextSecondary}
+                size={34}
+                iconSize={18}
+                accessibilityLabel={t('overview.howNumbersWork')}
+                onPress={() => setHowItWorksOpen(true)}
+              />
+            )}
           </View>
         </View>
 
@@ -686,62 +737,6 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           b={overallBudgetMinor !== null && summary.remainingMinor !== null ? budgetBody : noBudgetBody}
         />
       </HeroCard>
-
-      {/* New-cycle hint banner */}
-      {showNewCycleHint ? (
-        <Banner
-          testID="overview-new-cycle-banner"
-          icon="repeat"
-          tone="accent"
-          showChevron
-          message={t('overview.newCycleBanner', {
-            startDate: formatShortDate(period.start),
-            amount: formatMoney(previousCycleSpentMinor, settings.currency),
-          })}
-          onPress={() =>
-            router.push({
-              pathname: '/plan/insights',
-              params: { preset: 'last_month' },
-            } as never)
-          }
-        />
-      ) : null}
-
-      {predated.count > 0 ? (
-        <Banner
-          testID="overview-predated-nudge"
-          icon="wallet"
-          tone="accent"
-          showChevron
-          message={t('overview.predatedNudge', { count: predated.count })}
-          accessibilityLabel={t('overview.predatedNudgeA11y')}
-          onPress={() => {
-            void countEarlierEntries();
-          }}
-        />
-      ) : null}
-
-      {/* Monthly backup reminder nudge */}
-      {(summary.expenseCount > 0 ||
-        summary.incomeMinor > 0 ||
-        recentTransactions.length > 0) &&
-      isBackupDue(settings.lastBackupAt) ? (
-        <Banner
-          testID="overview-backup-nudge"
-          icon="shield-check"
-          tone="neutral"
-          showChevron
-          message={
-            settings.lastBackupAt === null
-              ? t('overview.backupNudgeNever')
-              : t('overview.backupNudgeDated', {
-                  date: formatShortDate(epochMsToLocalDate(settings.lastBackupAt)),
-                })
-          }
-          accessibilityLabel={t('overview.backupNudgeA11y')}
-          onPress={() => router.push('/settings?openBackup=1' as never)}
-        />
-      ) : null}
 
       {/* Today's Daybook Card (Mockup 3 Modern Money Notebook) */}
       <Surface testID="overview-daybook-card" padded={false}>
@@ -1263,6 +1258,62 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         </View>
       ) : null}
 
+
+      {/* Notices: every warning and nudge lives here, not between the hero and the day book */}
+      <Sheet
+        visible={noticesOpen}
+        onClose={() => setNoticesOpen(false)}
+        title={t('overview.noticesTitle')}
+      >
+        <View style={{ gap: theme.spacing.md }}>
+      {summary.ignoredOtherCurrencyCount > 0 ? (
+        <Banner
+          tone="neutral"
+          icon="info"
+          message={t('overview.ignoredCurrencyBanner', {
+            count: summary.ignoredOtherCurrencyCount,
+          })}
+        />
+      ) : null}
+      {showNewCycleHint ? (
+        <Banner
+          testID="overview-new-cycle-banner"
+          icon="repeat"
+          tone="accent"
+          showChevron
+          message={t('overview.newCycleBanner', {
+            startDate: formatShortDate(period.start),
+            amount: formatMoney(previousCycleSpentMinor, settings.currency),
+          })}
+          onPress={() =>
+            router.push({
+              pathname: '/plan/insights',
+              params: { preset: 'last_month' },
+            } as never)
+          }
+        />
+      ) : null}
+      {predated.count > 0 ? (
+        <Banner
+          testID="overview-predated-nudge"
+          icon="wallet"
+          tone="accent"
+          showChevron
+          message={t('overview.predatedNudge', { count: predated.count })}
+          accessibilityLabel={t('overview.predatedNudgeA11y')}
+          onPress={() => {
+            void countEarlierEntries();
+          }}
+        />
+      ) : null}
+          {noticeCount === 0 ? (
+            <AppText variant="body" color="textSecondary">
+              {t('overview.noticesEmpty')}
+            </AppText>
+          ) : null}
+        </View>
+      </Sheet>
+
       {/* "How these numbers work" bottom sheet */}
       <Sheet
         visible={howItWorksOpen}
@@ -1335,13 +1386,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   heroTabs: {
-    flex: 1,
+    width: 188,
     flexDirection: 'row',
     alignItems: 'center',
     height: 34,
     borderRadius: 999,
     padding: 3,
     gap: 2,
+  },
+  heroPill: {
+    position: 'absolute',
+    top: 2,
+    left: 3,
+    width: 89,
+    height: 28,
+    borderRadius: 999,
   },
   heroTab: {
     flex: 1,
@@ -1357,8 +1416,10 @@ const styles = StyleSheet.create({
     fontFamily: 'Manrope_700Bold',
   },
   heroTopRight: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'flex-end',
   },
   heroSubRow: {
     flexDirection: 'row',

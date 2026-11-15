@@ -83,6 +83,7 @@ export default function OnboardingReminderScreen() {
 
   return (
     <Screen
+      style={{ backgroundColor: 'transparent' }}
       scroll
       edges={['top', 'bottom', 'left', 'right']}
       keyboardAvoiding
@@ -228,6 +229,7 @@ export default function OnboardingReminderScreen() {
         />
         <Button
           testID="onboarding-reminder-continue"
+          tint="#BE185D"
           title={t('common.continue')}
           loading={requesting}
           disabled={requesting}

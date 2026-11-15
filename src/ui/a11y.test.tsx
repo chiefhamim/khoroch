@@ -17,7 +17,13 @@ jest.mock('expo-router', () => ({
     push: jest.fn(),
     replace: jest.fn(),
     back: jest.fn(),
+    setParams: jest.fn(),
   }),
+  useLocalSearchParams: () => ({}),
+  useFocusEffect: (cb: () => void | (() => void)) => {
+    const react = jest.requireActual<typeof import('react')>('react');
+    react.useEffect(cb, [cb]);
+  },
 }));
 
 jest.mock('react-native-safe-area-context', () => {

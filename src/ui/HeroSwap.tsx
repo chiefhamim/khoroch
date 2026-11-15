@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
+  Extrapolation,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -29,18 +31,26 @@ export function HeroSwap({ showA, a, b, gap = 0 }: HeroSwapProps) {
   useEffect(() => {
     const target = showA ? 1 : 0;
     progress.set(
-      reducedMotion ? target : withTiming(target, { duration: 220, easing: Easing.out(Easing.cubic) })
+      reducedMotion ? target : withTiming(target, { duration: 420, easing: Easing.bezier(0.22, 1, 0.36, 1) })
     );
   }, [showA, reducedMotion, progress]);
 
-  const styleA = useAnimatedStyle(() => ({
-    opacity: progress.get(),
-    transform: [{ translateY: (1 - progress.get()) * -6 }],
-  }));
-  const styleB = useAnimatedStyle(() => ({
-    opacity: 1 - progress.get(),
-    transform: [{ translateY: progress.get() * 6 }],
-  }));
+  // A soft directional glide: the outgoing body drifts away and fades first, the incoming one
+  // settles in from the opposite side. Reversing the switch reverses the direction.
+  const styleA = useAnimatedStyle(() => {
+    const p = progress.get();
+    return {
+      opacity: interpolate(p, [0.3, 0.9], [0, 1], Extrapolation.CLAMP),
+      transform: [{ translateX: (1 - p) * 26 }, { scale: 0.985 + 0.015 * p }],
+    };
+  });
+  const styleB = useAnimatedStyle(() => {
+    const p = progress.get();
+    return {
+      opacity: interpolate(p, [0.1, 0.7], [1, 0], Extrapolation.CLAMP),
+      transform: [{ translateX: -p * 26 }, { scale: 1 - 0.015 * p }],
+    };
+  });
 
   const measured = heightA > 0 && heightB > 0;
 

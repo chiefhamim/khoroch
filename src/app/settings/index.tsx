@@ -1,5 +1,6 @@
+import { useOnboardingPreview } from '@/state/onboardingPreview';
 import React, { useCallback, useEffect, useState } from 'react';
-import { AppState, Linking, Platform, StyleSheet, View } from 'react-native';
+import { AppState, Linking, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { isDevVariant } from '@/config/appVariant';
 import {
@@ -61,6 +62,7 @@ import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
 import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { AVATAR_CATALOG, type AvatarCategory } from '@/ui/AvatarArt';
+import { AVATAR_PHOTO_SETS } from '@/ui/avatarPhotos';
 import { Banner } from '@/ui/Banner';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
@@ -143,7 +145,7 @@ export default function SettingsScreen() {
   // Sheet states
   const [nameSheetOpen, setNameSheetOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(settings.name);
-  const [avatarTab, setAvatarTab] = useState<'initial' | AvatarCategory>('professional');
+  const [avatarTab, setAvatarTab] = useState<string>('notionists');
 
   const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
   const [banglaFontSheetOpen, setBanglaFontSheetOpen] = useState(false);
@@ -809,13 +811,6 @@ export default function SettingsScreen() {
         <SettingsRow
           testID="settings-backup-row"
           label={t('settings.backupRow')}
-          subtitle={
-            settings.lastBackupAt !== null
-              ? t('settings.backupLastDate', {
-                  date: formatShortDate(epochMsToLocalDate(settings.lastBackupAt), locale),
-                })
-              : t('settings.backupNever')
-          }
           showChevron
           onPress={() => {
             hapticLight();
@@ -839,6 +834,21 @@ export default function SettingsScreen() {
       {/* ABOUT */}
       <SettingsGroup title={t('settings.sectionAbout')}>
         <SettingsRow
+          testID="settings-last-backup-row"
+          label={t('settings.lastBackupRow')}
+          value={
+            settings.lastBackupAt !== null
+              ? formatShortDate(epochMsToLocalDate(settings.lastBackupAt), locale)
+              : t('settings.backupNeverShort')
+          }
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setBackupError(null);
+            setBackupSheetOpen(true);
+          }}
+        />
+        <SettingsRow
           testID="settings-privacy-row"
           label={t('settings.privacyRow')}
           value={t('settings.privacyValue')}
@@ -846,6 +856,15 @@ export default function SettingsScreen() {
           onPress={() => {
             hapticLight();
             setPrivacySheetOpen(true);
+          }}
+        />
+        <SettingsRow
+          testID="settings-how-numbers-row"
+          label={t('overview.howNumbersWork')}
+          showChevron
+          onPress={() => {
+            hapticLight();
+            router.push({ pathname: '/', params: { howItWorks: '1' } } as never);
           }}
         />
         <SettingsRow
@@ -869,6 +888,15 @@ export default function SettingsScreen() {
             label={t('settings.galleryRow')}
             showChevron
             onPress={() => router.push('/dev/gallery' as never)}
+          />
+          <SettingsRow
+            testID="settings-replay-welcome"
+            label={t('settings.replayWelcomeRow')}
+            showChevron
+            onPress={() => {
+              useOnboardingPreview.getState().setOn(true);
+              router.push('/onboarding' as never);
+            }}
           />
           <SettingsRow
             testID="settings-load-sample"
@@ -915,19 +943,24 @@ export default function SettingsScreen() {
           <AppText variant="label" color="textSecondary">
             {t('settings.avatarGalleryLabel')}
           </AppText>
-          <View style={[styles.presetRow, { gap: theme.spacing.xs }]}>
-            {(
-              [
-                { id: 'professional', label: t('settings.avatarGroupProfessional') },
-                { id: 'tropical', label: t('settings.avatarGroupTropical') },
-                { id: 'abstract', label: t('settings.avatarGroupAbstract') },
-                { id: 'initial', label: t('settings.avatarGroupInitial') },
-              ] as const
-            ).map((tab) => (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: theme.spacing.xs, paddingVertical: 10, paddingHorizontal: 6 }}
+            style={{ flexGrow: 0, marginVertical: -8, marginHorizontal: -6 }}
+          >
+            {[
+              ...AVATAR_PHOTO_SETS.map((set) => ({ id: set.id as string, label: set.name as string })),
+              { id: 'professional', label: t('settings.avatarGroupProfessional') },
+              { id: 'tropical', label: t('settings.avatarGroupTropical') },
+              { id: 'abstract', label: t('settings.avatarGroupAbstract') },
+              { id: 'initial', label: t('settings.avatarGroupInitial') },
+            ].map((tab) => (
               <Chip
                 key={tab.id}
                 testID={`settings-avatar-tab-${tab.id}`}
                 label={tab.label}
+                variant="sunken"
                 selected={avatarTab === tab.id}
                 onPress={() => {
                   hapticSelection();
@@ -935,7 +968,7 @@ export default function SettingsScreen() {
                 }}
               />
             ))}
-          </View>
+          </ScrollView>
 
           {avatarTab === 'initial' ? (
             <View style={{ gap: theme.spacing.sm }}>
@@ -1005,7 +1038,12 @@ export default function SettingsScreen() {
             </View>
           ) : (
             <View style={styles.avatarChoiceRow}>
-              {AVATAR_CATALOG.filter((item) => item.category === avatarTab).map((item) => {
+              {(AVATAR_PHOTO_SETS.some((set) => set.id === avatarTab)
+                ? Array.from({ length: 16 }, (_, i) => ({
+                    id: `ph_${avatarTab}_${String(i + 1).padStart(2, '0')}`,
+                  }))
+                : AVATAR_CATALOG.filter((item) => item.category === avatarTab)
+              ).map((item) => {
                 const selected = settings.avatarId === item.id;
                 return (
                   <PressableScale
@@ -1028,7 +1066,7 @@ export default function SettingsScreen() {
                   >
                     <ProfileAvatar
                       name={nameDraft.trim() || initialLetter}
-                      avatarId={item.id}
+                      avatarId={item.id as AvatarPresetId}
                       size={56}
                     />
                   </PressableScale>

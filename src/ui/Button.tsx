@@ -12,6 +12,7 @@ import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText, estimateBanglaWeightedUnits } from './AppText';
 import { hapticLight } from './haptics';
 import { PressableScale } from '@/ui/PressableScale';
+import { glassFill, useGlass } from './glass';
 
 /**
  * Estimates single-line dp width for short Bangla CTA labels in flex-row buttons.
@@ -28,6 +29,8 @@ function estimateBanglaCtaMinWidth(title: string, fontSize: number): number | un
 export interface ButtonProps {
   title: string;
   onPress: () => void;
+  /** Overrides the primary fill colour (used by onboarding steps). */
+  tint?: string;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerSoft';
   size?: 'md' | 'sm';
   leftIcon?: AppIconName;
@@ -45,6 +48,7 @@ export function Button({
   title,
   onPress,
   variant = 'primary',
+  tint,
   size = 'md',
   leftIcon,
   rightIcon,
@@ -57,6 +61,7 @@ export function Button({
   testID,
 }: ButtonProps) {
   const { theme, reducedMotion } = useTheme();
+  const glass = useGlass();
   const isDisabled = disabled || loading;
 
   const isFilled = variant === 'primary' || variant === 'danger';
@@ -65,9 +70,11 @@ export function Button({
     isDisabled && isFilled
       ? theme.colors.surfaceSunken
       : variant === 'primary'
-        ? theme.colors.accent
+        ? tint ?? theme.colors.accent
         : variant === 'secondary'
-          ? theme.colors.surface
+          ? glass
+            ? glassFill(theme.scheme === 'light' ? 'light' : 'dark').fill
+            : theme.colors.surface
           : variant === 'danger'
             ? theme.colors.danger
             : variant === 'dangerSoft'

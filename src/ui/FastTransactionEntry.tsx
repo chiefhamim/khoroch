@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Keyboard, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import Animated, {
+  Easing,
+  interpolateColor,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import {
   addDays,
   currentLocalTime,
@@ -9,7 +16,6 @@ import {
   todayLocalDate,
 } from '@/domain/dates';
 import { formatMinorToDraft, parseMoneyInput } from '@/domain/money';
-import { hexToRgba } from '@/theme/categoryColors';
 import type {
   Account,
   Category,
@@ -100,6 +106,74 @@ export function buildDescriptionSuggestions(
     .sort((a, b) => b.count - a.count || a.order - b.order)
     .slice(0, limit)
     .map(({ description, categoryId, accountId }) => ({ description, categoryId, accountId }));
+}
+
+const THUMB_W = 112;
+
+/** Spent / Received switch: one coloured thumb glides between the two labels. */
+function TypeSwitch({ type, onChange }: { type: 'expense' | 'income'; onChange: (next: 'expense' | 'income') => void }) {
+  const { theme, reducedMotion } = useTheme();
+  const slide = useSharedValue(type === 'income' ? 1 : 0);
+  useEffect(() => {
+    const target = type === 'income' ? 1 : 0;
+    slide.set(reducedMotion ? target : withTiming(target, { duration: 360, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
+  }, [type, reducedMotion, slide]);
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: slide.get() * THUMB_W }],
+    backgroundColor: interpolateColor(slide.get(), [0, 1], [theme.colors.expense, theme.colors.income]),
+  }));
+  const items = [
+    { key: 'expense' as const, label: t('fast.spent'), icon: 'arrow-up-right' as const },
+    { key: 'income' as const, label: t('fast.received'), icon: 'arrow-down-left' as const },
+  ];
+  return (
+    <View
+      style={[
+        styles.typeSwitch,
+        {
+          // Same card style as Today's Daybook: surface fill, hairline border, soft drop shadow.
+          backgroundColor: theme.colors.surface,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: theme.colors.cardBorder,
+        },
+        theme.elevation.e1,
+      ]}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.typeThumb, { borderRadius: theme.radius.pill }, thumbStyle]}
+      />
+      {items.map((item) => {
+        const active = type === item.key;
+        return (
+          <PressableScale
+            key={item.key}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={item.label}
+            onPress={() => {
+              hapticSelection();
+              onChange(item.key);
+            }}
+            style={styles.typeBtn}
+          >
+            <AppIcon name={item.icon} size={15} color={active ? '#FFFFFF' : theme.colors.textTertiary} />
+            <AppText
+              variant="label"
+              numberOfLines={1}
+              style={{
+                color: active ? '#FFFFFF' : theme.colors.textTertiary,
+                fontFamily: active ? 'Manrope_700Bold' : 'Manrope_500Medium',
+              }}
+            >
+              {item.label}
+            </AppText>
+          </PressableScale>
+        );
+      })}
+    </View>
+  );
 }
 
 export function FastTransactionEntry({
@@ -306,54 +380,7 @@ export function FastTransactionEntry({
         >
           <AppIcon name="x" size={22} color={theme.colors.text} />
         </PressableScale>
-        <View style={[styles.typeSwitch, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.cardBorder }]}>
-          {(['expense', 'income'] as const).map((key) => {
-            const active = type === key;
-            const typeLabel = key === 'expense' ? t('fast.spent') : t('fast.received');
-            return (
-              <PressableScale
-                key={key}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={typeLabel}
-                onPress={() => {
-                  hapticSelection();
-                  setType(key);
-                }}
-                style={[
-                  styles.typeBtn,
-                  {
-                    borderRadius: theme.radius.pill,
-                    backgroundColor: active
-                      ? hexToRgba(key === 'income' ? theme.colors.income : theme.colors.expense, theme.mode === 'light' ? 0.12 : 0.2)
-                      : 'transparent',
-                    borderColor: active
-                      ? hexToRgba(key === 'income' ? theme.colors.income : theme.colors.expense, 0.35)
-                      : 'transparent',
-                  },
-                ]}
-              >
-                <AppIcon
-                  name={key === 'expense' ? 'arrow-up-right' : 'arrow-down-left'}
-                  size={15}
-                  color={active ? (key === 'income' ? theme.colors.income : theme.colors.expense) : theme.colors.textTertiary}
-                />
-                <AppText
-                  variant="label"
-                  numberOfLines={1}
-                  style={{
-                    color: active ? (key === 'income' ? theme.colors.income : theme.colors.expense) : theme.colors.textTertiary,
-                    fontFamily: active ? 'Manrope_700Bold' : 'Manrope_500Medium',
-                    minWidth: estimateSingleLineMinWidth(typeLabel, theme.typography.label.fontSize),
-                    textAlign: 'center',
-                  }}
-                >
-                  {typeLabel}
-                </AppText>
-              </PressableScale>
-            );
-          })}
-        </View>
+        <TypeSwitch type={type} onChange={setType} />
         <View style={styles.headerBtn} />
       </View>
 
@@ -714,8 +741,9 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   header: { minHeight: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   headerBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
-  typeSwitch: { flexDirection: 'row', padding: 4 },
-  typeBtn: { minHeight: 38, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1 },
+  typeSwitch: { flexDirection: 'row', alignItems: 'center', height: 34, padding: 3 },
+  typeThumb: { position: 'absolute', top: 2, left: 2, width: THUMB_W, height: 28 },
+  typeBtn: { width: THUMB_W, height: 28, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   content: { paddingTop: 0, paddingBottom: 8 },
   amount: { alignItems: 'center', justifyContent: 'center', minHeight: 50 },
   amountRow: { flexDirection: 'row', alignItems: 'center' },

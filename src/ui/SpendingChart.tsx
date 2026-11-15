@@ -15,6 +15,7 @@ import { localizeDisplayText } from '@/i18n/displayText';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
+import { Money } from './Money';
 import { SegmentedControl } from './SegmentedControl';
 import { Surface } from './Surface';
 
@@ -204,6 +205,16 @@ export function SpendingChart({
     return max;
   }, [bars]);
 
+  const stats = useMemo(() => {
+    const total = bars.reduce((acc, b) => acc + b.spentMinor, 0);
+    let peak: ChartBarItem | null = null;
+    for (const b of bars) {
+      if (b.spentMinor > 0 && (peak === null || b.spentMinor > peak.spentMinor)) peak = b;
+    }
+    const counted = bars.length > 0 ? bars.length : 1;
+    return { total, avg: Math.round(total / counted), peak };
+  }, [bars]);
+
   const activeBar =
     selectedIndex !== null && selectedIndex >= 0 && selectedIndex < bars.length
       ? bars[selectedIndex]
@@ -254,6 +265,57 @@ export function SpendingChart({
               { value: 'monthly', label: t('overview.chartMonthly') },
             ]}
           />
+        </View>
+      ) : null}
+
+      {stats.total > 0 ? (
+        <View style={[styles.statRow, { gap: theme.spacing.sm }]}>
+          {[
+            { key: 'total', label: t('overview.chartTotal'), minor: stats.total, sub: null as string | null },
+            {
+              key: 'avg',
+              label: t(
+                granularity === 'daily'
+                  ? 'overview.chartAvgDay'
+                  : granularity === 'weekly'
+                    ? 'overview.chartAvgWeek'
+                    : 'overview.chartAvgMonth'
+              ),
+              minor: stats.avg,
+              sub: null as string | null,
+            },
+            {
+              key: 'peak',
+              label: t('overview.chartPeak'),
+              minor: stats.peak?.spentMinor ?? 0,
+              sub: stats.peak?.label ?? null,
+            },
+          ].map((tile) => (
+            <View
+              key={tile.key}
+              style={[
+                styles.statTile,
+                { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.md },
+              ]}
+            >
+              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                {tile.label}
+              </AppText>
+              <Money
+                amountMinor={tile.minor}
+                currency={currency}
+                variant="bodyStrong"
+                numberOfLines={1}
+                hidden={hideAmounts}
+                animate={false}
+              />
+              {tile.sub ? (
+                <AppText variant="caption" color="textTertiary" numberOfLines={1}>
+                  {localizeDisplayText(tile.sub, getLocale())}
+                </AppText>
+              ) : null}
+            </View>
+          ))}
         </View>
       ) : null}
 
@@ -314,6 +376,17 @@ export function SpendingChart({
             stroke={theme.colors.separator}
             strokeWidth={1}
           />
+          {maxMinor > 0 ? (
+            <SvgText
+              x={0}
+              y={TOP_PAD - 2}
+              fontSize={10}
+              fill={theme.colors.textTertiary}
+              textAnchor="start"
+            >
+              {hideAmounts ? '' : formatMoney(maxMinor, currency, { showPoisha: false })}
+            </SvgText>
+          ) : null}
           {bars.map((bar, idx) => {
             const xCenter = idx * slotWidth + slotWidth / 2;
             const x = xCenter - barWidth / 2;
@@ -323,7 +396,7 @@ export function SpendingChart({
             const barH = hasSpend ? Math.max(5, rawH) : 0;
             const y = TOP_PAD + PLOT_HEIGHT - barH;
             const isSelected = selectedIndex === idx;
-            const fill = theme.colors.accent;
+            const fill = theme.scheme === 'dark' ? '#FAFAFA' : '#4F46E5';
             const fillOpacity =
               selectedIndex !== null
                 ? isSelected
@@ -425,6 +498,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  statRow: { flexDirection: 'row' },
+  statTile: { flex: 1, paddingHorizontal: 10, paddingVertical: 8, gap: 2 },
   svgContainer: {
     width: '100%',
     height: CHART_HEIGHT,

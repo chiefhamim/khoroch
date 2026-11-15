@@ -66,6 +66,7 @@ export default function OnboardingBudgetScreen() {
 
   return (
     <Screen
+      style={{ backgroundColor: 'transparent' }}
       scroll
       edges={['top', 'bottom', 'left', 'right']}
       keyboardAvoiding
@@ -207,6 +208,7 @@ export default function OnboardingBudgetScreen() {
           />
           <Button
             testID="onboarding-budget-continue"
+          tint="#047857"
             title={
               budgetMinor !== null
                 ? t('onboarding.savePlanCta', {

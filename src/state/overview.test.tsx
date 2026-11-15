@@ -12,7 +12,13 @@ jest.mock('expo-router', () => ({
     push: jest.fn(),
     replace: jest.fn(),
     back: jest.fn(),
+    setParams: jest.fn(),
   }),
+  useLocalSearchParams: () => ({}),
+  useFocusEffect: (cb: () => void | (() => void)) => {
+    const react = jest.requireActual<typeof import('react')>('react');
+    react.useEffect(cb, [cb]);
+  },
 }));
 
 jest.mock('react-native-safe-area-context', () => {
@@ -156,9 +162,10 @@ describe('Overview Scenario A integration', () => {
     expect(view.getByLabelText('৳50,000')).toBeTruthy();
     expect(view.getByText(t('status.ok'))).toBeTruthy();
     expect(view.queryByTestId('overview-new-cycle-banner')).toBeNull();
-    expect(
-      view.getByText(t('overview.ignoredCurrencyBanner', { count: 1 }))
-    ).toBeTruthy();
+    fireEvent.press(view.getByTestId('overview-notices'));
+    await waitFor(() =>
+      expect(view.getByText(t('overview.ignoredCurrencyBanner', { count: 1 }))).toBeTruthy()
+    );
 
     // Verify re-query without remounting after inserting a new expense
     await repo.insertTransaction({
@@ -232,7 +239,8 @@ describe('Overview Scenario A integration', () => {
     });
 
     expect(view.getByTestId('overview-set-budget-inline')).toBeTruthy();
-    expect(view.getByTestId('overview-new-cycle-banner')).toBeTruthy();
+    fireEvent.press(view.getByTestId('overview-notices'));
+    await waitFor(() => expect(view.getByTestId('overview-new-cycle-banner')).toBeTruthy());
     expect(
       view.getByText(/New cycle started 10 Nov · Last cycle ৳ ?4,600/)
     ).toBeTruthy();

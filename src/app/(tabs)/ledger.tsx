@@ -8,12 +8,15 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { hexToRgba } from '@/theme/categoryColors';
 import Animated, {
   Easing,
+  Extrapolation,
+  interpolate,
   useAnimatedStyle,
+  useDerivedValue,
   useSharedValue,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { formatWalletSubtitle } from '@/domain/accounts';
 import {
@@ -719,9 +722,10 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
             styles.periodPill,
             {
               backgroundColor:
-                datePreset !== 'all'
-                  ? theme.colors.accentSoft
-                  : theme.colors.surfaceSunken,
+                datePreset !== 'all' ? theme.colors.accentSoft : theme.colors.surface,
+              borderWidth: 1,
+              borderColor: datePreset !== 'all' ? theme.colors.accent : theme.colors.cardBorder,
+              ...(theme.elevation.e1 as object),
               borderRadius: theme.radius.pill,
               paddingHorizontal: theme.spacing.md,
               gap: theme.spacing.xs,
@@ -863,7 +867,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
           style={styles.flexOne}
           sections={sections}
           keyExtractor={(item) => item.id}
-          stickySectionHeadersEnabled
+          stickySectionHeadersEnabled={false}
           showsVerticalScrollIndicator={false}
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
@@ -882,74 +886,63 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
               section.group.date,
               today,
               locale
-            ).toUpperCase();
+            );
+            const netColor: 'income' | 'expense' | 'textSecondary' =
+              netMinor > 0 ? 'income' : netMinor < 0 ? 'expense' : 'textSecondary';
             return (
-              <View
-                style={[
-                  styles.sectionHeader,
-                  {
-                    backgroundColor: theme.colors.bg,
-                    paddingTop: theme.spacing.md,
-                    paddingBottom: theme.spacing.xs,
-                    paddingHorizontal: 2,
-                  },
-                ]}
-              >
-                <AppText
-                  variant="caption"
-                  color="textTertiary"
-                  numberOfLines={1}
+              <View style={{ paddingTop: theme.spacing.lg }}>
+                <View
                   style={[
-                    styles.sectionDateText,
+                    styles.sectionHeader,
                     {
-                      fontFamily: theme.typography.bodyStrong.fontFamily,
-                      minWidth: estimateSingleLineMinWidth(
-                        sectionDateLabel,
-                        theme.typography.caption.fontSize
-                      ),
+                      backgroundColor: theme.colors.accentSoft,
+                      borderColor: theme.colors.cardBorder,
+                      borderWidth: 1,
+                      borderBottomWidth: 0,
+                      borderTopLeftRadius: theme.radius.card,
+                      borderTopRightRadius: theme.radius.card,
+                      paddingVertical: 11,
+                      paddingHorizontal: theme.spacing.lg,
                     },
                   ]}
                 >
-                  {sectionDateLabel}
-                </AppText>
-                <View
-                  style={{
-                    paddingHorizontal: theme.spacing.sm + 2,
-                    paddingVertical: 3,
-                    borderRadius: theme.radius.pill,
-                    backgroundColor:
-                      netMinor === 0
-                        ? theme.colors.surfaceSunken
-                        : hexToRgba(
-                            netMinor > 0 ? theme.colors.income : theme.colors.expense,
-                            theme.mode === 'light' ? 0.1 : 0.16
-                          ),
-                  }}
-                >
+                  <AppText
+                    variant="label"
+                    numberOfLines={1}
+                    style={{ flex: 1, fontFamily: 'Manrope_700Bold', letterSpacing: 0.3 }}
+                  >
+                    {sectionDateLabel}
+                  </AppText>
                   <Money
                     variant="label"
                     amountMinor={Math.abs(netMinor)}
                     currency={settings.currency}
                     prefix={netMinor > 0 ? '+' : netMinor < 0 ? '−' : ''}
-                    color={netMinor > 0 ? 'income' : netMinor < 0 ? 'expense' : 'textSecondary'}
-                    style={{ fontWeight: '700' }}
+                    color={netColor}
+                    style={{ fontFamily: 'Manrope_700Bold' }}
                   />
                 </View>
+                <View
+                  style={{
+                    height: 1,
+                    marginHorizontal: 1,
+                    backgroundColor: theme.colors.separator,
+                  }}
+                />
               </View>
             );
           }}
           renderItem={({ item, index, section }) => {
-            const isFirst = index === 0;
             const isLast = index === section.data.length - 1;
             const cardRadiusStyle = {
               backgroundColor: theme.colors.surface,
               borderColor: theme.colors.cardBorder,
               borderLeftWidth: 1,
               borderRightWidth: 1,
-              borderTopWidth: isFirst ? 1 : 0,
+              borderTopWidth: 0,
               borderBottomWidth: isLast ? 1 : 0,
-              borderTopLeftRadius: isFirst ? theme.radius.card : 0,
-              borderTopRightRadius: isFirst ? theme.radius.card : 0,
+              borderTopLeftRadius: 0,
+              borderTopRightRadius: 0,
               borderBottomLeftRadius: isLast ? theme.radius.card : 0,
               borderBottomRightRadius: isLast ? theme.radius.card : 0,
               overflow: 'hidden' as const,
@@ -1103,42 +1096,80 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
         onClose={() => setPeriodSheetOpen(false)}
         title={t('activity.choosePeriodTitle')}
       >
-        <Surface padded={false}>
+        <View style={{ gap: theme.spacing.sm }}>
           {(
             [
-              ['all', t('activity.dateAll')],
-              ['today', t('activity.dateToday')],
-              ['this_week', t('activity.dateThisWeek')],
-              ['this_month', t('activity.dateThisMonth')],
-              ['last_month', t('activity.dateLastMonth')],
-              ['custom', t('activity.dateCustom')],
+              ['all', t('activity.dateAll'), 'infinity'],
+              ['today', t('activity.dateToday'), 'sun'],
+              ['this_week', t('activity.dateThisWeek'), 'calendar-days'],
+              ['this_month', t('activity.dateThisMonth'), 'calendar'],
+              ['last_month', t('activity.dateLastMonth'), 'history'],
+              ['custom', t('activity.dateCustom'), 'sliders-horizontal'],
             ] as const
-          ).map(([val, label], idx, arr) => (
-            <ListRow
-              key={val}
-              testID={`activity-period-opt-${val}`}
-              compact
-              title={label}
-              right={
-                datePreset === val ? (
-                  <AppIcon name="check" size={18} color={theme.colors.accent} />
-                ) : null
-              }
-              showDivider={idx < arr.length - 1}
-              onPress={() => {
-                setPeriodSheetOpen(false);
-                if (val === 'custom') {
-                  openFilterSheet();
-                  setDraftPreset('custom');
-                } else {
-                  setDatePreset(val);
-                  if (customFromIncl) setCustomFromIncl('');
-                  if (customToIncl) setCustomToIncl('');
-                }
-              }}
-            />
-          ))}
-        </Surface>
+          ).map(([val, label, icon]) => {
+            const selected = datePreset === val;
+            return (
+              <PressableScale
+                key={val}
+                pressScale={0.98}
+                testID={`activity-period-opt-${val}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={label}
+                onPress={() => {
+                  hapticSelection();
+                  setPeriodSheetOpen(false);
+                  if (val === 'custom') {
+                    openFilterSheet();
+                    setDraftPreset('custom');
+                  } else {
+                    setDatePreset(val);
+                    if (customFromIncl) setCustomFromIncl('');
+                    if (customToIncl) setCustomToIncl('');
+                  }
+                }}
+                style={[
+                  {
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    minHeight: 54,
+                    paddingHorizontal: 14,
+                    borderRadius: theme.radius.card,
+                    borderWidth: 1,
+                    backgroundColor: selected ? theme.colors.accentSoft : theme.colors.surface,
+                    borderColor: selected ? theme.colors.accent : theme.colors.cardBorder,
+                  },
+                  selected ? null : theme.elevation.e1,
+                ]}
+              >
+                <View
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 11,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: selected ? theme.colors.accent : theme.colors.surfaceSunken,
+                  }}
+                >
+                  <AppIcon
+                    name={icon}
+                    size={17}
+                    color={selected ? theme.colors.onAccent : theme.colors.textSecondary}
+                  />
+                </View>
+                <AppText
+                  variant="bodyStrong"
+                  style={{ flex: 1, color: selected ? theme.colors.accent : theme.colors.text }}
+                >
+                  {label}
+                </AppText>
+                {selected ? <AppIcon name="check" size={18} color={theme.colors.accent} /> : null}
+              </PressableScale>
+            );
+          })}
+        </View>
       </Sheet>
 
       {/* Filters bottom sheet */}
@@ -1524,6 +1555,7 @@ export default function LedgerScreen() {
   }
 
   const header = (
+    <HeaderAnchor>
     <View style={[styles.ledgerHeader, { gap: theme.spacing.md }]}>
       <AppText variant="title">{t('tabs.ledger')}</AppText>
       <SegmentedControl<LedgerMode>
@@ -1540,25 +1572,47 @@ export default function LedgerScreen() {
         ]}
       />
     </View>
+    </HeaderAnchor>
   );
 
   // Both modes stay mounted and cross-fade, so the toggle never unmounts a screen,
   // never reloads data, and each list keeps its own scroll position.
   return (
     <View style={styles.modeStack}>
-      <ModeLayer active={mode === 'day'}>
+      <ModeLayer active={mode === 'day'} side={-1}>
         <Screen contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}>
           <DayBookView header={header} />
         </Screen>
       </ModeLayer>
-      <ModeLayer active={mode === 'all'}>
+      <ModeLayer active={mode === 'all'} side={1}>
         <AllEntriesScreen header={header} />
       </ModeLayer>
     </View>
   );
 }
 
-function ModeLayer({ active, children }: { active: boolean; children: React.ReactNode }) {
+const MODE_SLIDE = 28;
+const ModeSlideContext = React.createContext<SharedValue<number> | null>(null);
+
+/** Keeps the Ledger title and mode switch still while the cards beneath them glide. */
+function HeaderAnchor({ children }: { children: React.ReactNode }) {
+  const tx = React.useContext(ModeSlideContext);
+  const style = useAnimatedStyle(() => ({
+    transform: [{ translateX: tx ? -tx.get() : 0 }],
+  }));
+  return <Animated.View style={style}>{children}</Animated.View>;
+}
+
+function ModeLayer({
+  active,
+  side,
+  children,
+}: {
+  active: boolean;
+  /** -1: sits to the left of the other mode, 1: to the right. */
+  side: -1 | 1;
+  children: React.ReactNode;
+}) {
   const { reducedMotion } = useTheme();
   const progress = useSharedValue(active ? 1 : 0);
   useEffect(() => {
@@ -1567,21 +1621,24 @@ function ModeLayer({ active, children }: { active: boolean; children: React.Reac
         ? active
           ? 1
           : 0
-        : withTiming(active ? 1 : 0, { duration: 220, easing: Easing.out(Easing.cubic) })
+        : withTiming(active ? 1 : 0, { duration: 440, easing: Easing.bezier(0.22, 1, 0.36, 1) })
     );
   }, [active, reducedMotion, progress]);
+  const tx = useDerivedValue(() => (1 - progress.get()) * MODE_SLIDE * side);
   const style = useAnimatedStyle(() => ({
-    opacity: progress.get(),
-    transform: [{ translateY: (1 - progress.get()) * 6 }],
+    opacity: interpolate(progress.get(), [0, 0.45, 1], [0, 0.2, 1], Extrapolation.CLAMP),
+    transform: [{ translateX: tx.get() }],
   }));
   return (
-    <Animated.View
-      pointerEvents={active ? 'auto' : 'none'}
-      importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}
-      accessibilityElementsHidden={!active}
-      style={[StyleSheet.absoluteFill, { zIndex: active ? 1 : 0 }, style]}
-    >
-      {children}
-    </Animated.View>
+    <ModeSlideContext.Provider value={tx}>
+      <Animated.View
+        pointerEvents={active ? 'auto' : 'none'}
+        importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}
+        accessibilityElementsHidden={!active}
+        style={[StyleSheet.absoluteFill, { zIndex: active ? 1 : 0 }, style]}
+      >
+        {children}
+      </Animated.View>
+    </ModeSlideContext.Provider>
   );
 }

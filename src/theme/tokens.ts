@@ -349,11 +349,11 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       accent: '#C9CDD8',
       onAccent: '#121318',
       accentSoft: '#22242E',
-      hero: '#181B24',
-      heroText: '#F3F6F4',
-      heroTextSecondary: '#C1C5D1',
-      heroLine: 'rgba(243, 246, 244, 0.14)',
-      heroBar: '#D8D1C4',
+      hero: '#111113',
+      heroText: '#FAFAFA',
+      heroTextSecondary: '#A1A1AA',
+      heroLine: 'rgba(250, 250, 250, 0.12)',
+      heroBar: '#FAFAFA',
     },
   },
 };
@@ -526,12 +526,12 @@ const LIGHT_BASE = {
 } as const;
 
 const DARK_BASE = {
-  bg: '#0B0B0E',
-  surface: '#16161B',
-  surfaceRaised: '#222229',
-  surfaceSunken: '#101014',
-  separator: '#282832',
-  cardBorder: '#2A2A34',
+  bg: '#0A0A0C',
+  surface: '#111114',
+  surfaceRaised: '#18181B',
+  surfaceSunken: '#0D0D0F',
+  separator: '#232326',
+  cardBorder: '#2A2A2F',
   text: '#F2F1EE',
   textSecondary: '#ABA8A0',
   textTertiary: '#98958E',
@@ -554,8 +554,8 @@ const BLACK_BASE = {
   surface: '#111115',
   surfaceRaised: '#1D1D24',
   surfaceSunken: '#08080B',
-  separator: '#24242D',
-  cardBorder: '#25252F',
+  separator: '#202024',
+  cardBorder: '#27272C',
   text: '#F2F1EE',
   textSecondary: '#ABA8A0',
   textTertiary: '#96938C',
@@ -587,9 +587,27 @@ export function getPalette(
   const exp = EXPENSE_COLOR_PRESETS[expenseColor] ?? EXPENSE_COLOR_PRESETS.ink;
   const isLight = mode === 'light';
 
+  // One neutral hero surface per scheme; the accent only supplies a tint (see HeroCard).
+  const hero = isLight
+    ? {
+        hero: '#EEF0F5',
+        heroText: '#14161D',
+        heroTextSecondary: '#555B6B',
+        heroLine: 'rgba(20, 22, 29, 0.12)',
+        heroBar: spec.heroBar,
+      }
+    : {
+        hero: '#131316',
+        heroText: '#FAFAFA',
+        heroTextSecondary: '#A1A1AA',
+        heroLine: 'rgba(250, 250, 250, 0.12)',
+        heroBar: accent === 'graphite' ? '#FAFAFA' : spec.accent,
+      };
+
   return {
     ...base,
     ...spec,
+    ...hero,
     income: isLight ? inc.light : inc.dark,
     incomeBg: isLight ? inc.bgLight : inc.bgDark,
     expense: isLight ? exp.light : exp.dark,
@@ -628,7 +646,7 @@ export const darkElevation: ElevationTokens = {
   none: {},
   e1: {
     boxShadow:
-      '0 0 0 1px rgba(255,255,255,0.08), 0 2px 6px rgba(0,0,0,0.48), 0 12px 26px -10px rgba(0,0,0,0.74)',
+      '0 0 0 1px rgba(255,255,255,0.07), 0 2px 5px rgba(0,0,0,0.5), 0 14px 28px -10px rgba(0,0,0,0.85)',
   },
   e2: {
     boxShadow:

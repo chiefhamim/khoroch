@@ -95,6 +95,7 @@ export default function OnboardingWalletsScreen() {
 
   return (
     <Screen
+      style={{ backgroundColor: 'transparent' }}
       scroll
       edges={['top', 'bottom', 'left', 'right']}
       keyboardAvoiding
@@ -301,6 +302,7 @@ export default function OnboardingWalletsScreen() {
           />
           <Button
             testID="onboarding-wallets-continue"
+            tint="#0F766E"
             title={t('common.continue')}
             onPress={handleValidateAndContinue}
             style={styles.navBtnPrimary}

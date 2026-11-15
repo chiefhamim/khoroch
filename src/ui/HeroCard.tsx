@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { useTheme } from '@/theme/useTheme';
 import { PressableScale } from '@/ui/PressableScale';
 
@@ -42,7 +43,6 @@ export function HeroCard({
   const { theme, reducedMotion } = useTheme();
 
   const light = isLightFill(theme.colors.hero);
-  const tint = light ? '20, 22, 29' : '255, 255, 255';
   const cardStyle: StyleProp<ViewStyle> = [
     styles.card,
     theme.elevation.e2,
@@ -50,38 +50,43 @@ export function HeroCard({
       backgroundColor: theme.colors.hero,
       borderRadius: theme.radius.heroCard,
       borderWidth: 1,
-      borderColor: light ? theme.colors.cardBorder : 'rgba(255, 255, 255, 0.18)',
+      borderColor: light ? theme.colors.cardBorder : theme.colors.cardBorder,
       padding: theme.spacing.xl,
     },
     style,
   ];
 
-  const glassOverlays = (
-    <>
-      <View
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const onLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setBox((b) => (Math.abs(b.w - width) < 1 && Math.abs(b.h - height) < 1 ? b : { w: width, h: height }));
+  };
+  // One global card style in light and dark. The chosen accent only adds a soft, blurred tint.
+  const hue = theme.accent === 'graphite' ? '#94A3B8' : theme.accentDef.dark.accent;
+  const { w, h } = box;
+  const glassOverlays =
+    w === 0 ? null : (
+      <Svg
         pointerEvents="none"
-        style={[
-          styles.ambientOrbTopRight,
-          { backgroundColor: `rgba(${tint}, ${light ? 0.05 : 0.075})` },
-        ]}
-      />
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambientOrbInnerRight,
-          { backgroundColor: `rgba(${tint}, ${light ? 0.035 : 0.045})` },
-        ]}
-      />
-      <View
-        pointerEvents="none"
-        style={[
-          styles.ambientOrbBottomLeft,
-          { backgroundColor: `rgba(${tint}, ${light ? 0.03 : 0.04})` },
-        ]}
-      />
-      <View pointerEvents="none" style={styles.diagonalSheen} />
-    </>
-  );
+        style={StyleSheet.absoluteFill}
+        width={w}
+        height={h}
+        viewBox={`0 0 ${w} ${h}`}
+      >
+        <Defs>
+          <RadialGradient id="hc-a" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor={hue} stopOpacity={light ? 0.34 : 0.3} />
+            <Stop offset="100%" stopColor={hue} stopOpacity={0} />
+          </RadialGradient>
+          <RadialGradient id="hc-b" cx="50%" cy="50%" r="50%">
+            <Stop offset="0%" stopColor={hue} stopOpacity={light ? 0.2 : 0.16} />
+            <Stop offset="100%" stopColor={hue} stopOpacity={0} />
+          </RadialGradient>
+        </Defs>
+        <Ellipse cx={w * 0.94} cy={h * 0.04} rx={w * 0.62} ry={h * 0.95} fill="url(#hc-a)" />
+        <Ellipse cx={w * 0.02} cy={h * 1.06} rx={w * 0.55} ry={h * 0.8} fill="url(#hc-b)" />
+      </Svg>
+    );
 
   if (onPress) {
     return (
@@ -92,6 +97,7 @@ export function HeroCard({
         accessibilityLabel={accessibilityLabel}
         accessibilityHint={accessibilityHint}
         onPress={onPress}
+        onLayout={onLayout}
         style={({ pressed }) => [
           cardStyle,
           { opacity: pressed && !reducedMotion ? 0.94 : 1 },
@@ -104,7 +110,7 @@ export function HeroCard({
   }
 
   return (
-    <View testID={testID} style={cardStyle}>
+    <View testID={testID} style={cardStyle} onLayout={onLayout}>
       {glassOverlays}
       {children}
     </View>

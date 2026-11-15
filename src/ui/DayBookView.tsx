@@ -250,9 +250,14 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
         style={styles.entryRow}
       >
         <View style={styles.timeCol}>
-          <AppText variant="caption" color="textTertiary" tabularNums style={styles.timeText}>
-            {time}
+          <AppText variant="caption" tabularNums style={[styles.timeText, { fontFamily: 'Manrope_700Bold', fontSize: 12.5 }]}>
+            {time.split(' ')[0]}
           </AppText>
+          {time.includes(' ') ? (
+            <AppText variant="caption" color="textTertiary" style={[styles.timeText, { fontFamily: 'Manrope_600SemiBold', fontSize: 10.5, letterSpacing: 0.5 }]}>
+              {time.split(' ').slice(1).join(' ')}
+            </AppText>
+          ) : null}
         </View>
         <View style={styles.railCol}>
           <View style={[styles.railLine, { backgroundColor: theme.colors.separator }]} />
@@ -260,13 +265,13 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
             style={[
               styles.node,
               {
-                borderColor:
+                backgroundColor:
                   entry.direction === 'in'
                     ? theme.colors.income
                     : entry.direction === 'out'
                       ? theme.colors.expense
                       : theme.colors.textTertiary,
-                backgroundColor: theme.colors.bg,
+                borderColor: theme.colors.bg,
               },
             ]}
           />
@@ -433,7 +438,8 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
               style={[
                 styles.weekDay,
                 {
-                  borderRadius: theme.radius.md,
+                  // Concentric with the strip: outer radius minus its padding and border.
+                  borderRadius: Math.max(0, theme.radius.card - theme.spacing.xs - 1),
                   backgroundColor: selected ? theme.colors.ink : 'transparent',
                 },
               ]}
@@ -553,22 +559,30 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
           </PressableScale>
           <AppIcon name="arrow-left-right" size={16} color={theme.colors.textTertiary} />
           <View style={[styles.flex, styles.alignEnd]}>
-            <AppText variant="caption" color="textTertiary">
-              {isToday ? t('daybook.leftNow') : t('daybook.endedWith')}
-            </AppText>
-            <Money amountMinor={book.closingMinor} currency={settings.currency} variant="display" hidden={hideAmounts} />
+            <View style={styles.openingLabel}>
+              <AppText variant="caption" color="textTertiary">
+                {isToday ? t('daybook.leftNow') : t('daybook.endedWith')}
+              </AppText>
+            </View>
+            <Money
+              amountMinor={book.closingMinor}
+              currency={settings.currency}
+              variant="headline"
+              numberOfLines={1}
+              hidden={hideAmounts}
+            />
           </View>
         </View>
         <View style={[styles.summaryDivider, { backgroundColor: theme.colors.separator }]} />
         <View style={[styles.statRow, { gap: theme.spacing.sm }]}>
-          <View style={[styles.stat, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.md }]}>
+          <View style={[styles.stat, { backgroundColor: theme.colors.incomeBg, borderRadius: theme.radius.md }]}>
             <AppIcon name="arrow-down-left" size={15} color={theme.colors.income} />
             <AppText variant="caption" color="textSecondary">
               {t('daybook.in')}
             </AppText>
             <Money amountMinor={book.inMinor} currency={settings.currency} variant="bodyStrong" hidden={hideAmounts} prefix={book.inMinor > 0 ? '+' : ''} color="income" />
           </View>
-          <View style={[styles.stat, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.md }]}>
+          <View style={[styles.stat, { backgroundColor: theme.colors.expenseBg, borderRadius: theme.radius.md }]}>
             <AppIcon name="arrow-up-right" size={15} color={theme.colors.expense} />
             <AppText variant="caption" color="textSecondary">
               {t('daybook.out')}
@@ -582,7 +596,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
               hidden={hideAmounts}
             />
           </View>
-          <View style={[styles.stat, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.md }]}>
+          <View style={[styles.stat, { backgroundColor: theme.colors.accentSoft, borderRadius: theme.radius.md }]}>
             <AppIcon
               name={net > 0 ? 'trending-up' : net < 0 ? 'trending-down' : 'minus'}
               size={15}
@@ -663,7 +677,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   alignEnd: { alignItems: 'flex-end' },
-  openingLabel: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  openingLabel: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 16 },
   center: { textAlign: 'center' },
   navRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   navBtn: { width: 44, height: 44, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
@@ -678,12 +692,12 @@ const styles = StyleSheet.create({
   statRow: { flexDirection: 'row' },
   stat: { flex: 1, paddingVertical: 10, paddingHorizontal: 10, gap: 2 },
   entryRow: { flexDirection: 'row', alignItems: 'stretch' },
-  timeCol: { width: 62, paddingTop: 22 },
-  timeText: { textAlign: 'right' },
-  railCol: { width: 28, alignItems: 'center' },
+  timeCol: { width: 40, paddingTop: 15, paddingRight: 2 },
+  timeText: { textAlign: 'right', lineHeight: 15 },
+  railCol: { width: 22, alignItems: 'center' },
   railLine: { width: 1.5, flex: 1 },
   railSpacer: { width: 1.5, flex: 1 },
-  node: { width: 12, height: 12, borderRadius: 6, borderWidth: 2.5 },
+  node: { width: 14, height: 14, borderRadius: 7, borderWidth: 3, marginTop: 2 },
   balanceNode: { width: 8, height: 8, borderRadius: 2, marginTop: 18 },
   entryCard: { flex: 1, flexDirection: 'row', alignItems: 'center', borderWidth: 1, padding: 12, gap: 12, marginVertical: 5 },
   entryText: { flex: 1, gap: 2 },

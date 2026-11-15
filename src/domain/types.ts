@@ -212,6 +212,8 @@ export function normalizeExpenseColorKey(
     : fallback;
 }
 
+import { AVATAR_PHOTO_IDS } from './avatarPhotoIds';
+
 export const AVATAR_PRESET_IDS = [
   'initial',
   'prof_exec',
@@ -226,6 +228,7 @@ export const AVATAR_PRESET_IDS = [
   'abs_aura',
   'abs_terracotta',
   'abs_mosaic',
+  ...AVATAR_PHOTO_IDS,
 ] as const;
 
 export type AvatarPresetId = (typeof AVATAR_PRESET_IDS)[number];

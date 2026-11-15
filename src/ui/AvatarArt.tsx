@@ -2,7 +2,9 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, Ellipse, G, Path, Rect } from 'react-native-svg';
 
+import { Image } from 'react-native';
 import type { AvatarPresetId } from '@/domain/types';
+import { AVATAR_PHOTOS } from './avatarPhotos';
 
 export type AvatarCategory = 'professional' | 'tropical' | 'abstract';
 
@@ -27,6 +29,8 @@ export const AVATAR_CATALOG: readonly AvatarArtSpec[] = [
   { id: 'abs_mosaic', category: 'abstract', bg: '#112922' },
 ] as const;
 
+const PHOTO_BG = '#E9EDF5';
+
 export interface AvatarArtProps {
   id: Exclude<AvatarPresetId, 'initial'>;
   size: number;
@@ -36,6 +40,14 @@ export interface AvatarArtProps {
  * Crisp offline SVG avatars spanning Professional, Tropical/SEA, and Abstract styles.
  */
 export function AvatarArt({ id, size }: AvatarArtProps) {
+  const photo = AVATAR_PHOTOS[id];
+  if (photo) {
+    return (
+      <View style={[styles.wrap, { width: size, height: size, borderRadius: size / 2, backgroundColor: PHOTO_BG }]}>
+        <Image source={photo} style={{ width: size, height: size }} resizeMode="cover" />
+      </View>
+    );
+  }
   const clipId = `avatar-clip-${id}`;
 
   return (

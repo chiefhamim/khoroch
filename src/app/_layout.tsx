@@ -1,3 +1,4 @@
+import { useOnboardingPreview } from "@/state/onboardingPreview";
 import React, { useCallback, useEffect, useState } from "react";
 import { useFonts } from "expo-font";
 import { HindSiliguri_400Regular } from "@expo-google-fonts/hind-siliguri/400Regular";
@@ -48,6 +49,7 @@ function AppNavigator() {
   const segments = useSegments();
   const router = useRouter();
   const navigationState = useRootNavigationState();
+  const previewOnboarding = useOnboardingPreview((st) => st.on);
 
   useEffect(() => {
     if (!navigationState?.key) return;
@@ -55,10 +57,10 @@ function AppNavigator() {
     const inDev = isDevVariant() && (segments[0] as string) === "dev";
     if (!settings.onboardingDone && !inOnboarding && !inDev) {
       router.replace("/onboarding");
-    } else if (settings.onboardingDone && inOnboarding) {
+    } else if (settings.onboardingDone && inOnboarding && !previewOnboarding) {
       router.replace("/(tabs)");
     }
-  }, [navigationState?.key, settings.onboardingDone, segments, router]);
+  }, [navigationState?.key, settings.onboardingDone, segments, router, previewOnboarding]);
 
   useEffect(() => {
     if (!navigationState?.key || !settings.onboardingDone) return;

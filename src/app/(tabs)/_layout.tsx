@@ -4,7 +4,7 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { StyleSheet, View } from "react-native";
+import { Easing as RNEasing, StyleSheet, View } from "react-native";
 import { Tabs, useRouter } from "expo-router";
 
 import { t } from "@/i18n";
@@ -14,6 +14,7 @@ import { AppText } from "@/ui/AppText";
 import { hapticLight, hapticMedium, hapticSelection } from "@/ui/haptics";
 import { TAB_BAR_CONTENT_HEIGHT, useTabBarHeight } from "@/ui/Screen";
 import { PressableScale } from "@/ui/PressableScale";
+import { GlassContext } from "@/ui/glass";
 
 export type V2TabBarProps = Parameters<
   NonNullable<React.ComponentProps<typeof Tabs>["tabBar"]>
@@ -212,13 +213,49 @@ function TabIcon({
   );
 }
 
+/** Tab scenes glide sideways with a soft cross-fade and a long, gentle deceleration. */
+const glideInterpolator: NonNullable<
+  React.ComponentProps<typeof Tabs>["screenOptions"] extends infer O
+    ? O extends { sceneStyleInterpolator?: infer I }
+      ? { sceneStyleInterpolator?: I }
+      : never
+    : never
+>["sceneStyleInterpolator"] = ({ current }) => ({
+  sceneStyle: {
+    opacity: current.progress.interpolate({
+      inputRange: [-1, -0.35, 0, 0.35, 1],
+      outputRange: [0, 0.15, 1, 0.15, 0],
+    }),
+    transform: [
+      {
+        translateX: current.progress.interpolate({
+          inputRange: [-1, 0, 1],
+          outputRange: [-70, 0, 70],
+        }),
+      },
+    ],
+  },
+});
+
+const GLIDE_SPEC = {
+  animation: "timing" as const,
+  config: { duration: 380, easing: RNEasing.bezier(0.22, 1, 0.36, 1) },
+};
+
+const APP_GLASS = { tint: null, backdrop: 0.6 };
+
 export default function TabsLayout() {
+  const { theme } = useTheme();
   return (
+    <GlassContext.Provider value={APP_GLASS}>
     <Tabs
       screenOptions={{
         headerShown: false,
         // Short horizontal shift between tabs, run with the native driver.
         animation: "shift",
+        sceneStyleInterpolator: glideInterpolator,
+        transitionSpec: GLIDE_SPEC,
+        sceneStyle: { backgroundColor: theme.colors.bg },
       }}
       tabBar={(props) => <V2TabBar {...props} />}
     >
@@ -230,6 +267,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="budget" options={{ href: null }} />
       <Tabs.Screen name="insights" options={{ href: null }} />
     </Tabs>
+    </GlassContext.Provider>
   );
 }
 

@@ -18,7 +18,6 @@ import { AppIcon } from '@/ui/AppIcon';
 import { AppText } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
-import { DayOfMonthGrid } from '@/ui/DayOfMonthGrid';
 import { Field } from '@/ui/Field';
 import { hapticSelection } from '@/ui/haptics';
 import { OnboardingHeader } from '@/ui/OnboardingHeader';
@@ -103,6 +102,7 @@ export default function OnboardingPreferencesScreen() {
 
   return (
     <Screen
+      style={{ backgroundColor: 'transparent' }}
       scroll
       edges={['top', 'bottom', 'left', 'right']}
       keyboardAvoiding
@@ -122,9 +122,6 @@ export default function OnboardingPreferencesScreen() {
             <View style={styles.rowHeader}>
               <View style={styles.flex1}>
                 <AppText variant="bodyStrong">{t('onboarding.ownerNameLabel')}</AppText>
-                <AppText variant="caption" color="textSecondary">
-                  {t('onboarding.ownerNameSub')}
-                </AppText>
               </View>
             </View>
             <Field
@@ -145,9 +142,6 @@ export default function OnboardingPreferencesScreen() {
               <View style={styles.flex1}>
                 <AppText variant="bodyStrong">
                   {t('onboarding.primaryCurrencyLabel')}
-                </AppText>
-                <AppText variant="caption" color="textSecondary">
-                  {t('onboarding.primaryCurrencySub')}
                 </AppText>
               </View>
             </View>
@@ -220,13 +214,6 @@ export default function OnboardingPreferencesScreen() {
               </View>
             </View>
 
-            <AppText
-              variant="overline"
-              color="textSecondary"
-              style={{ marginTop: 4 }}
-            >
-              {t('onboarding.quickCycleShortcuts')}
-            </AppText>
             <View style={[styles.rowWrap, { gap: 6 }]}>
               {cycleShortcuts.map((preset) => (
                 <Chip
@@ -238,11 +225,6 @@ export default function OnboardingPreferencesScreen() {
               ))}
             </View>
 
-            <DayOfMonthGrid
-              testID="onboarding-cycle-grid"
-              value={monthStartDay}
-              onChange={setMonthStartDay}
-            />
           </View>
 
           <View style={{ height: 1, backgroundColor: theme.colors.separator }} />
@@ -308,6 +290,7 @@ export default function OnboardingPreferencesScreen() {
         />
         <Button
           testID="onboarding-prefs-continue"
+          tint="#0369A1"
           title={t('common.continue')}
           onPress={() => router.push('/onboarding/budget')}
           style={styles.navBtnPrimary}

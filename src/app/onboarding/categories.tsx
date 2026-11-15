@@ -22,6 +22,7 @@ export default function OnboardingCategoriesScreen() {
 
   return (
     <Screen
+      style={{ backgroundColor: 'transparent' }}
       scroll
       edges={['top', 'bottom', 'left', 'right']}
       contentContainerStyle={styles.container}

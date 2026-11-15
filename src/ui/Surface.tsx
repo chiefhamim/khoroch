@@ -3,6 +3,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useTheme } from '@/theme/useTheme';
 import { PressableScale } from '@/ui/PressableScale';
+import { glassFill, useGlass } from './glass';
 import { listLayoutTransition, staggerEnter } from './motion';
 
 export type SurfaceVariant = 'card' | 'raised' | 'sunken' | 'soft' | 'dangerSoft';
@@ -78,9 +79,15 @@ export function Surface({
   testID,
 }: SurfaceProps) {
   const { theme, reducedMotion } = useTheme();
+  const glass = useGlass();
+  const g = glassFill(theme.scheme === 'light' ? 'light' : 'dark');
 
   const backgroundColor =
-    variant === 'sunken'
+    glass && (variant === 'card' || variant === 'raised')
+      ? g.fill
+      : glass && variant === 'sunken'
+        ? g.soft
+        : variant === 'sunken'
       ? theme.colors.surfaceSunken
       : variant === 'soft'
         ? theme.colors.accentSoft
@@ -103,9 +110,11 @@ export function Surface({
   const borderWidth =
     outerCustom.borderWidth !== undefined ? Number(outerCustom.borderWidth) : defaultBorderWidth;
   const defaultBorderColor = showGlassChrome
-    ? theme.scheme === 'light'
+    ? glass
+      ? g.rim
+      : theme.scheme === 'light'
       ? theme.colors.cardBorder
-      : 'rgba(255, 255, 255, 0.08)'
+      : 'rgba(255, 255, 255, 0.16)'
     : undefined;
   const innerRadius = Math.max(0, resolvedRadius - borderWidth);
 

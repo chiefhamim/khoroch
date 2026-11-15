@@ -807,6 +807,41 @@ function validateSettingsObject(raw: unknown): Settings {
   };
 }
 
+/**
+ * Drops wallets that duplicate another wallet (same name, kind and provider) and that no entry,
+ * transfer or due refers to. The wallet that carries the history is always kept.
+ */
+export function dropUnusedDuplicateWallets(
+  accounts: Account[],
+  transactions: readonly { accountId: string | null }[],
+  transfers: readonly { fromAccountId: string; toAccountId: string }[],
+  dueEntries: readonly { accountId?: string | null }[]
+): Account[] {
+  const used = new Set<string>();
+  for (const tx of transactions) if (tx.accountId) used.add(tx.accountId);
+  for (const tr of transfers) {
+    used.add(tr.fromAccountId);
+    used.add(tr.toAccountId);
+  }
+  for (const due of dueEntries) if (due.accountId) used.add(due.accountId);
+
+  const keyOf = (a: Account) => `${a.name.trim().toLowerCase()}|${a.kind}|${a.provider ?? ''}`;
+  const groups = new Map<string, Account[]>();
+  for (const a of accounts) {
+    const key = keyOf(a);
+    groups.set(key, [...(groups.get(key) ?? []), a]);
+  }
+  const drop = new Set<string>();
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    const keep = group.find((a) => used.has(a.id)) ?? group[0];
+    for (const a of group) {
+      if (a.id !== keep.id && !used.has(a.id)) drop.add(a.id);
+    }
+  }
+  return drop.size === 0 ? accounts : accounts.filter((a) => !drop.has(a.id));
+}
+
 export function parseAndValidateBackup(
   rawText: string,
   byteSizeOverride?: number
@@ -1005,7 +1040,7 @@ export function parseAndValidateBackup(
     exportedAt,
     data: {
       categories,
-      accounts,
+      accounts: dropUnusedDuplicateWallets(accounts, transactions, transfers, dueEntries),
       transfers,
       people,
       due_entries: dueEntries,
