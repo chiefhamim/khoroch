@@ -134,3 +134,18 @@
 - **Tests added:** Bangla cycle & period range cases in `src/domain/period.test.ts`, and `src/__tests__/plan.test.tsx` (overall keypad set/remove, Bangla month header, Fabric single-line `minWidth`, Past cycles toggle, Insights navigation).
 - **Screenshots (`docs/round4/10-plan/`):** `plan-dark-en-top.png`, `plan-dark-en-past.png`, `plan-dark-en-overall-sheet.png`, `plan-dark-en-addcat-sheet.png`, `plan-dark-en-sheet-error.png`, `plan-dark-en-populated.png`, `plan-dark-en-empty.png`, `plan-light-bn-populated.png`, `plan-light-bn-addcat-sheet.png`, `plan-light-bn-editcat-sheet.png`, `plan-light-bn-overall-sheet.png`, `plan-dark-bn-populated.png`, `plan-light-en-populated.png`, `plan-light-en-overall-sheet.png`.
 - **Checks after final edit:** `npm run typecheck` (0 errors), `npx expo lint` (0 errors, 1 pre-existing warning in `src/app/wallets/[id].tsx:258`), `npm test` (29/29 suites, 169/169 tests PASS).
+
+
+## 11. Insights (`src/app/plan/insights.tsx`, `src/screens/InsightsScreen.tsx`)
+- **What broke on live device (`R5CY23M7E6L`):**
+  1. Android Fabric dropped trailing Bangla words on the period dropdown (`'এই মাস'` -> `'এই'`), MTD comparison bar label (`'এই মাস'` -> `'এই'`), and the Averages CTA (`'খাতায় হিসাবগুলো দেখুন'` -> `'খাতায় হিসাবগুলো'`).
+  2. Date ranges, cycle titles, and chart labels stayed English in Bangla mode (`1 Nov – 30 Nov`, `October বনাম September`, `11 Nov`, `November 2026`, and 6-cycle SVG X-axis labels `Jun`–`Nov`).
+  3. Category changes section hardcoded English `' vs '` and `'New'` instead of localized strings.
+  4. `insights.mtdNoPriorBaseline` (`No spending in the same 15 days last cycle`) rendered in `danger` red instead of calm `textSecondary`.
+  5. Insights empty state (`!report.hasAnyHistory`) lacked a back button when `showBack` was true.
+- **Root-cause fixes:**
+  - `src/i18n/en.ts`, `src/i18n/bn.ts`: Added `insights.newBadge` (`'New'` / `'নতুন'`).
+  - `src/screens/InsightsScreen.tsx`: Subscribed to `useLocale()`, passed `{ locale }` to `formatCycleLabel`, `formatPeriodRange`, `formatShortDate`, and `formatShortMonthYear`; used `t('insights.newBadge')` and `t('insights.fullPeriodSubtitle')` in category changes; applied `BANGLA_FONTS` + `estimateSingleLineMinWidth` (`bnMinWidth`) with `numberOfLines={1}` across dropdown, MTD labels, `insights.viewInActivity`, category change badges, and chart tooltip; set `BANGLA_FONTS` on SVG `<SvgText>` axis labels; used calm `textSecondary` color when `pctChange === null`; added working back button via `handleBack` to empty state when `showBack` is true.
+  - `src/state/insights.test.tsx`: Added Bangla localization + Fabric `minWidth` + calm baseline color test and empty-state `showBack` back-button test.
+- **Live verification (`com.hamim.budgetapp.dev`):** Verified Light BN (`top`, `bottom`, `tooltip`, `period-sheet`, `custom-sheet`), Dark BN (`top`, `bottom`), Light EN (`top`, `bottom`), and Dark EN (`top`, `bottom`, `period-sheet`, `tooltip`) under `docs/round4/11-insights/`, then returned phone to Home (`৳27,380` / `৳20,230`, Dark EN).
+- **Checks after final edit:** `npm run typecheck` (0 errors), `npx expo lint` (0 errors, 1 pre-existing warning in `src/app/wallets/[id].tsx:258`), `npm test` (29/29 suites, 171/171 tests PASS).

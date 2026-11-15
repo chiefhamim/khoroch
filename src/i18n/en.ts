@@ -608,6 +608,7 @@ export const en = {
   'insights.viewInActivity': 'View transactions',
   'insights.noWindowExpenses': 'No expenses recorded in this period.',
   'insights.noChangeYet': 'No cycle comparison available yet.',
+  'insights.newBadge': 'New',
   'common.dateFormatHint': 'YYYY-MM-DD',
   'tx.errorLoadFailed': 'Could not load this transaction. Please try again.',
   'categoryDetail.loadError': 'Could not load category transactions.',

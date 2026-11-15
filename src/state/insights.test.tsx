@@ -1,19 +1,22 @@
 import React from 'react';
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { InsightsContent } from '@/screens/InsightsScreen';
 import { MemoryRepo } from '@/data/memoryRepo';
-import { t } from '@/i18n';
+import { setLocale, t } from '@/i18n';
 import { useActivityFilterStore } from '@/state/activityFilterStore';
 import { AppContext } from '@/state/AppContext';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 
 const mockPush = jest.fn();
+const mockBack = jest.fn();
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({
     push: mockPush,
     replace: jest.fn(),
-    back: jest.fn(),
+    back: mockBack,
+    canGoBack: () => true,
   }),
   useLocalSearchParams: () => ({}),
 }));
@@ -30,11 +33,20 @@ jest.mock('react-native-safe-area-context', () => {
 
 describe('InsightsContent integration', () => {
   beforeEach(() => {
+    setLocale('en');
     mockPush.mockClear();
+    mockBack.mockClear();
     useActivityFilterStore.getState().resetAll();
   });
 
-  async function renderInsights(repo: MemoryRepo) {
+  afterAll(() => {
+    setLocale('en');
+  });
+
+  async function renderInsights(
+    repo: MemoryRepo,
+    extraProps?: Partial<React.ComponentProps<typeof InsightsContent>>
+  ) {
     const settings = await repo.getSettings();
     return render(
       <AppContext.Provider
@@ -49,7 +61,7 @@ describe('InsightsContent integration', () => {
         }}
       >
         <ThemeProvider preference="light">
-          <InsightsContent todayOverride="2026-11-13" />
+          <InsightsContent todayOverride="2026-11-13" {...extraProps} />
         </ThemeProvider>
       </AppContext.Provider>
     );
@@ -153,5 +165,64 @@ describe('InsightsContent integration', () => {
 
     expect(view.getByText('10 Oct – 9 Nov vs 10 Sep – 9 Oct')).toBeTruthy();
     expect(view.queryByText(/Oct 2026/)).toBeNull();
+  });
+
+  it('localizes Insights into Bangla, uses calm baseline color, and sets Fabric minWidth', async () => {
+    setLocale('bn');
+    const repo = new MemoryRepo();
+    await repo.setSetting('onboardingDone', true);
+    await repo.setSetting('currency', 'BDT');
+    await repo.setSetting('monthStartDay', 1);
+
+    await repo.insertTransaction({
+      id: 'bn1',
+      type: 'expense',
+      amountMinor: 50000,
+      currency: 'BDT',
+      categoryId: 'food_dining',
+      description: 'Bangla test expense',
+      occurredOn: '2026-11-11',
+    });
+
+    const view = await renderInsights(repo);
+
+    await waitFor(() => {
+      expect(view.getByTestId('insights-period-dropdown')).toBeTruthy();
+    });
+
+    expect(view.getByText('অক্টোবর বনাম সেপ্টেম্বর')).toBeTruthy();
+    expect(view.getByText('নতুন')).toBeTruthy();
+    expect(view.getByText('৳ 500 বনাম ৳ 0')).toBeTruthy();
+    expect(view.getByText('11 নভে')).toBeTruthy();
+
+    const viewActivityEl = view.getByText('খাতায় হিসাবগুলো দেখুন');
+    expect(StyleSheet.flatten(viewActivityEl.props.style)?.minWidth).toBeGreaterThan(0);
+
+    const baselineEl = view.getByText(
+      t('insights.mtdNoPriorBaseline', { days: 13 })
+    );
+    const rangeSubtitleEl = view.getByText('1 নভে – 30 নভে');
+    expect(StyleSheet.flatten(baselineEl.props.style)?.color).toBe(
+      StyleSheet.flatten(rangeSubtitleEl.props.style)?.color
+    );
+
+    const chart = view.getByTestId('insights-history-svg');
+    expect(chart.props.accessibilityLabel).toContain('নভেম্বর 2026');
+    expect(view.getByLabelText('নভেম্বর: ৳ 500')).toBeTruthy();
+  });
+
+  it('renders a working back button in empty state when showBack is true', async () => {
+    const repo = new MemoryRepo();
+    await repo.setSetting('onboardingDone', true);
+    await repo.setSetting('currency', 'BDT');
+
+    const view = await renderInsights(repo, { showBack: true });
+
+    await waitFor(() => {
+      expect(view.getByText(t('insights.notEnoughTitle'))).toBeTruthy();
+    });
+
+    await fireEvent.press(view.getByTestId('insights-back-button'));
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });

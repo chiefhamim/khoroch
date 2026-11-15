@@ -625,6 +625,7 @@ export const bn: Record<TranslationKey, string> = {
   'insights.viewInActivity': 'খাতায় হিসাবগুলো দেখুন',
   'insights.noWindowExpenses': 'এই সময়ে কোনো খরচ রেকর্ড করা হয়নি।',
   'insights.noChangeYet': 'তুলনা করার মতো আগের মাসের তথ্য এখনো নেই।',
+  'insights.newBadge': 'নতুন',
 
   // Backup & Privacy
   'overview.backupNudgeNever': 'ব্যাকআপ নেওয়া হয়নি · এখনই ব্যাকআপ নিন',

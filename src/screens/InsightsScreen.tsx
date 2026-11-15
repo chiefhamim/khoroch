@@ -18,14 +18,15 @@ import type { CustomDateRange, InsightsPeriodPreset } from '@/domain/insights';
 import { formatMoney } from '@/domain/money';
 import { formatCycleLabel } from '@/domain/period';
 import type { LocalDate, TxQuery } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useActivityFilterStore } from '@/state/activityFilterStore';
 import { useAppContext } from '@/state/AppContext';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useInsights } from '@/state/useInsights';
+import { BANGLA_FONTS } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { DateField } from '@/ui/DateField';
 import { EmptyState } from '@/ui/EmptyState';
@@ -65,7 +66,13 @@ export interface InsightsContentProps {
 }
 
 export function InsightsContent({ todayOverride, showBack = false }: InsightsContentProps) {
+  const locale = useLocale();
   const { settings } = useAppContext();
+  const bnMinWidth = (text: string, fontSize: number, maxWidth?: number) => {
+    if (locale !== 'bn') return undefined;
+    const width = estimateSingleLineMinWidth(text, fontSize);
+    return { minWidth: maxWidth !== undefined ? Math.min(width, maxWidth) : width };
+  };
   const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
   const showPoisha = usePrivacyStore((s) => s.showPoisha);
   const compactNumbers = usePrivacyStore((s) => s.compactNumbers);
@@ -142,13 +149,14 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
       total: formatMoney(total, settings.currency, { hidden: hideAmounts, showPoisha }),
       peakLabel: formatCycleLabel(peak.period, settings.monthStartDay, {
         includeYear: true,
+        locale,
       }),
       peakAmount: formatMoney(peak.spentMinor, settings.currency, {
         hidden: hideAmounts,
         showPoisha,
       }),
     });
-  }, [historyBars, settings.currency, settings.monthStartDay, hideAmounts, showPoisha]);
+  }, [historyBars, locale, settings.currency, settings.monthStartDay, hideAmounts, showPoisha]);
 
   const handleApplyCustom = () => {
     if (fromDraft > toDraft) {
@@ -167,10 +175,18 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
     if (w > 40 && w !== chartWidth) setChartWidth(w);
   };
 
-  const activePresetLabel = useMemo(() => {
-    const found = PRESET_OPTIONS.find((opt) => opt.value === preset);
-    return found ? t(found.labelKey) : t('insights.presetThisMonth');
-  }, [preset]);
+  const activePresetOption = PRESET_OPTIONS.find((opt) => opt.value === preset);
+  const activePresetLabel = activePresetOption
+    ? t(activePresetOption.labelKey)
+    : t('insights.presetThisMonth');
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/plan');
+    }
+  };
 
   if (error && !loading) {
     return (
@@ -187,8 +203,21 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
 
   if (!loading && !report.hasAnyHistory) {
     return (
-      <Screen scroll bottomSpacer>
-        <AppText variant="title">{t('insights.title')}</AppText>
+      <Screen scroll bottomSpacer={!showBack}>
+        <View style={[styles.headerLeft, { gap: theme.spacing.sm }]}>
+          {showBack ? (
+            <IconButton
+              testID="insights-back-button"
+              icon="arrow-left"
+              variant="ghost"
+              size={40}
+              iconSize={20}
+              accessibilityLabel={t('common.back')}
+              onPress={handleBack}
+            />
+          ) : null}
+          <AppText variant="title">{t('insights.title')}</AppText>
+        </View>
         <EmptyState
           testID="insights-empty-state"
           icon="chart-column"
@@ -262,11 +291,13 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
 
   const fullCurrLabel = formatCycleLabel(
     report.fullPeriodComparison.currentPeriod,
-    settings.monthStartDay
+    settings.monthStartDay,
+    { locale }
   );
   const fullPrevLabel = formatCycleLabel(
     report.fullPeriodComparison.previousPeriod,
-    settings.monthStartDay
+    settings.monthStartDay,
+    { locale }
   );
 
   const selectedBar =
@@ -280,11 +311,13 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
   const barW = Math.min(28, Math.max(8, Math.floor(slotW * 0.56)));
 
   const mtdToneColor =
-    report.mtdComparison.diffMinor > 0
-      ? 'danger'
-      : report.mtdComparison.diffMinor < 0
-        ? 'accent'
-        : 'textSecondary';
+    report.mtdComparison.pctChange === null
+      ? 'textSecondary'
+      : report.mtdComparison.diffMinor > 0
+        ? 'danger'
+        : report.mtdComparison.diffMinor < 0
+          ? 'accent'
+          : 'textSecondary';
 
   return (
     <Screen scroll bottomSpacer={!showBack}>
@@ -299,13 +332,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
               size={40}
               iconSize={20}
               accessibilityLabel={t('common.back')}
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                } else {
-                  router.replace('/(tabs)/plan');
-                }
-              }}
+              onPress={handleBack}
             />
           ) : null}
           <AppText variant="title">{t('insights.title')}</AppText>
@@ -329,7 +356,12 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
             },
           ]}
         >
-          <AppText variant="label" color="text">
+          <AppText
+            variant="label"
+            color="text"
+            numberOfLines={1}
+            style={bnMinWidth(activePresetLabel, 13)}
+          >
             {activePresetLabel}
           </AppText>
           <AppIcon name="chevron-down" size={14} color={theme.colors.textSecondary} />
@@ -337,7 +369,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
       </View>
 
       <AppText variant="caption" color="textSecondary" style={{ marginTop: -theme.spacing.sm }}>
-        {formatPeriodRange(report.window.fromIncl, report.window.toExcl)}
+        {formatPeriodRange(report.window.fromIncl, report.window.toExcl, locale)}
       </AppText>
 
       {/* Headline comparison card */}
@@ -398,7 +430,12 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
             <View style={{ gap: theme.spacing.xs + 2, marginTop: theme.spacing.xs }}>
               <View style={styles.compBarWrap}>
                 <View style={styles.compLabelRow}>
-                  <AppText variant="caption" color="textSecondary">
+                  <AppText
+                    variant="caption"
+                    color="textSecondary"
+                    numberOfLines={1}
+                    style={bnMinWidth(t('insights.thisCycleBar'), 13)}
+                  >
                     {t('insights.thisCycleBar')}
                   </AppText>
                   <Money
@@ -428,7 +465,12 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
 
               <View style={styles.compBarWrap}>
                 <View style={styles.compLabelRow}>
-                  <AppText variant="caption" color="textSecondary">
+                  <AppText
+                    variant="caption"
+                    color="textSecondary"
+                    numberOfLines={1}
+                    style={bnMinWidth(t('insights.lastCycleBar'), 13)}
+                  >
                     {t('insights.lastCycleBar')}
                   </AppText>
                   <Money
@@ -548,14 +590,25 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
 
       {/* Averages 2x2 grid */}
       <View style={{ gap: theme.spacing.sm }}>
-        <View style={styles.rowBetween}>
-          <AppText variant="headline">{t('insights.averagesSection')}</AppText>
+        <View style={[styles.rowBetween, { gap: theme.spacing.sm }]}>
+          <AppText
+            variant="headline"
+            numberOfLines={1}
+            style={bnMinWidth(t('insights.averagesSection'), 17, 170)}
+          >
+            {t('insights.averagesSection')}
+          </AppText>
           <PressableScale pressScale={0.98}
             accessibilityRole="button"
             hitSlop={8}
             onPress={() => openActivityWithQuery(windowQuery)}
           >
-            <AppText variant="label" color="accent">
+            <AppText
+              variant="label"
+              color="accent"
+              numberOfLines={1}
+              style={[styles.rightText, bnMinWidth(t('insights.viewInActivity'), 13)]}
+            >
               {t('insights.viewInActivity')}
             </AppText>
           </PressableScale>
@@ -718,7 +771,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                       report.biggest.largestExpense.description ||
                       cat?.name ||
                       t('common.uncategorized')
-                    } · ${formatShortDate(report.biggest.largestExpense.occurredOn)}`}
+                    } · ${formatShortDate(report.biggest.largestExpense.occurredOn, locale)}`}
                     right={
                       <Money
                         amountMinor={report.biggest.largestExpense.amountMinor}
@@ -751,7 +804,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                 testID="insight-most-expensive-day"
                 left={<IconTile icon="calendar" colorKey="amber" size="sm" />}
                 title={t('insights.mostExpensiveDay')}
-                subtitle={formatShortDate(report.biggest.mostExpensiveDay.date)}
+                subtitle={formatShortDate(report.biggest.mostExpensiveDay.date, locale)}
                 right={
                   <Money
                     amountMinor={report.biggest.mostExpensiveDay.spentMinor}
@@ -829,7 +882,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                     : item.pctChange < 0
                       ? `↓ ${item.pctChange}%`
                       : '0%'
-                  : 'New';
+                  : t('insights.newBadge');
 
               return (
                 <ListRow
@@ -843,11 +896,16 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                     />
                   }
                   title={cat?.name ?? t('common.uncategorized')}
-                  subtitle={`${formatMoney(item.currentMinor, settings.currency, { hidden: hideAmounts, showPoisha })} vs ${formatMoney(
-                    item.previousMinor,
-                    settings.currency,
-                    { hidden: hideAmounts, showPoisha }
-                  )}`}
+                  subtitle={t('insights.fullPeriodSubtitle', {
+                    curr: formatMoney(item.currentMinor, settings.currency, {
+                      hidden: hideAmounts,
+                      showPoisha,
+                    }),
+                    prev: formatMoney(item.previousMinor, settings.currency, {
+                      hidden: hideAmounts,
+                      showPoisha,
+                    }),
+                  })}
                   right={
                     <AppText
                       variant="label"
@@ -859,6 +917,8 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                             : 'textSecondary'
                       }
                       tabularNums
+                      numberOfLines={1}
+                      style={[styles.rightText, bnMinWidth(pctLabel, 13)]}
                     >
                       {pctLabel}
                     </AppText>
@@ -893,7 +953,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
           {selectedBar ? (
             <PressableScale pressScale={0.98}
               accessibilityRole="button"
-              accessibilityLabel={`${formatCycleLabel(selectedBar.period, settings.monthStartDay)} ${t('insights.viewInActivity')}`}
+              accessibilityLabel={`${formatCycleLabel(selectedBar.period, settings.monthStartDay, { locale })} ${t('insights.viewInActivity')}`}
               onPress={() =>
                 openActivityWithQuery({
                   type: 'expense',
@@ -912,12 +972,29 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
               ]}
             >
               <View style={styles.rowBetween}>
-                <AppText variant="label" color="textSecondary">
+                <AppText
+                  variant="label"
+                  color="textSecondary"
+                  numberOfLines={1}
+                  style={bnMinWidth(
+                    formatCycleLabel(selectedBar.period, settings.monthStartDay, {
+                      includeYear: true,
+                      locale,
+                    }),
+                    13
+                  )}
+                >
                   {formatCycleLabel(selectedBar.period, settings.monthStartDay, {
                     includeYear: true,
+                    locale,
                   })}
                 </AppText>
-                <AppText variant="bodyStrong" color="accent" tabularNums>
+                <AppText
+                  variant="bodyStrong"
+                  color="accent"
+                  tabularNums
+                  style={styles.rightText}
+                >
                   {`${formatMoney(selectedBar.spentMinor, settings.currency, {
                     hidden: hideAmounts,
                     showPoisha,
@@ -972,8 +1049,8 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                         : 0.35;
                 const axisLabel =
                   settings.monthStartDay === 1
-                    ? formatShortMonthYear(bar.period.start).split(' ')[0]
-                    : formatShortDate(bar.period.start);
+                    ? formatShortMonthYear(bar.period.start, locale).split(' ')[0]
+                    : formatShortDate(bar.period.start, locale);
 
                 return (
                   <React.Fragment key={bar.period.start}>
@@ -990,6 +1067,13 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                       x={xCenter}
                       y={CHART_HEIGHT - 6}
                       fontSize={11}
+                      fontFamily={
+                        locale === 'bn'
+                          ? isLatest
+                            ? BANGLA_FONTS.semibold
+                            : BANGLA_FONTS.regular
+                          : undefined
+                      }
                       fill={
                         isLatest ? theme.colors.text : theme.colors.textSecondary
                       }
@@ -1007,7 +1091,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                 <PressableScale pressScale={0.98}
                   key={bar.period.start}
                   accessibilityRole="button"
-                  accessibilityLabel={`${formatCycleLabel(bar.period, settings.monthStartDay)}: ${formatMoney(
+                  accessibilityLabel={`${formatCycleLabel(bar.period, settings.monthStartDay, { locale })}: ${formatMoney(
                     bar.spentMinor,
                     settings.currency,
                     { hidden: hideAmounts, showPoisha }
@@ -1179,5 +1263,8 @@ const styles = StyleSheet.create({
   flexOne: {
     flex: 1,
     minWidth: 0,
+  },
+  rightText: {
+    textAlign: 'right',
   },
 });
