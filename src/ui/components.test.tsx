@@ -433,4 +433,30 @@ describe('v2 design system components', () => {
     );
     expect(sheetTitleStyle.minWidth).toBe(0);
   });
+
+  it('promotes medium Bangla labels containing U+09E7 to HindSiliguri_600SemiBold so Bangla 1 renders cleanly', async () => {
+    setLocale('bn');
+    try {
+      const view = await render(
+        <ThemeProvider preference="dark">
+          <AppText testID="bn-one-caption" variant="caption">
+            ১ জন
+          </AppText>
+          <AppText testID="bn-two-caption" variant="caption">
+            ২ জন
+          </AppText>
+        </ThemeProvider>
+      );
+      expect(
+        StyleSheet.flatten(view.getByTestId('bn-one-caption').props.style).fontFamily
+      ).toBe('HindSiliguri_600SemiBold');
+      expect(
+        StyleSheet.flatten(view.getByTestId('bn-two-caption').props.style).fontFamily
+      ).toBe('HindSiliguri_500Medium');
+    } finally {
+      await act(async () => {
+        setLocale('en');
+      });
+    }
+  });
 });

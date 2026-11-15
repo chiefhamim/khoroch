@@ -2,6 +2,7 @@ import React from 'react';
 import { PixelRatio, StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
 import { useLocale } from '@/i18n';
 import {
+  BANGLA_FONTS,
   containsBengali,
   mapFontToBangla,
   type ColorPalette,
@@ -77,9 +78,14 @@ export function AppText({
   const textSample = collectTextContent(children);
   const useBanglaFont = locale === 'bn' || containsBengali(textSample);
   const baseFontFamily = flatStyle?.fontFamily ?? typeStyle.fontFamily ?? 'default';
-  const resolvedFontFamily = useBanglaFont
+  const mappedBanglaFont = useBanglaFont
     ? mapFontToBangla(flatStyle?.fontFamily ?? typeStyle.fontFamily, flatStyle?.fontWeight)
     : baseFontFamily;
+  // HindSiliguri_500Medium renders U+09E7 ('১') without its upper loop; promote medium runs containing '১'.
+  const resolvedFontFamily =
+    mappedBanglaFont === BANGLA_FONTS.medium && textSample.includes('\u09E7')
+      ? BANGLA_FONTS.semibold
+      : mappedBanglaFont;
 
   const resolvedFontStyle: TextStyle | null = useBanglaFont
     ? {

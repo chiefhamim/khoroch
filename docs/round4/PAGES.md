@@ -29,4 +29,4 @@ Live package (untouched until Section 6 step 4 owner approval): `com.hamim.budge
 - [x] 17. Settings (`src/app/settings/index.tsx`): appearance, reminders, backup and restore, language
 - [x] 18. Categories settings (`src/app/settings/categories.tsx`)
 - [x] 19. Every remaining sheet and toast, re-checked once more with the keyboard open
-- [ ] 20. Final full-app walk: open every page again in light, dark and Bangla, and confirm nothing regressed
+- [x] 20. Final full-app walk: open every page again in light, dark and Bangla, and confirm nothing regressed

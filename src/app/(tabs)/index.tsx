@@ -19,7 +19,7 @@ import {
 import { remainingDays } from '@/domain/period';
 import { formatHomeDuesSummaryLine } from '@/domain/dues';
 import type { LocalDate } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
@@ -28,7 +28,7 @@ import { usePeople } from '@/state/usePeople';
 import { getCategoryTileVisual } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Banner } from '@/ui/Banner';
 import { BudgetStatusBadge } from '@/ui/BudgetStatusBadge';
 import { Button } from '@/ui/Button';
@@ -83,6 +83,7 @@ export interface OverviewContentProps {
 
 export function OverviewContent({ todayOverride, hourOverride }: OverviewContentProps) {
   const { settings } = useAppContext();
+  const locale = useLocale();
   const { theme, reducedMotion } = useTheme();
   const router = useRouter();
 
@@ -153,6 +154,29 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const remainingDaysCount = remainingDays(period, today);
   const isNegativeRemaining =
     summary.remainingMinor !== null && summary.remainingMinor < 0;
+  const usedPctText =
+    overallBudgetMinor !== null
+      ? t('overview.usedPct', {
+          pct: formatUtilizationPct(summary.utilizationPct ?? 0),
+        })
+      : '';
+  const perDayAmountText = hideAmounts
+    ? HIDDEN_AMOUNT_TEXT
+    : summary.safeToSpendPerDayMinor !== null
+      ? t('overview.perDayAmount', {
+          amount: formatMoney(summary.safeToSpendPerDayMinor, settings.currency),
+        })
+      : MISSING_METRIC_DASH;
+  // Prevent Android Fabric from dropping the trailing Bangla word on shrink-wrapped mixed rows.
+  const bnSubRowStyle = (text: string, alignRight = false) => [
+    locale === 'bn'
+      ? {
+          minWidth: estimateSingleLineMinWidth(text, theme.typography.label.fontSize),
+          flexShrink: 0,
+        }
+      : null,
+    alignRight ? styles.rightAlignedText : null,
+  ];
 
   const todayTransactions = recentTransactions.filter((tx) => tx.occurredOn === today);
   const earlierTransactions =
@@ -335,19 +359,23 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             {overallBudgetMinor !== null && summary.remainingMinor !== null ? (
               <>
                 <View style={[styles.heroSubRow, { gap: theme.spacing.sm }]}>
-                  <AppText variant="label" color="heroTextSecondary" tabularNums>
-                    {t('overview.usedPct', {
-                      pct: formatUtilizationPct(summary.utilizationPct ?? 0),
-                    })}
+                  <AppText
+                    variant="label"
+                    color="heroTextSecondary"
+                    numberOfLines={1}
+                    tabularNums
+                    style={bnSubRowStyle(usedPctText)}
+                  >
+                    {usedPctText}
                   </AppText>
-                  <AppText variant="label" color="heroTextSecondary" tabularNums>
-                    {hideAmounts
-                      ? HIDDEN_AMOUNT_TEXT
-                      : summary.safeToSpendPerDayMinor !== null
-                        ? t('overview.perDayAmount', {
-                            amount: formatMoney(summary.safeToSpendPerDayMinor, settings.currency),
-                          })
-                        : MISSING_METRIC_DASH}
+                  <AppText
+                    variant="label"
+                    color="heroTextSecondary"
+                    numberOfLines={1}
+                    tabularNums
+                    style={bnSubRowStyle(perDayAmountText, true)}
+                  >
+                    {perDayAmountText}
                   </AppText>
                 </View>
                 <HeroProgressBar pct={summary.utilizationPct} />
@@ -461,10 +489,14 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                       days: remainingDaysCount,
                     })}
               </AppText>
-              <AppText variant="label" color="heroTextSecondary" tabularNums>
-                {t('overview.usedPct', {
-                  pct: formatUtilizationPct(summary.utilizationPct ?? 0),
-                })}
+              <AppText
+                variant="label"
+                color="heroTextSecondary"
+                numberOfLines={1}
+                tabularNums
+                style={bnSubRowStyle(usedPctText, true)}
+              >
+                {usedPctText}
               </AppText>
             </View>
 
@@ -1257,6 +1289,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  rightAlignedText: {
+    textAlign: 'right',
   },
   divider: {
     height: 1,
