@@ -1,19 +1,25 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
+import type { AppLanguage } from '@/domain/types';
+import { useLocale } from '@/i18n';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
 import { hapticSelection } from './haptics';
 import { PressableScale } from '@/ui/PressableScale';
 
 /** Expo Notifications convention: 1 = Sunday .. 7 = Saturday */
-const DAY_ITEMS: readonly { weekday: number; short: string; full: string }[] = [
-  { weekday: 1, short: 'S', full: 'Sunday' },
-  { weekday: 2, short: 'M', full: 'Monday' },
-  { weekday: 3, short: 'T', full: 'Tuesday' },
-  { weekday: 4, short: 'W', full: 'Wednesday' },
-  { weekday: 5, short: 'T', full: 'Thursday' },
-  { weekday: 6, short: 'F', full: 'Friday' },
-  { weekday: 7, short: 'S', full: 'Saturday' },
+const DAY_ITEMS: readonly {
+  weekday: number;
+  short: Record<AppLanguage, string>;
+  full: Record<AppLanguage, string>;
+}[] = [
+  { weekday: 1, short: { en: 'S', bn: 'র' }, full: { en: 'Sunday', bn: 'রবিবার' } },
+  { weekday: 2, short: { en: 'M', bn: 'সো' }, full: { en: 'Monday', bn: 'সোমবার' } },
+  { weekday: 3, short: { en: 'T', bn: 'ম' }, full: { en: 'Tuesday', bn: 'মঙ্গলবার' } },
+  { weekday: 4, short: { en: 'W', bn: 'বু' }, full: { en: 'Wednesday', bn: 'বুধবার' } },
+  { weekday: 5, short: { en: 'T', bn: 'বৃ' }, full: { en: 'Thursday', bn: 'বৃহস্পতিবার' } },
+  { weekday: 6, short: { en: 'F', bn: 'শু' }, full: { en: 'Friday', bn: 'শুক্রবার' } },
+  { weekday: 7, short: { en: 'S', bn: 'শ' }, full: { en: 'Saturday', bn: 'শনিবার' } },
 ];
 
 export interface DayTogglesProps {
@@ -29,6 +35,7 @@ export function DayToggles({
   disabled = false,
   testID,
 }: DayTogglesProps) {
+  const locale = useLocale();
   const { theme, reducedMotion } = useTheme();
   const activeSet = new Set(selectedDays);
 
@@ -54,7 +61,7 @@ export function DayToggles({
             disabled={disabled}
             hitSlop={6}
             accessibilityRole="button"
-            accessibilityLabel={item.full}
+            accessibilityLabel={item.full[locale]}
             accessibilityState={{ selected: active, disabled }}
             onPress={() => toggleDay(item.weekday)}
             style={({ pressed }) => [
@@ -68,8 +75,8 @@ export function DayToggles({
               },
             ]}
           >
-            <AppText variant="label" color={active ? 'onAccent' : 'textSecondary'}>
-              {item.short}
+            <AppText variant="label" color={active ? 'onAccent' : 'textSecondary'} numberOfLines={1}>
+              {item.short[locale]}
             </AppText>
           </PressableScale>
         );

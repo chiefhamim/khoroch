@@ -34,7 +34,7 @@ import {
   type ThemePreference,
 } from '@/domain/types';
 import { MAX_PROFILE_NAME_LENGTH } from '@/domain/validation';
-import { setLocale, t, type TranslationKey } from '@/i18n';
+import { setLocale, t, useLocale, type TranslationKey } from '@/i18n';
 import {
   getNotificationPermissionStatus,
   isNotificationsSupported,
@@ -46,7 +46,7 @@ import { useSettings } from '@/state/useSettings';
 import { ACCENT_DEFINITIONS } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Banner } from '@/ui/Banner';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
@@ -71,13 +71,14 @@ const CURRENCY_SHORT: Record<CurrencyCode, string> = {
   EUR: 'EUR €',
 };
 
-const CURRENCY_FULL: Record<CurrencyCode, string> = {
-  BDT: 'Bangladeshi Taka (BDT ৳)',
-  USD: 'US Dollar (USD $)',
-  EUR: 'Euro (EUR €)',
+const CURRENCY_FULL_KEYS: Record<CurrencyCode, TranslationKey> = {
+  BDT: 'settings.currencyBdtFull',
+  USD: 'settings.currencyUsdFull',
+  EUR: 'settings.currencyEurFull',
 };
 
-function formatOrdinal(day: number): string {
+function formatOrdinal(day: number, locale: AppLanguage): string {
+  if (locale === 'bn') return String(day);
   const mod100 = day % 100;
   if (mod100 >= 11 && mod100 <= 13) return `${day}th`;
   switch (day % 10) {
@@ -99,6 +100,7 @@ function sameDays(a: readonly number[], b: readonly number[]): boolean {
 }
 
 export default function SettingsScreen() {
+  const locale = useLocale();
   const { theme, reducedMotion } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ openBackup?: string }>();
@@ -106,6 +108,17 @@ export default function SettingsScreen() {
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
   const { repo, backend, settings, hasTransactions, updateSetting, refreshSettings } =
     useSettings();
+
+  const bnMinWidth = (text: string, fontSize: number) =>
+    locale === 'bn' ? { minWidth: estimateSingleLineMinWidth(text, fontSize) } : undefined;
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)');
+    }
+  };
 
   const [activeCategoryCount, setActiveCategoryCount] = useState<number>(20);
   const [busy, setBusy] = useState(false);
@@ -449,7 +462,7 @@ export default function SettingsScreen() {
   const draftCyclePreview = formatCycleLabel(
     getPeriod(today, cycleDayDraft),
     cycleDayDraft,
-    { includeYear: false }
+    { includeYear: false, locale }
   );
 
   const selectedDays = settings.reminder.days;
@@ -467,9 +480,11 @@ export default function SettingsScreen() {
           icon="arrow-left"
           variant="surface"
           accessibilityLabel={t('common.back')}
-          onPress={() => router.back()}
+          onPress={handleBack}
         />
-        <AppText variant="title">{t('settings.title')}</AppText>
+        <AppText variant="title" style={styles.flexOne} numberOfLines={1}>
+          {t('settings.title')}
+        </AppText>
       </View>
 
       {actionError ? (
@@ -548,7 +563,7 @@ export default function SettingsScreen() {
           testID="settings-cycle-row"
           label={t('settings.monthStartLabel')}
           value={t('settings.cycleStartOption', {
-            ordinal: formatOrdinal(settings.monthStartDay),
+            ordinal: formatOrdinal(settings.monthStartDay, locale),
           })}
           showChevron
           onPress={() => {
@@ -697,7 +712,7 @@ export default function SettingsScreen() {
           subtitle={
             settings.lastBackupAt !== null
               ? t('settings.backupLastDate', {
-                  date: formatShortDate(epochMsToLocalDate(settings.lastBackupAt)),
+                  date: formatShortDate(epochMsToLocalDate(settings.lastBackupAt), locale),
                 })
               : t('settings.backupNever')
           }
@@ -842,7 +857,7 @@ export default function SettingsScreen() {
               <ListRow
                 key={code}
                 testID={`settings-currency-${code}`}
-                title={CURRENCY_FULL[code]}
+                title={t(CURRENCY_FULL_KEYS[code])}
                 showDivider={idx < CURRENCIES.length - 1}
                 right={
                   active ? (
@@ -1062,6 +1077,7 @@ export default function SettingsScreen() {
                         variant="label"
                         color={selected ? 'text' : 'textSecondary'}
                         numberOfLines={1}
+                        style={bnMinWidth(label, theme.typography.label.fontSize)}
                       >
                         {label}
                       </AppText>
@@ -1091,14 +1107,16 @@ export default function SettingsScreen() {
           <Button
             title={t('common.cancel')}
             variant="secondary"
+            numberOfLines={1}
             onPress={() => setReminderExplainOpen(false)}
-            style={styles.flexOne}
+            style={styles.actionBtn}
           />
           <Button
             title={t('settings.reminderExplainContinue')}
             variant="primary"
+            numberOfLines={1}
             onPress={() => void handleConfirmReminderPermission()}
-            style={styles.flexOne}
+            style={styles.actionBtn}
           />
         </View>
       </Sheet>
@@ -1210,17 +1228,19 @@ export default function SettingsScreen() {
           <Button
             title={t('common.cancel')}
             variant="secondary"
+            numberOfLines={1}
             disabled={busy}
             onPress={() => setPendingRestore(null)}
-            style={styles.flexOne}
+            style={styles.actionBtn}
           />
           <Button
             testID="settings-restore-confirm-btn"
             title={t('settings.backupRestoreConfirm')}
             variant="danger"
+            numberOfLines={1}
             loading={busy}
             onPress={() => void handleConfirmRestore()}
-            style={styles.flexOne}
+            style={styles.actionBtn}
           />
         </View>
       </Sheet>
@@ -1342,6 +1362,11 @@ const styles = StyleSheet.create({
   },
   sheetActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  actionBtn: {
+    flexGrow: 1,
+    minWidth: 120,
   },
   flexOne: {
     flex: 1,
