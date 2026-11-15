@@ -37,7 +37,7 @@ export function HeroCard({
       backgroundColor: theme.colors.hero,
       borderRadius: theme.radius.heroCard,
       borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.16)',
+      borderColor: 'rgba(255, 255, 255, 0.18)',
       padding: theme.spacing.xl,
     },
     style,
@@ -49,7 +49,14 @@ export function HeroCard({
         pointerEvents="none"
         style={[
           styles.ambientOrbTopRight,
-          { backgroundColor: 'rgba(255, 255, 255, 0.06)' },
+          { backgroundColor: 'rgba(255, 255, 255, 0.075)' },
+        ]}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.ambientOrbInnerRight,
+          { backgroundColor: 'rgba(255, 255, 255, 0.045)' },
         ]}
       />
       <View
@@ -59,6 +66,7 @@ export function HeroCard({
           { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
         ]}
       />
+      <View pointerEvents="none" style={styles.diagonalSheen} />
       <View pointerEvents="none" style={styles.specularTop} />
     </>
   );
@@ -147,10 +155,20 @@ const styles = StyleSheet.create({
   specularTop: {
     position: 'absolute',
     top: 0,
-    left: 20,
-    right: 20,
+    left: 18,
+    right: 18,
     height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    backgroundColor: 'rgba(255, 255, 255, 0.34)',
+  },
+  diagonalSheen: {
+    position: 'absolute',
+    top: -68,
+    left: -28,
+    width: 220,
+    height: 108,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255, 255, 255, 0.038)',
+    transform: [{ rotate: '-14deg' }],
   },
   ambientOrbTopRight: {
     position: 'absolute',
@@ -158,6 +176,14 @@ const styles = StyleSheet.create({
     right: -36,
     width: 150,
     height: 150,
+    borderRadius: 999,
+  },
+  ambientOrbInnerRight: {
+    position: 'absolute',
+    top: -16,
+    right: -12,
+    width: 92,
+    height: 92,
     borderRadius: 999,
   },
   ambientOrbBottomLeft: {

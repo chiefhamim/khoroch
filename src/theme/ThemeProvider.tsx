@@ -1,7 +1,13 @@
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { AccessibilityInfo, useColorScheme } from 'react-native';
 
-import type { AccentTheme, ThemePreference } from '@/domain/types';
+import type {
+  AccentTheme,
+  BanglaFontKey,
+  ExpenseColorKey,
+  IncomeColorKey,
+  ThemePreference,
+} from '@/domain/types';
 import { useLocale, type Locale } from '@/i18n';
 import {
   buildTheme,
@@ -39,6 +45,9 @@ export const ThemeContext = createContext<ThemeContextValue>({
 export interface ThemeProviderProps {
   preference?: ThemePreference;
   accent?: AccentTheme;
+  banglaFont?: BanglaFontKey;
+  incomeColor?: IncomeColorKey;
+  expenseColor?: ExpenseColorKey;
   onChangePreference?: (pref: ThemePreference) => void;
   onChangeAccent?: (accent: AccentTheme) => void;
   children: React.ReactNode;
@@ -47,6 +56,9 @@ export interface ThemeProviderProps {
 export function ThemeProvider({
   preference: controlledPreference,
   accent: controlledAccent,
+  banglaFont: controlledBanglaFont,
+  incomeColor: controlledIncomeColor,
+  expenseColor: controlledExpenseColor,
   onChangePreference,
   onChangeAccent,
   children,
@@ -104,8 +116,16 @@ export function ThemeProvider({
     preference === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : preference;
   const colorScheme: 'light' | 'dark' = mode === 'light' ? 'light' : 'dark';
 
+  const banglaFont = controlledBanglaFont ?? 'hind_siliguri';
+  const incomeColor = controlledIncomeColor ?? 'emerald';
+  const expenseColor = controlledExpenseColor ?? 'ink';
+
   const value = useMemo<ThemeContextValue>(() => {
-    const theme = buildTheme(mode, accent);
+    const theme = buildTheme(mode, accent, {
+      banglaFont,
+      incomeColor,
+      expenseColor,
+    });
     return {
       theme,
       colorScheme,
@@ -118,7 +138,19 @@ export function ThemeProvider({
       reducedMotion,
       locale,
     };
-  }, [mode, accent, colorScheme, preference, setPreference, setAccent, reducedMotion, locale]);
+  }, [
+    mode,
+    accent,
+    banglaFont,
+    incomeColor,
+    expenseColor,
+    colorScheme,
+    preference,
+    setPreference,
+    setAccent,
+    reducedMotion,
+    locale,
+  ]);
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }

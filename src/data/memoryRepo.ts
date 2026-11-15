@@ -12,7 +12,11 @@ import {
 import {
   normalizeAppLanguage,
   normalizeAvatarColorKey,
+  normalizeAvatarPresetId,
+  normalizeBanglaFontKey,
+  normalizeExpenseColorKey,
   normalizeHomeSections,
+  normalizeIncomeColorKey,
   normalizeReminderSettings,
   normalizeWeekStartDay,
   type Account,
@@ -85,7 +89,11 @@ function cloneSettings(s: Settings): Settings {
   return {
     ...s,
     language: normalizeAppLanguage(s.language, DEFAULT_SETTINGS.language),
+    banglaFont: normalizeBanglaFontKey(s.banglaFont, DEFAULT_SETTINGS.banglaFont),
     avatarColorKey: normalizeAvatarColorKey(s.avatarColorKey, DEFAULT_SETTINGS.avatarColorKey),
+    avatarId: normalizeAvatarPresetId(s.avatarId, DEFAULT_SETTINGS.avatarId),
+    incomeColor: normalizeIncomeColorKey(s.incomeColor, DEFAULT_SETTINGS.incomeColor),
+    expenseColor: normalizeExpenseColorKey(s.expenseColor, DEFAULT_SETTINGS.expenseColor),
     weekStartsOn: normalizeWeekStartDay(s.weekStartsOn, DEFAULT_SETTINGS.weekStartsOn),
     homeSections: normalizeHomeSections(s.homeSections),
     reminder: normalizeReminderSettings(s.reminder, DEFAULT_SETTINGS.reminder),
@@ -861,7 +869,15 @@ export class MemoryRepo implements Repo {
             ? normalizeHomeSections(v)
             : k === 'language'
               ? normalizeAppLanguage(v, DEFAULT_SETTINGS.language)
-              : v,
+              : k === 'banglaFont'
+                ? normalizeBanglaFontKey(v, DEFAULT_SETTINGS.banglaFont)
+                : k === 'avatarId'
+                  ? normalizeAvatarPresetId(v, DEFAULT_SETTINGS.avatarId)
+                  : k === 'incomeColor'
+                    ? normalizeIncomeColorKey(v, DEFAULT_SETTINGS.incomeColor)
+                    : k === 'expenseColor'
+                      ? normalizeExpenseColorKey(v, DEFAULT_SETTINGS.expenseColor)
+                      : v,
     };
   }
 

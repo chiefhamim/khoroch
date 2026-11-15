@@ -10,7 +10,8 @@ import {
 } from '@/domain/dates';
 import { formatMoney } from '@/domain/money';
 import type { CurrencyCode, LocalDate } from '@/domain/types';
-import { t } from '@/i18n';
+import { getLocale, t } from '@/i18n';
+import { localizeDisplayText } from '@/i18n/displayText';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
@@ -361,7 +362,7 @@ export function SpendingChart({
                             : 'middle'
                     }
                   >
-                    {bar.axisLabel}
+                    {localizeDisplayText(bar.axisLabel, getLocale())}
                   </SvgText>
                 ) : null}
               </React.Fragment>

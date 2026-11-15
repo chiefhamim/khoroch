@@ -22,7 +22,7 @@ const BN_PHRASES: readonly (readonly [string, string])[] = [
   ['Food & Dining', 'খাবার'],
   ['Fees & charges', 'ফি ও চার্জ'],
   ['Personal Care', 'ব্যক্তিগত যত্ন'],
-  ['Gift Received', 'পাওয়া উপহার'],
+  ['Gift Received', 'প্রাপ্ত উপহার'],
   ['Other Income', 'অন্যান্য আয়'],
   ['Rent income', 'ভাড়া থেকে আয়'],
   ['Electricity bill', 'বিদ্যুৎ বিল'],
@@ -31,14 +31,14 @@ const BN_PHRASES: readonly (readonly [string, string])[] = [
   ['Monthly bazar', 'মাসিক বাজার'],
   ['Monthly rent', 'মাসিক ভাড়া'],
   ['Advance rent', 'অগ্রিম ভাড়া'],
-  ['Doctor visit', 'ডাক্তার দেখানো'],
+  ['Doctor visit', 'চিকিৎসক পরামর্শ'],
   ['Project fee', 'প্রজেক্ট ফি'],
   ['Transportation', 'যাতায়াত'],
   ['Entertainment', 'বিনোদন'],
   ['Subscriptions', 'সাবস্ক্রিপশন'],
   ['Supermarket', 'সুপারমার্কেট'],
   ['Vegetables', 'শাকসবজি'],
-  ['Consulting', 'কনসাল্টিং'],
+  ['Consulting', 'পরামর্শ সেবা'],
   ['House rent', 'বাসা ভাড়া'],
   ['Mirpur CNG', 'মিরপুর সিএনজি'],
   ['Breakfast', 'সকালের নাস্তা'],
@@ -114,20 +114,35 @@ const PHRASE_REGEX = new RegExp(
 const PHRASE_MAP = new Map(BN_PHRASES);
 const MONTH_REGEX = /(^|[^A-Za-z])(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)(?![A-Za-z])/g;
 const WEEKDAY_REGEX = /(^|[^A-Za-z])(Sun|Mon|Tue|Wed|Thu|Fri|Sat)(?=,)/g;
+const TIME_MERIDIEM_REGEX = /\b(\d{1,2}):(\d{2})[\s\u00A0\u202F]*(AM|PM)(?![A-Za-z])/g;
 const MERIDIEM_REGEX = /(\d)\s?(AM|PM)(?![A-Za-z])/g;
+
+function getBanglaDayPeriod(hour24: number): string {
+  if (hour24 >= 4 && hour24 < 6) return 'ভোর';
+  if (hour24 >= 6 && hour24 < 12) return 'সকাল';
+  if (hour24 >= 12 && hour24 < 16) return 'দুপুর';
+  if (hour24 >= 16 && hour24 < 17) return 'বিকেল';
+  if (hour24 >= 17 && hour24 < 19) return 'সন্ধ্যা';
+  return 'রাত';
+}
 
 /**
  * Final display pass for on-screen text. English keeps text untouched; Bangla converts
- * digits, AM/PM, short month/weekday names and built-in seed labels so screens read fully
- * in Bangla while the taka sign stays as-is.
+ * digits, natural time-of-day periods (ভোর/সকাল/দুপুর/বিকেল/সন্ধ্যা/রাত), short
+ * month/weekday names, and built-in seed labels so screens read naturally in Bangla.
  */
 export function localizeDisplayText(text: string, locale: Locale): string {
   if (locale !== 'bn' || text.length === 0) return text;
   let out = text.replace(PHRASE_REGEX, (_m, pre: string, word: string) => {
     return `${pre}${PHRASE_MAP.get(word) ?? word}`;
   });
+  out = out.replace(TIME_MERIDIEM_REGEX, (_m, hStr: string, mStr: string, mer: string) => {
+    const h12 = Number.parseInt(hStr, 10);
+    const hour24 = mer === 'AM' ? (h12 === 12 ? 0 : h12) : h12 === 12 ? 12 : h12 + 12;
+    return `${getBanglaDayPeriod(hour24)} ${hStr}:${mStr}`;
+  });
   out = out.replace(MERIDIEM_REGEX, (_m, d: string, mer: string) =>
-    `${d} ${mer === 'AM' ? 'এএম' : 'পিএম'}`
+    `${mer === 'AM' ? 'সকাল' : 'রাত'} ${d}`
   );
   out = out.replace(WEEKDAY_REGEX, (_m, pre: string, w: string) => `${pre}${BN_WEEKDAYS[w]}`);
   out = out.replace(MONTH_REGEX, (_m, pre: string, mo: string) => `${pre}${BN_MONTHS[mo]}`);

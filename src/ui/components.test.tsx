@@ -19,6 +19,7 @@ import { IconTile } from './IconTile';
 import { applyKeypadKey, Keypad } from './Keypad';
 import { Money } from './Money';
 import { PillSwitch } from './PillSwitch';
+import { ProfileAvatar } from './ProfileAvatar';
 import { isHapticsEnabled, setHapticsEnabled } from './haptics';
 import { ProgressBar } from './ProgressBar';
 import { ProgressRing } from './ProgressRing';
@@ -484,5 +485,22 @@ describe('v2 design system components', () => {
     expect(isHapticsEnabled()).toBe(false);
     setHapticsEnabled(true);
     expect(isHapticsEnabled()).toBe(true);
+  });
+
+  it('renders custom expense money color and curated ProfileAvatar preset', async () => {
+    const view = await render(
+      <ThemeProvider preference="light" accent="graphite" incomeColor="ocean" expenseColor="crimson">
+        <Money testID="inc-money" amountMinor={125_000} currency="BDT" color="income" prefix="+" />
+        <Money testID="exp-money" amountMinor={75_000} currency="BDT" color="expense" prefix="−" />
+        <ProfileAvatar testID="av-sea" name="Hamim" avatarId="sea_lotus" size={44} />
+        <ProfileAvatar testID="av-init" name="Hamim" avatarId="initial" size={44} />
+      </ThemeProvider>
+    );
+
+    expect(view.getByTestId('inc-money').props.accessibilityLabel).toBe('+৳1,250');
+    expect(view.getByTestId('exp-money').props.accessibilityLabel).toBe('−৳750');
+    expect(view.getByTestId('av-sea')).toBeTruthy();
+    expect(view.getByTestId('av-init')).toBeTruthy();
+    expect(view.getByText('H')).toBeTruthy();
   });
 });

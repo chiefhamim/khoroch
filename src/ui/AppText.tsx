@@ -95,11 +95,17 @@ export function AppText({
   const useBanglaFont = locale === 'bn' || containsBengali(textSample);
   const baseFontFamily = flatStyle?.fontFamily ?? typeStyle.fontFamily ?? 'default';
   const mappedBanglaFont = useBanglaFont
-    ? mapFontToBangla(flatStyle?.fontFamily ?? typeStyle.fontFamily, flatStyle?.fontWeight)
+    ? mapFontToBangla(
+        flatStyle?.fontFamily ?? typeStyle.fontFamily,
+        flatStyle?.fontWeight,
+        theme.banglaFont
+      )
     : baseFontFamily;
   // HindSiliguri_500Medium renders U+09E7 ('১') without its upper loop; promote medium runs containing '১'.
   const resolvedFontFamily =
-    mappedBanglaFont === BANGLA_FONTS.medium && textSample.includes('\u09E7')
+    theme.banglaFont === 'hind_siliguri' &&
+    mappedBanglaFont === BANGLA_FONTS.medium &&
+    textSample.includes('\u09E7')
       ? BANGLA_FONTS.semibold
       : mappedBanglaFont;
 

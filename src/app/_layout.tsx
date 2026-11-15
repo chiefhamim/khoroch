@@ -130,6 +130,19 @@ export default function RootLayout() {
     HindSiliguri_500Medium,
     HindSiliguri_600SemiBold,
     HindSiliguri_700Bold,
+    NotoSansBengali_400Regular: require("../../assets/fonts/NotoSansBengali-Regular.ttf"),
+    NotoSansBengali_500Medium: require("../../assets/fonts/NotoSansBengali-Medium.ttf"),
+    NotoSansBengali_600SemiBold: require("../../assets/fonts/NotoSansBengali-SemiBold.ttf"),
+    NotoSansBengali_700Bold: require("../../assets/fonts/NotoSansBengali-Bold.ttf"),
+    AnekBangla_400Regular: require("../../assets/fonts/AnekBangla-Regular.ttf"),
+    AnekBangla_500Medium: require("../../assets/fonts/AnekBangla-Medium.ttf"),
+    AnekBangla_600SemiBold: require("../../assets/fonts/AnekBangla-SemiBold.ttf"),
+    AnekBangla_700Bold: require("../../assets/fonts/AnekBangla-Bold.ttf"),
+    SolaimanLipi_400Regular: require("../../assets/fonts/SolaimanLipi.ttf"),
+    SolaimanLipi_700Bold: require("../../assets/fonts/SolaimanLipi-Bold.ttf"),
+    Kalpurush_400Regular: require("../../assets/fonts/Kalpurush.ttf"),
+    NikoshBAN_400Regular: require("../../assets/fonts/NikoshBAN.ttf"),
+    SutonnyOMJ_400Regular: require("../../assets/fonts/SutonnyOMJ.ttf"),
   });
 
   const [repoState, setRepoState] = useState<{
@@ -222,6 +235,9 @@ export default function RootLayout() {
         <ThemeProvider
           preference={DEFAULT_SETTINGS.theme}
           accent={DEFAULT_SETTINGS.accent}
+          banglaFont={DEFAULT_SETTINGS.banglaFont}
+          incomeColor={DEFAULT_SETTINGS.incomeColor}
+          expenseColor={DEFAULT_SETTINGS.expenseColor}
         >
           <Screen>
             <ErrorState
@@ -250,6 +266,9 @@ export default function RootLayout() {
         <ThemeProvider
           preference={repoState.settings.theme}
           accent={repoState.settings.accent}
+          banglaFont={repoState.settings.banglaFont}
+          incomeColor={repoState.settings.incomeColor}
+          expenseColor={repoState.settings.expenseColor}
         >
           <KeyboardProvider>
             <ToastProvider>

@@ -562,12 +562,13 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
         <View
           style={[
             styles.searchBox,
+            theme.cardShadow,
             {
               height: 44,
               borderRadius: theme.radius.md,
               backgroundColor: searchBg,
-              borderWidth: StyleSheet.hairlineWidth,
-              borderColor: theme.colors.separator,
+              borderWidth: 1,
+              borderColor: theme.colors.cardBorder,
               paddingHorizontal: theme.spacing.md,
               gap: theme.spacing.sm,
             },
@@ -587,7 +588,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                 color: theme.colors.text,
                 fontFamily:
                   locale === 'bn' || containsBengali(search)
-                    ? mapFontToBangla(theme.typography.body.fontFamily)
+                    ? mapFontToBangla(theme.typography.body.fontFamily, undefined, theme.banglaFont)
                     : theme.typography.body.fontFamily,
                 fontSize: theme.typography.body.fontSize,
               },
@@ -919,6 +920,11 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
             const isLast = index === section.data.length - 1;
             const cardRadiusStyle = {
               backgroundColor: theme.colors.surface,
+              borderColor: theme.colors.cardBorder,
+              borderLeftWidth: 1,
+              borderRightWidth: 1,
+              borderTopWidth: isFirst ? 1 : 0,
+              borderBottomWidth: isLast ? 1 : 0,
               borderTopLeftRadius: isFirst ? theme.radius.card : 0,
               borderTopRightRadius: isFirst ? theme.radius.card : 0,
               borderBottomLeftRadius: isLast ? theme.radius.card : 0,
@@ -1031,7 +1037,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                       amountMinor={tx.amountMinor}
                       currency={tx.currency}
                       variant="bodyStrong"
-                      color={isIncome ? 'accent' : 'text'}
+                      color={isIncome ? 'income' : 'expense'}
                       prefix={isIncome ? '+' : '−'}
                     />
                   }

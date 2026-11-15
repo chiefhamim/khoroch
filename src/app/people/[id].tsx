@@ -431,7 +431,11 @@ export default function PersonDetailScreen() {
                 {
                   color: theme.colors.text,
                   fontFamily: useBanglaInputFont
-                    ? mapFontToBangla(theme.typography.body.fontFamily)
+                    ? mapFontToBangla(
+                        theme.typography.body.fontFamily,
+                        undefined,
+                        theme.banglaFont
+                      )
                     : theme.typography.body.fontFamily,
                   fontSize: theme.typography.body.fontSize,
                   lineHeight: theme.typography.body.lineHeight,

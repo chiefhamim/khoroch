@@ -113,7 +113,11 @@ export function Field({
             inputStyle,
             useBanglaFont
               ? {
-                  fontFamily: mapFontToBangla(theme.typography.body.fontFamily),
+                  fontFamily: mapFontToBangla(
+                    theme.typography.body.fontFamily,
+                    undefined,
+                    theme.banglaFont
+                  ),
                   letterSpacing: 0,
                 }
               : null,

@@ -218,11 +218,11 @@ export function FastTransactionEntry({
 
   const descriptionFontFamily =
     locale === 'bn' || containsBengali(description)
-      ? mapFontToBangla('Manrope_600SemiBold')
+      ? mapFontToBangla('Manrope_600SemiBold', undefined, theme.banglaFont)
       : 'Manrope_600SemiBold';
   const noteFontFamily =
     locale === 'bn' || containsBengali(note)
-      ? mapFontToBangla('Manrope_400Regular')
+      ? mapFontToBangla('Manrope_400Regular', undefined, theme.banglaFont)
       : 'Manrope_400Regular';
 
   const submit = async (keepOpen: boolean) => {
@@ -267,9 +267,10 @@ export function FastTransactionEntry({
   };
 
   const fieldStyle = {
+    ...theme.cardShadow,
     borderRadius: theme.radius.input,
     backgroundColor: theme.colors.surface,
-    borderColor: theme.colors.separator,
+    borderColor: theme.colors.cardBorder,
   };
 
   return (
@@ -284,7 +285,7 @@ export function FastTransactionEntry({
         >
           <AppIcon name="x" size={22} color={theme.colors.text} />
         </PressableScale>
-        <View style={[styles.typeSwitch, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.pill }]}>
+        <View style={[styles.typeSwitch, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.pill, borderWidth: 1, borderColor: theme.colors.cardBorder }]}>
           {(['expense', 'income'] as const).map((key) => {
             const active = type === key;
             const typeLabel = key === 'expense' ? t('fast.spent') : t('fast.received');
@@ -310,7 +311,7 @@ export function FastTransactionEntry({
                 <AppIcon
                   name={key === 'expense' ? 'arrow-up-right' : 'arrow-down-left'}
                   size={15}
-                  color={active ? (key === 'income' ? theme.colors.income : theme.colors.text) : theme.colors.textTertiary}
+                  color={active ? (key === 'income' ? theme.colors.income : theme.colors.expense) : theme.colors.textTertiary}
                 />
                 <AppText
                   variant="label"
@@ -348,7 +349,7 @@ export function FastTransactionEntry({
               variant="hero"
               animate={false}
               showDecimals={amountText.includes('.')}
-              color={parsedAmount === null ? 'textTertiary' : isIncome ? 'income' : 'text'}
+              color={parsedAmount === null ? 'textTertiary' : isIncome ? 'income' : 'expense'}
             />
           </View>
         </View>
@@ -457,9 +458,10 @@ export function FastTransactionEntry({
                   }}
                   style={[
                     styles.catCell,
+                    theme.cardShadow,
                     {
                       borderRadius: theme.radius.md,
-                      borderColor: active ? theme.colors.accent : theme.colors.separator,
+                      borderColor: active ? theme.colors.accent : theme.colors.cardBorder,
                       backgroundColor: active ? theme.colors.accentSoft : theme.colors.surface,
                     },
                   ]}
@@ -560,7 +562,7 @@ export function FastTransactionEntry({
         ) : null}
 
         {savedRows.length > 0 ? (
-          <View style={[styles.saved, { borderRadius: theme.radius.card, borderColor: theme.colors.separator, backgroundColor: theme.colors.surface }]}>
+          <View style={[styles.saved, theme.cardShadow, { borderRadius: theme.radius.card, borderColor: theme.colors.cardBorder, backgroundColor: theme.colors.surface }]}>
             <AppText variant="overline" color="textTertiary">
               {t('fast.addedNow').toUpperCase()}
             </AppText>
@@ -576,7 +578,7 @@ export function FastTransactionEntry({
                   amountMinor={row.type === 'income' ? row.amountMinor : -row.amountMinor}
                   currency={currency}
                   variant="label"
-                  color={row.type === 'income' ? 'income' : 'text'}
+                  color={row.type === 'income' ? 'income' : 'expense'}
                 />
               </View>
             ))}

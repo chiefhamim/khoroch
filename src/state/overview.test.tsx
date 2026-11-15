@@ -143,17 +143,17 @@ describe('Overview Scenario A integration', () => {
     );
 
     await waitFor(() => {
-      expect(view.getByText(/৳ ?23,550/)).toBeTruthy();
+      expect(view.getByLabelText('৳23,550')).toBeTruthy();
     });
 
     expect(view.getByText('Good evening')).toBeTruthy();
     expect(view.getByText('Hamim · Fri, 13 Nov 2026')).toBeTruthy();
     expect(view.getByTestId('overview-settings-shortcut')).toBeTruthy();
     expect(view.getByText('H')).toBeTruthy();
-    expect(view.getAllByText(/৳ ?16,450/).length).toBeGreaterThanOrEqual(1);
+    expect(view.getAllByLabelText(/৳16,450/).length).toBeGreaterThanOrEqual(1);
     expect(view.getByText('41.1% used')).toBeTruthy();
-    expect(view.getByText(/৳ ?1,308\.33/)).toBeTruthy();
-    expect(view.getByText(/৳ ?50,000/)).toBeTruthy();
+    expect(view.getByLabelText('৳1,308.33')).toBeTruthy();
+    expect(view.getByLabelText('৳50,000')).toBeTruthy();
     expect(view.getByText(t('status.ok'))).toBeTruthy();
     expect(view.queryByTestId('overview-new-cycle-banner')).toBeNull();
     expect(
@@ -175,9 +175,9 @@ describe('Overview Scenario A integration', () => {
     });
 
     await waitFor(() => {
-      expect(view.getByText(/৳ ?23,200/)).toBeTruthy();
+      expect(view.getByLabelText('৳23,200')).toBeTruthy();
     });
-    expect(view.getAllByText(/৳ ?16,800/).length).toBeGreaterThanOrEqual(1);
+    expect(view.getAllByLabelText(/৳16,800/).length).toBeGreaterThanOrEqual(1);
   });
 
   it('shows new-cycle hint banner within first 7 days and inline no-budget invite when unset', async () => {

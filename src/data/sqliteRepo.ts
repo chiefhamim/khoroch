@@ -13,7 +13,11 @@ import {
   normalizeAccentTheme,
   normalizeAppLanguage,
   normalizeAvatarColorKey,
+  normalizeAvatarPresetId,
+  normalizeBanglaFontKey,
+  normalizeExpenseColorKey,
   normalizeHomeSections,
+  normalizeIncomeColorKey,
   normalizeReminderSettings,
   normalizeWeekStartDay,
   type Account,
@@ -147,11 +151,15 @@ const SETTING_DB_KEYS: Record<keyof Settings, string> = {
   onboardingDone: 'onboarding_done',
   name: 'name',
   avatarColorKey: 'avatar_color_key',
+  avatarId: 'avatar_id',
   currency: 'currency',
   language: 'language',
+  banglaFont: 'bangla_font',
   monthStartDay: 'month_start_day',
   theme: 'theme',
   accent: 'theme_accent',
+  incomeColor: 'income_color',
+  expenseColor: 'expense_color',
   reminder: 'reminder',
   hideAmountsOnOpen: 'hide_amounts_on_open',
   showPoisha: 'show_poisha',
@@ -1285,16 +1293,32 @@ export class SqliteRepo implements Repo {
         parseJson<unknown>(SETTING_DB_KEYS.avatarColorKey, DEFAULT_SETTINGS.avatarColorKey),
         DEFAULT_SETTINGS.avatarColorKey
       ),
+      avatarId: normalizeAvatarPresetId(
+        parseJson<unknown>(SETTING_DB_KEYS.avatarId, DEFAULT_SETTINGS.avatarId),
+        DEFAULT_SETTINGS.avatarId
+      ),
       currency: parseJson(SETTING_DB_KEYS.currency, DEFAULT_SETTINGS.currency),
       language: normalizeAppLanguage(
         parseJson<unknown>(SETTING_DB_KEYS.language, DEFAULT_SETTINGS.language),
         DEFAULT_SETTINGS.language
+      ),
+      banglaFont: normalizeBanglaFontKey(
+        parseJson<unknown>(SETTING_DB_KEYS.banglaFont, DEFAULT_SETTINGS.banglaFont),
+        DEFAULT_SETTINGS.banglaFont
       ),
       monthStartDay: parseJson(SETTING_DB_KEYS.monthStartDay, DEFAULT_SETTINGS.monthStartDay),
       theme: parseJson(SETTING_DB_KEYS.theme, DEFAULT_SETTINGS.theme),
       accent: normalizeAccentTheme(
         parseJson<unknown>(SETTING_DB_KEYS.accent, DEFAULT_SETTINGS.accent),
         DEFAULT_SETTINGS.accent
+      ),
+      incomeColor: normalizeIncomeColorKey(
+        parseJson<unknown>(SETTING_DB_KEYS.incomeColor, DEFAULT_SETTINGS.incomeColor),
+        DEFAULT_SETTINGS.incomeColor
+      ),
+      expenseColor: normalizeExpenseColorKey(
+        parseJson<unknown>(SETTING_DB_KEYS.expenseColor, DEFAULT_SETTINGS.expenseColor),
+        DEFAULT_SETTINGS.expenseColor
       ),
       reminder: normalizeReminderSettings(
         parseJson<unknown>(SETTING_DB_KEYS.reminder, DEFAULT_SETTINGS.reminder),

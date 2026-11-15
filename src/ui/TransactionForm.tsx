@@ -831,7 +831,14 @@ function LegacyTransactionForm({
   const amountFontSize = isCompactHero ? 34 : 44;
   const amountLineHeight = isCompactHero ? 40 : 50;
   const symbolFontSize = Math.round(amountFontSize * 0.6);
-  const heroColor = amountText.length > 0 ? theme.colors.text : theme.colors.textTertiary;
+  const heroColor =
+    amountText.length === 0
+      ? theme.colors.textTertiary
+      : entryMode === 'income'
+        ? theme.colors.income
+        : entryMode === 'expense'
+          ? theme.colors.expense
+          : theme.colors.text;
 
   const primaryLabel = (() => {
     if (isTransferMode) {
@@ -955,19 +962,6 @@ function LegacyTransactionForm({
           >
             <View style={styles.heroAmountRow}>
               <AppText
-                color="textSecondary"
-                style={{
-                  fontSize: symbolFontSize,
-                  lineHeight: Math.round(symbolFontSize * 1.15),
-                  marginTop: Math.max(3, Math.round(amountFontSize * 0.1)),
-                  fontFamily: TAKA_FONT_FAMILY,
-                  opacity: symbol === '৳' ? 0.85 : 1,
-                  marginRight: 3,
-                }}
-              >
-                {symbol}
-              </AppText>
-              <AppText
                 tabularNums
                 style={{
                   fontSize: amountFontSize,
@@ -978,6 +972,19 @@ function LegacyTransactionForm({
                 }}
               >
                 {heroFormatted}
+              </AppText>
+              <AppText
+                color="textSecondary"
+                style={{
+                  fontSize: symbolFontSize,
+                  lineHeight: Math.round(symbolFontSize * 1.15),
+                  marginTop: Math.max(3, Math.round(amountFontSize * 0.1)),
+                  fontFamily: TAKA_FONT_FAMILY,
+                  opacity: symbol === '৳' ? 0.85 : 1,
+                  marginLeft: 3,
+                }}
+              >
+                {symbol}
               </AppText>
             </View>
           </PressableScale>
@@ -1173,7 +1180,11 @@ function LegacyTransactionForm({
                       color: feeMinorValid ? theme.colors.text : theme.colors.danger,
                       fontFamily:
                         locale === 'bn' || containsBengali(feeText)
-                          ? mapFontToBangla(theme.typography.bodyStrong.fontFamily)
+                          ? mapFontToBangla(
+                              theme.typography.bodyStrong.fontFamily,
+                              undefined,
+                              theme.banglaFont
+                            )
                           : theme.typography.bodyStrong.fontFamily,
                       fontSize: theme.typography.bodyStrong.fontSize,
                     },

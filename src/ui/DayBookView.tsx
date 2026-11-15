@@ -215,7 +215,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
                   entry.direction === 'in'
                     ? theme.colors.income
                     : entry.direction === 'out'
-                      ? theme.colors.text
+                      ? theme.colors.expense
                       : theme.colors.textTertiary,
                 backgroundColor: theme.colors.bg,
               },
@@ -226,9 +226,10 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
         <View
           style={[
             styles.entryCard,
+            theme.cardShadow,
             {
               backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.separator,
+              borderColor: theme.colors.cardBorder,
               borderRadius: theme.radius.card,
             },
           ]}
@@ -249,7 +250,13 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
               variant="bodyStrong"
               hidden={hideAmounts}
               prefix={entry.direction === 'in' ? '+' : entry.direction === 'out' ? '−' : ''}
-              color={entry.direction === 'in' ? 'income' : 'text'}
+              color={
+                entry.direction === 'in'
+                  ? 'income'
+                  : entry.direction === 'out'
+                    ? 'expense'
+                    : 'text'
+              }
             />
             {entry.runningMinor !== null ? (
               <View style={styles.leftRow}>
@@ -346,7 +353,20 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
       </View>
 
       {/* Week strip */}
-      <View style={[styles.weekRow, { gap: theme.spacing.xs }]}>
+      <View
+        style={[
+          styles.weekRow,
+          theme.cardShadow,
+          {
+            gap: theme.spacing.xs,
+            backgroundColor: theme.colors.surface,
+            borderRadius: theme.radius.card,
+            borderWidth: 1,
+            borderColor: theme.colors.cardBorder,
+            padding: theme.spacing.xs,
+          },
+        ]}
+      >
         {week.map((d) => {
           const selected = d === day;
           const has = activeDays.has(d);
@@ -406,7 +426,12 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
       <View
         style={[
           styles.summary,
-          { backgroundColor: theme.colors.surface, borderColor: theme.colors.separator, borderRadius: theme.radius.heroCard },
+          theme.cardShadow,
+          {
+            backgroundColor: theme.colors.surface,
+            borderColor: theme.colors.cardBorder,
+            borderRadius: theme.radius.heroCard,
+          },
         ]}
         testID="daybook-summary"
       >
@@ -435,11 +460,17 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
             <Money amountMinor={book.inMinor} currency={settings.currency} variant="bodyStrong" hidden={hideAmounts} color="income" />
           </View>
           <View style={[styles.stat, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.md }]}>
-            <AppIcon name="arrow-up-right" size={15} color={theme.colors.text} />
+            <AppIcon name="arrow-up-right" size={15} color={theme.colors.expense} />
             <AppText variant="caption" color="textSecondary">
               {t('daybook.out')}
             </AppText>
-            <Money amountMinor={book.outMinor} currency={settings.currency} variant="bodyStrong" hidden={hideAmounts} />
+            <Money
+              amountMinor={book.outMinor}
+              currency={settings.currency}
+              variant="bodyStrong"
+              color="expense"
+              hidden={hideAmounts}
+            />
           </View>
           <View style={[styles.stat, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.md }]}>
             <AppIcon
@@ -456,7 +487,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
               variant="bodyStrong"
               hidden={hideAmounts}
               prefix={net > 0 ? '+' : net < 0 ? '−' : ''}
-              color={net > 0 ? 'income' : 'text'}
+              color={net > 0 ? 'income' : net < 0 ? 'expense' : 'text'}
             />
           </View>
         </View>

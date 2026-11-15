@@ -1,13 +1,15 @@
 import React from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import type { AvatarColorKey } from '@/domain/types';
+import type { AvatarColorKey, AvatarPresetId } from '@/domain/types';
 import { CATEGORY_COLORS, hexToRgba, isCategoryColorKey } from '@/theme/categoryColors';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
+import { AvatarArt } from './AvatarArt';
 
 export interface ProfileAvatarProps {
   name: string;
   colorKey?: AvatarColorKey;
+  avatarId?: AvatarPresetId;
   size?: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
@@ -40,6 +42,7 @@ export function getProfileInitial(name: string): string {
 export function ProfileAvatar({
   name,
   colorKey = 'accent',
+  avatarId = 'initial',
   size = 40,
   style,
   testID,
@@ -47,6 +50,7 @@ export function ProfileAvatar({
   const { theme } = useTheme();
   const colors = getProfileAvatarColors(colorKey, theme);
   const initial = getProfileInitial(name);
+  const hasIllustratedAvatar = avatarId !== undefined && avatarId !== 'initial';
 
   return (
     <View
@@ -57,20 +61,25 @@ export function ProfileAvatar({
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: colors.bg,
+          backgroundColor: hasIllustratedAvatar ? 'transparent' : colors.bg,
+          overflow: 'hidden',
         },
         style,
       ]}
     >
-      <AppText
-        variant={size >= 44 ? 'headline' : 'bodyStrong'}
-        style={{
-          color: colors.fg,
-          fontWeight: '700',
-        }}
-      >
-        {initial}
-      </AppText>
+      {hasIllustratedAvatar ? (
+        <AvatarArt id={avatarId} size={size} />
+      ) : (
+        <AppText
+          variant={size >= 44 ? 'headline' : 'bodyStrong'}
+          style={{
+            color: colors.fg,
+            fontWeight: '700',
+          }}
+        >
+          {initial}
+        </AppText>
+      )}
     </View>
   );
 }

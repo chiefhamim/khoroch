@@ -145,6 +145,102 @@ export function normalizeAvatarColorKey(
     : fallback;
 }
 
+export const BANGLA_FONT_KEYS = [
+  'noto_sans_bengali',
+  'anek_bangla',
+  'solaiman_lipi',
+  'kalpurush',
+  'nikosh',
+  'sutuji',
+  'hind_siliguri',
+] as const;
+
+export type BanglaFontKey = (typeof BANGLA_FONT_KEYS)[number];
+
+const BANGLA_FONT_KEY_SET = new Set<string>(BANGLA_FONT_KEYS);
+
+export function normalizeBanglaFontKey(
+  raw: unknown,
+  fallback: BanglaFontKey = 'noto_sans_bengali'
+): BanglaFontKey {
+  return typeof raw === 'string' && BANGLA_FONT_KEY_SET.has(raw)
+    ? (raw as BanglaFontKey)
+    : fallback;
+}
+
+export const INCOME_COLOR_KEYS = [
+  'emerald',
+  'teal',
+  'ocean',
+  'violet',
+  'gold',
+  'ink',
+] as const;
+
+export type IncomeColorKey = (typeof INCOME_COLOR_KEYS)[number];
+
+const INCOME_COLOR_KEY_SET = new Set<string>(INCOME_COLOR_KEYS);
+
+export function normalizeIncomeColorKey(
+  raw: unknown,
+  fallback: IncomeColorKey = 'emerald'
+): IncomeColorKey {
+  return typeof raw === 'string' && INCOME_COLOR_KEY_SET.has(raw)
+    ? (raw as IncomeColorKey)
+    : fallback;
+}
+
+export const EXPENSE_COLOR_KEYS = [
+  'ink',
+  'crimson',
+  'rose',
+  'amber',
+  'plum',
+  'teal',
+] as const;
+
+export type ExpenseColorKey = (typeof EXPENSE_COLOR_KEYS)[number];
+
+const EXPENSE_COLOR_KEY_SET = new Set<string>(EXPENSE_COLOR_KEYS);
+
+export function normalizeExpenseColorKey(
+  raw: unknown,
+  fallback: ExpenseColorKey = 'ink'
+): ExpenseColorKey {
+  return typeof raw === 'string' && EXPENSE_COLOR_KEY_SET.has(raw)
+    ? (raw as ExpenseColorKey)
+    : fallback;
+}
+
+export const AVATAR_PRESET_IDS = [
+  'initial',
+  'prof_exec',
+  'prof_glasses',
+  'prof_minimal',
+  'prof_hijab',
+  'sea_palm',
+  'sea_lotus',
+  'sea_monstera',
+  'sea_boat',
+  'abs_prism',
+  'abs_aura',
+  'abs_terracotta',
+  'abs_mosaic',
+] as const;
+
+export type AvatarPresetId = (typeof AVATAR_PRESET_IDS)[number];
+
+const AVATAR_PRESET_ID_SET = new Set<string>(AVATAR_PRESET_IDS);
+
+export function normalizeAvatarPresetId(
+  raw: unknown,
+  fallback: AvatarPresetId = 'initial'
+): AvatarPresetId {
+  return typeof raw === 'string' && AVATAR_PRESET_ID_SET.has(raw)
+    ? (raw as AvatarPresetId)
+    : fallback;
+}
+
 export interface Category {
   id: string;
   name: string;
@@ -379,11 +475,15 @@ export interface Settings {
   onboardingDone: boolean;
   name: string;
   avatarColorKey: AvatarColorKey;
+  avatarId: AvatarPresetId;
   currency: CurrencyCode;
   language: AppLanguage;
+  banglaFont: BanglaFontKey;
   monthStartDay: number;
   theme: ThemePreference;
   accent: AccentTheme;
+  incomeColor: IncomeColorKey;
+  expenseColor: ExpenseColorKey;
   reminder: ReminderSettings;
   hideAmountsOnOpen: boolean;
   showPoisha: boolean;

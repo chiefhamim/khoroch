@@ -45,6 +45,7 @@ import { Sheet } from '@/ui/Sheet';
 import { SpendingChart, type ChartGranularity } from '@/ui/SpendingChart';
 import { Surface } from '@/ui/Surface';
 import { WalletAvatar } from '@/ui/WalletAvatar';
+import { ProfileAvatar } from '@/ui/ProfileAvatar';
 import { PressableScale } from '@/ui/PressableScale';
 
 const OVERVIEW_FALLBACKS: Record<string, string> = {
@@ -214,18 +215,21 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           style={({ pressed }) => [
             styles.avatarBtn,
             {
-              backgroundColor: theme.colors.accentSoft,
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'transparent',
               transform: [{ scale: pressed && !reducedMotion ? 0.97 : 1 }],
               opacity: pressed ? 0.85 : 1,
             },
           ]}
         >
-          <AppText
-            variant="bodyStrong"
-            style={{ color: theme.colors.accent, fontWeight: '600' }}
-          >
-            {avatarInitial}
-          </AppText>
+          <ProfileAvatar
+            name={settings.name.trim() || avatarInitial}
+            colorKey={settings.avatarColorKey}
+            avatarId={settings.avatarId}
+            size={40}
+          />
         </PressableScale>
       </View>
 
@@ -257,9 +261,9 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             style={[
               styles.heroTabs,
               {
-                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                backgroundColor: 'rgba(255, 255, 255, 0.11)',
                 borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.16)',
+                borderColor: 'rgba(255, 255, 255, 0.22)',
               },
             ]}
           >
@@ -390,9 +394,20 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               </>
             ) : null}
 
-            <View style={[styles.divider, { backgroundColor: theme.colors.heroLine }]} />
-
-            <View style={[styles.stripRow, { gap: theme.spacing.sm }]}>
+            <View
+              style={[
+                styles.stripRow,
+                {
+                  gap: theme.spacing.sm,
+                  backgroundColor: 'rgba(255, 255, 255, 0.065)',
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.11)',
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                },
+              ]}
+            >
               <View style={styles.stripCol}>
                 <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
                   {overallBudgetMinor !== null
@@ -510,9 +525,20 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
 
             <HeroProgressBar pct={summary.utilizationPct} />
 
-            <View style={[styles.divider, { backgroundColor: theme.colors.heroLine }]} />
-
-            <View style={[styles.stripRow, { gap: theme.spacing.sm }]}>
+            <View
+              style={[
+                styles.stripRow,
+                {
+                  gap: theme.spacing.sm,
+                  backgroundColor: 'rgba(255, 255, 255, 0.065)',
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255, 255, 255, 0.11)',
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                },
+              ]}
+            >
               <View style={styles.stripCol}>
                 <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
                   {t('overview.safeToday')}
@@ -773,7 +799,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                       prefix={isIncome ? '+' : '−'}
                       amountMinor={tx.amountMinor}
                       currency={tx.currency}
-                      color={isIncome ? 'accent' : 'text'}
+                      color={isIncome ? 'income' : 'expense'}
                       hidden={hideAmounts}
                     />
                   }
@@ -1182,7 +1208,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                         prefix={isIncome ? '+' : '−'}
                         amountMinor={tx.amountMinor}
                         currency={tx.currency}
-                        color={isIncome ? 'accent' : 'text'}
+                        color={isIncome ? 'income' : 'expense'}
                         hidden={hideAmounts}
                       />
                     }

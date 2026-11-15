@@ -25,11 +25,19 @@ import {
   ACCENT_THEMES,
   ALL_REMINDER_DAYS,
   APP_LANGUAGES,
+  AVATAR_COLOR_KEYS,
+  BANGLA_FONT_KEYS,
   CURRENCIES,
+  EXPENSE_COLOR_KEYS,
+  INCOME_COLOR_KEYS,
   SUN_THU_REMINDER_DAYS,
   type AccentTheme,
   type AppLanguage,
+  type AvatarPresetId,
+  type BanglaFontKey,
   type CurrencyCode,
+  type ExpenseColorKey,
+  type IncomeColorKey,
   type ReminderSettings,
   type ThemePreference,
 } from '@/domain/types';
@@ -43,10 +51,16 @@ import {
 } from '@/notifications/reminders';
 import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
 import { useSettings } from '@/state/useSettings';
-import { ACCENT_DEFINITIONS } from '@/theme/tokens';
+import {
+  ACCENT_DEFINITIONS,
+  BANGLA_FONT_FAMILIES,
+  EXPENSE_COLOR_PRESETS,
+  INCOME_COLOR_PRESETS,
+} from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
 import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
+import { AVATAR_CATALOG, type AvatarCategory } from '@/ui/AvatarArt';
 import { Banner } from '@/ui/Banner';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
@@ -57,6 +71,7 @@ import { hapticLight, hapticSelection, hapticSuccess, setHapticsEnabled } from '
 import { IconButton } from '@/ui/IconButton';
 import { ListRow } from '@/ui/ListRow';
 import { PillSwitch } from '@/ui/PillSwitch';
+import { getProfileAvatarColors, ProfileAvatar } from '@/ui/ProfileAvatar';
 import { Screen } from '@/ui/Screen';
 import { SettingsGroup } from '@/ui/SettingsGroup';
 import { SettingsRow } from '@/ui/SettingsRow';
@@ -128,8 +143,10 @@ export default function SettingsScreen() {
   // Sheet states
   const [nameSheetOpen, setNameSheetOpen] = useState(false);
   const [nameDraft, setNameDraft] = useState(settings.name);
+  const [avatarTab, setAvatarTab] = useState<'initial' | AvatarCategory>('professional');
 
   const [languageSheetOpen, setLanguageSheetOpen] = useState(false);
+  const [banglaFontSheetOpen, setBanglaFontSheetOpen] = useState(false);
   const [currencySheetOpen, setCurrencySheetOpen] = useState(false);
 
   const [cycleSheetOpen, setCycleSheetOpen] = useState(false);
@@ -446,6 +463,70 @@ export default function SettingsScreen() {
     graphite: 'settings.accentGraphite',
   };
 
+  const BANGLA_FONT_OPTIONS: readonly {
+    key: BanglaFontKey;
+    labelKey: TranslationKey;
+    descKey: TranslationKey;
+  }[] = [
+    {
+      key: 'noto_sans_bengali',
+      labelKey: 'settings.banglaFontNotoSans',
+      descKey: 'settings.banglaFontNotoSansDesc',
+    },
+    {
+      key: 'anek_bangla',
+      labelKey: 'settings.banglaFontAnek',
+      descKey: 'settings.banglaFontAnekDesc',
+    },
+    {
+      key: 'solaiman_lipi',
+      labelKey: 'settings.banglaFontSolaiman',
+      descKey: 'settings.banglaFontSolaimanDesc',
+    },
+    {
+      key: 'kalpurush',
+      labelKey: 'settings.banglaFontKalpurush',
+      descKey: 'settings.banglaFontKalpurushDesc',
+    },
+    {
+      key: 'nikosh',
+      labelKey: 'settings.banglaFontNikosh',
+      descKey: 'settings.banglaFontNikoshDesc',
+    },
+    {
+      key: 'sutuji',
+      labelKey: 'settings.banglaFontSutuji',
+      descKey: 'settings.banglaFontSutujiDesc',
+    },
+    {
+      key: 'hind_siliguri',
+      labelKey: 'settings.banglaFontHind',
+      descKey: 'settings.banglaFontHindDesc',
+    },
+  ];
+
+  const INCOME_TONE_LABEL_KEYS: Record<IncomeColorKey, TranslationKey> = {
+    emerald: 'settings.moneyToneEmerald',
+    teal: 'settings.moneyToneTeal',
+    ocean: 'settings.moneyToneOcean',
+    violet: 'settings.moneyToneViolet',
+    gold: 'settings.moneyToneGold',
+    ink: 'settings.moneyToneInk',
+  };
+
+  const EXPENSE_TONE_LABEL_KEYS: Record<ExpenseColorKey, TranslationKey> = {
+    ink: 'settings.moneyToneInk',
+    crimson: 'settings.moneyToneCrimson',
+    rose: 'settings.moneyToneRose',
+    amber: 'settings.moneyToneAmber',
+    plum: 'settings.moneyTonePlum',
+    teal: 'settings.moneyToneTeal',
+  };
+
+  const activeBanglaFontOption =
+    BANGLA_FONT_OPTIONS.find((opt) => opt.key === settings.banglaFont) ??
+    BANGLA_FONT_OPTIONS[0];
+
   const trimmedName = settings.name.trim();
   const initialLetter = trimmedName ? trimmedName.charAt(0).toUpperCase() : 'H';
 
@@ -504,25 +585,18 @@ export default function SettingsScreen() {
           subtitle={trimmedName ? undefined : t('settings.profileSubtitle')}
           showChevron
           left={
-            <View
-              style={[
-                styles.avatar,
-                {
-                  width: 40,
-                  height: 40,
-                  borderRadius: theme.radius.pill,
-                  backgroundColor: theme.colors.accentSoft,
-                },
-              ]}
-            >
-              <AppText variant="headline" color="accent">
-                {initialLetter}
-              </AppText>
-            </View>
+            <ProfileAvatar
+              name={trimmedName || initialLetter}
+              colorKey={settings.avatarColorKey}
+              avatarId={settings.avatarId}
+              size={42}
+            />
           }
           onPress={() => {
             hapticLight();
             setNameDraft(settings.name);
+            const activeSpec = AVATAR_CATALOG.find((a) => a.id === settings.avatarId);
+            setAvatarTab(activeSpec ? activeSpec.category : 'professional');
             setNameSheetOpen(true);
           }}
         />
@@ -543,6 +617,16 @@ export default function SettingsScreen() {
           onPress={() => {
             hapticLight();
             setLanguageSheetOpen(true);
+          }}
+        />
+        <SettingsRow
+          testID="settings-bangla-font-row"
+          label={t('settings.banglaFontLabel')}
+          value={t(activeBanglaFontOption.labelKey)}
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setBanglaFontSheetOpen(true);
           }}
         />
         <SettingsRow
@@ -803,21 +887,157 @@ export default function SettingsScreen() {
         </SettingsGroup>
       ) : null}
 
-      {/* Name Sheet */}
+      {/* Name & Avatar Sheet */}
       <Sheet
         testID="settings-name-sheet"
         visible={nameSheetOpen}
         onClose={() => setNameSheetOpen(false)}
         title={t('settings.nameLabel')}
       >
+        <View style={{ alignItems: 'center', marginBottom: theme.spacing.sm }}>
+          <ProfileAvatar
+            name={nameDraft.trim() || initialLetter}
+            colorKey={settings.avatarColorKey}
+            avatarId={settings.avatarId}
+            size={68}
+          />
+        </View>
+
         <Field
           testID="settings-name-input"
           value={nameDraft}
           onChangeText={setNameDraft}
           placeholder={t('settings.namePlaceholder')}
           maxLength={MAX_PROFILE_NAME_LENGTH}
-          autoFocus
         />
+
+        <View style={{ gap: theme.spacing.sm }}>
+          <AppText variant="label" color="textSecondary">
+            {t('settings.avatarGalleryLabel')}
+          </AppText>
+          <View style={[styles.presetRow, { gap: theme.spacing.xs }]}>
+            {(
+              [
+                { id: 'professional', label: t('settings.avatarGroupProfessional') },
+                { id: 'tropical', label: t('settings.avatarGroupTropical') },
+                { id: 'abstract', label: t('settings.avatarGroupAbstract') },
+                { id: 'initial', label: t('settings.avatarGroupInitial') },
+              ] as const
+            ).map((tab) => (
+              <Chip
+                key={tab.id}
+                testID={`settings-avatar-tab-${tab.id}`}
+                label={tab.label}
+                selected={avatarTab === tab.id}
+                onPress={() => {
+                  hapticSelection();
+                  setAvatarTab(tab.id);
+                }}
+              />
+            ))}
+          </View>
+
+          {avatarTab === 'initial' ? (
+            <View style={{ gap: theme.spacing.sm }}>
+              <View style={styles.avatarChoiceRow}>
+                <PressableScale
+                  pressScale={0.96}
+                  testID="settings-avatar-choice-initial"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('settings.avatarGroupInitial')}
+                  accessibilityState={{ selected: settings.avatarId === 'initial' }}
+                  onPress={() => {
+                    hapticSelection();
+                    void updateSetting('avatarId', 'initial');
+                  }}
+                  style={[
+                    styles.avatarChoiceRing,
+                    {
+                      borderColor:
+                        settings.avatarId === 'initial' ? theme.colors.accent : 'transparent',
+                    },
+                  ]}
+                >
+                  <ProfileAvatar
+                    name={nameDraft.trim() || initialLetter}
+                    colorKey={settings.avatarColorKey}
+                    avatarId="initial"
+                    size={54}
+                  />
+                </PressableScale>
+              </View>
+              <AppText variant="caption" color="textSecondary">
+                {t('settings.avatarColorLabel')}
+              </AppText>
+              <View style={[styles.toneRow, { gap: theme.spacing.sm }]}>
+                {AVATAR_COLOR_KEYS.map((colorKey) => {
+                  const selected = settings.avatarColorKey === colorKey;
+                  const swatch = getProfileAvatarColors(colorKey, theme).fg;
+                  return (
+                    <PressableScale
+                      key={colorKey}
+                      pressScale={0.94}
+                      testID={`settings-avatar-color-${colorKey}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={colorKey}
+                      accessibilityState={{ selected }}
+                      onPress={() => {
+                        hapticSelection();
+                        void updateSetting('avatarColorKey', colorKey);
+                        if (settings.avatarId !== 'initial') {
+                          void updateSetting('avatarId', 'initial');
+                        }
+                      }}
+                      style={[
+                        styles.toneRing,
+                        {
+                          borderColor: selected ? theme.colors.text : 'transparent',
+                        },
+                      ]}
+                    >
+                      <View style={[styles.toneDot, { backgroundColor: swatch }]}>
+                        {selected ? <AppIcon name="check" size={14} color="#FFFFFF" /> : null}
+                      </View>
+                    </PressableScale>
+                  );
+                })}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.avatarChoiceRow}>
+              {AVATAR_CATALOG.filter((item) => item.category === avatarTab).map((item) => {
+                const selected = settings.avatarId === item.id;
+                return (
+                  <PressableScale
+                    key={item.id}
+                    pressScale={0.94}
+                    testID={`settings-avatar-choice-${item.id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.id}
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      hapticSelection();
+                      void updateSetting('avatarId', item.id as AvatarPresetId);
+                    }}
+                    style={[
+                      styles.avatarChoiceRing,
+                      {
+                        borderColor: selected ? theme.colors.accent : theme.colors.cardBorder,
+                      },
+                    ]}
+                  >
+                    <ProfileAvatar
+                      name={nameDraft.trim() || initialLetter}
+                      avatarId={item.id}
+                      size={56}
+                    />
+                  </PressableScale>
+                );
+              })}
+            </View>
+          )}
+        </View>
+
         <Button
           testID="settings-name-save"
           title={t('common.save')}
@@ -854,6 +1074,64 @@ export default function SettingsScreen() {
                   setLanguageSheetOpen(false);
                 }}
               />
+            );
+          })}
+        </Surface>
+      </Sheet>
+
+      {/* Bangla Font Sheet */}
+      <Sheet
+        testID="settings-bangla-font-sheet"
+        visible={banglaFontSheetOpen}
+        onClose={() => setBanglaFontSheetOpen(false)}
+        title={t('settings.banglaFontSheetTitle')}
+      >
+        <AppText variant="caption" color="textSecondary">
+          {t('settings.banglaFontSubtitle')}
+        </AppText>
+        <Surface padded={false}>
+          {BANGLA_FONT_KEYS.map((fontKey, idx) => {
+            const option =
+              BANGLA_FONT_OPTIONS.find((item) => item.key === fontKey) ?? BANGLA_FONT_OPTIONS[0];
+            const active = settings.banglaFont === fontKey;
+            const fontPair = BANGLA_FONT_FAMILIES[fontKey];
+            return (
+              <PressableScale
+                key={fontKey}
+                pressScale={0.99}
+                testID={`settings-bangla-font-${fontKey}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                onPress={() => {
+                  hapticSelection();
+                  void updateSetting('banglaFont', fontKey);
+                  setBanglaFontSheetOpen(false);
+                }}
+                style={[
+                  styles.fontOptionRow,
+                  {
+                    borderBottomColor: theme.colors.separator,
+                    borderBottomWidth: idx < BANGLA_FONT_KEYS.length - 1 ? StyleSheet.hairlineWidth : 0,
+                  },
+                ]}
+              >
+                <View style={styles.flexOne}>
+                  <AppText variant="bodyStrong" color="text">
+                    {t(option.labelKey)}
+                  </AppText>
+                  <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+                    {t(option.descKey)}
+                  </AppText>
+                  <AppText
+                    variant="body"
+                    color="accent"
+                    style={{ fontFamily: fontPair.semibold, marginTop: 2 }}
+                  >
+                    {t('settings.banglaFontPreview')}
+                  </AppText>
+                </View>
+                {active ? <AppIcon name="check" size={18} color={theme.colors.accent} /> : null}
+              </PressableScale>
             );
           })}
         </Surface>
@@ -1101,6 +1379,100 @@ export default function SettingsScreen() {
                         <AppIcon name="check" size={14} color={theme.colors.text} />
                       ) : null}
                     </View>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Positive (Money added) colour */}
+          <View style={{ gap: theme.spacing.sm }}>
+            <AppText variant="label" color="textSecondary">
+              {t('settings.incomeColorLabel')}
+            </AppText>
+            <View style={[styles.accentRow, { flexWrap: 'wrap', gap: theme.spacing.sm }]}>
+              {INCOME_COLOR_KEYS.map((key) => {
+                const preset = INCOME_COLOR_PRESETS[key];
+                const selected = settings.incomeColor === key;
+                const label = t(INCOME_TONE_LABEL_KEYS[key]);
+                return (
+                  <PressableScale
+                    key={key}
+                    pressScale={0.96}
+                    testID={`settings-income-color-${key}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={label}
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      hapticSelection();
+                      void updateSetting('incomeColor', key);
+                    }}
+                    style={styles.accentItem}
+                  >
+                    <View
+                      style={[
+                        styles.accentOuterRing,
+                        { borderColor: selected ? theme.colors.text : 'transparent' },
+                      ]}
+                    >
+                      <View style={[styles.accentSwatch, { backgroundColor: preset.swatch }]}>
+                        {selected ? <AppIcon name="check" size={15} color="#FFFFFF" /> : null}
+                      </View>
+                    </View>
+                    <AppText
+                      variant="caption"
+                      color={selected ? 'text' : 'textSecondary'}
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </AppText>
+                  </PressableScale>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Negative (Money spent) colour */}
+          <View style={{ gap: theme.spacing.sm }}>
+            <AppText variant="label" color="textSecondary">
+              {t('settings.expenseColorLabel')}
+            </AppText>
+            <View style={[styles.accentRow, { flexWrap: 'wrap', gap: theme.spacing.sm }]}>
+              {EXPENSE_COLOR_KEYS.map((key) => {
+                const preset = EXPENSE_COLOR_PRESETS[key];
+                const selected = settings.expenseColor === key;
+                const label = t(EXPENSE_TONE_LABEL_KEYS[key]);
+                return (
+                  <PressableScale
+                    key={key}
+                    pressScale={0.96}
+                    testID={`settings-expense-color-${key}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={label}
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      hapticSelection();
+                      void updateSetting('expenseColor', key);
+                    }}
+                    style={styles.accentItem}
+                  >
+                    <View
+                      style={[
+                        styles.accentOuterRing,
+                        { borderColor: selected ? theme.colors.text : 'transparent' },
+                      ]}
+                    >
+                      <View style={[styles.accentSwatch, { backgroundColor: preset.swatch }]}>
+                        {selected ? <AppIcon name="check" size={15} color="#FFFFFF" /> : null}
+                      </View>
+                    </View>
+                    <AppText
+                      variant="caption"
+                      color={selected ? 'text' : 'textSecondary'}
+                      numberOfLines={1}
+                    >
+                      {label}
+                    </AppText>
                   </PressableScale>
                 );
               })}
@@ -1387,5 +1759,44 @@ const styles = StyleSheet.create({
   flexOne: {
     flex: 1,
     minWidth: 0,
+  },
+  avatarChoiceRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'center',
+    paddingVertical: 4,
+  },
+  avatarChoiceRing: {
+    padding: 3,
+    borderRadius: 34,
+    borderWidth: 2,
+  },
+  toneRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  toneRing: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 2,
+    padding: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toneDot: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fontOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
 });

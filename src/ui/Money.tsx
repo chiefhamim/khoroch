@@ -81,7 +81,7 @@ export function TakaSign({ numberFontSize, symbol, color, testID }: TakaSignProp
     <View
       style={{
         transform: [{ translateY: metrics.baselineNudge }],
-        marginRight: metrics.spacerWidth,
+        marginLeft: metrics.spacerWidth,
       }}
     >
       <Text
@@ -290,7 +290,8 @@ export function Money({
           ? {
               fontFamily: mapFontToBangla(
                 flattened.fontFamily ?? typeStyle.fontFamily,
-                flattened.fontWeight
+                flattened.fontWeight,
+                theme.banglaFont
               ),
               fontWeight: undefined,
               letterSpacing: 0,
@@ -302,20 +303,27 @@ export function Money({
         <Text
           style={
             needsBanglaPrefix
-              ? { fontFamily: mapFontToBangla(typeStyle.fontFamily), letterSpacing: 0 }
+              ? {
+                  fontFamily: mapFontToBangla(
+                    typeStyle.fontFamily,
+                    undefined,
+                    theme.banglaFont
+                  ),
+                  letterSpacing: 0,
+                }
               : undefined
           }
         >
           {resolvedSign}
         </Text>
       ) : null}
+      {locale === 'bn' ? toBnDigits(numberPart) : numberPart}
       <TakaSign
         testID={testID ? `${testID}-taka` : undefined}
         numberFontSize={mainFontSize}
         symbol={symbol}
         color={resolvedSymbolColor}
       />
-      {locale === 'bn' ? toBnDigits(numberPart) : numberPart}
     </Text>
   );
 }

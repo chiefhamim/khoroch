@@ -75,10 +75,13 @@ export function Keypad({ value, onChange, keyHeight = 52, style, testID }: Keypa
                 onPress={() => handlePress(key)}
                 style={({ pressed }) => [
                   styles.key,
+                  theme.cardShadow,
                   {
                     height: Math.max(keyHeight, theme.touch.min),
                     borderRadius: theme.radius.keypadKey,
-                    backgroundColor: theme.colors.surfaceSunken,
+                    backgroundColor: theme.colors.surface,
+                    borderWidth: 1,
+                    borderColor: theme.colors.cardBorder,
                     opacity: pressed && !reducedMotion ? 0.65 : 1,
                   },
                 ]}
