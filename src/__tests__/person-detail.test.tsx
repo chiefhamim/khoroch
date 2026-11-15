@@ -186,7 +186,7 @@ describe('PersonDetailScreen and PersonEditorSheet', () => {
     });
 
     expect(view.getByText('আপনি পাবেন · গতকাল থেকে')).toBeTruthy();
-    expect(view.getByText('গতকাল · 12:00 · Cash')).toBeTruthy();
+    expect(view.getByText('গতকাল · ১২:০০ · ক্যাশ')).toBeTruthy();
 
     const addEntryEl = view.getByText('নতুন এন্ট্রি');
     expect(StyleSheet.flatten(addEntryEl.props.style)?.minWidth).toBeGreaterThan(0);

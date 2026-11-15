@@ -198,11 +198,11 @@ describe('WalletDetailScreen', () => {
       expect(view.getByText('ব্যালেন্সের ধারা')).toBeTruthy();
     });
 
-    expect(view.getByText('৳5,600 বকেয়া')).toBeTruthy();
-    expect(view.getByText('শুরুতে -৳ 5,600 · গতকাল')).toBeTruthy();
-    expect(view.getByText('শেষ ৪ সংখ্যা 4821')).toBeTruthy();
+    expect(view.getByText('৳৫,৬০০ বকেয়া')).toBeTruthy();
+    expect(view.getByText('শুরুতে -৳ ৫,৬০০ · গতকাল')).toBeTruthy();
+    expect(view.getByText('শেষ ৪ সংখ্যা ৪৮২১')).toBeTruthy();
     expect(view.getByText('বহির্ভূত')).toBeTruthy();
-    expect(view.getByText('আজ · ৳5,600 বকেয়া')).toBeTruthy();
+    expect(view.getByText('আজ · ৳৫,৬০০ বকেয়া')).toBeTruthy();
     expect(view.getByText('Tanvir-কে ধার দেওয়া হয়েছে')).toBeTruthy();
     expect(view.getAllByText(/শুরুর তারিখের আগে/).length).toBe(2);
 

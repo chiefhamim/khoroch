@@ -70,7 +70,9 @@ export function SegmentedControl<T extends string>({
         isCompact && styles.compactNoShrink,
         {
           backgroundColor: theme.colors.surfaceSunken,
-          borderRadius: theme.radius.pill,
+          borderRadius: 999,
+          borderWidth: 1,
+          borderColor: theme.colors.cardBorder,
           padding,
           gap: 2,
           opacity: disabled ? 0.55 : 1,
@@ -86,7 +88,7 @@ export function SegmentedControl<T extends string>({
             {
               top: padding,
               bottom: padding,
-              borderRadius: theme.radius.pill,
+              borderRadius: 999,
               backgroundColor: theme.colors.surfaceRaised,
             },
             thumbStyle,

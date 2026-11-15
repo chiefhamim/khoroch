@@ -177,7 +177,7 @@ describe('SettingsScreen', () => {
       expect(view.getByText('সেটিংস')).toBeTruthy();
     });
 
-    expect(view.getByText('মাসের 1 তারিখ')).toBeTruthy();
+    expect(view.getByText('মাসের ১ তারিখ')).toBeTruthy();
     expect(view.queryByText(/1st/)).toBeNull();
     expect(view.getByText('সো')).toBeTruthy();
     expect(view.getByText('বু')).toBeTruthy();
@@ -185,7 +185,7 @@ describe('SettingsScreen', () => {
 
     await fireEvent.press(view.getByTestId('settings-currency-row'));
     await waitFor(() => {
-      expect(view.getByText('বাংলাদেশি টাকা (BDT ৳)')).toBeTruthy();
+      expect(view.getByText('বাংলাদেশি টাকা (৳)')).toBeTruthy();
     });
 
     await fireEvent.press(view.getByTestId('settings-cycle-row'));
@@ -193,5 +193,25 @@ describe('SettingsScreen', () => {
       expect(view.getByTestId('settings-cycle-preview')).toBeTruthy();
     });
     expect(view.getByTestId('settings-cycle-preview').props.children).not.toMatch(/November/);
+  });
+
+  it('toggles haptic feedback setting and persists it to repo', async () => {
+    const repo = await setupSettingsRepo();
+    const view = await renderSettings(repo);
+
+    await waitFor(() => {
+      expect(view.getByTestId('settings-haptics-switch')).toBeTruthy();
+    });
+
+    const toggle = view.getByTestId('settings-haptics-switch');
+    expect(toggle.props.accessibilityState?.checked).toBe(true);
+
+    await fireEvent.press(toggle);
+
+    await waitFor(async () => {
+      const updated = await repo.getSettings();
+      expect(updated.hapticsEnabled).toBe(false);
+    });
+    expect(view.getByTestId('settings-haptics-switch').props.accessibilityState?.checked).toBe(false);
   });
 });

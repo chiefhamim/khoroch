@@ -1,6 +1,6 @@
 import * as Crypto from 'expo-crypto';
 import React, { useState } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import {
   WALLET_COLOR_PALETTE,
   WALLET_PRESETS,
@@ -19,6 +19,7 @@ import { Button } from './Button';
 import { DateField } from './DateField';
 import { Field } from './Field';
 import { Keypad } from './Keypad';
+import { PillSwitch } from './PillSwitch';
 import { Sheet } from './Sheet';
 import { WalletAvatar } from './WalletAvatar';
 import { hapticLight, hapticSelection, hapticSuccess } from './haptics';
@@ -466,15 +467,13 @@ function WalletEditorDialog({
             {t('wallets.includeInTotalHint')}
           </AppText>
         </View>
-        <Switch
+        <PillSwitch
           testID="wallet-include-in-total-switch"
           value={includeInTotal}
           onValueChange={(next) => {
             hapticLight();
             setIncludeInTotal(next);
           }}
-          trackColor={{ false: theme.colors.separator, true: theme.colors.accent }}
-          thumbColor="#ffffff"
         />
       </View>
 

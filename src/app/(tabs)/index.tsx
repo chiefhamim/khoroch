@@ -256,7 +256,11 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             testID="overview-hero-switcher"
             style={[
               styles.heroTabs,
-              { backgroundColor: 'rgba(255, 255, 255, 0.12)' },
+              {
+                backgroundColor: 'rgba(255, 255, 255, 0.12)',
+                borderWidth: 1,
+                borderColor: 'rgba(255, 255, 255, 0.16)',
+              },
             ]}
           >
             <PressableScale
@@ -267,8 +271,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               onPress={() => setUserHeroMode('budget')}
               style={[
                 styles.heroTab,
-                effectiveHeroMode === 'budget' && {
-                  backgroundColor: theme.colors.heroText,
+                {
+                  borderRadius: 999,
+                  backgroundColor:
+                    effectiveHeroMode === 'budget' ? theme.colors.heroText : 'transparent',
                 },
               ]}
             >
@@ -296,8 +302,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               onPress={() => setUserHeroMode('wallets')}
               style={[
                 styles.heroTab,
-                effectiveHeroMode === 'wallets' && {
-                  backgroundColor: theme.colors.heroText,
+                {
+                  borderRadius: 999,
+                  backgroundColor:
+                    effectiveHeroMode === 'wallets' ? theme.colors.heroText : 'transparent',
                 },
               ]}
             >
@@ -328,7 +336,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               icon="info"
               variant="ghost"
               iconColor={theme.colors.heroTextSecondary}
-              size={30}
+              size={34}
               iconSize={18}
               accessibilityLabel={t('overview.howNumbersWork')}
               onPress={() => setHowItWorksOpen(true)}
@@ -1262,19 +1270,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   heroTabs: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 9,
-    padding: 2,
+    height: 34,
+    borderRadius: 999,
+    padding: 3,
     gap: 2,
   },
   heroTab: {
-    minWidth: 90,
+    flex: 1,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 7,
+    paddingHorizontal: 8,
+    borderRadius: 999,
   },
   heroTabLabel: {
     alignSelf: 'stretch',

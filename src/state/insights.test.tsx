@@ -4,6 +4,7 @@ import { StyleSheet } from 'react-native';
 import { InsightsContent } from '@/screens/InsightsScreen';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { setLocale, t } from '@/i18n';
+import { toBnDigits } from '@/i18n/displayText';
 import { useActivityFilterStore } from '@/state/activityFilterStore';
 import { AppContext } from '@/state/AppContext';
 import { ThemeProvider } from '@/theme/ThemeProvider';
@@ -192,16 +193,16 @@ describe('InsightsContent integration', () => {
 
     expect(view.getByText('অক্টোবর বনাম সেপ্টেম্বর')).toBeTruthy();
     expect(view.getByText('নতুন')).toBeTruthy();
-    expect(view.getByText('৳ 500 বনাম ৳ 0')).toBeTruthy();
-    expect(view.getByText('11 নভে')).toBeTruthy();
+    expect(view.getByText('৳ ৫০০ বনাম ৳ ০')).toBeTruthy();
+    expect(view.getByText('১১ নভে')).toBeTruthy();
 
     const viewActivityEl = view.getByText('খাতায় হিসাবগুলো দেখুন');
     expect(StyleSheet.flatten(viewActivityEl.props.style)?.minWidth).toBeGreaterThan(0);
 
     const baselineEl = view.getByText(
-      t('insights.mtdNoPriorBaseline', { days: 13 })
+      toBnDigits(t('insights.mtdNoPriorBaseline', { days: 13 }))
     );
-    const rangeSubtitleEl = view.getByText('1 নভে – 30 নভে');
+    const rangeSubtitleEl = view.getByText('১ নভে – ৩০ নভে');
     expect(StyleSheet.flatten(baselineEl.props.style)?.color).toBe(
       StyleSheet.flatten(rangeSubtitleEl.props.style)?.color
     );

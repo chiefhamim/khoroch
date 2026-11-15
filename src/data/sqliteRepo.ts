@@ -156,6 +156,7 @@ const SETTING_DB_KEYS: Record<keyof Settings, string> = {
   hideAmountsOnOpen: 'hide_amounts_on_open',
   showPoisha: 'show_poisha',
   compactNumbers: 'compact_numbers',
+  hapticsEnabled: 'haptics_enabled',
   weekStartsOn: 'week_starts_on',
   homeSections: 'home_sections',
   appLockEnabled: 'app_lock_enabled',
@@ -1306,6 +1307,9 @@ export class SqliteRepo implements Repo {
       compactNumbers: Boolean(
         parseJson(SETTING_DB_KEYS.compactNumbers, DEFAULT_SETTINGS.compactNumbers)
       ),
+      hapticsEnabled:
+        parseJson<unknown>(SETTING_DB_KEYS.hapticsEnabled, DEFAULT_SETTINGS.hapticsEnabled) !==
+        false,
       weekStartsOn: normalizeWeekStartDay(
         parseJson<unknown>(SETTING_DB_KEYS.weekStartsOn, DEFAULT_SETTINGS.weekStartsOn),
         DEFAULT_SETTINGS.weekStartsOn

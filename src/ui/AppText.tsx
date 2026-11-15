@@ -1,6 +1,7 @@
 import React from 'react';
 import { PixelRatio, StyleSheet, Text, type TextProps, type TextStyle } from 'react-native';
 import { useLocale } from '@/i18n';
+import { localizeDisplayText } from '@/i18n/displayText';
 import {
   BANGLA_FONTS,
   containsBengali,
@@ -45,6 +46,20 @@ export interface AppTextProps extends TextProps {
   tabularNums?: boolean;
 }
 
+/** Converts primitive children into Bangla numerals/labels when locale is `'bn'`. */
+function localizeBnChildren(node: React.ReactNode): React.ReactNode {
+  if (typeof node === 'string') return localizeDisplayText(node, 'bn');
+  if (typeof node === 'number') return localizeDisplayText(String(node), 'bn');
+  if (Array.isArray(node)) {
+    return React.Children.map(node, (child) =>
+      typeof child === 'string' || typeof child === 'number'
+        ? localizeDisplayText(String(child), 'bn')
+        : child
+    );
+  }
+  return node;
+}
+
 function collectTextContent(node: React.ReactNode): string {
   if (typeof node === 'string' || typeof node === 'number') {
     return String(node);
@@ -75,7 +90,8 @@ export function AppText({
     ellipsizeMode ?? (numberOfLines !== undefined ? 'clip' : undefined);
 
   const flatStyle = style ? (StyleSheet.flatten(style) as TextStyle) : undefined;
-  const textSample = collectTextContent(children);
+  const displayChildren = locale === 'bn' ? localizeBnChildren(children) : children;
+  const textSample = collectTextContent(displayChildren);
   const useBanglaFont = locale === 'bn' || containsBengali(textSample);
   const baseFontFamily = flatStyle?.fontFamily ?? typeStyle.fontFamily ?? 'default';
   const mappedBanglaFont = useBanglaFont
@@ -109,7 +125,7 @@ export function AppText({
       ]}
       {...rest}
     >
-      {children}
+      {displayChildren}
     </Text>
   );
 }

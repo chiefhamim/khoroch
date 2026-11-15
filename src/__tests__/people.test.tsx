@@ -183,7 +183,7 @@ describe('PeopleTabScreen and DueEntrySheet', () => {
     await fireEvent.changeText(view.getByTestId('due-amount-input'), '2000');
 
     expect(
-      view.getByText('Tanvir যতটুকু দেবেন তার চেয়ে ৳500 বেশি হয়েছে')
+      view.getByText('Tanvir যতটুকু দেবেন তার চেয়ে ৳৫০০ বেশি হয়েছে')
     ).toBeTruthy();
   });
 });

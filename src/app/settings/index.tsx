@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { AppState, Linking, Platform, StyleSheet, Switch, View } from 'react-native';
+import { AppState, Linking, Platform, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { isDevVariant } from '@/config/appVariant';
 import {
@@ -53,9 +53,10 @@ import { Chip } from '@/ui/Chip';
 import { DayOfMonthGrid } from '@/ui/DayOfMonthGrid';
 import { DayToggles } from '@/ui/DayToggles';
 import { Field } from '@/ui/Field';
-import { hapticLight, hapticSelection, hapticSuccess } from '@/ui/haptics';
+import { hapticLight, hapticSelection, hapticSuccess, setHapticsEnabled } from '@/ui/haptics';
 import { IconButton } from '@/ui/IconButton';
 import { ListRow } from '@/ui/ListRow';
+import { PillSwitch } from '@/ui/PillSwitch';
 import { Screen } from '@/ui/Screen';
 import { SettingsGroup } from '@/ui/SettingsGroup';
 import { SettingsRow } from '@/ui/SettingsRow';
@@ -582,6 +583,23 @@ export default function SettingsScreen() {
             setAppearanceSheetOpen(true);
           }}
         />
+        <SettingsRow
+          testID="settings-haptics-row"
+          label={t('settings.hapticsLabel')}
+          subtitle={t('settings.hapticsSubtitle')}
+          trailing={
+            <PillSwitch
+              testID="settings-haptics-switch"
+              accessibilityLabel={t('settings.hapticsLabel')}
+              value={settings.hapticsEnabled !== false}
+              onValueChange={(val) => {
+                setHapticsEnabled(val);
+                if (val) hapticSelection();
+                void updateSetting('hapticsEnabled', val);
+              }}
+            />
+          }
+        />
       </SettingsGroup>
 
       {/* REMINDERS */}
@@ -592,13 +610,11 @@ export default function SettingsScreen() {
         <SettingsRow
           label={t('settings.reminderToggle')}
           trailing={
-            <Switch
+            <PillSwitch
               testID="settings-reminder-switch"
               accessibilityLabel={t('settings.reminderToggle')}
               value={reminderActive}
               onValueChange={(val) => void handleToggleReminder(val)}
-              trackColor={{ false: theme.colors.surfaceSunken, true: theme.colors.accent }}
-              thumbColor="#ffffff"
             />
           }
         />
@@ -819,7 +835,7 @@ export default function SettingsScreen() {
         <Surface padded={false}>
           {APP_LANGUAGES.map((code: AppLanguage, idx) => {
             const active = settings.language === code;
-            const label = code === 'bn' ? 'বাংলা (Bangla)' : 'English';
+            const label = code === 'bn' ? 'বাংলা' : 'English';
             return (
               <ListRow
                 key={code}

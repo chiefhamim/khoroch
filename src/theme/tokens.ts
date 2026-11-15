@@ -430,15 +430,15 @@ export const lightElevation: ElevationTokens = {
   none: {},
   e1: {
     boxShadow:
-      '0 0 0 0.5px rgba(22,22,44,0.06), 0 1px 2px rgba(22,22,44,0.04), 0 8px 22px -12px rgba(22,22,44,0.18)',
+      '0 0 0 0.5px rgba(22,22,44,0.06), 0 2px 4px rgba(22,22,44,0.05), 0 10px 24px -10px rgba(22,22,44,0.20)',
   },
   e2: {
     boxShadow:
-      '0 0 0 0.5px rgba(22,22,44,0.07), 0 2px 5px rgba(22,22,44,0.06), 0 14px 30px -14px rgba(22,22,44,0.28)',
+      '0 0 0 0.5px rgba(22,22,44,0.08), 0 4px 8px rgba(22,22,44,0.07), 0 18px 36px -12px rgba(22,22,44,0.28)',
   },
   e3: {
     boxShadow:
-      '0 0 0 0.5px rgba(22,22,44,0.08), 0 6px 14px rgba(22,22,44,0.08), 0 26px 52px -18px rgba(22,22,44,0.38)',
+      '0 0 0 0.5px rgba(22,22,44,0.10), 0 8px 18px rgba(22,22,44,0.10), 0 28px 56px -16px rgba(22,22,44,0.38)',
   },
 };
 
@@ -446,15 +446,15 @@ export const darkElevation: ElevationTokens = {
   none: {},
   e1: {
     boxShadow:
-      '0 0 0 0.5px rgba(255,255,255,0.08), 0 1px 2px rgba(0,0,0,0.45), 0 10px 24px -12px rgba(0,0,0,0.70)',
+      '0 0 0 1px rgba(255,255,255,0.08), 0 2px 6px rgba(0,0,0,0.48), 0 12px 26px -10px rgba(0,0,0,0.74)',
   },
   e2: {
     boxShadow:
-      '0 0 0 0.5px rgba(255,255,255,0.10), 0 2px 5px rgba(0,0,0,0.50), 0 16px 32px -14px rgba(0,0,0,0.80)',
+      '0 0 0 1px rgba(255,255,255,0.11), 0 4px 10px rgba(0,0,0,0.54), 0 18px 36px -12px rgba(0,0,0,0.82)',
   },
   e3: {
     boxShadow:
-      '0 0 0 0.5px rgba(255,255,255,0.12), 0 6px 14px rgba(0,0,0,0.50), 0 28px 56px -18px rgba(0,0,0,0.85)',
+      '0 0 0 1px rgba(255,255,255,0.13), 0 8px 18px rgba(0,0,0,0.56), 0 30px 60px -16px rgba(0,0,0,0.88)',
   },
 };
 

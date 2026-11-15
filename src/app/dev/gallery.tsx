@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { isDevVariant } from '@/config/appVariant';
@@ -27,6 +27,7 @@ import { IconTile } from '@/ui/IconTile';
 import { Keypad } from '@/ui/Keypad';
 import { ListRow } from '@/ui/ListRow';
 import { Money } from '@/ui/Money';
+import { PillSwitch } from '@/ui/PillSwitch';
 import { ProgressBar } from '@/ui/ProgressBar';
 import { ProgressRing } from '@/ui/ProgressRing';
 import { SegmentedControl } from '@/ui/SegmentedControl';
@@ -385,7 +386,7 @@ function GalleryBody({
             <SettingsRow
               icon="bell"
               label="Daily check-in"
-              trailing={<Switch value={switchVal} onValueChange={setSwitchVal} />}
+              trailing={<PillSwitch value={switchVal} onValueChange={setSwitchVal} />}
             />
           </SettingsGroup>
         </View>

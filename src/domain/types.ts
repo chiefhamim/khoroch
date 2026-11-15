@@ -388,6 +388,7 @@ export interface Settings {
   hideAmountsOnOpen: boolean;
   showPoisha: boolean;
   compactNumbers: boolean;
+  hapticsEnabled: boolean;
   weekStartsOn: WeekStartDay;
   homeSections: HomeSectionConfig[];
   appLockEnabled: boolean;

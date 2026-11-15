@@ -2,8 +2,18 @@ import { Platform } from 'react-native';
 
 type HapticsMod = typeof import('expo-haptics');
 
+let hapticsEnabled = true;
+
+export function setHapticsEnabled(enabled: boolean): void {
+  hapticsEnabled = enabled;
+}
+
+export function isHapticsEnabled(): boolean {
+  return hapticsEnabled;
+}
+
 function getHaptics(): HapticsMod | null {
-  if (Platform.OS === 'web') return null;
+  if (!hapticsEnabled || Platform.OS === 'web') return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     return require('expo-haptics') as HapticsMod;

@@ -5,6 +5,7 @@ import { DEFAULT_SETTINGS } from '@/data/repo';
 import { buildDefaultCategories } from '@/domain/categories';
 import { formatWeekdayShortDate, todayLocalDate } from '@/domain/dates';
 import { setLocale } from '@/i18n';
+import { toBnDigits } from '@/i18n/displayText';
 import { AppContext } from '@/state/AppContext';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { ToastProvider } from '@/ui/Toast';
@@ -111,8 +112,8 @@ describe('CheckInScreen', () => {
       const view = await renderCheckIn(repo);
       await waitFor(() => expect(view.getByTestId('check-in-done-btn')).toBeTruthy());
 
-      expect(view.getByText(formatWeekdayShortDate(today, 'bn'))).toBeTruthy();
-      expect(view.getByTestId('check-in-tx-count').props.children).toBe(0);
+      expect(view.getByText(toBnDigits(formatWeekdayShortDate(today, 'bn')))).toBeTruthy();
+      expect(view.getByTestId('check-in-tx-count').props.children).toBe('০');
 
       await fireEvent.press(view.getByTestId('check-in-done-btn'));
 

@@ -98,7 +98,15 @@ export function Surface({
   const resolvedPadding = padding ?? (padded ? theme.geometry.cardPadding : 0);
   const resolvedRadius = radiusOverride ?? theme.radius.card;
   const { outer: outerCustom, inner: innerCustom } = splitSurfaceStyle(style);
-  const borderWidth = Number(outerCustom.borderWidth) || 0;
+  const showGlassChrome = variant === 'card' || variant === 'raised';
+  const defaultBorderWidth = showGlassChrome ? 1 : 0;
+  const borderWidth =
+    outerCustom.borderWidth !== undefined ? Number(outerCustom.borderWidth) : defaultBorderWidth;
+  const defaultBorderColor = showGlassChrome
+    ? theme.scheme === 'light'
+      ? theme.colors.cardBorder
+      : 'rgba(255, 255, 255, 0.08)'
+    : undefined;
   const innerRadius = Math.max(0, resolvedRadius - borderWidth);
 
   const outerStyle: StyleProp<ViewStyle> = [
@@ -107,6 +115,8 @@ export function Surface({
     {
       backgroundColor,
       borderRadius: resolvedRadius,
+      borderWidth: defaultBorderWidth,
+      borderColor: defaultBorderColor,
     },
     outerCustom,
   ];
@@ -120,7 +130,25 @@ export function Surface({
     innerCustom,
   ];
 
-  const wrappedChildren = <View style={innerStyle}>{children}</View>;
+  const wrappedChildren = (
+    <View style={innerStyle}>
+      {showGlassChrome ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.specularEdge,
+            {
+              backgroundColor:
+                theme.scheme === 'light'
+                  ? 'rgba(255, 255, 255, 0.85)'
+                  : 'rgba(255, 255, 255, 0.09)',
+            },
+          ]}
+        />
+      ) : null}
+      {children}
+    </View>
+  );
 
   const entering =
     enterIndex !== undefined ? staggerEnter(enterIndex, reducedMotion) : undefined;
@@ -172,5 +200,12 @@ const styles = StyleSheet.create({
   innerClip: {
     flexGrow: 1,
     overflow: 'hidden',
+  },
+  specularEdge: {
+    position: 'absolute',
+    top: 0,
+    left: 16,
+    right: 16,
+    height: 1,
   },
 });

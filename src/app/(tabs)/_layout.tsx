@@ -89,7 +89,12 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
         <View
           style={[
             styles.tabPill,
-            isFocused && { backgroundColor: theme.colors.accentSoft },
+            {
+              borderRadius: 999,
+              backgroundColor: isFocused ? theme.colors.accentSoft : "transparent",
+              borderWidth: isFocused ? 1 : 0,
+              borderColor: isFocused ? theme.colors.cardBorder : "transparent",
+            },
           ]}
         >
           <TabIcon
@@ -243,9 +248,10 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   tabPill: {
-    width: 48,
-    height: 28,
-    borderRadius: 12,
+    width: 58,
+    height: 32,
+    borderRadius: 999,
+    overflow: "hidden",
     alignItems: "center",
     justifyContent: "center",
   },

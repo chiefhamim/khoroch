@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import * as Crypto from 'expo-crypto';
 import { useRouter } from 'expo-router';
 import {
@@ -22,6 +22,7 @@ import { Field } from '@/ui/Field';
 import { hapticLight, hapticSelection, hapticSuccess } from '@/ui/haptics';
 import { IconButton } from '@/ui/IconButton';
 import { IconTile } from '@/ui/IconTile';
+import { PillSwitch } from '@/ui/PillSwitch';
 import { Screen } from '@/ui/Screen';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Sheet } from '@/ui/Sheet';
@@ -482,11 +483,9 @@ export default function CategoriesScreen() {
           <AppText variant="body" style={styles.toggleLabel}>
             {t('categories.quickChipToggle')}
           </AppText>
-          <Switch
+          <PillSwitch
             value={isSelectedInput}
             onValueChange={setIsSelectedInput}
-            trackColor={{ false: theme.colors.surfaceSunken, true: theme.colors.accent }}
-            thumbColor="#ffffff"
           />
         </View>
       </Sheet>

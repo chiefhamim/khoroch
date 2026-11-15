@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Text, type StyleProp, type TextStyle } from 'react-native';
+import { Text, View, type StyleProp, type TextStyle } from 'react-native';
 import {
   getCompactNumberPart,
   getCurrencySymbol,
@@ -9,6 +9,7 @@ import {
 } from '@/domain/money';
 import type { CurrencyCode } from '@/domain/types';
 import { useLocale } from '@/i18n';
+import { toBnDigits } from '@/i18n/displayText';
 import { usePrivacyStore } from '@/state/privacyStore';
 import {
   containsBengali,
@@ -57,8 +58,8 @@ export function getTakaSignMetrics(numberFontSize: number): TakaSignMetrics {
     fontFamily: TAKA_FONT_FAMILY,
     fontSize: Math.max(8, Math.round(numberFontSize * 0.6)),
     opacity: 1,
-    baselineNudge: -Math.round(numberFontSize * 0.2),
-    spacerWidth: 1,
+    baselineNudge: -Math.round(numberFontSize * 0.34),
+    spacerWidth: Math.max(1, Math.round(numberFontSize * 0.06)),
   };
 }
 
@@ -69,25 +70,34 @@ interface TakaSignProps {
   testID?: string;
 }
 
-function TakaSign({ numberFontSize, symbol, color, testID }: TakaSignProps) {
+/**
+ * Nested `<Text>` spans ignore `top`/`transform` on Android, so the sign lives in an inline
+ * `<View>` (supported inside Text on Fabric) that is translated upward into a true superscript.
+ */
+export function TakaSign({ numberFontSize, symbol, color, testID }: TakaSignProps) {
   const metrics = getTakaSignMetrics(numberFontSize);
 
   return (
-    <Text
-      testID={testID}
+    <View
       style={{
-        fontFamily: metrics.fontFamily,
-        fontSize: metrics.fontSize,
-        opacity: metrics.opacity,
-        color,
-        position: 'relative',
-        top: metrics.baselineNudge,
+        transform: [{ translateY: metrics.baselineNudge }],
         marginRight: metrics.spacerWidth,
-        includeFontPadding: false,
       }}
     >
-      {symbol}
-    </Text>
+      <Text
+        testID={testID}
+        style={{
+          fontFamily: metrics.fontFamily,
+          fontSize: metrics.fontSize,
+          lineHeight: Math.round(metrics.fontSize * 1.2),
+          opacity: metrics.opacity,
+          color,
+          includeFontPadding: false,
+        }}
+      >
+        {symbol}
+      </Text>
+    </View>
   );
 }
 
@@ -276,6 +286,16 @@ export function Money({
           fontVariant: ['tabular-nums'],
         },
         style,
+        locale === 'bn'
+          ? {
+              fontFamily: mapFontToBangla(
+                flattened.fontFamily ?? typeStyle.fontFamily,
+                flattened.fontWeight
+              ),
+              fontWeight: undefined,
+              letterSpacing: 0,
+            }
+          : null,
       ]}
     >
       {resolvedSign ? (
@@ -295,7 +315,7 @@ export function Money({
         symbol={symbol}
         color={resolvedSymbolColor}
       />
-      {numberPart}
+      {locale === 'bn' ? toBnDigits(numberPart) : numberPart}
     </Text>
   );
 }

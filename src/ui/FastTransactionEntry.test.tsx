@@ -5,6 +5,7 @@ import { buildDefaultCategories } from '@/domain/categories';
 import { formatMonthYear, formatShortDate, parseLocalDate, todayLocalDate } from '@/domain/dates';
 import type { Account, Transaction } from '@/domain/types';
 import { setLocale } from '@/i18n';
+import { toBnDigits } from '@/i18n/displayText';
 import { mapFontToBangla } from '@/theme/tokens';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { buildDescriptionSuggestions, FastTransactionEntry } from './FastTransactionEntry';
@@ -160,8 +161,8 @@ describe('FastTransactionEntry', () => {
       await fireEvent.press(view.getByTestId('fast-when'));
       const today = todayLocalDate();
       const { year, month } = parseLocalDate(today);
-      expect(view.getByText(formatMonthYear(year, month, 'bn'))).toBeTruthy();
-      expect(view.getByText(formatShortDate(today, 'bn'))).toBeTruthy();
+      expect(view.getByText(toBnDigits(formatMonthYear(year, month, 'bn')))).toBeTruthy();
+      expect(view.getByText(toBnDigits(formatShortDate(today, 'bn')))).toBeTruthy();
       expect(view.getByText('মঙ্গল')).toBeTruthy();
       expect(view.getByText('বৃহঃ')).toBeTruthy();
     } finally {

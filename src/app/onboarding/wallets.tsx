@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
   formatAccountBalance,
@@ -17,6 +17,7 @@ import { Field } from '@/ui/Field';
 import { hapticSelection } from '@/ui/haptics';
 import { Money } from '@/ui/Money';
 import { OnboardingHeader } from '@/ui/OnboardingHeader';
+import { PillSwitch } from '@/ui/PillSwitch';
 import { PressableScale } from '@/ui/PressableScale';
 import { Screen } from '@/ui/Screen';
 import { Surface } from '@/ui/Surface';
@@ -268,17 +269,12 @@ export default function OnboardingWalletsScreen() {
                       <AppText variant="label" color="textSecondary" style={styles.flex1}>
                         {t('onboarding.walletsAmountDueToggle')}
                       </AppText>
-                      <Switch
+                      <PillSwitch
                         testID={`onboarding-wallet-due-${draft.presetKey}`}
                         value={draft.isDueNegative}
                         onValueChange={(isDueNegative) =>
                           updateWalletDraft(draft.presetKey, { isDueNegative })
                         }
-                        trackColor={{
-                          false: theme.colors.surfaceSunken,
-                          true: theme.colors.accent,
-                        }}
-                        thumbColor="#ffffff"
                       />
                     </View>
                   ) : null}

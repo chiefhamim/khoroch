@@ -109,6 +109,7 @@ export function BudgetStatusBadge({
           paddingVertical: theme.spacing.xs,
           gap: theme.spacing.xs,
         },
+        isHero && styles.heroBadge,
       ]}
     >
       <AppIcon name={cfg.icon} size={14} color={fgColor} />
@@ -139,5 +140,14 @@ const styles = StyleSheet.create({
   },
   heroText: {
     flexShrink: 0,
+  },
+  heroBadge: {
+    height: 34,
+    alignSelf: 'center',
+    paddingHorizontal: 11,
+    paddingVertical: 0,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
   },
 });

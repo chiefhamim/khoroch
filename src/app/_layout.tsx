@@ -35,6 +35,7 @@ import { bumpDataVersion } from "@/state/dataVersion";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { useTheme } from "@/theme/useTheme";
 import { ErrorState } from "@/ui/ErrorState";
+import { setHapticsEnabled } from "@/ui/haptics";
 import { Screen } from "@/ui/Screen";
 import { ToastProvider } from "@/ui/Toast";
 
@@ -147,6 +148,7 @@ export default function RootLayout() {
         const settings = await repo.getSettings();
         if (!cancelled) {
           setLocale(normalizeAppLanguage(settings.language));
+          setHapticsEnabled(settings.hapticsEnabled !== false);
           setRepoState({ repo, backend, settings });
           if (
             settings.onboardingDone &&
@@ -187,6 +189,7 @@ export default function RootLayout() {
     if (!repoState) return;
     const latest = await repoState.repo.getSettings();
     setLocale(normalizeAppLanguage(latest.language));
+    setHapticsEnabled(latest.hapticsEnabled !== false);
     setRepoState((prev) => (prev ? { ...prev, settings: latest } : null));
   }, [repoState]);
 
@@ -196,9 +199,13 @@ export default function RootLayout() {
       if (key === "language") {
         setLocale(normalizeAppLanguage(value));
       }
+      if (key === "hapticsEnabled") {
+        setHapticsEnabled(value !== false);
+      }
       await repoState.repo.setSetting(key, value);
       const latest = await repoState.repo.getSettings();
       setLocale(normalizeAppLanguage(latest.language));
+      setHapticsEnabled(latest.hapticsEnabled !== false);
       setRepoState((prev) => (prev ? { ...prev, settings: latest } : null));
       bumpDataVersion();
     },

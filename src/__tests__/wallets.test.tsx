@@ -160,11 +160,11 @@ describe('ManageWalletsScreen and WalletEditorSheet', () => {
     const view = await renderWalletsScreen(repo);
 
     await waitFor(() => {
-      expect(view.getByText('Cash')).toBeTruthy();
+      expect(view.getByText('ক্যাশ')).toBeTruthy();
     });
 
-    expect(view.getByText('শেষ ৪ সংখ্যা 4821')).toBeTruthy();
-    const dueBalEl = view.getByText('৳5,600 বকেয়া');
+    expect(view.getByText('শেষ ৪ সংখ্যা ৪৮২১')).toBeTruthy();
+    const dueBalEl = view.getByText('৳৫,৬০০ বকেয়া');
     expect(dueBalEl).toBeTruthy();
     expect(StyleSheet.flatten(dueBalEl.props.style)?.minWidth).toBeGreaterThan(0);
 
@@ -183,7 +183,7 @@ describe('ManageWalletsScreen and WalletEditorSheet', () => {
     expect(view.getByText('নগদ')).toBeTruthy();
     expect(view.getByText('মোবাইল')).toBeTruthy();
     expect(view.getByText('ব্যাংক')).toBeTruthy();
-    expect(view.getByText('কার্ড')).toBeTruthy();
+    expect(view.getAllByText('কার্ড').length).toBeGreaterThanOrEqual(1);
     expect(view.getByText('অন্যান্য')).toBeTruthy();
     expect(view.getByText('বকেয়া আছে (−)')).toBeTruthy();
 

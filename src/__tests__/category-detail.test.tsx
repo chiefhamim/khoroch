@@ -130,18 +130,18 @@ describe('CategoryPeriodScreen', () => {
     const view = await renderCategoryScreen(repo);
 
     await waitFor(() => {
-      expect(view.getByText('Monthly bazar')).toBeTruthy();
+      expect(view.getByText('মাসিক বাজার')).toBeTruthy();
     });
 
-    const rangeEl = view.getByText('1 নভে – 30 নভে');
+    const rangeEl = view.getByText('১ নভে – ৩০ নভে');
     expect(rangeEl).toBeTruthy();
     expect(StyleSheet.flatten(rangeEl.props.style)?.minWidth).toBeGreaterThan(0);
 
-    const countEl = view.getByText('1টি খরচ');
+    const countEl = view.getByText('১টি খরচ');
     expect(countEl).toBeTruthy();
     expect(StyleSheet.flatten(countEl.props.style)?.minWidth).toBeGreaterThan(0);
 
-    expect(view.getByText(/11 নভে/)).toBeTruthy();
+    expect(view.getByText(/১১ নভে/)).toBeTruthy();
 
     mockCanGoBack = false;
     await fireEvent.press(view.getByTestId('category-detail-back'));

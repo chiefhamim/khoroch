@@ -18,7 +18,7 @@ export interface HeroCardProps {
 }
 
 /**
- * Solid-filled raised hero card (`e2` elevation, zero gradients/glass).
+ * Raised hero card with `e2` depth and subtle glass rim/specular accents.
  */
 export function HeroCard({
   children,
@@ -36,10 +36,32 @@ export function HeroCard({
     {
       backgroundColor: theme.colors.hero,
       borderRadius: theme.radius.heroCard,
+      borderWidth: 1,
+      borderColor: 'rgba(255, 255, 255, 0.16)',
       padding: theme.spacing.xl,
     },
     style,
   ];
+
+  const glassOverlays = (
+    <>
+      <View
+        pointerEvents="none"
+        style={[
+          styles.ambientOrbTopRight,
+          { backgroundColor: 'rgba(255, 255, 255, 0.06)' },
+        ]}
+      />
+      <View
+        pointerEvents="none"
+        style={[
+          styles.ambientOrbBottomLeft,
+          { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+        ]}
+      />
+      <View pointerEvents="none" style={styles.specularTop} />
+    </>
+  );
 
   if (onPress) {
     return (
@@ -55,6 +77,7 @@ export function HeroCard({
           { opacity: pressed && !reducedMotion ? 0.94 : 1 },
         ]}
       >
+        {glassOverlays}
         {children}
       </PressableScale>
     );
@@ -62,6 +85,7 @@ export function HeroCard({
 
   return (
     <View testID={testID} style={cardStyle}>
+      {glassOverlays}
       {children}
     </View>
   );
@@ -118,6 +142,31 @@ export function HeroProgressBar({ pct }: HeroProgressBarProps) {
 const styles = StyleSheet.create({
   card: {
     width: '100%',
+    overflow: 'hidden',
+  },
+  specularTop: {
+    position: 'absolute',
+    top: 0,
+    left: 20,
+    right: 20,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  ambientOrbTopRight: {
+    position: 'absolute',
+    top: -48,
+    right: -36,
+    width: 150,
+    height: 150,
+    borderRadius: 999,
+  },
+  ambientOrbBottomLeft: {
+    position: 'absolute',
+    bottom: -64,
+    left: -48,
+    width: 140,
+    height: 140,
+    borderRadius: 999,
   },
   barTrack: {
     width: '100%',

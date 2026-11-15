@@ -138,6 +138,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hideAmountsOnOpen: false,
   showPoisha: false,
   compactNumbers: false,
+  hapticsEnabled: true,
   weekStartsOn: 'saturday',
   homeSections: cloneDefaultHomeSections(),
   appLockEnabled: false,

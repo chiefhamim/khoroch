@@ -958,10 +958,11 @@ function LegacyTransactionForm({
                 color="textSecondary"
                 style={{
                   fontSize: symbolFontSize,
-                  lineHeight: Math.round(amountLineHeight * 0.72),
+                  lineHeight: Math.round(symbolFontSize * 1.15),
+                  marginTop: Math.max(3, Math.round(amountFontSize * 0.1)),
                   fontFamily: TAKA_FONT_FAMILY,
-                  opacity: symbol === '৳' ? 0.8 : 1,
-                  marginRight: 4,
+                  opacity: symbol === '৳' ? 0.85 : 1,
+                  marginRight: 3,
                 }}
               >
                 {symbol}
@@ -1528,7 +1529,7 @@ const styles = StyleSheet.create({
   },
   heroAmountRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'flex-start',
     justifyContent: 'center',
   },
   addNoteBtn: {

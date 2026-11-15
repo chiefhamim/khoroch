@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Switch, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { formatFriendlyTime } from '@/domain/dates';
 import { ALL_REMINDER_DAYS, SUN_THU_REMINDER_DAYS } from '@/domain/types';
@@ -17,6 +17,7 @@ import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
 import { DayToggles } from '@/ui/DayToggles';
 import { OnboardingHeader } from '@/ui/OnboardingHeader';
+import { PillSwitch } from '@/ui/PillSwitch';
 import { Screen } from '@/ui/Screen';
 import { SettingsRow } from '@/ui/SettingsRow';
 import { Surface } from '@/ui/Surface';
@@ -132,13 +133,11 @@ export default function OnboardingReminderScreen() {
             subtitle={t('onboarding.reminderExplain')}
             value={reminderEnabled ? t('common.on') : t('common.off')}
             trailing={
-              <Switch
+              <PillSwitch
                 testID="onboarding-reminder-switch"
                 accessibilityLabel={t('onboarding.reminderEnable')}
                 value={reminderEnabled}
                 onValueChange={setReminderEnabled}
-                trackColor={{ false: theme.colors.surfaceSunken, true: theme.colors.accent }}
-                thumbColor="#ffffff"
               />
             }
           />

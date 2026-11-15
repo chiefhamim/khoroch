@@ -18,6 +18,8 @@ import { IconButton } from './IconButton';
 import { IconTile } from './IconTile';
 import { applyKeypadKey, Keypad } from './Keypad';
 import { Money } from './Money';
+import { PillSwitch } from './PillSwitch';
+import { isHapticsEnabled, setHapticsEnabled } from './haptics';
 import { ProgressBar } from './ProgressBar';
 import { ProgressRing } from './ProgressRing';
 import { SettingsGroup } from './SettingsGroup';
@@ -296,9 +298,9 @@ describe('v2 design system components', () => {
         estimateSingleLineMinWidth('এই মাস', 13)
       );
 
-      const dfText = view.getByText('বুধ, 11 নভে');
+      const dfText = view.getByText('বুধ, ১১ নভে');
       expect(StyleSheet.flatten(dfText.props.style).minWidth).toBe(
-        estimateSingleLineMinWidth('বুধ, 11 নভে', 13)
+        estimateSingleLineMinWidth('বুধ, ১১ নভে', 13)
       );
 
       await view.rerender(
@@ -370,7 +372,7 @@ describe('v2 design system components', () => {
       expect(transferSaveMinWidth).toBeGreaterThanOrEqual(140 * scale);
       expect(transferSaveMinWidth).toBeLessThanOrEqual(170 * scale);
 
-      const confirmSaveText = view.getByText('নিশ্চিত ও সেভ করুন (2)');
+      const confirmSaveText = view.getByText('নিশ্চিত ও সেভ করুন (২)');
       const confirmSaveMinWidth = StyleSheet.flatten(confirmSaveText.props.style)
         .minWidth as number;
       expect(confirmSaveMinWidth).toBeGreaterThanOrEqual(170 * scale);
@@ -458,5 +460,29 @@ describe('v2 design system components', () => {
         setLocale('en');
       });
     }
+  });
+
+  it('renders PillSwitch as a full stadium switch supporting press/valueChange and haptics flag gating', async () => {
+    const onChange = jest.fn();
+    const view = await render(
+      <ThemeProvider preference="light">
+        <PillSwitch testID="pill-sw" value={false} onValueChange={onChange} />
+      </ThemeProvider>
+    );
+
+    const sw = view.getByTestId('pill-sw');
+    expect(sw.props.accessibilityRole).toBe('switch');
+    expect(sw.props.accessibilityState?.checked).toBe(false);
+
+    await fireEvent.press(sw);
+    expect(onChange).toHaveBeenCalledWith(true);
+
+    fireEvent(sw, 'valueChange', true);
+    expect(onChange).toHaveBeenCalledTimes(2);
+
+    setHapticsEnabled(false);
+    expect(isHapticsEnabled()).toBe(false);
+    setHapticsEnabled(true);
+    expect(isHapticsEnabled()).toBe(true);
   });
 });

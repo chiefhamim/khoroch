@@ -143,7 +143,7 @@ describe('QuickEntryScreen', () => {
 
       expect(view.getByTestId('quick-draft-0')).toBeTruthy();
       expect(view.getByTestId('quick-draft-1')).toBeTruthy();
-      expect(view.getByText('নিশ্চিত ও সেভ করুন (2)')).toBeTruthy();
+      expect(view.getByText('নিশ্চিত ও সেভ করুন (২)')).toBeTruthy();
     } finally {
       await act(async () => {
         setLocale('en');

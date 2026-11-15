@@ -1,7 +1,7 @@
 export const en = {
   // App Brand
   'app.name': 'Khoroch',
-  'app.tagline': 'Khoroch · খরচ',
+  'app.tagline': 'Khoroch',
 
   // Navigation & Tabs
   'tabs.overview': 'Home',
@@ -146,7 +146,7 @@ export const en = {
   'onboarding.chap5': '5 · Habit',
   'onboarding.chap6': '6 · Wallets',
   'onboarding.chap7': '7 · Ready',
-  'onboarding.overline1': 'KHOROCH · খরচ NOTEBOOK',
+  'onboarding.overline1': 'KHOROCH · NOTEBOOK',
   'onboarding.overline2': 'STEP 2 OF 7 · REGISTER SETUP',
   'onboarding.overline3': 'STEP 3 OF 7 · SPENDING ENVELOPE',
   'onboarding.overline4': 'STEP 4 OF 7 · CATEGORIES',
@@ -303,6 +303,8 @@ export const en = {
   'settings.themeBlack': 'Black',
   'settings.accentLabel': 'Colour',
   'settings.modeLabel': 'Mode',
+  'settings.hapticsLabel': 'Haptic feedback',
+  'settings.hapticsSubtitle': 'Subtle vibration on taps and keypad presses',
   'settings.accentForest': 'Forest',
   'settings.accentOcean': 'Ocean',
   'settings.accentPlum': 'Plum',
@@ -824,8 +826,8 @@ export const en = {
   'people.colorLabel': 'Color',
   'people.honorificLabel': 'Reminder greeting',
   'people.honorificNone': 'Plain',
-  'people.honorificBhai': 'ভাই',
-  'people.honorificApu': 'আপু',
+  'people.honorificBhai': 'Bhai',
+  'people.honorificApu': 'Apu',
   'people.entriesTitle': 'Entries',
   'people.entriesEmpty': 'No entries with {name} yet.',
   'people.settleUpCta': 'Settle up',
