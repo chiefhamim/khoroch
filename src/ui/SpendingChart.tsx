@@ -237,7 +237,7 @@ export function SpendingChart({
   const count = Math.max(1, bars.length);
   const slotWidth = plotWidth / count;
   const gapRatio = count > 14 ? 0.34 : 0.4;
-  const barWidth = Math.min(20, Math.max(3, Math.floor(slotWidth * (1 - gapRatio))));
+  const barWidth = Math.min(12, Math.max(3, Math.floor(slotWidth * (1 - gapRatio))));
 
   return (
     <Surface style={{ gap: theme.spacing.sm }}>
@@ -294,6 +294,18 @@ export function SpendingChart({
           accessibilityRole="image"
           accessibilityLabel={chartSummaryLabel}
         >
+          {[0.5, 1].map((level) => (
+            <Line
+              key={`grid-${level}`}
+              x1={0}
+              y1={TOP_PAD + PLOT_HEIGHT * (1 - level)}
+              x2={plotWidth}
+              y2={TOP_PAD + PLOT_HEIGHT * (1 - level)}
+              stroke={theme.colors.separator}
+              strokeOpacity={0.55}
+              strokeWidth={StyleSheet.hairlineWidth}
+            />
+          ))}
           <Line
             x1={0}
             y1={TOP_PAD + PLOT_HEIGHT}
@@ -306,7 +318,8 @@ export function SpendingChart({
             const xCenter = idx * slotWidth + slotWidth / 2;
             const x = xCenter - barWidth / 2;
             const hasSpend = bar.spentMinor > 0;
-            const rawH = maxMinor > 0 ? (bar.spentMinor / maxMinor) * PLOT_HEIGHT : 0;
+            // Gentle curve so one large day does not flatten every other bar; tap a bar for exact amounts.
+            const rawH = maxMinor > 0 ? Math.pow(bar.spentMinor / maxMinor, 0.65) * PLOT_HEIGHT : 0;
             const barH = hasSpend ? Math.max(5, rawH) : 0;
             const y = TOP_PAD + PLOT_HEIGHT - barH;
             const isSelected = selectedIndex === idx;
@@ -318,7 +331,7 @@ export function SpendingChart({
                   : 0.25
                 : bar.isCurrent
                   ? 1
-                  : 0.35;
+                  : 0.5;
 
             return (
               <React.Fragment key={bar.key}>
@@ -328,11 +341,20 @@ export function SpendingChart({
                     y={y}
                     width={barWidth}
                     height={barH}
-                    rx={Math.min(5, barWidth / 2)}
+                    rx={barWidth / 2}
                     fill={fill}
                     fillOpacity={fillOpacity}
                   />
-                ) : null}
+                ) : (
+                  <Rect
+                    x={xCenter - Math.min(barWidth, 6) / 2}
+                    y={TOP_PAD + PLOT_HEIGHT - Math.min(barWidth, 6)}
+                    width={Math.min(barWidth, 6)}
+                    height={Math.min(barWidth, 6)}
+                    rx={Math.min(barWidth, 6) / 2}
+                    fill={theme.colors.separator}
+                  />
+                )}
                 {bar.axisLabel ? (
                   <SvgText
                     x={

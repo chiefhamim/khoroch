@@ -247,7 +247,7 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
     );
   });
 
-  it('uses the in-app date and time sheets', async () => {
+  it('keeps an entry without a time blank when editing, and saves the same date', async () => {
     const onSubmit = jest.fn(async () => {});
 
     const view = await render(
@@ -269,25 +269,14 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
       </ThemeProvider>
     );
 
-    // Edit mode preserves null occurredTime and displays 'Add time'
-    expect(view.getByText('Add time')).toBeTruthy();
-
-    await fireEvent.press(view.getByTestId('tx-date-field'));
-    expect(view.getByTestId('datetime-done')).toBeTruthy();
-    await fireEvent.press(view.getByTestId('datetime-done'));
-
-    await fireEvent.press(view.getByTestId('tx-time-field'));
-    await fireEvent.press(view.getByLabelText('PM'));
-    await fireEvent.press(view.getByLabelText('6'));
-    await fireEvent.press(view.getByLabelText('00'));
-    await fireEvent.press(view.getByTestId('datetime-done'));
-
-    await fireEvent.press(view.getByTestId('save-tx-button'));
+    await fireEvent.press(view.getByTestId('fast-save'));
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     expect(onSubmit).toHaveBeenCalledWith(
       expect.objectContaining({
         occurredOn: '2026-11-10',
-        occurredTime: '18:00',
+        occurredTime: null,
+        amountMinor: 50_000,
+        categoryId: 'utilities',
       })
     );
   });
@@ -325,10 +314,7 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
 
     await waitFor(() => expect(view.getByTestId('tx-delete-button')).toBeTruthy());
 
-    // Simulate opening the keyboard while editing description — Delete must remain visible in the sticky dock.
-    await fireEvent(view.getByTestId('description-input'), 'focus');
-    expect(view.getByTestId('tx-delete-button')).toBeTruthy();
-
+    // The unified edit screen keeps Delete in its footer.
     // Direct Delete button -> Confirm Delete
     await fireEvent.press(view.getByTestId('tx-delete-button'));
     expect(view.getByTestId('tx-delete-confirm-sheet')).toBeTruthy();

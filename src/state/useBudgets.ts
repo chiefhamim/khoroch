@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   categoryBudgetStatus,
+  spendByCategory,
   summarize,
   summarizeBudgetAllocation,
   type BudgetAllocationSummary,
   type CategoryBudgetItem,
+  type CategorySpend,
   type PeriodSummary,
 } from '@/domain/calc';
 import { todayLocalDate } from '@/domain/dates';
@@ -27,6 +29,7 @@ export interface UseBudgetsResult {
   overallBudgetMinor: number | null;
   overallSummary: PeriodSummary;
   categoryBudgets: CategoryBudgetItem[];
+  spendRanking: CategorySpend[];
   allocation: BudgetAllocationSummary;
   history: HistoricalPeriodBudget[];
   categories: Category[];
@@ -131,6 +134,14 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
     });
   }, [transactions, currentBudgets, period, currency]);
 
+  const spendRanking = useMemo(
+    () =>
+      spendByCategory(transactions, period, currency)
+        .filter((row) => row.spentMinor > 0)
+        .sort((a, b) => b.spentMinor - a.spentMinor),
+    [transactions, period, currency]
+  );
+
   const allocation = useMemo(
     () => summarizeBudgetAllocation(overallBudgetMinor, categoryBudgets),
     [overallBudgetMinor, categoryBudgets]
@@ -202,6 +213,7 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
     overallBudgetMinor,
     overallSummary,
     categoryBudgets,
+    spendRanking,
     allocation,
     history,
     categories,

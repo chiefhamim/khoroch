@@ -110,10 +110,10 @@ export const spacing = {
 
 export const geometry = {
   screenMargin: 16,
-  cardPadding: 18,
-  listRowHeight: 62,
+  cardPadding: 16,
+  listRowHeight: 56,
   iconTile: 38,
-  sectionGap: 24,
+  sectionGap: 20,
   cardGap: 12,
   progressBarHeight: 6,
   buttonHeight: 50,
@@ -154,9 +154,9 @@ export const motion = {
 
 export const typography = {
   hero: {
-    fontSize: 40,
-    lineHeight: 44,
-    letterSpacing: -1.4,
+    fontSize: 36,
+    lineHeight: 40,
+    letterSpacing: -1.2,
     fontFamily: 'Manrope_700Bold',
   },
   display: {
@@ -339,11 +339,11 @@ export const ACCENT_DEFINITIONS: Record<AccentTheme, AccentDefinition> = {
       accent: '#232632',
       onAccent: '#FFFFFF',
       accentSoft: '#E8EAF0',
-      hero: '#171922',
-      heroText: '#F3F6F4',
-      heroTextSecondary: '#C2CDC7',
-      heroLine: 'rgba(243, 246, 244, 0.16)',
-      heroBar: '#E6DFD3',
+      hero: '#E7EAF1',
+      heroText: '#14161D',
+      heroTextSecondary: '#555B6B',
+      heroLine: 'rgba(20, 22, 29, 0.12)',
+      heroBar: '#0B7A55',
     },
     dark: {
       accent: '#C9CDD8',

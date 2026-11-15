@@ -8,7 +8,8 @@ import {
   isDevice24HourClock,
   todayLocalDate,
 } from '@/domain/dates';
-import { parseMoneyInput } from '@/domain/money';
+import { formatMinorToDraft, parseMoneyInput } from '@/domain/money';
+import { hexToRgba } from '@/theme/categoryColors';
 import type {
   Account,
   Category,
@@ -56,6 +57,10 @@ export interface FastTransactionEntryProps {
   onClose: () => void;
   onSubmit: (values: FastEntryValues) => Promise<void>;
   onSubmitAndAddAnother?: (values: FastEntryValues) => Promise<void>;
+  /** Edit mode opens an existing entry in this same screen: Delete + Save instead of Save & next. */
+  mode?: 'new' | 'edit';
+  initialValues?: Partial<Omit<FastEntryValues, 'categoryId'>> & { categoryId?: string | null };
+  onDeletePress?: () => void;
 }
 
 interface Suggestion {
@@ -107,29 +112,42 @@ export function FastTransactionEntry({
   onClose,
   onSubmit,
   onSubmitAndAddAnother,
+  mode = 'new',
+  initialValues,
+  onDeletePress,
 }: FastTransactionEntryProps) {
   const { theme } = useTheme();
   const locale = useLocale();
   const today = todayLocalDate();
   const use24Hour = isDevice24HourClock();
 
-  const [type, setType] = useState<TransactionType>('expense');
-  const [amountText, setAmountText] = useState('');
-  const [description, setDescription] = useState('');
+  const isEdit = mode === 'edit';
+  const [type, setType] = useState<TransactionType>(initialValues?.type ?? 'expense');
+  const [amountText, setAmountText] = useState(
+    initialValues?.amountMinor ? formatMinorToDraft(initialValues.amountMinor) : ''
+  );
+  const [description, setDescription] = useState(initialValues?.description ?? '');
   const [categoryByType, setCategoryByType] = useState<Record<TransactionType, string | null>>({
-    expense: null,
-    income: null,
+    expense: initialValues?.type !== 'income' ? initialValues?.categoryId ?? null : null,
+    income: initialValues?.type === 'income' ? initialValues?.categoryId ?? null : null,
   });
   const [accountId, setAccountId] = useState<string | null>(
-    defaultAccountId && accounts.some((account) => account.id === defaultAccountId)
-      ? defaultAccountId
-      : accounts[0]?.id ?? null
+    initialValues && 'accountId' in initialValues
+      ? initialValues.accountId ?? null
+      : defaultAccountId && accounts.some((account) => account.id === defaultAccountId)
+        ? defaultAccountId
+        : accounts[0]?.id ?? null
   );
-  const [occurredOn, setOccurredOn] = useState<LocalDate>(today);
-  const [occurredTime, setOccurredTime] = useState<LocalTime>(currentLocalTime());
-  const [timeTouched, setTimeTouched] = useState(false);
-  const [noteOpen, setNoteOpen] = useState(false);
-  const [note, setNote] = useState('');
+  const [occurredOn, setOccurredOn] = useState<LocalDate>(initialValues?.occurredOn ?? today);
+  const [occurredTime, setOccurredTime] = useState<LocalTime>(
+    initialValues?.occurredTime ?? currentLocalTime()
+  );
+  // Editing an old entry that never had a time keeps it blank until a time is picked.
+  const timeUnsetAtStart = isEdit && initialValues?.occurredTime == null;
+  const [timeChosen, setTimeChosen] = useState(false);
+  const [timeTouched, setTimeTouched] = useState(isEdit);
+  const [noteOpen, setNoteOpen] = useState(Boolean(initialValues?.note));
+  const [note, setNote] = useState(initialValues?.note ?? '');
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [whenOpen, setWhenOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
@@ -174,8 +192,11 @@ export function FastTransactionEntry({
     const recent = ids
       .map((id) => typeCategories.find((c) => c.id === id))
       .filter((c): c is Category => Boolean(c));
-    return [...recent, ...typeCategories.filter((c) => !ids.includes(c.id))].slice(0, 6);
-  }, [recentTransactions, type, typeCategories]);
+    const top = [...recent, ...typeCategories.filter((c) => !ids.includes(c.id))].slice(0, 6);
+    const picked = typeCategories.find((c) => c.id === categoryByType[type]);
+    if (picked && !top.some((c) => c.id === picked.id)) top[top.length - 1] = picked;
+    return top;
+  }, [recentTransactions, type, typeCategories, categoryByType]);
 
   const suggestions = useMemo(
     () => buildDescriptionSuggestions(recentTransactions, type, categoryNames),
@@ -213,7 +234,7 @@ export function FastTransactionEntry({
         : occurredOn === addDays(today, -1)
           ? t('common.yesterday')
           : formatFriendlyDate(occurredOn, today, locale);
-    return `${day}, ${formatFriendlyTime(occurredTime, use24Hour)}`;
+    return timeUnsetAtStart && !timeChosen ? day : `${day}, ${formatFriendlyTime(occurredTime, use24Hour)}`;
   })();
 
   const descriptionFontFamily =
@@ -236,7 +257,7 @@ export function FastTransactionEntry({
       description: description.trim() || selectedCategory.name,
       note: note.trim(),
       occurredOn,
-      occurredTime,
+      occurredTime: timeUnsetAtStart && !timeChosen ? null : occurredTime,
     };
     try {
       if (keepOpen && onSubmitAndAddAnother) {
@@ -303,8 +324,12 @@ export function FastTransactionEntry({
                   styles.typeBtn,
                   {
                     borderRadius: theme.radius.pill,
-                    backgroundColor: active ? theme.colors.surfaceRaised : 'transparent',
-                    borderColor: active ? theme.colors.separator : 'transparent',
+                    backgroundColor: active
+                      ? hexToRgba(key === 'income' ? theme.colors.income : theme.colors.expense, theme.mode === 'light' ? 0.12 : 0.2)
+                      : 'transparent',
+                    borderColor: active
+                      ? hexToRgba(key === 'income' ? theme.colors.income : theme.colors.expense, 0.35)
+                      : 'transparent',
                   },
                 ]}
               >
@@ -317,7 +342,7 @@ export function FastTransactionEntry({
                   variant="label"
                   numberOfLines={1}
                   style={{
-                    color: active ? theme.colors.text : theme.colors.textTertiary,
+                    color: active ? (key === 'income' ? theme.colors.income : theme.colors.expense) : theme.colors.textTertiary,
                     fontFamily: active ? 'Manrope_700Bold' : 'Manrope_500Medium',
                     minWidth: estimateSingleLineMinWidth(typeLabel, theme.typography.label.fontSize),
                     textAlign: 'center',
@@ -588,14 +613,25 @@ export function FastTransactionEntry({
 
       {!keyboardVisible ? (
         <View style={[styles.footer, { borderTopColor: theme.colors.separator, paddingHorizontal: theme.geometry.screenMargin, gap: theme.spacing.sm }]}>
-          <Button
-            title={t('fast.saveNext')}
-            variant="secondary"
-            disabled={!canSave || !onSubmitAndAddAnother}
-            onPress={() => void submit(true)}
-            style={styles.flex}
-            testID="fast-save-next"
-          />
+          {isEdit ? (
+            <Button
+              title={t('common.delete')}
+              variant="danger"
+              leftIcon="trash-2"
+              onPress={() => onDeletePress?.()}
+              style={styles.flex}
+              testID="tx-delete-button"
+            />
+          ) : (
+            <Button
+              title={t('fast.saveNext')}
+              variant="secondary"
+              disabled={!canSave || !onSubmitAndAddAnother}
+              onPress={() => void submit(true)}
+              style={styles.flex}
+              testID="fast-save-next"
+            />
+          )}
           <Button
             title={t('common.save')}
             disabled={!canSave}
@@ -653,6 +689,7 @@ export function FastTransactionEntry({
           setOccurredOn(date);
           setOccurredTime(time);
           setTimeTouched(true);
+          setTimeChosen(true);
         }}
         onClose={() => setWhenOpen(false)}
       />

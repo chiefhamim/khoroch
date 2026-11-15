@@ -1,5 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { buildDayBook, type DayBookEntry } from '@/domain/daybook';
 import {
@@ -26,6 +32,7 @@ import { IconTile } from './IconTile';
 import { Money } from './Money';
 import { PressableScale } from './PressableScale';
 import { useTabScrollPadding } from './Screen';
+import { WalletEditorSheet } from './WalletEditorSheet';
 
 const WEEKDAY_SHORT: Record<Locale, readonly string[]> = {
   en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
@@ -46,6 +53,27 @@ function longDate(date: LocalDate, locale: Locale): string {
   return `${WEEKDAY_SHORT[locale][weekdayIndex(date)]}, ${day} ${MONTH_SHORT[locale][month - 1]} ${year}`;
 }
 
+/** Slides and fades the day's content in from the side you navigated toward. */
+function DayTransition({ day, children }: { day: LocalDate; children: React.ReactNode }) {
+  const { reducedMotion } = useTheme();
+  const previous = useRef(day);
+  const progress = useSharedValue(1);
+  const direction = useSharedValue(1);
+  useEffect(() => {
+    if (previous.current === day) return;
+    direction.set(day > previous.current ? 1 : -1);
+    previous.current = day;
+    if (reducedMotion) return;
+    progress.set(0);
+    progress.set(withTiming(1, { duration: 280, easing: Easing.bezier(0.22, 1, 0.36, 1) }));
+  }, [day, reducedMotion, progress, direction]);
+  const style = useAnimatedStyle(() => ({
+    opacity: 0.25 + 0.75 * progress.get(),
+    transform: [{ translateX: (1 - progress.get()) * 28 * direction.get() }],
+  }));
+  return <Animated.View style={[style, { gap: 14 }]}>{children}</Animated.View>;
+}
+
 export function DayBookView({ header }: { header: React.ReactNode }) {
   const { theme } = useTheme();
   const locale = useLocale();
@@ -59,6 +87,8 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
 
   const [day, setDay] = useState<LocalDate>(today);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [walletId, setWalletId] = useState<string | null>(null);
+  const [editingWalletOpen, setEditingWalletOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
 
   const { allAccounts, accountsById, transactions, transfers, dueEntries, loading } = useAccounts();
@@ -79,17 +109,36 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
 
   const categoriesById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
+  const activeWallets = useMemo(
+    () => allAccounts.filter((a) => a.archivedAt == null),
+    [allAccounts]
+  );
+  const selectedWallet = walletId ? activeWallets.find((a) => a.id === walletId) ?? null : null;
+
+  const scoped = useMemo(() => {
+    if (!selectedWallet) {
+      return { accounts: allAccounts, transactions, transfers, dues: dueEntries };
+    }
+    const id = selectedWallet.id;
+    return {
+      accounts: [selectedWallet],
+      transactions: transactions.filter((tx) => tx.accountId === id),
+      transfers: transfers.filter((tr) => tr.fromAccountId === id || tr.toAccountId === id),
+      dues: dueEntries.filter((d) => d.accountId === id),
+    };
+  }, [selectedWallet, allAccounts, transactions, transfers, dueEntries]);
+
   const book = useMemo(
     () =>
       buildDayBook({
         date: day,
-        accounts: allAccounts,
-        transactions,
-        transfers,
-        dues: dueEntries,
+        accounts: scoped.accounts,
+        transactions: scoped.transactions,
+        transfers: scoped.transfers,
+        dues: scoped.dues,
         currency: settings.currency,
       }),
-    [day, allAccounts, transactions, transfers, dueEntries, settings.currency]
+    [day, scoped, settings.currency]
   );
 
   // Days with entries, for the week strip.
@@ -422,6 +471,53 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
         })}
       </View>
 
+      {/* Wallet scope: the opening and closing balances follow the chosen wallet */}
+      {activeWallets.length > 1 ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: theme.spacing.sm, paddingHorizontal: 2 }}
+          style={{ flexGrow: 0 }}
+        >
+          {[{ id: null as string | null, name: t('daybook.allWallets') }, ...activeWallets].map((w) => {
+            const active = (w.id ?? null) === walletId;
+            return (
+              <PressableScale
+                key={w.id ?? 'all'}
+                pressScale={0.96}
+                accessibilityRole="button"
+                accessibilityLabel={w.name}
+                accessibilityState={{ selected: active }}
+                onPress={() => {
+                  hapticSelection();
+                  setWalletId(w.id);
+                }}
+                style={{
+                  paddingHorizontal: 14,
+                  minHeight: 34,
+                  justifyContent: 'center',
+                  borderRadius: theme.radius.pill,
+                  borderWidth: 1,
+                  borderColor: active ? theme.colors.accent : theme.colors.cardBorder,
+                  backgroundColor: active ? theme.colors.accent : theme.colors.surface,
+                }}
+              >
+                <AppText
+                  variant="label"
+                  style={{
+                    color: active ? theme.colors.onAccent : theme.colors.textSecondary,
+                    fontFamily: active ? 'Manrope_700Bold' : 'Manrope_500Medium',
+                  }}
+                >
+                  {w.name}
+                </AppText>
+              </PressableScale>
+            );
+          })}
+        </ScrollView>
+      ) : null}
+
+      <DayTransition day={day}>
       {/* Summary */}
       <View
         style={[
@@ -436,12 +532,25 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
         testID="daybook-summary"
       >
         <View style={styles.summaryTop}>
-          <View style={styles.flex}>
-            <AppText variant="caption" color="textTertiary">
-              {t('daybook.startedWith')}
-            </AppText>
+          <PressableScale
+            pressScale={0.97}
+            accessibilityRole="button"
+            accessibilityLabel={t('daybook.startedWith') + ': ' + t('daybook.editOpening')}
+            onPress={() => {
+              hapticSelection();
+              if (selectedWallet) setEditingWalletOpen(true);
+              else router.push('/wallets' as never);
+            }}
+            style={styles.flex}
+          >
+            <View style={styles.openingLabel}>
+              <AppText variant="caption" color="textTertiary">
+                {t('daybook.startedWith')}
+              </AppText>
+              <AppIcon name="pencil" size={11} color={theme.colors.textTertiary} />
+            </View>
             <Money amountMinor={book.openingMinor} currency={settings.currency} variant="headline" hidden={hideAmounts} />
-          </View>
+          </PressableScale>
           <AppIcon name="arrow-left-right" size={16} color={theme.colors.textTertiary} />
           <View style={[styles.flex, styles.alignEnd]}>
             <AppText variant="caption" color="textTertiary">
@@ -457,7 +566,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
             <AppText variant="caption" color="textSecondary">
               {t('daybook.in')}
             </AppText>
-            <Money amountMinor={book.inMinor} currency={settings.currency} variant="bodyStrong" hidden={hideAmounts} color="income" />
+            <Money amountMinor={book.inMinor} currency={settings.currency} variant="bodyStrong" hidden={hideAmounts} prefix={book.inMinor > 0 ? '+' : ''} color="income" />
           </View>
           <View style={[styles.stat, { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.md }]}>
             <AppIcon name="arrow-up-right" size={15} color={theme.colors.expense} />
@@ -468,6 +577,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
               amountMinor={book.outMinor}
               currency={settings.currency}
               variant="bodyStrong"
+              prefix={book.outMinor > 0 ? '−' : ''}
               color="expense"
               hidden={hideAmounts}
             />
@@ -529,6 +639,14 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
         </View>
       )}
 
+      </DayTransition>
+
+      <WalletEditorSheet
+        visible={editingWalletOpen}
+        onClose={() => setEditingWalletOpen(false)}
+        account={selectedWallet}
+      />
+
       <DateTimeSheet
         visible={pickerOpen}
         mode="date"
@@ -545,6 +663,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   alignEnd: { alignItems: 'flex-end' },
+  openingLabel: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   center: { textAlign: 'center' },
   navRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   navBtn: { width: 44, height: 44, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

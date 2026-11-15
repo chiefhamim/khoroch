@@ -825,7 +825,7 @@ export function parseAndValidateBackup(
 
   const root = asPlainObject(parsed, 'Backup');
   if (root.app !== BACKUP_APP_ID) {
-    throw new Error('This file is not a LenDen backup.');
+    throw new Error('This file is not a Khoroch backup.');
   }
   if (
     typeof root.schema !== 'number' ||
@@ -836,7 +836,7 @@ export function parseAndValidateBackup(
   }
   if (root.schema > BACKUP_SCHEMA_VERSION) {
     throw new Error(
-      `Made by a newer version (schema ${root.schema}). Update LenDen before restoring this file.`
+      `Made by a newer version (schema ${root.schema}). Update Khoroch before restoring this file.`
     );
   }
   const exportedAt =

@@ -132,20 +132,6 @@ export function Surface({
 
   const wrappedChildren = (
     <View style={innerStyle}>
-      {showGlassChrome ? (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.specularEdge,
-            {
-              backgroundColor:
-                theme.scheme === 'light'
-                  ? 'rgba(255, 255, 255, 0.85)'
-                  : 'rgba(255, 255, 255, 0.09)',
-            },
-          ]}
-        />
-      ) : null}
       {children}
     </View>
   );
@@ -201,11 +187,5 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     overflow: 'hidden',
   },
-  specularEdge: {
-    position: 'absolute',
-    top: 0,
-    left: 16,
-    right: 16,
-    height: 1,
-  },
+
 });

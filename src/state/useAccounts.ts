@@ -14,6 +14,8 @@ export interface UseAccountsResult {
   transfers: Transfer[];
   dueEntries: DueEntry[];
   untaggedCount: number;
+  /** Entries tagged to a zero-balance wallet but dated before that wallet's opening date. */
+  predated: { count: number; earliest: LocalDate | null; accountIds: string[] };
   loading: boolean;
   error: string | null;
   reload: () => void;
@@ -97,6 +99,31 @@ export function useAccounts(asOfDate?: LocalDate): UseAccountsResult {
     return count;
   }, [transactions]);
 
+  const predated = useMemo(() => {
+    const zeroOpening = new Map<string, Account>();
+    for (const acc of allAccounts) {
+      if (acc.archivedAt == null && acc.openingBalanceMinor === 0) zeroOpening.set(acc.id, acc);
+    }
+    let count = 0;
+    let earliest: LocalDate | null = null;
+    const ids = new Set<string>();
+    const note = (accountId: string | null | undefined, date: LocalDate) => {
+      const acc = accountId ? zeroOpening.get(accountId) : undefined;
+      if (!acc || date >= acc.openingDate) return;
+      count += 1;
+      ids.add(acc.id);
+      if (earliest === null || date < earliest) earliest = date;
+    };
+    for (const tx of transactions) if (tx.deletedAt == null) note(tx.accountId, tx.occurredOn);
+    for (const tr of transfers) {
+      if (tr.deletedAt != null) continue;
+      note(tr.fromAccountId, tr.occurredOn);
+      note(tr.toAccountId, tr.occurredOn);
+    }
+    for (const d of dueEntries) if (d.deletedAt == null) note(d.accountId, d.occurredOn);
+    return { count, earliest, accountIds: [...ids] };
+  }, [allAccounts, transactions, transfers, dueEntries]);
+
   const reload = useCallback(() => {
     setReloadTick((n) => n + 1);
   }, []);
@@ -110,6 +137,7 @@ export function useAccounts(asOfDate?: LocalDate): UseAccountsResult {
     transfers,
     dueEntries,
     untaggedCount,
+    predated,
     loading,
     error,
     reload,

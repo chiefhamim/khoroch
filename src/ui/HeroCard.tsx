@@ -20,6 +20,17 @@ export interface HeroCardProps {
 /**
  * Raised hero card with `e2` depth and subtle glass rim/specular accents.
  */
+/** True when the hero fill is light, so rims and orbs must be dark tints instead of white ones. */
+function isLightFill(hex: string): boolean {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.6;
+}
+
 export function HeroCard({
   children,
   onPress,
@@ -30,6 +41,8 @@ export function HeroCard({
 }: HeroCardProps) {
   const { theme, reducedMotion } = useTheme();
 
+  const light = isLightFill(theme.colors.hero);
+  const tint = light ? '20, 22, 29' : '255, 255, 255';
   const cardStyle: StyleProp<ViewStyle> = [
     styles.card,
     theme.elevation.e2,
@@ -37,7 +50,7 @@ export function HeroCard({
       backgroundColor: theme.colors.hero,
       borderRadius: theme.radius.heroCard,
       borderWidth: 1,
-      borderColor: 'rgba(255, 255, 255, 0.18)',
+      borderColor: light ? theme.colors.cardBorder : 'rgba(255, 255, 255, 0.18)',
       padding: theme.spacing.xl,
     },
     style,
@@ -49,25 +62,24 @@ export function HeroCard({
         pointerEvents="none"
         style={[
           styles.ambientOrbTopRight,
-          { backgroundColor: 'rgba(255, 255, 255, 0.075)' },
+          { backgroundColor: `rgba(${tint}, ${light ? 0.05 : 0.075})` },
         ]}
       />
       <View
         pointerEvents="none"
         style={[
           styles.ambientOrbInnerRight,
-          { backgroundColor: 'rgba(255, 255, 255, 0.045)' },
+          { backgroundColor: `rgba(${tint}, ${light ? 0.035 : 0.045})` },
         ]}
       />
       <View
         pointerEvents="none"
         style={[
           styles.ambientOrbBottomLeft,
-          { backgroundColor: 'rgba(255, 255, 255, 0.04)' },
+          { backgroundColor: `rgba(${tint}, ${light ? 0.03 : 0.04})` },
         ]}
       />
       <View pointerEvents="none" style={styles.diagonalSheen} />
-      <View pointerEvents="none" style={styles.specularTop} />
     </>
   );
 
@@ -152,14 +164,7 @@ const styles = StyleSheet.create({
     width: '100%',
     overflow: 'hidden',
   },
-  specularTop: {
-    position: 'absolute',
-    top: 0,
-    left: 18,
-    right: 18,
-    height: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.34)',
-  },
+
   diagonalSheen: {
     position: 'absolute',
     top: -68,

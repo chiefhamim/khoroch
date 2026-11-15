@@ -65,7 +65,7 @@ describe('v2 design system components', () => {
 
     const heroTaka = view.getByTestId('m-hero-taka');
     expect(StyleSheet.flatten(heroTaka.props.style).fontFamily).toBe('HindSiliguri_600SemiBold');
-    expect(StyleSheet.flatten(heroTaka.props.style).fontSize).toBe(24);
+    expect(StyleSheet.flatten(heroTaka.props.style).fontSize).toBe(22);
     expect(StyleSheet.flatten(heroTaka.props.style).opacity).toBe(1);
 
     const dec = view.getByTestId('m-dec');

@@ -21,7 +21,6 @@ import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { BudgetStatusBadge } from '@/ui/BudgetStatusBadge';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
-import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
 import { hapticLight, hapticSuccess } from '@/ui/haptics';
 import { IconTile } from '@/ui/IconTile';
@@ -66,6 +65,7 @@ export default function PlanScreen() {
     removeOverallBudget,
     setCategoryBudget,
     removeCategoryBudget,
+    spendRanking,
   } = useBudgets();
 
   const [sheetMode, setSheetMode] = useState<SheetMode | null>(null);
@@ -255,7 +255,13 @@ export default function PlanScreen() {
               testID="budget-overall-ring"
               size={196}
               strokeWidth={12}
-              pct={overallSummary.utilizationPct}
+              pct={
+                overallSummary.utilizationPct === null
+                  ? null
+                  : isNegativeRemaining
+                    ? 100
+                    : Math.max(0, 100 - overallSummary.utilizationPct)
+              }
               status={overallSummary.status}
             >
               <Money
@@ -273,7 +279,7 @@ export default function PlanScreen() {
                 }
               />
               {(() => {
-                const ringCaption = `${isNegativeRemaining ? t('budget.overSuffix') : t('budget.leftSuffix')} · ${formatUtilizationPct(overallSummary.utilizationPct ?? 0)}`;
+                const ringCaption = `${isNegativeRemaining ? t('budget.overSuffix') : t('budget.leftSuffix')} · ${formatUtilizationPct(Math.abs(100 - (overallSummary.utilizationPct ?? 0)))}`;
                 return (
                   <AppText
                     variant="caption"
@@ -327,14 +333,15 @@ export default function PlanScreen() {
             </View>
           </>
         ) : (
-          <EmptyState
-            testID="budget-empty-overall"
-            icon="pie-chart"
-            title={t('empty.budgetTitle')}
-            body={t('empty.budgetBody')}
-            ctaLabel={t('budget.setMonthlyCta')}
-            onCtaPress={openEditOverall}
-          />
+          <View testID="budget-empty-overall" style={{ gap: theme.spacing.md }}>
+            <View style={{ gap: theme.spacing.xs }}>
+              <AppText variant="headline">{t('empty.budgetTitle')}</AppText>
+              <AppText variant="body" color="textSecondary">
+                {t('empty.budgetBody')}
+              </AppText>
+            </View>
+            <Button title={t('budget.setMonthlyCta')} onPress={openEditOverall} />
+          </View>
         )}
       </Surface>
 
@@ -498,6 +505,93 @@ export default function PlanScreen() {
           </PressableScale>
         ) : null}
       </View>
+
+      {/* Where the money went this cycle: top spenders, one tap to set a budget */}
+      {(() => {
+        const budgeted = new Set(categoryBudgets.map((c) => c.categoryId));
+        const rows = spendRanking.filter((r) => !budgeted.has(r.categoryId)).slice(0, 4);
+        if (rows.length === 0) return null;
+        const totalSpent = spendRanking.reduce((sum, r) => sum + r.spentMinor, 0);
+        return (
+          <View style={{ gap: theme.spacing.md }}>
+            <AppText variant="headline">{t('plan.wentTitle')}</AppText>
+            <Surface padded={false} testID="plan-spend-ranking">
+              {rows.map((row, idx) => {
+                const cat = categoriesById.get(row.categoryId);
+                const name = cat?.name ?? t('common.uncategorized');
+                const share = totalSpent > 0 ? (row.spentMinor / totalSpent) * 100 : 0;
+                return (
+                  <View key={row.categoryId}>
+                    <PressableScale
+                      pressScale={0.98}
+                      testID={`plan-spend-row-${row.categoryId}`}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('plan.wentA11y', { name })}
+                      onPress={() =>
+                        openEditCategory(
+                          row.categoryId,
+                          Math.ceil(row.spentMinor / 10_000) * 10_000
+                        )
+                      }
+                      style={({ pressed }) => [
+                        styles.catRow,
+                        {
+                          minHeight: 72,
+                          paddingHorizontal: theme.spacing.lg,
+                          paddingVertical: theme.spacing.md,
+                          gap: theme.spacing.md,
+                          opacity: pressed && !reducedMotion ? 0.72 : 1,
+                        },
+                      ]}
+                    >
+                      <IconTile
+                        icon={cat?.icon ?? 'shapes'}
+                        colorKey={cat?.colorKey ?? 'gray'}
+                        size="md"
+                      />
+                      <View style={[styles.flexOne, { gap: theme.spacing.xs }]}>
+                        <View style={[styles.catRowTop, { gap: theme.spacing.sm }]}>
+                          <AppText variant="bodyStrong" style={styles.flexOne}>
+                            {name}
+                          </AppText>
+                          <Money
+                            amountMinor={row.spentMinor}
+                            currency={settings.currency}
+                            variant="bodyStrong"
+                            prefix="−"
+                            hidden={hideAmounts}
+                          />
+                        </View>
+                        <View style={[styles.catRowTop, { gap: theme.spacing.sm }]}>
+                          <AppText variant="caption" color="textSecondary" style={styles.flexOne}>
+                            {t('plan.wentShare', { pct: formatUtilizationPct(share) })}
+                          </AppText>
+                          <AppText variant="caption" color="accent">
+                            {t('plan.wentSetBudget')}
+                          </AppText>
+                        </View>
+                        <ProgressBar pct={share} tone="accent" height={4} />
+                      </View>
+                    </PressableScale>
+                    {idx < rows.length - 1 ? (
+                      <View
+                        style={[
+                          styles.divider,
+                          {
+                            backgroundColor: theme.colors.separator,
+                            marginLeft: 68,
+                            marginRight: theme.spacing.lg,
+                          },
+                        ]}
+                      />
+                    ) : null}
+                  </View>
+                );
+              })}
+            </Surface>
+          </View>
+        );
+      })()}
 
       {/* Collapsible Past cycles card */}
       <Surface padded={false}>

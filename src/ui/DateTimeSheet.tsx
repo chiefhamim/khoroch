@@ -117,7 +117,7 @@ function Calendar({
   for (let i = 0; i < cells.length; i += 7) rows.push(cells.slice(i, i + 7));
 
   return (
-    <View style={{ gap: theme.spacing.sm }}>
+    <View style={{ gap: 2 }}>
       <View style={styles.monthHeader}>
         <AppText variant="headline" accessibilityRole="header">
           {formatMonthYear(view.year, view.month, locale)}
@@ -586,17 +586,17 @@ export function DateTimeSheet({
 }
 
 const styles = StyleSheet.create({
-  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 48 },
+  monthHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 40 },
   monthNav: { flexDirection: 'row' },
-  navBtn: { width: 44, height: 44, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  navBtn: { width: 36, height: 36, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   week: { flexDirection: 'row' },
-  cell: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 46 },
+  cell: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 38 },
   weekdayLabel: { width: '100%', textAlign: 'center' },
-  day: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center' },
+  day: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   tabs: { flexDirection: 'row', padding: 4 },
-  tab: { flex: 1, minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1 },
+  tab: { flex: 1, minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1 },
   quickRow: { flexDirection: 'row', flexWrap: 'wrap' },
-  quick: { minHeight: 40, paddingHorizontal: 14, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  quick: { minHeight: 34, paddingHorizontal: 14, borderWidth: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   timeDisplay: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   timeSegment: { minWidth: 76, minHeight: 64, alignItems: 'center', justifyContent: 'center', borderWidth: 1.5 },
   period: { padding: 4, gap: 4, marginLeft: 4 },

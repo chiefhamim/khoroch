@@ -34,7 +34,9 @@ export function PersonAvatar({ name, colorKey, size = 'md' }: PersonAvatarProps)
           width: metrics.box,
           height: metrics.box,
           borderRadius: metrics.box / 2,
-          backgroundColor: `${tint}20`,
+          backgroundColor: `${tint}26`,
+          borderWidth: StyleSheet.hairlineWidth * 2,
+          borderColor: `${tint}59`,
         },
       ]}
     >

@@ -8,6 +8,13 @@ import {
   View,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { hexToRgba } from '@/theme/categoryColors';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { formatWalletSubtitle } from '@/domain/accounts';
 import {
   addDays,
@@ -905,13 +912,29 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                 >
                   {sectionDateLabel}
                 </AppText>
-                <Money
-                  variant="caption"
-                  amountMinor={Math.abs(netMinor)}
-                  currency={settings.currency}
-                  prefix={netMinor > 0 ? '+' : netMinor < 0 ? '−' : ''}
-                  color={netMinor > 0 ? 'accent' : 'textSecondary'}
-                />
+                <View
+                  style={{
+                    paddingHorizontal: theme.spacing.sm + 2,
+                    paddingVertical: 3,
+                    borderRadius: theme.radius.pill,
+                    backgroundColor:
+                      netMinor === 0
+                        ? theme.colors.surfaceSunken
+                        : hexToRgba(
+                            netMinor > 0 ? theme.colors.income : theme.colors.expense,
+                            theme.mode === 'light' ? 0.1 : 0.16
+                          ),
+                  }}
+                >
+                  <Money
+                    variant="label"
+                    amountMinor={Math.abs(netMinor)}
+                    currency={settings.currency}
+                    prefix={netMinor > 0 ? '+' : netMinor < 0 ? '−' : ''}
+                    color={netMinor > 0 ? 'income' : netMinor < 0 ? 'expense' : 'textSecondary'}
+                    style={{ fontWeight: '700' }}
+                  />
+                </View>
               </View>
             );
           }}
@@ -1388,6 +1411,9 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  modeStack: {
+    flex: 1,
+  },
   ledgerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   searchRow: {
     flexDirection: 'row',
@@ -1516,12 +1542,46 @@ export default function LedgerScreen() {
     </View>
   );
 
-  if (mode === 'day') {
-    return (
-      <Screen contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}>
-        <DayBookView header={header} />
-      </Screen>
+  // Both modes stay mounted and cross-fade, so the toggle never unmounts a screen,
+  // never reloads data, and each list keeps its own scroll position.
+  return (
+    <View style={styles.modeStack}>
+      <ModeLayer active={mode === 'day'}>
+        <Screen contentContainerStyle={{ paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0 }}>
+          <DayBookView header={header} />
+        </Screen>
+      </ModeLayer>
+      <ModeLayer active={mode === 'all'}>
+        <AllEntriesScreen header={header} />
+      </ModeLayer>
+    </View>
+  );
+}
+
+function ModeLayer({ active, children }: { active: boolean; children: React.ReactNode }) {
+  const { reducedMotion } = useTheme();
+  const progress = useSharedValue(active ? 1 : 0);
+  useEffect(() => {
+    progress.set(
+      reducedMotion
+        ? active
+          ? 1
+          : 0
+        : withTiming(active ? 1 : 0, { duration: 220, easing: Easing.out(Easing.cubic) })
     );
-  }
-  return <AllEntriesScreen header={header} />;
+  }, [active, reducedMotion, progress]);
+  const style = useAnimatedStyle(() => ({
+    opacity: progress.get(),
+    transform: [{ translateY: (1 - progress.get()) * 6 }],
+  }));
+  return (
+    <Animated.View
+      pointerEvents={active ? 'auto' : 'none'}
+      importantForAccessibility={active ? 'auto' : 'no-hide-descendants'}
+      accessibilityElementsHidden={!active}
+      style={[StyleSheet.absoluteFill, { zIndex: active ? 1 : 0 }, style]}
+    >
+      {children}
+    </Animated.View>
+  );
 }

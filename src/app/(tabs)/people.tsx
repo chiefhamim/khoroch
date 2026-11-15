@@ -92,6 +92,7 @@ export default function PeopleTabScreen() {
                 variant="bodyStrong"
                 amountMinor={absNet}
                 currency={currency}
+                prefix="+"
                 color="accent"
               />
             </View>
@@ -109,6 +110,7 @@ export default function PeopleTabScreen() {
                 variant="bodyStrong"
                 amountMinor={absNet}
                 currency={currency}
+                prefix="−"
                 color="danger"
               />
             </View>
@@ -186,6 +188,7 @@ export default function PeopleTabScreen() {
             variant="title"
             amountMinor={overview.youWillGetMinor}
             currency={currency}
+            prefix={overview.youWillGetMinor > 0 ? '+' : ''}
             color={overview.youWillGetMinor > 0 ? 'accent' : 'text'}
             allowCompact
           />
@@ -218,6 +221,7 @@ export default function PeopleTabScreen() {
             variant="title"
             amountMinor={overview.youOweMinor}
             currency={currency}
+            prefix={overview.youOweMinor > 0 ? '−' : ''}
             color={overview.youOweMinor > 0 ? 'danger' : 'text'}
             allowCompact
           />

@@ -75,6 +75,8 @@ export const bn: Record<TranslationKey, string> = {
   'daybook.endedWith': 'দিন শেষে স্থিতি',
   'daybook.leftNow': 'বর্তমান হাতে থাকা অর্থ',
   'daybook.left': 'অবশিষ্ট',
+  'daybook.allWallets': 'সব ওয়ালেট',
+  'daybook.editOpening': 'শুরুর ব্যালেন্স বদলান',
   'daybook.in': 'জমা',
   'daybook.out': 'ব্যয়',
   'daybook.net': 'দিনের নিট হিসাব',
@@ -497,6 +499,10 @@ export const bn: Record<TranslationKey, string> = {
   'budget.title': 'বাজেট',
   'budget.remainingDays': '{days} দিন বাকি',
   'budget.overallSection': 'মাসিক মোট বাজেট',
+  'plan.wentTitle': 'কোথায় গেল',
+  'plan.wentShare': 'এই চক্রের {pct}',
+  'plan.wentSetBudget': 'বাজেট দিন',
+  'plan.wentA11y': '{name} এর জন্য বাজেট দিন',
   'budget.categorySection': 'ক্যাটাগরি বাজেট',
   'budget.historySection': 'আগের মাসসমূহ',
   'budget.pastCyclesTitle': 'পূর্ববর্তী মাসসমূহ',
@@ -669,6 +675,8 @@ export const bn: Record<TranslationKey, string> = {
   'insights.newBadge': 'নতুন',
 
   // Backup & Privacy
+  'overview.predatedNudge': 'ওয়ালেট খোলার আগের {count}টি এন্ট্রি হিসাবে ধরা হয়নি। ট্যাপ করে যোগ করুন',
+  'overview.predatedNudgeA11y': 'আগের এন্ট্রিগুলো ওয়ালেটের ব্যালেন্সে যোগ করুন',
   'overview.backupNudgeNever': 'ব্যাকআপ নেওয়া হয়নি · এখনই ব্যাকআপ নিন',
   'overview.backupNudgeDated': 'সর্বশেষ ব্যাকআপ: {date} · ব্যাকআপ নিন',
   'overview.backupNudgeA11y': 'আপনার তথ্যের একটি কপি সেভ করতে ব্যাকআপ সেটিংস খুলুন',

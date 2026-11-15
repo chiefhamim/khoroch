@@ -502,7 +502,7 @@ function AllCategoriesSheet({
 }
 
 export function TransactionForm(props: TransactionFormProps) {
-  if (props.fastEntry && props.mode !== 'edit') {
+  if ((props.fastEntry && props.mode !== 'edit') || (props.mode === 'edit' && !props.initialTransferValues)) {
     return (
       <FastTransactionEntry
         currency={props.currency}
@@ -513,6 +513,9 @@ export function TransactionForm(props: TransactionFormProps) {
         onClose={props.onClose ?? (() => undefined)}
         onSubmit={props.onSubmit}
         onSubmitAndAddAnother={props.onSubmitAndAddAnother}
+        mode={props.mode === 'edit' ? 'edit' : 'new'}
+        initialValues={props.initialValues}
+        onDeletePress={props.onDeletePress}
       />
     );
   }

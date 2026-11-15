@@ -21,6 +21,7 @@ import { formatHomeDuesSummaryLine } from '@/domain/dues';
 import type { LocalDate } from '@/domain/types';
 import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
+import { bumpDataVersion } from '@/state/dataVersion';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
 import { useDashboard } from '@/state/useDashboard';
@@ -35,6 +36,7 @@ import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
 import { HeroCard, HeroProgressBar } from '@/ui/HeroCard';
+import { HeroSwap } from '@/ui/HeroSwap';
 import { IconButton } from '@/ui/IconButton';
 import { IconTile } from '@/ui/IconTile';
 import { ListRow } from '@/ui/ListRow';
@@ -83,7 +85,7 @@ export interface OverviewContentProps {
 }
 
 export function OverviewContent({ todayOverride, hourOverride }: OverviewContentProps) {
-  const { settings } = useAppContext();
+  const { settings, repo } = useAppContext();
   const locale = useLocale();
   const { theme, reducedMotion } = useTheme();
   const router = useRouter();
@@ -114,8 +116,21 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const {
     overview: accountsOverview,
     accountsById,
+    allAccounts,
+    predated,
     loading: accountsLoading,
   } = useAccounts(today);
+  const countEarlierEntries = async () => {
+    if (predated.earliest === null) return;
+    const earliest = predated.earliest;
+    for (const id of predated.accountIds) {
+      const acc = allAccounts.find((a) => a.id === id);
+      if (acc && acc.openingBalanceMinor === 0 && earliest < acc.openingDate) {
+        await repo.updateAccount(id, { openingDate: earliest });
+      }
+    }
+    bumpDataVersion();
+  };
   const hasWallets = accountsOverview.balances.length > 0;
   const effectiveHeroMode: 'budget' | 'wallets' =
     userHeroMode ?? (hasWallets && overallBudgetMinor === null ? 'wallets' : 'budget');
@@ -193,162 +208,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     0
   );
 
-  return (
-    <Screen scroll bottomSpacer>
-      {/* Header: Greeting, date & circular settings avatar */}
-      <View style={styles.headerRow}>
-        <View style={styles.headerText}>
-          <AppText variant="title" numberOfLines={1}>
-            {greeting}
-          </AppText>
-          <AppText variant="label" color="textSecondary" numberOfLines={1}>
-            {subtitleLine}
-          </AppText>
-        </View>
-        <PressableScale
-          pressScale={0.98}
-          testID="overview-settings-shortcut"
-          accessibilityRole="button"
-          accessibilityLabel={t('tabs.settings')}
-          hitSlop={6}
-          onPress={() => router.push('/settings' as never)}
-          style={({ pressed }) => [
-            styles.avatarBtn,
-            {
-              width: 40,
-              height: 40,
-              borderRadius: 20,
-              backgroundColor: 'transparent',
-              transform: [{ scale: pressed && !reducedMotion ? 0.97 : 1 }],
-              opacity: pressed ? 0.85 : 1,
-            },
-          ]}
-        >
-          <ProfileAvatar
-            name={settings.name.trim() || avatarInitial}
-            colorKey={settings.avatarColorKey}
-            avatarId={settings.avatarId}
-            size={40}
-          />
-        </PressableScale>
-      </View>
-
-      {summary.ignoredOtherCurrencyCount > 0 ? (
-        <Banner
-          tone="neutral"
-          icon="info"
-          message={t('overview.ignoredCurrencyBanner', {
-            count: summary.ignoredOtherCurrencyCount,
-          })}
-        />
-      ) : null}
-
-      {/* Hero summary / budget card with Mockup 3 In-Card Mode Switcher */}
-      <HeroCard
-        testID="overview-budget-card"
-        onPress={toggleHideAmounts}
-        accessibilityLabel={
-          hideAmounts ? t('overview.amountsHiddenLabel') : t('overview.tapToHideHint')
-        }
-        accessibilityHint={
-          hideAmounts ? t('overview.tapToShowHint') : t('overview.tapToHideHint')
-        }
-        style={{ gap: theme.spacing.md }}
-      >
-        <View style={styles.heroTopRow}>
-          <View
-            testID="overview-hero-switcher"
-            style={[
-              styles.heroTabs,
-              {
-                backgroundColor: 'rgba(255, 255, 255, 0.11)',
-                borderWidth: 1,
-                borderColor: 'rgba(255, 255, 255, 0.22)',
-              },
-            ]}
-          >
-            <PressableScale
-              pressScale={0.97}
-              testID="overview-hero-tab-budget"
-              accessibilityRole="button"
-              accessibilityState={{ selected: effectiveHeroMode === 'budget' }}
-              onPress={() => setUserHeroMode('budget')}
-              style={[
-                styles.heroTab,
-                {
-                  borderRadius: 999,
-                  backgroundColor:
-                    effectiveHeroMode === 'budget' ? theme.colors.heroText : 'transparent',
-                },
-              ]}
-            >
-              <AppText
-                variant="tab"
-                numberOfLines={1}
-                style={[
-                  styles.heroTabLabel,
-                  {
-                    color:
-                      effectiveHeroMode === 'budget'
-                        ? theme.colors.hero
-                        : theme.colors.heroTextSecondary,
-                  },
-                ]}
-              >
-                {tr('overview.heroTabBudget')}
-              </AppText>
-            </PressableScale>
-            <PressableScale
-              pressScale={0.97}
-              testID="overview-hero-tab-wallets"
-              accessibilityRole="button"
-              accessibilityState={{ selected: effectiveHeroMode === 'wallets' }}
-              onPress={() => setUserHeroMode('wallets')}
-              style={[
-                styles.heroTab,
-                {
-                  borderRadius: 999,
-                  backgroundColor:
-                    effectiveHeroMode === 'wallets' ? theme.colors.heroText : 'transparent',
-                },
-              ]}
-            >
-              <AppText
-                variant="tab"
-                numberOfLines={1}
-                style={[
-                  styles.heroTabLabel,
-                  {
-                    color:
-                      effectiveHeroMode === 'wallets'
-                        ? theme.colors.hero
-                        : theme.colors.heroTextSecondary,
-                  },
-                ]}
-              >
-                {tr('overview.heroTabWallets')}
-              </AppText>
-            </PressableScale>
-          </View>
-
-          <View style={[styles.heroTopRight, { gap: theme.spacing.xs }]}>
-            {overallBudgetMinor !== null ? (
-              <BudgetStatusBadge status={summary.status} surface="hero" />
-            ) : null}
-            <IconButton
-              testID="overview-hero-menu"
-              icon="info"
-              variant="ghost"
-              iconColor={theme.colors.heroTextSecondary}
-              size={34}
-              iconSize={18}
-              accessibilityLabel={t('overview.howNumbersWork')}
-              onPress={() => setHowItWorksOpen(true)}
-            />
-          </View>
-        </View>
-
-        {effectiveHeroMode === 'wallets' && hasWallets ? (
+  const walletsBody = (
           <>
             <AppText variant="label" color="heroTextSecondary">
               {hideAmounts
@@ -399,10 +259,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 styles.stripRow,
                 {
                   gap: theme.spacing.sm,
-                  backgroundColor: 'rgba(255, 255, 255, 0.065)',
+                  backgroundColor: theme.mode === 'light' && theme.colors.heroText === '#14161D' ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.065)',
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.11)',
+                  borderColor: theme.colors.heroLine,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                 },
@@ -481,7 +341,9 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               ) : null}
             </View>
           </>
-        ) : overallBudgetMinor !== null && summary.remainingMinor !== null ? (
+  );
+  const budgetBody =
+    overallBudgetMinor !== null && summary.remainingMinor !== null ? (
           <>
             <AppText variant="label" color="heroTextSecondary">
               {isNegativeRemaining
@@ -530,10 +392,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 styles.stripRow,
                 {
                   gap: theme.spacing.sm,
-                  backgroundColor: 'rgba(255, 255, 255, 0.065)',
+                  backgroundColor: theme.mode === 'light' && theme.colors.heroText === '#14161D' ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.065)',
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: 'rgba(255, 255, 255, 0.11)',
+                  borderColor: theme.colors.heroLine,
                   paddingHorizontal: 12,
                   paddingVertical: 10,
                 },
@@ -619,7 +481,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               </View>
             </View>
           </>
-        ) : (
+  ) : null;
+  const noBudgetBody = (
           <>
             <AppText variant="label" color="heroTextSecondary">
               {t('overview.spentThisCycle')}
@@ -659,7 +522,169 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               <AppIcon name="chevron-right" size={16} color={theme.colors.heroBar} />
             </PressableScale>
           </>
-        )}
+  );
+
+  return (
+    <Screen scroll bottomSpacer>
+      {/* Header: Greeting, date & circular settings avatar */}
+      <View style={styles.headerRow}>
+        <View style={styles.headerText}>
+          <AppText variant="title" numberOfLines={1}>
+            {greeting}
+          </AppText>
+          <AppText variant="label" color="textSecondary" numberOfLines={1}>
+            {subtitleLine}
+          </AppText>
+        </View>
+        <PressableScale
+          pressScale={0.98}
+          testID="overview-settings-shortcut"
+          accessibilityRole="button"
+          accessibilityLabel={t('tabs.settings')}
+          hitSlop={6}
+          onPress={() => router.push('/settings' as never)}
+          style={({ pressed }) => [
+            styles.avatarBtn,
+            {
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              backgroundColor: 'transparent',
+              transform: [{ scale: pressed && !reducedMotion ? 0.97 : 1 }],
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+        >
+          <ProfileAvatar
+            name={settings.name.trim() || avatarInitial}
+            colorKey={settings.avatarColorKey}
+            avatarId={settings.avatarId}
+            size={40}
+          />
+        </PressableScale>
+      </View>
+
+      {summary.ignoredOtherCurrencyCount > 0 ? (
+        <Banner
+          tone="neutral"
+          icon="info"
+          message={t('overview.ignoredCurrencyBanner', {
+            count: summary.ignoredOtherCurrencyCount,
+          })}
+        />
+      ) : null}
+
+      {/* Hero summary / budget card with Mockup 3 In-Card Mode Switcher */}
+      <HeroCard
+        testID="overview-budget-card"
+        onPress={toggleHideAmounts}
+        accessibilityLabel={
+          hideAmounts ? t('overview.amountsHiddenLabel') : t('overview.tapToHideHint')
+        }
+        accessibilityHint={
+          hideAmounts ? t('overview.tapToShowHint') : t('overview.tapToHideHint')
+        }
+        style={{ gap: theme.spacing.md }}
+      >
+        <View style={styles.heroTopRow}>
+          <View
+            testID="overview-hero-switcher"
+            style={[
+              styles.heroTabs,
+              {
+                backgroundColor: theme.colors.heroLine,
+                borderWidth: 1,
+                borderColor: theme.colors.heroLine,
+              },
+            ]}
+          >
+            <PressableScale
+              pressScale={0.97}
+              testID="overview-hero-tab-budget"
+              accessibilityRole="button"
+              accessibilityState={{ selected: effectiveHeroMode === 'budget' }}
+              onPress={() => setUserHeroMode('budget')}
+              style={[
+                styles.heroTab,
+                {
+                  borderRadius: 999,
+                  backgroundColor:
+                    effectiveHeroMode === 'budget' ? theme.colors.heroText : 'transparent',
+                },
+              ]}
+            >
+              <AppText
+                variant="tab"
+                numberOfLines={1}
+                style={[
+                  styles.heroTabLabel,
+                  {
+                    color:
+                      effectiveHeroMode === 'budget'
+                        ? theme.colors.hero
+                        : theme.colors.heroTextSecondary,
+                  },
+                ]}
+              >
+                {tr('overview.heroTabBudget')}
+              </AppText>
+            </PressableScale>
+            <PressableScale
+              pressScale={0.97}
+              testID="overview-hero-tab-wallets"
+              accessibilityRole="button"
+              accessibilityState={{ selected: effectiveHeroMode === 'wallets' }}
+              onPress={() => setUserHeroMode('wallets')}
+              style={[
+                styles.heroTab,
+                {
+                  borderRadius: 999,
+                  backgroundColor:
+                    effectiveHeroMode === 'wallets' ? theme.colors.heroText : 'transparent',
+                },
+              ]}
+            >
+              <AppText
+                variant="tab"
+                numberOfLines={1}
+                style={[
+                  styles.heroTabLabel,
+                  {
+                    color:
+                      effectiveHeroMode === 'wallets'
+                        ? theme.colors.hero
+                        : theme.colors.heroTextSecondary,
+                  },
+                ]}
+              >
+                {tr('overview.heroTabWallets')}
+              </AppText>
+            </PressableScale>
+          </View>
+
+          <View style={[styles.heroTopRight, { gap: theme.spacing.xs }]}>
+            {overallBudgetMinor !== null ? (
+              <BudgetStatusBadge status={summary.status} surface="hero" />
+            ) : null}
+            <IconButton
+              testID="overview-hero-menu"
+              icon="info"
+              variant="ghost"
+              iconColor={theme.colors.heroTextSecondary}
+              size={34}
+              iconSize={18}
+              accessibilityLabel={t('overview.howNumbersWork')}
+              onPress={() => setHowItWorksOpen(true)}
+            />
+          </View>
+        </View>
+
+        <HeroSwap
+          gap={theme.spacing.md}
+          showA={effectiveHeroMode === 'wallets' && hasWallets}
+          a={walletsBody}
+          b={overallBudgetMinor !== null && summary.remainingMinor !== null ? budgetBody : noBudgetBody}
+        />
       </HeroCard>
 
       {/* New-cycle hint banner */}
@@ -679,6 +704,20 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               params: { preset: 'last_month' },
             } as never)
           }
+        />
+      ) : null}
+
+      {predated.count > 0 ? (
+        <Banner
+          testID="overview-predated-nudge"
+          icon="wallet"
+          tone="accent"
+          showChevron
+          message={t('overview.predatedNudge', { count: predated.count })}
+          accessibilityLabel={t('overview.predatedNudgeA11y')}
+          onPress={() => {
+            void countEarlierEntries();
+          }}
         />
       ) : null}
 

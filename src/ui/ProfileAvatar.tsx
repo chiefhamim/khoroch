@@ -63,6 +63,8 @@ export function ProfileAvatar({
           borderRadius: size / 2,
           backgroundColor: hasIllustratedAvatar ? 'transparent' : colors.bg,
           overflow: 'hidden',
+          borderWidth: hasIllustratedAvatar ? 0 : StyleSheet.hairlineWidth * 2,
+          borderColor: colors.fg + '59',
         },
         style,
       ]}
