@@ -10,12 +10,12 @@ import {
   todayLocalDate,
 } from '@/domain/dates';
 import type { Category, Transaction } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
-import { useDataVersionStore } from '@/state/dataVersion';
+import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
@@ -31,6 +31,7 @@ import { useToast } from '@/ui/Toast';
 
 export default function CheckInScreen() {
   const { repo, settings } = useAppContext();
+  const locale = useLocale();
   const { theme } = useTheme();
   const { showToast } = useToast();
   const router = useRouter();
@@ -87,11 +88,17 @@ export default function CheckInScreen() {
     try {
       await repo.markDayReviewed(today);
       setReviewed(true);
+      bumpDataVersion();
       hapticSuccess();
       showToast({
         message: t('checkIn.reviewedBadge'),
         icon: 'circle-check',
         tone: 'accent',
+      });
+    } catch {
+      showToast({
+        message: t('error.genericBody'),
+        tone: 'danger',
       });
     } finally {
       setSavingReview(false);
@@ -132,7 +139,7 @@ export default function CheckInScreen() {
             {t('checkIn.title')}
           </AppText>
           <AppText variant="label" color="textSecondary">
-            {formatWeekdayShortDate(today)}
+            {formatWeekdayShortDate(today, locale)}
           </AppText>
         </View>
       </View>
@@ -153,7 +160,17 @@ export default function CheckInScreen() {
             ]}
           >
             <AppIcon name="circle-check" size={16} color={theme.colors.accent} />
-            <AppText variant="label" color="accent">
+            <AppText
+              variant="label"
+              color="accent"
+              numberOfLines={1}
+              style={{
+                minWidth: estimateSingleLineMinWidth(
+                  t('checkIn.reviewedBadge'),
+                  theme.typography.label.fontSize
+                ),
+              }}
+            >
               {t('checkIn.reviewedBadge')}
             </AppText>
           </View>

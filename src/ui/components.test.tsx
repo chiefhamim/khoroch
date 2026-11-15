@@ -12,6 +12,7 @@ import { Chip } from './Chip';
 import { DateField } from './DateField';
 import { DayOfMonthGrid } from './DayOfMonthGrid';
 import { DayToggles } from './DayToggles';
+import { EmptyState } from './EmptyState';
 import { Field } from './Field';
 import { IconButton } from './IconButton';
 import { IconTile } from './IconTile';
@@ -377,6 +378,23 @@ describe('v2 design system components', () => {
 
       const longText = view.getByText('আপনার সমস্ত হিসাবের ব্যাকআপ নিন');
       expect(StyleSheet.flatten(longText.props.style).minWidth).toBeUndefined();
+
+      const feedbackView = await render(
+        <ThemeProvider preference="light">
+          <ToastView message="আজকের হিসাব মেলানো হয়েছে" />
+          <EmptyState
+            title="আজ কোনো হিসাব লেখা হয়নি"
+            body="আজ কোনো খরচ না হয়ে থাকলে ট্যাপ করুন।"
+          />
+        </ThemeProvider>
+      );
+      const toastText = feedbackView.getByText('আজকের হিসাব মেলানো হয়েছে');
+      const toastMinWidth = StyleSheet.flatten(toastText.props.style).minWidth as number;
+      expect(toastMinWidth).toBeGreaterThanOrEqual(Math.min(190 * scale, 280));
+      expect(toastMinWidth).toBeLessThanOrEqual(280);
+
+      const emptyTitle = feedbackView.getByText('আজ কোনো হিসাব লেখা হয়নি');
+      expect(StyleSheet.flatten(emptyTitle.props.style).alignSelf).toBe('stretch');
     } finally {
       await act(async () => {
         setLocale('en');

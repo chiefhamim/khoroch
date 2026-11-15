@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/useTheme';
 import { PressableScale } from '@/ui/PressableScale';
 import { AppIcon, type AppIconName } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 
 export interface ToastOptions {
   message: string;
@@ -74,6 +74,14 @@ export function ToastView({
         ? '#34D399'
         : fg;
 
+  const minMessageWidth =
+    message.length > 0
+      ? Math.min(
+          estimateSingleLineMinWidth(message, theme.typography.label.fontSize),
+          actionLabel ? 210 : 280
+        )
+      : undefined;
+
   return (
     <View
       testID={testID}
@@ -91,7 +99,11 @@ export function ToastView({
       ]}
     >
       <AppIcon name={icon} size={18} color={iconColor} />
-      <AppText variant="label" style={[styles.msg, { color: fg }]} numberOfLines={2}>
+      <AppText
+        variant="label"
+        style={[styles.msg, { color: fg, minWidth: minMessageWidth }]}
+        numberOfLines={2}
+      >
         {message}
       </AppText>
       {actionLabel && onAction ? (
@@ -106,7 +118,17 @@ export function ToastView({
           }}
           style={styles.actionBtn}
         >
-          <AppText variant="label" style={{ color: '#34D399' }}>
+          <AppText
+            variant="label"
+            numberOfLines={1}
+            style={{
+              color: '#34D399',
+              minWidth: estimateSingleLineMinWidth(
+                actionLabel,
+                theme.typography.label.fontSize
+              ),
+            }}
+          >
             {actionLabel}
           </AppText>
         </PressableScale>

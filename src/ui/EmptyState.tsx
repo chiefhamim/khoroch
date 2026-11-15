@@ -47,8 +47,8 @@ export function EmptyState({
       >
         <AppIcon name={resolvedIcon} size={26} color={theme.colors.accent} />
       </View>
-      <View style={{ gap: theme.spacing.xs, alignItems: 'center' }}>
-        <AppText variant="headline" style={styles.center}>
+      <View style={[styles.textWrap, { gap: theme.spacing.xs }]}>
+        <AppText variant="headline" style={styles.title}>
           {title}
         </AppText>
         <AppText variant="body" color="textSecondary" style={[styles.center, styles.body]}>
@@ -76,6 +76,14 @@ const styles = StyleSheet.create({
   badge: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  textWrap: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  title: {
+    alignSelf: 'stretch',
+    textAlign: 'center',
   },
   center: {
     textAlign: 'center',

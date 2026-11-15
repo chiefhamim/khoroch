@@ -18,7 +18,7 @@ Live package (untouched until Section 6 step 4 owner approval): `com.hamim.budge
 - [x] 6. Transaction detail and edit (`src/app/transaction/[id].tsx`, `src/ui/TransactionForm.tsx`): **Delete must stay visible with the keyboard open**
 - [x] 7. Transfer detail and edit (`src/app/transfer/[id].tsx`)
 - [x] 8. Quick entry and voice (`src/app/quick-entry.tsx`)
-- [ ] 9. Daily check-in (`src/app/check-in.tsx`)
+- [x] 9. Daily check-in (`src/app/check-in.tsx`)
 - [ ] 10. Plan (`src/app/(tabs)/plan.tsx`): budget ring, category budgets, past cycles
 - [ ] 11. Insights (`src/app/plan/insights.tsx`, `src/screens/InsightsScreen.tsx`)
 - [ ] 12. Category detail (`src/app/category/[id].tsx`)

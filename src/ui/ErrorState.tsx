@@ -55,6 +55,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   center: {
+    alignSelf: 'stretch',
     textAlign: 'center',
   },
   cta: {
