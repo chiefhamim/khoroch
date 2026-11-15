@@ -12,13 +12,14 @@ import {
   type ReminderLanguage,
 } from '@/domain/dues';
 import type { DueEntry, DueKind, PersonHonorific } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useAccounts } from '@/state/useAccounts';
 import { usePeople } from '@/state/usePeople';
+import { containsBengali, mapFontToBangla } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { DueEntrySheet } from '@/ui/DueEntrySheet';
 import { EmptyState } from '@/ui/EmptyState';
@@ -55,6 +56,7 @@ function getDueKindLabel(kind: DueKind): string {
 }
 
 export default function PersonDetailScreen() {
+  const locale = useLocale();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const personId = Array.isArray(id) ? id[0] : id;
 
@@ -99,7 +101,21 @@ export default function PersonDetailScreen() {
     | { mode: 'edit'; entry: DueEntry }
   >({ mode: 'closed' });
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [editPersonOpen, setEditPersonOpen] = useState(false);
+
+  const bnMinWidth = (text: string, fontSize: number) =>
+    locale === 'bn' && containsBengali(text)
+      ? { minWidth: estimateSingleLineMinWidth(text, fontSize) }
+      : null;
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/(tabs)/people');
+    }
+  };
 
   const generatedMessage = person
     ? buildReminderMessage({
@@ -168,6 +184,7 @@ export default function PersonDetailScreen() {
 
   const handleToggleArchive = async () => {
     if (!person) return;
+    setConfirmArchive(false);
     setOptionsOpen(false);
     if (person.archivedAt == null) {
       await repo.archivePerson(person.id);
@@ -177,7 +194,7 @@ export default function PersonDetailScreen() {
     hapticSuccess();
     bumpDataVersion();
     if (person.archivedAt == null) {
-      router.back();
+      handleBack();
     }
   };
 
@@ -188,7 +205,7 @@ export default function PersonDetailScreen() {
           <IconButton
             icon="arrow-left"
             accessibilityLabel={t('common.back')}
-            onPress={() => router.back()}
+            onPress={handleBack}
           />
           <AppText variant="title" style={styles.flex1}>
             {t('people.title')}
@@ -198,7 +215,7 @@ export default function PersonDetailScreen() {
           title={t('people.notFound')}
           body={t('error.genericBody')}
           retryLabel={t('common.back')}
-          onRetry={() => router.back()}
+          onRetry={handleBack}
         />
       </Screen>
     );
@@ -209,6 +226,15 @@ export default function PersonDetailScreen() {
   }
 
   const absNet = Math.abs(netMinor);
+  const recordAnotherLabel = t('people.recordAnotherCta');
+  const honorificBadgeLabel =
+    person.honorific === 'bhai'
+      ? t('people.honorificBhai')
+      : person.honorific === 'apu'
+        ? t('people.honorificApu')
+        : '';
+  const useBanglaInputFont =
+    remindLang === 'bn' || locale === 'bn' || containsBengali(displayedMessage);
 
   return (
     <Screen scroll edges={['top', 'bottom', 'left', 'right']}>
@@ -218,7 +244,7 @@ export default function PersonDetailScreen() {
           testID="person-detail-back"
           icon="arrow-left"
           accessibilityLabel={t('common.back')}
-          onPress={() => router.back()}
+          onPress={handleBack}
         />
         <AppText variant="title" style={styles.flex1} numberOfLines={1}>
           {person.name}
@@ -227,7 +253,10 @@ export default function PersonDetailScreen() {
           testID="person-detail-options"
           icon="sliders-horizontal"
           accessibilityLabel={t('people.moreActions')}
-          onPress={() => setOptionsOpen(true)}
+          onPress={() => {
+            setConfirmArchive(false);
+            setOptionsOpen(true);
+          }}
         />
       </View>
 
@@ -248,10 +277,13 @@ export default function PersonDetailScreen() {
                     },
                   ]}
                 >
-                  <AppText variant="caption" color="textSecondary">
-                    {person.honorific === 'bhai'
-                      ? t('people.honorificBhai')
-                      : t('people.honorificApu')}
+                  <AppText
+                    variant="caption"
+                    color="textSecondary"
+                    numberOfLines={1}
+                    style={bnMinWidth(honorificBadgeLabel, 12)}
+                  >
+                    {honorificBadgeLabel}
                   </AppText>
                 </View>
               ) : null}
@@ -259,11 +291,17 @@ export default function PersonDetailScreen() {
 
             {netMinor > 0 ? (
               <AppText variant="caption" color="accent">
-                Owes you{sinceDate ? ` · ${t('people.sinceDate', { date: formatFriendlyDate(sinceDate, today) })}` : ''}
+                {t('people.owesYou')}
+                {sinceDate
+                  ? ` · ${t('people.sinceDate', { date: formatFriendlyDate(sinceDate, today, locale) })}`
+                  : ''}
               </AppText>
             ) : netMinor < 0 ? (
               <AppText variant="caption" color="danger">
-                You owe{sinceDate ? ` · ${t('people.sinceDate', { date: formatFriendlyDate(sinceDate, today) })}` : ''}
+                {t('people.youOwe')}
+                {sinceDate
+                  ? ` · ${t('people.sinceDate', { date: formatFriendlyDate(sinceDate, today, locale) })}`
+                  : ''}
               </AppText>
             ) : (
               <AppText variant="caption" color="textSecondary">
@@ -360,7 +398,7 @@ export default function PersonDetailScreen() {
                     },
                   ]}
                 >
-                  <AppText variant="caption" color={active ? 'accent' : 'textSecondary'}>
+                  <AppText variant="caption" color={active ? 'accent' : 'textSecondary'} numberOfLines={1}>
                     {t(opt.labelKey)}
                   </AppText>
                 </PressableScale>
@@ -392,48 +430,54 @@ export default function PersonDetailScreen() {
                 styles.speechInput,
                 {
                   color: theme.colors.text,
-                  fontFamily: theme.typography.body.fontFamily,
+                  fontFamily: useBanglaInputFont
+                    ? mapFontToBangla(theme.typography.body.fontFamily)
+                    : theme.typography.body.fontFamily,
                   fontSize: theme.typography.body.fontSize,
                   lineHeight: theme.typography.body.lineHeight,
+                  letterSpacing: useBanglaInputFont ? 0 : undefined,
                 },
               ]}
             />
           </View>
 
           {/* WhatsApp | Messenger | Copy actions */}
-          <View style={[styles.shareRow, { gap: theme.spacing.sm }]}>
+          <View style={[styles.shareRow, { gap: 6 }]}>
             <Button
               testID="person-remind-whatsapp-btn"
               title={t('people.remindWhatsapp')}
               variant="secondary"
               size="sm"
+              numberOfLines={1}
               leftIcon="message-circle"
               onPress={() => {
                 void handleWhatsapp();
               }}
-              style={styles.flex1}
+              style={styles.shareBtn}
             />
             <Button
               testID="person-remind-messenger-btn"
               title={t('people.remindMessenger')}
               variant="secondary"
               size="sm"
+              numberOfLines={1}
               leftIcon="send"
               onPress={() => {
                 void handleMessenger();
               }}
-              style={styles.flex1}
+              style={styles.shareBtn}
             />
             <Button
               testID="person-remind-copy-btn"
               title={t('people.remindCopy')}
               variant="secondary"
               size="sm"
+              numberOfLines={1}
               leftIcon="copy"
               onPress={() => {
                 void handleCopy();
               }}
-              style={styles.flex1}
+              style={styles.shareBtn}
             />
           </View>
         </Surface>
@@ -441,15 +485,22 @@ export default function PersonDetailScreen() {
 
       {/* Entries Timeline */}
       <View style={{ gap: theme.spacing.sm }}>
-        <View style={styles.sectionHeader}>
-          <AppText variant="headline">{t('people.entriesTitle')}</AppText>
+        <View style={[styles.sectionHeader, { gap: theme.spacing.sm }]}>
+          <AppText variant="headline" style={styles.flex1}>
+            {t('people.entriesTitle')}
+          </AppText>
           <PressableScale pressScale={0.98}
             accessibilityRole="button"
             hitSlop={8}
             onPress={() => setDueSheetState({ mode: 'add', action: 'gave' })}
           >
-            <AppText variant="label" color="accent">
-              {t('people.recordAnotherCta')}
+            <AppText
+              variant="label"
+              color="accent"
+              numberOfLines={1}
+              style={bnMinWidth(recordAnotherLabel, 13)}
+            >
+              {recordAnotherLabel}
             </AppText>
           </PressableScale>
         </View>
@@ -471,7 +522,7 @@ export default function PersonDetailScreen() {
               const wallet = entry.accountId
                 ? accountsById.get(entry.accountId) ?? null
                 : null;
-              const dateLabel = formatFriendlyDate(entry.occurredOn, today);
+              const dateLabel = formatFriendlyDate(entry.occurredOn, today, locale);
               const timeLabel = entry.occurredTime
                 ? formatFriendlyTime(entry.occurredTime, use24Hour)
                 : null;
@@ -546,7 +597,10 @@ export default function PersonDetailScreen() {
       <Sheet
         testID="person-options-sheet"
         visible={optionsOpen}
-        onClose={() => setOptionsOpen(false)}
+        onClose={() => {
+          setConfirmArchive(false);
+          setOptionsOpen(false);
+        }}
         title={t('people.moreActions')}
       >
         <View style={{ gap: theme.spacing.sm }}>
@@ -556,23 +610,72 @@ export default function PersonDetailScreen() {
             variant="secondary"
             leftIcon="pencil"
             onPress={() => {
+              setConfirmArchive(false);
               setOptionsOpen(false);
               setEditPersonOpen(true);
             }}
           />
-          <Button
-            testID="person-archive-action-btn"
-            title={
-              person.archivedAt == null
-                ? t('people.archiveButton')
-                : t('people.restoreButton')
-            }
-            variant="secondary"
-            leftIcon={person.archivedAt == null ? 'archive' : 'archive-restore'}
-            onPress={() => {
-              void handleToggleArchive();
-            }}
-          />
+          {person.archivedAt == null ? (
+            confirmArchive ? (
+              <View
+                testID="person-archive-confirm-box"
+                style={[
+                  styles.confirmBox,
+                  {
+                    backgroundColor: theme.colors.dangerSoft,
+                    borderRadius: theme.radius.card,
+                    padding: theme.spacing.md,
+                    gap: theme.spacing.sm,
+                  },
+                ]}
+              >
+                <AppText variant="bodyStrong" color="danger">
+                  {t('people.archiveConfirmTitle', { name: person.name })}
+                </AppText>
+                <AppText variant="caption" color="textSecondary">
+                  {t('people.archiveConfirmBody', { name: person.name })}
+                </AppText>
+                <View style={[styles.confirmActions, { gap: theme.spacing.sm }]}>
+                  <Button
+                    testID="person-archive-cancel-btn"
+                    title={t('common.cancel')}
+                    variant="secondary"
+                    size="sm"
+                    onPress={() => setConfirmArchive(false)}
+                    style={styles.confirmBtn}
+                  />
+                  <Button
+                    testID="person-archive-confirm-btn"
+                    title={t('people.archiveButton')}
+                    variant="danger"
+                    size="sm"
+                    onPress={() => {
+                      void handleToggleArchive();
+                    }}
+                    style={styles.confirmBtn}
+                  />
+                </View>
+              </View>
+            ) : (
+              <Button
+                testID="person-archive-action-btn"
+                title={t('people.archiveButton')}
+                variant="dangerSoft"
+                leftIcon="archive"
+                onPress={() => setConfirmArchive(true)}
+              />
+            )
+          ) : (
+            <Button
+              testID="person-archive-action-btn"
+              title={t('people.restoreButton')}
+              variant="secondary"
+              leftIcon="archive-restore"
+              onPress={() => {
+                void handleToggleArchive();
+              }}
+            />
+          )}
         </View>
       </Sheet>
     </Screen>
@@ -587,6 +690,7 @@ const styles = StyleSheet.create({
   },
   flex1: {
     flex: 1,
+    minWidth: 0,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -596,6 +700,7 @@ const styles = StyleSheet.create({
   nameBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 8,
   },
   honorificBadge: {
@@ -614,6 +719,7 @@ const styles = StyleSheet.create({
   honorificRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   honorificChip: {
     paddingHorizontal: 12,
@@ -632,5 +738,22 @@ const styles = StyleSheet.create({
   shareRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  shareBtn: {
+    flexGrow: 1,
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  confirmBox: {
+    borderWidth: 0,
+  },
+  confirmActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+  },
+  confirmBtn: {
+    flexGrow: 1,
   },
 });

@@ -35,6 +35,7 @@ export interface ButtonProps {
   haptics?: boolean;
   disabled?: boolean;
   loading?: boolean;
+  numberOfLines?: number;
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
   testID?: string;
@@ -50,6 +51,7 @@ export function Button({
   haptics = false,
   disabled = false,
   loading = false,
+  numberOfLines,
   accessibilityLabel,
   style,
   testID,
@@ -146,6 +148,7 @@ export function Button({
           <AppText
             variant={size === 'sm' ? 'label' : 'headline'}
             color={textColor}
+            numberOfLines={numberOfLines}
             style={[styles.label, banglaMinWidth !== undefined ? { minWidth: banglaMinWidth } : null]}
           >
             {title}

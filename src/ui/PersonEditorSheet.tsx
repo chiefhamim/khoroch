@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { PERSON_AVATAR_COLOR_KEYS, pickPersonColorKey } from '@/domain/dues';
 import type { CategoryColorKey, Person, PersonHonorific } from '@/domain/types';
 import { MAX_PERSON_NAME_LENGTH } from '@/domain/validation';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { CATEGORY_COLORS } from '@/theme/categoryColors';
@@ -39,6 +39,7 @@ function PersonEditorBody({
   onClose,
   onSaved,
 }: PersonEditorBodyProps) {
+  useLocale();
   const { repo } = useAppContext();
   const { theme } = useTheme();
   const { showToast } = useToast();
@@ -101,6 +102,8 @@ function PersonEditorBody({
         label={t('people.nameLabel')}
         placeholder={t('people.namePlaceholder')}
         value={name}
+        error={errorMsg}
+        errorTestID="person-editor-error"
         onChangeText={(txt) => {
           setName(txt);
           setErrorMsg(null);
@@ -147,7 +150,7 @@ function PersonEditorBody({
         </AppText>
         <SegmentedControl<PersonHonorific>
           testID="person-honorific-toggle"
-          size="sm"
+          size="md"
           value={honorific}
           onChange={setHonorific}
           options={[
@@ -158,14 +161,9 @@ function PersonEditorBody({
         />
       </View>
 
-      {errorMsg ? (
-        <AppText variant="label" color="danger">
-          {errorMsg}
-        </AppText>
-      ) : null}
-
       <View style={[styles.actionsRow, { gap: theme.spacing.sm }]}>
         <Button
+          testID="person-editor-cancel-btn"
           title={t('common.cancel')}
           variant="secondary"
           onPress={onClose}
@@ -194,6 +192,7 @@ export function PersonEditorSheet({
   existingCount = 0,
   onSaved,
 }: PersonEditorSheetProps) {
+  useLocale();
   return (
     <Sheet
       testID="person-editor-sheet"
