@@ -6,10 +6,11 @@ import {
   type WalletBalancePoint,
 } from '@/domain/accounts';
 import { formatShortDate } from '@/domain/dates';
+import { HIDDEN_AMOUNT_TEXT } from '@/domain/money';
 import type { AccountKind, CurrencyCode, LocalDate } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useTheme } from '@/theme/useTheme';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { Surface } from './Surface';
 
 export interface WalletBalanceChartProps {
@@ -18,6 +19,7 @@ export interface WalletBalanceChartProps {
   currency: CurrencyCode;
   lineColor?: string;
   today?: LocalDate;
+  hidden?: boolean;
 }
 
 const CHART_HEIGHT = 136;
@@ -32,10 +34,23 @@ export function WalletBalanceChart({
   currency,
   lineColor,
   today,
+  hidden = false,
 }: WalletBalanceChartProps) {
+  const locale = useLocale();
   const { theme } = useTheme();
   const [width, setWidth] = useState(280);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  const bnMinWidth = (text: string, fontSize: number) =>
+    locale === 'bn' ? { minWidth: estimateSingleLineMinWidth(text, fontSize) } : undefined;
+
+  const formatPointBalance = (balanceMinor: number) => {
+    if (hidden) return HIDDEN_AMOUNT_TEXT;
+    if (accountKind === 'credit_card' && balanceMinor < 0) {
+      return `${formatAccountBalance('other', Math.abs(balanceMinor), currency)} ${t('wallets.dueSuffix')}`;
+    }
+    return formatAccountBalance(accountKind, balanceMinor, currency);
+  };
 
   const strokeColor = lineColor ?? theme.colors.accent;
 
@@ -75,13 +90,13 @@ export function WalletBalanceChart({
       coords,
       zeroY,
       polylinePoints: coords.map((c) => `${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' '),
-      firstLabel: formatShortDate(points[0].date),
+      firstLabel: formatShortDate(points[0].date, locale),
       lastLabel:
         today && points[points.length - 1].date === today
           ? t('common.today')
-          : formatShortDate(points[points.length - 1].date),
+          : formatShortDate(points[points.length - 1].date, locale),
     };
-  }, [points, today, width]);
+  }, [points, today, width, locale]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
     const measured = Math.floor(e.nativeEvent.layout.width);
@@ -100,21 +115,29 @@ export function WalletBalanceChart({
   const activeDateLabel =
     today && activeCoord.pt.date === today
       ? t('common.today')
-      : formatShortDate(activeCoord.pt.date);
-  const activeFormatted = formatAccountBalance(
-    accountKind,
-    activeCoord.pt.balanceMinor,
-    currency
-  );
+      : formatShortDate(activeCoord.pt.date, locale);
+  const activeFormatted = formatPointBalance(activeCoord.pt.balanceMinor);
+  const activeSummary = `${activeDateLabel} · ${activeFormatted}`;
 
   return (
     <Surface testID="wallet-balance-chart" style={{ gap: theme.spacing.xs }}>
       <View style={styles.headerRow}>
-        <AppText variant="label" color="textSecondary">
+        <AppText
+          variant="label"
+          color="textSecondary"
+          numberOfLines={1}
+          style={bnMinWidth(t('wallets.balanceHistoryTitle'), theme.typography.label.fontSize)}
+        >
           {t('wallets.balanceHistoryTitle')}
         </AppText>
-        <AppText variant="label" color="text" tabularNums>
-          {`${activeDateLabel} · ${activeFormatted}`}
+        <AppText
+          variant="label"
+          color="text"
+          tabularNums
+          numberOfLines={1}
+          style={bnMinWidth(activeSummary, theme.typography.label.fontSize)}
+        >
+          {activeSummary}
         </AppText>
       </View>
 
@@ -193,7 +216,7 @@ export function WalletBalanceChart({
             <Pressable
               key={coord.pt.date}
               accessibilityRole="button"
-              accessibilityLabel={`${formatShortDate(coord.pt.date)} ${formatAccountBalance(accountKind, coord.pt.balanceMinor, currency)}`}
+              accessibilityLabel={`${formatShortDate(coord.pt.date, locale)} ${formatPointBalance(coord.pt.balanceMinor)}`}
               onPress={() =>
                 setSelectedIndex((prev) => (prev === idx ? null : idx))
               }
@@ -211,6 +234,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
     gap: 8,
   },
   plotContainer: {

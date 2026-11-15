@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { parseMoneyInput } from '@/domain/money';
 import type { Account, CurrencyCode } from '@/domain/types';
 import { todayLocalDate } from '@/domain/dates';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
 import { Button } from './Button';
@@ -36,8 +36,15 @@ export function BalanceAdjustmentSheet({
   onClose,
   onSave,
 }: BalanceAdjustmentSheetProps) {
+  useLocale();
   const { theme } = useTheme();
   const [draft, setDraft] = useState('');
+
+  const handleClose = () => {
+    setDraft('');
+    onClose();
+  };
+
   const parsed = useMemo(() => parseMoneyInput(draft), [draft]);
   const targetMinor = parsed.ok && parsed.minor !== null ? parsed.minor : null;
   const difference = targetMinor === null ? null : targetMinor - currentBalanceMinor;
@@ -60,10 +67,11 @@ export function BalanceAdjustmentSheet({
   return (
     <Sheet
       visible={visible}
-      onClose={onClose}
+      onClose={handleClose}
       title={t('wallets.adjustBalance')}
       footer={
         <Button
+          testID="adjust-balance-save"
           title={t('wallets.saveAdjustment')}
           disabled={!canSave}
           onPress={() => void save()}
@@ -72,6 +80,7 @@ export function BalanceAdjustmentSheet({
     >
       <View style={styles.content}>
         <Money
+          testID="adjust-balance-target"
           amountMinor={targetMinor ?? 0}
           currency={currency}
           variant="display"

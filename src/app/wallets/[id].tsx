@@ -4,20 +4,19 @@ import { StyleSheet, View } from 'react-native';
 import {
   computeAccountBalanceSeries,
   formatAccountBalance,
-  formatWalletSubtitle,
   resolveWalletColorHex,
 } from '@/domain/accounts';
 import { addDays, formatFriendlyDate, formatFriendlyTime, isDevice24HourClock, todayLocalDate } from '@/domain/dates';
 import { formatMoney, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
 import type { Category, Transfer } from '@/domain/types';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
 import { usePeople } from '@/state/usePeople';
 import { useTheme } from '@/theme/useTheme';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
@@ -28,7 +27,7 @@ import { Screen } from '@/ui/Screen';
 import { Surface } from '@/ui/Surface';
 import { WalletAvatar } from '@/ui/WalletAvatar';
 import { WalletBalanceChart } from '@/ui/WalletBalanceChart';
-import { WalletEditorSheet, formatOpeningSummary } from '@/ui/WalletEditorSheet';
+import { WalletEditorSheet } from '@/ui/WalletEditorSheet';
 import { BalanceAdjustmentSheet } from '@/ui/BalanceAdjustmentSheet';
 
 type WalletFeedItem =
@@ -80,12 +79,24 @@ export default function WalletDetailScreen() {
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
   const walletId = Array.isArray(id) ? id[0] : id;
   const { repo, settings } = useAppContext();
+  const locale = useLocale();
   const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
   const showPoisha = usePrivacyStore((s) => s.showPoisha);
   const currency = settings.currency;
   const { theme } = useTheme();
   const today = todayLocalDate();
   const use24Hour = isDevice24HourClock();
+
+  const bnMinWidth = (text: string, fontSize: number) =>
+    locale === 'bn' ? { minWidth: estimateSingleLineMinWidth(text, fontSize) } : undefined;
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/wallets');
+    }
+  };
 
   const {
     accountsById,
@@ -158,10 +169,10 @@ export default function WalletDetailScreen() {
       const isIncome = tx.type === 'income';
       const whenLabel = tx.occurredTime
         ? formatFriendlyTime(tx.occurredTime, use24Hour)
-        : formatFriendlyDate(tx.occurredOn, today);
+        : formatFriendlyDate(tx.occurredOn, today, locale);
       const beforeOpening = tx.occurredOn < account.openingDate;
       const subParts = [catName, whenLabel];
-      if (beforeOpening) subParts.push('Before opening');
+      if (beforeOpening) subParts.push(t('wallets.beforeOpening'));
 
       items.push({
         kind: 'tx',
@@ -192,7 +203,7 @@ export default function WalletDetailScreen() {
       });
       const whenLabel = tr.occurredTime
         ? formatFriendlyTime(tr.occurredTime, use24Hour)
-        : formatFriendlyDate(tr.occurredOn, today);
+        : formatFriendlyDate(tr.occurredOn, today, locale);
       const feeText =
         isOutgoing && tr.feeMinor > 0
           ? t('activity.transferWithFeeSub', {
@@ -221,16 +232,16 @@ export default function WalletDetailScreen() {
       const personName = person?.name ?? t('people.title');
       const incoming = due.kind === 'received_back' || due.kind === 'borrowed';
       const titleMap: Record<typeof due.kind, string> = {
-        lent: `Lent to ${personName}`,
-        received_back: `${personName} paid back`,
-        borrowed: `Borrowed from ${personName}`,
-        paid_back: `Paid back ${personName}`,
+        lent: t('daybook.dueLent', { name: personName }),
+        received_back: t('daybook.dueReceivedBack', { name: personName }),
+        borrowed: t('daybook.dueBorrowed', { name: personName }),
+        paid_back: t('daybook.duePaidBack', { name: personName }),
       };
       const whenLabel = due.occurredTime
         ? formatFriendlyTime(due.occurredTime, use24Hour)
-        : formatFriendlyDate(due.occurredOn, today);
+        : formatFriendlyDate(due.occurredOn, today, locale);
       const subParts = [whenLabel];
-      if (due.occurredOn < account.openingDate) subParts.push('Before opening');
+      if (due.occurredOn < account.openingDate) subParts.push(t('wallets.beforeOpening'));
       if (due.note.trim()) subParts.push(due.note.trim());
 
       items.push({
@@ -255,7 +266,7 @@ export default function WalletDetailScreen() {
       if (a.createdAt !== b.createdAt) return b.createdAt - a.createdAt;
       return b.id.localeCompare(a.id);
     });
-  }, [account, transfers, transactions, dueEntries, categoriesById, accountsById, peopleById, currency, today, use24Hour]);
+  }, [account, transfers, transactions, dueEntries, categoriesById, accountsById, peopleById, currency, today, use24Hour, hideAmounts, showPoisha, locale]);
 
   if (!loading && !account) {
     return (
@@ -264,7 +275,7 @@ export default function WalletDetailScreen() {
           <IconButton
             icon="arrow-left"
             accessibilityLabel={t('common.back')}
-            onPress={() => router.back()}
+            onPress={handleBack}
           />
           <AppText variant="title" style={styles.flex1}>
             {t('wallets.title')}
@@ -274,7 +285,7 @@ export default function WalletDetailScreen() {
           title={t('wallets.emptyTitle')}
           body={t('error.genericBody')}
           retryLabel={t('common.back')}
-          onRetry={() => router.back()}
+          onRetry={handleBack}
         />
       </Screen>
     );
@@ -285,11 +296,18 @@ export default function WalletDetailScreen() {
   }
 
   const balMinor = balanceEntry?.balanceMinor ?? account.openingBalanceMinor;
+  const isDue = account.kind === 'credit_card' && balMinor < 0;
   const formattedBal = hideAmounts
     ? HIDDEN_AMOUNT_TEXT
-    : (balanceEntry?.formattedBalance ??
-      formatAccountBalance(account.kind, balMinor, settings.currency));
-  const isDue = account.kind === 'credit_card' && balMinor < 0;
+    : isDue
+      ? `${formatAccountBalance('other', Math.abs(balMinor), settings.currency)} ${t('wallets.dueSuffix')}`
+      : (balanceEntry?.formattedBalance ??
+        formatAccountBalance(account.kind, balMinor, settings.currency));
+  const openingAmountLabel = hideAmounts
+    ? HIDDEN_AMOUNT_TEXT
+    : `${account.openingBalanceMinor < 0 ? '-' : ''}${formatMoney(Math.abs(account.openingBalanceMinor), settings.currency, { showPoisha })}`;
+  const excludedBadgeText = t('wallets.excludedBadge');
+  const last4Text = account.last4 ? t('wallets.endingLast4', { last4: account.last4 }) : '';
 
   return (
     <Screen scroll edges={['top', 'bottom', 'left', 'right']}>
@@ -298,7 +316,7 @@ export default function WalletDetailScreen() {
           testID="wallet-detail-back"
           icon="arrow-left"
           accessibilityLabel={t('common.back')}
-          onPress={() => router.back()}
+          onPress={handleBack}
         />
         <AppText variant="title" style={styles.flex1} numberOfLines={1}>
           {account.name}
@@ -332,17 +350,18 @@ export default function WalletDetailScreen() {
         <View style={styles.metaRow}>
           <AppText variant="caption" color="textSecondary" style={styles.flex1}>
             {t('wallets.openingMeta', {
-              amount: '',
-              date: formatOpeningSummary(
-                account.openingBalanceMinor,
-                formatFriendlyDate(account.openingDate, today),
-                settings.currency
-              ),
-            }).replace('Opening  · ', 'Opening ')}
+              amount: openingAmountLabel,
+              date: formatFriendlyDate(account.openingDate, today, locale),
+            })}
           </AppText>
           {account.last4 ? (
-            <AppText variant="caption" color="textSecondary">
-              {formatWalletSubtitle(account)}
+            <AppText
+              variant="caption"
+              color="textSecondary"
+              numberOfLines={1}
+              style={bnMinWidth(last4Text, theme.typography.caption.fontSize)}
+            >
+              {last4Text}
             </AppText>
           ) : null}
           {!account.includeInTotal ? (
@@ -355,8 +374,13 @@ export default function WalletDetailScreen() {
                 },
               ]}
             >
-              <AppText variant="caption" color="textSecondary">
-                {t('wallets.excludedBadge')}
+              <AppText
+                variant="caption"
+                color="textSecondary"
+                numberOfLines={1}
+                style={bnMinWidth(excludedBadgeText, theme.typography.caption.fontSize)}
+              >
+                {excludedBadgeText}
               </AppText>
             </View>
           ) : null}
@@ -377,6 +401,7 @@ export default function WalletDetailScreen() {
           currency={settings.currency}
           lineColor={resolveWalletColorHex(account)}
           today={today}
+          hidden={hideAmounts}
         />
       ) : null}
 
@@ -411,6 +436,8 @@ export default function WalletDetailScreen() {
                     variant="bodyStrong"
                     color={item.isIncome ? 'accent' : 'text'}
                     tabularNums
+                    numberOfLines={1}
+                    style={styles.noWrap}
                   >
                     {hideAmounts
                       ? HIDDEN_AMOUNT_TEXT
@@ -476,5 +503,8 @@ const styles = StyleSheet.create({
   flex1: {
     flex: 1,
     minWidth: 0,
+  },
+  noWrap: {
+    flexShrink: 0,
   },
 });

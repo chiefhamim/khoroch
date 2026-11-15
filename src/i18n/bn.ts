@@ -798,6 +798,7 @@ export const bn: Record<TranslationKey, string> = {
   'wallets.signPositiveCredit': 'জমা ব্যালেন্স (+)',
   'wallets.signNegativeBalance': 'ঋণাত্মক ব্যালেন্স (−)',
   'wallets.signTapForNegative': 'ঋণাত্মক করতে ট্যাপ করুন (−)',
+  'wallets.beforeOpening': 'শুরুর তারিখের আগে',
 
   'people.title': 'লেনদেন ও পাওনা',
   'people.addPerson': 'যোগ করুন',

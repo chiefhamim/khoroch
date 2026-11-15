@@ -785,6 +785,7 @@ export const en = {
   'wallets.signPositiveCredit': 'Positive credit (+)',
   'wallets.signNegativeBalance': 'Negative balance (−)',
   'wallets.signTapForNegative': 'Tap for negative (−)',
+  'wallets.beforeOpening': 'Before opening',
 
   'people.title': 'People',
   'people.addPerson': 'Add',
