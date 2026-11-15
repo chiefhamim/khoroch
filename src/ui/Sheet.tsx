@@ -331,6 +331,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
+    minWidth: 0,
   },
   headerRight: {
     flexDirection: "row",

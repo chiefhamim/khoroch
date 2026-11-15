@@ -401,4 +401,36 @@ describe('v2 design system components', () => {
       });
     }
   });
+
+  it('caps ToastView message minWidth when actionLabel is present and triggers onAction/onDismiss', async () => {
+    const onAction = jest.fn();
+    const onDismiss = jest.fn();
+    const view = await render(
+      <ThemeProvider preference="dark">
+        <ToastView
+          testID="action-toast"
+          message="Saved · Food & Dining ৳350 and a longer description for wrapping"
+          actionLabel="Undo"
+          onAction={onAction}
+          onDismiss={onDismiss}
+        />
+        <Sheet visible onClose={() => {}} title="ধার দেওয়া বা নেওয়া এবং বিস্তারিত শিরোনাম">
+          <Button title="Done" onPress={() => {}} />
+        </Sheet>
+      </ThemeProvider>
+    );
+
+    const msgStyle = StyleSheet.flatten(
+      view.getByText('Saved · Food & Dining ৳350 and a longer description for wrapping').props.style
+    );
+    expect(msgStyle.minWidth).toBeLessThanOrEqual(190);
+    await fireEvent.press(view.getByLabelText('Undo'));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+
+    const sheetTitleStyle = StyleSheet.flatten(
+      view.getByText('ধার দেওয়া বা নেওয়া এবং বিস্তারিত শিরোনাম').props.style
+    );
+    expect(sheetTitleStyle.minWidth).toBe(0);
+  });
 });

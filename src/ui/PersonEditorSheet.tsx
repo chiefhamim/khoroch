@@ -226,9 +226,12 @@ const styles = StyleSheet.create({
   },
   actionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
   },
   flex1: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 0,
+    minWidth: 110,
   },
 });

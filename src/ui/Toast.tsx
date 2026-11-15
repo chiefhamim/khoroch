@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/theme/useTheme';
@@ -62,6 +62,7 @@ export function ToastView({
   testID,
 }: ToastViewProps) {
   const { theme } = useTheme();
+  const { width: windowWidth } = useWindowDimensions();
   const isDarkSurface = theme.scheme === 'light';
   const bg = isDarkSurface ? '#151518' : theme.colors.surfaceRaised;
   const fg = isDarkSurface ? '#F4F4F5' : theme.colors.text;
@@ -74,11 +75,16 @@ export function ToastView({
         ? '#34D399'
         : fg;
 
+  const maxMessageRoom = Math.max(
+    96,
+    Math.min(actionLabel ? 190 : 280, windowWidth - (actionLabel ? 210 : 120))
+  );
+
   const minMessageWidth =
     message.length > 0
       ? Math.min(
           estimateSingleLineMinWidth(message, theme.typography.label.fontSize),
-          actionLabel ? 210 : 280
+          maxMessageRoom
         )
       : undefined;
 

@@ -250,3 +250,17 @@
   - `src/__tests__/categories.test.tsx`: Created EN + BN integration tests verifying Expense/Income tab switching, empty-name validation (`category-name-error`), category creation + color selection, protected `other` archive guard, archive/restore flow, `canGoBack() === false` fallback, and Bangla localization.
 - **Live verification (`com.hamim.budgetapp.dev`):** Captured and inspected all 14 screenshots across Dark EN, Light EN, Light BN, and Dark BN under `docs/round4/18-categories/` (`Expense`, `Income`, `Add category` + open keyboard, `Edit category` + open keyboard, and `Archive` confirmation in both EN & BN), verifying clean 3-column grids, readable `ক্যাটাগরি এডিট` & `কুইক চিপসে দেখান` rows, clean `'বাতিল'` + `'ক্যাটাগরি আর্কাইভ করুন'` side-by-side confirm buttons, unclipped keyboard views, and clean Dark EN Home restoration (`৳27,380` / `৳20,230`).
 - **Checks after final edit:** `npm run typecheck` (0 errors), `npx expo lint` (0 errors, 0 warnings), `npm test` (36/36 suites, 186/186 tests PASS).
+
+## 19. Remaining sheets, keyboards, and toasts
+- **Found:**
+  - `src/ui/Sheet.tsx`: `styles.title` lacked `minWidth: 0`, risking long Bangla sheet titles pushing against `headerRight` or the Close button.
+  - `src/ui/Toast.tsx`: `ToastView` had a fixed text width/layout without responsiveness for `actionLabel` (`Undo`), risking single-line action push-out on narrower widths.
+  - `src/ui/PersonEditorSheet.tsx` & `src/ui/DueEntrySheet.tsx`: `actionsRow` lacked `flexWrap: 'wrap'` and `flex1` lacked `minWidth: 110`, risking Cancel/Save or Delete/Save clipping on longer Bangla labels.
+- **Root-cause fixes:**
+  - `src/ui/Sheet.tsx`: Added `minWidth: 0` to `styles.title`.
+  - `src/ui/Toast.tsx`: Used `useWindowDimensions()` in `ToastView` to compute `maxMessageRoom = Math.max(96, Math.min(actionLabel ? 190 : 280, windowWidth - (actionLabel ? 210 : 120)))`, allowing action-toast messages to wrap cleanly onto 2 lines without pushing the action button off-screen while keeping short pills single-line.
+  - `src/ui/PersonEditorSheet.tsx` & `src/ui/DueEntrySheet.tsx`: Enabled `flexWrap: 'wrap'` on `actionsRow` and `{ flexGrow: 1, flexBasis: 0, minWidth: 110 }` on `flex1`.
+  - `src/ui/components.test.tsx`: Added coverage for `ToastView` with `actionLabel="Undo"` and `Sheet` long Bangla title layout.
+- **Live verification (`R5CY23M7E6L`, `com.hamim.budgetapp.dev`):**
+  - Inspected all 27 PNG screenshots under `docs/round4/19-sheets-toasts/` covering How these numbers work sheet, Settings toasts, Ledger search keyboard, Period & Filter sheets, Plan budget sheet, PersonEditorSheet, DueEntrySheet (`new person` & `note`), Wallet picker sheet, Fast entry (`desc`, `note`, `category`), DateTimeSheet (`date` & `time`), Tx new-category & delete-confirm sheets, and WalletEditorSheet across Dark EN, Light BN, and Dark BN with software keyboard open (`mInputShown=true` verified); deleted all temporary `.xml` dumps; restored **Forest · Dark** EN Home (`৳27,380` / `৳20,230`).
+- **Checks after final edit:** `npm run typecheck` (0 errors), `npx expo lint` (0 errors, 0 warnings), `npm test` (36/36 suites, 187/187 tests PASS).
