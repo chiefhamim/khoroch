@@ -798,6 +798,9 @@ export const bn: Record<TranslationKey, string> = {
   'people.got': 'আমি পেয়েছি',
   'people.youWillGet': 'আপনি পাবেন',
   'people.youOwe': 'আপনার দেনা',
+  'people.owesYou': 'আপনি পাবেন',
+  'people.personSingle': '১ জন',
+  'people.personPlural': '{count} জন',
   'people.owesYouAmt': 'আপনি পাবেন {amount}',
   'people.youOweAmt': 'আপনি দেবেন {amount}',
   'people.settledLabel': 'মিটে গেছে',
@@ -870,6 +873,9 @@ export const bn: Record<TranslationKey, string> = {
   'due.errorSelectPerson': 'একজন ব্যক্তি বেছে নিন অথবা নাম লিখুন।',
   'due.errorAmount': 'সঠিক টাকার পরিমাণ লিখুন।',
   'due.errorDate': 'সঠিক তারিখ লিখুন।',
+  'due.overpaymentDefaultPerson': 'এই ব্যক্তি',
+  'due.overpaymentMoreThanOwes': '{name} যতটুকু দেবেন তার চেয়ে {excess} বেশি হয়েছে',
+  'due.overpaymentMoreThanYouOwe': 'আপনি {name}-কে যতটুকু দেবেন তার চেয়ে {excess} বেশি হয়েছে',
 
   'overview.duesTitle': 'পাওনা ও দেনা',
 

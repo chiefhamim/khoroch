@@ -3,11 +3,11 @@ import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { formatFriendlyDate, todayLocalDate } from '@/domain/dates';
 import { type PersonSummary } from '@/domain/dues';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { usePeople } from '@/state/usePeople';
 import { useTheme } from '@/theme/useTheme';
-import { AppText } from '@/ui/AppText';
+import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { DueEntrySheet } from '@/ui/DueEntrySheet';
 import { EmptyState } from '@/ui/EmptyState';
@@ -23,8 +23,12 @@ import { hapticSelection } from '@/ui/haptics';
 
 export default function PeopleTabScreen() {
   const { settings } = useAppContext();
+  const locale = useLocale();
   const { theme } = useTheme();
   const { allPeople, overview, loading, error, reload } = usePeople();
+
+  const bnMinWidth = (text: string, fontSize: number) =>
+    locale === 'bn' ? { minWidth: estimateSingleLineMinWidth(text, fontSize) } : null;
 
   const [dueSheetOpen, setDueSheetOpen] = useState(false);
   const [personSheetOpen, setPersonSheetOpen] = useState(false);
@@ -33,6 +37,17 @@ export default function PeopleTabScreen() {
   const currency = settings.currency;
 
   const visibleList = overview.openPeople;
+  const owesYouLabel = t('people.owesYou');
+  const youOweLabel = t('people.youOwe');
+  const settledLabel = t('people.settledLabel');
+  const getCountText =
+    overview.openReceivableCount === 1
+      ? t('people.personSingle')
+      : t('people.personPlural', { count: overview.openReceivableCount });
+  const oweCountText =
+    overview.openPayableCount === 1
+      ? t('people.personSingle')
+      : t('people.personPlural', { count: overview.openPayableCount });
 
   const renderPersonRow = (summary: PersonSummary, idx: number, total: number) => {
     const countLabel =
@@ -42,10 +57,10 @@ export default function PeopleTabScreen() {
 
     const subtitle =
       summary.netMinor !== 0 && summary.sinceDate
-        ? `${t('people.sinceDate', { date: formatFriendlyDate(summary.sinceDate, today) })} · ${countLabel}`
+        ? `${t('people.sinceDate', { date: formatFriendlyDate(summary.sinceDate, today, locale) })} · ${countLabel}`
         : summary.activeEntryCount > 0
           ? `${t('people.settledOn')} · ${countLabel}`
-          : t('people.settledLabel');
+          : settledLabel;
 
     const absNet = Math.abs(summary.netMinor);
 
@@ -65,8 +80,13 @@ export default function PeopleTabScreen() {
         right={
           summary.netMinor > 0 ? (
             <View style={styles.balanceRight}>
-              <AppText variant="caption" color="accent">
-                Owes you
+              <AppText
+                variant="caption"
+                color="accent"
+                numberOfLines={1}
+                style={[styles.rightText, bnMinWidth(owesYouLabel, 12)]}
+              >
+                {owesYouLabel}
               </AppText>
               <Money
                 variant="bodyStrong"
@@ -77,8 +97,13 @@ export default function PeopleTabScreen() {
             </View>
           ) : summary.netMinor < 0 ? (
             <View style={styles.balanceRight}>
-              <AppText variant="caption" color="danger">
-                You owe
+              <AppText
+                variant="caption"
+                color="danger"
+                numberOfLines={1}
+                style={[styles.rightText, bnMinWidth(youOweLabel, 12)]}
+              >
+                {youOweLabel}
               </AppText>
               <Money
                 variant="bodyStrong"
@@ -97,8 +122,13 @@ export default function PeopleTabScreen() {
                 },
               ]}
             >
-              <AppText variant="caption" color="textSecondary">
-                {t('people.settledLabel')}
+              <AppText
+                variant="caption"
+                color="textSecondary"
+                numberOfLines={1}
+                style={bnMinWidth(settledLabel, 12)}
+              >
+                {settledLabel}
               </AppText>
             </View>
           )
@@ -143,7 +173,12 @@ export default function PeopleTabScreen() {
           testID="people-summary-get"
           style={[styles.summaryCard, { gap: theme.spacing.xs }]}
         >
-          <AppText variant="label" color="textSecondary">
+          <AppText
+            variant="label"
+            color="textSecondary"
+            numberOfLines={1}
+            style={bnMinWidth(t('people.youWillGet'), 13)}
+          >
             {t('people.youWillGet')}
           </AppText>
           <Money
@@ -155,10 +190,13 @@ export default function PeopleTabScreen() {
             allowCompact
           />
           {overview.openReceivableCount > 0 ? (
-            <AppText variant="caption" color="textSecondary">
-              {overview.openReceivableCount === 1
-                ? '1 person'
-                : `${overview.openReceivableCount} people`}
+            <AppText
+              variant="caption"
+              color="textSecondary"
+              numberOfLines={1}
+              style={bnMinWidth(getCountText, 12)}
+            >
+              {getCountText}
             </AppText>
           ) : null}
         </Surface>
@@ -167,8 +205,13 @@ export default function PeopleTabScreen() {
           testID="people-summary-owe"
           style={[styles.summaryCard, { gap: theme.spacing.xs }]}
         >
-          <AppText variant="label" color="textSecondary">
-            {t('people.youOwe')}
+          <AppText
+            variant="label"
+            color="textSecondary"
+            numberOfLines={1}
+            style={bnMinWidth(youOweLabel, 13)}
+          >
+            {youOweLabel}
           </AppText>
           <Money
             testID="people-summary-owe-amount"
@@ -179,10 +222,13 @@ export default function PeopleTabScreen() {
             allowCompact
           />
           {overview.openPayableCount > 0 ? (
-            <AppText variant="caption" color="textSecondary">
-              {overview.openPayableCount === 1
-                ? '1 person'
-                : `${overview.openPayableCount} people`}
+            <AppText
+              variant="caption"
+              color="textSecondary"
+              numberOfLines={1}
+              style={bnMinWidth(oweCountText, 12)}
+            >
+              {oweCountText}
             </AppText>
           ) : null}
         </Surface>
@@ -230,7 +276,12 @@ export default function PeopleTabScreen() {
 
           {overview.settledPeople.length > 0 ? (
             <>
-              <AppText variant="label" color="textSecondary">
+              <AppText
+                variant="label"
+                color="textSecondary"
+                numberOfLines={1}
+                style={bnMinWidth(t('people.settledTab'), 13)}
+              >
                 {t('people.settledTab')}
               </AppText>
               <Surface testID="people-settled-list-card" padded={false}>
@@ -268,6 +319,7 @@ const styles = StyleSheet.create({
   },
   flex1: {
     flex: 1,
+    minWidth: 0,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -275,10 +327,14 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flex: 1,
+    minWidth: 0,
   },
   balanceRight: {
     alignItems: 'flex-end',
     gap: 1,
+  },
+  rightText: {
+    textAlign: 'right',
   },
   settledPill: {
     paddingHorizontal: 10,

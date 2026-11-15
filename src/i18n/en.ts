@@ -785,6 +785,9 @@ export const en = {
   'people.got': 'I got',
   'people.youWillGet': "You'll get",
   'people.youOwe': 'You owe',
+  'people.owesYou': 'Owes you',
+  'people.personSingle': '1 person',
+  'people.personPlural': '{count} people',
   'people.owesYouAmt': 'Owes you {amount}',
   'people.youOweAmt': 'You owe {amount}',
   'people.settledLabel': 'Settled',
@@ -857,6 +860,9 @@ export const en = {
   'due.errorSelectPerson': 'Choose a person or enter a name.',
   'due.errorAmount': 'Enter a valid amount.',
   'due.errorDate': 'Enter a valid date.',
+  'due.overpaymentDefaultPerson': 'this person',
+  'due.overpaymentMoreThanOwes': 'This is {excess} more than {name} owes',
+  'due.overpaymentMoreThanYouOwe': 'This is {excess} more than you owe {name}',
 
   'overview.duesTitle': 'People & dues',
 

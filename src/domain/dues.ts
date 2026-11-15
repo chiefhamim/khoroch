@@ -297,25 +297,36 @@ export function checkDueOverpayment(params: {
   entryKind: DueKind;
   amountMinor: number;
   currency: CurrencyCode;
+  formatters?: {
+    fallbackPerson?: string;
+    moreThanOwes?: (excess: string, name: string) => string;
+    moreThanYouOwe?: (excess: string, name: string) => string;
+  };
 }): OverpaymentCheckResult {
-  const { personName, currentNetMinor, entryKind, amountMinor, currency } = params;
-  const cleanName = personName.trim() || 'this person';
+  const { personName, currentNetMinor, entryKind, amountMinor, currency, formatters } = params;
+  const cleanName = personName.trim() || formatters?.fallbackPerson || 'this person';
 
   if (currentNetMinor > 0 && entryKind === 'received_back' && amountMinor > currentNetMinor) {
     const excessMinor = amountMinor - currentNetMinor;
+    const excess = formatInlineMoney(excessMinor, currency);
     return {
       isOverpayment: true,
       excessMinor,
-      warningText: `This is ${formatInlineMoney(excessMinor, currency)} more than ${cleanName} owes`,
+      warningText: formatters?.moreThanOwes
+        ? formatters.moreThanOwes(excess, cleanName)
+        : `This is ${excess} more than ${cleanName} owes`,
     };
   }
 
   if (currentNetMinor < 0 && entryKind === 'paid_back' && amountMinor > -currentNetMinor) {
     const excessMinor = amountMinor - -currentNetMinor;
+    const excess = formatInlineMoney(excessMinor, currency);
     return {
       isOverpayment: true,
       excessMinor,
-      warningText: `This is ${formatInlineMoney(excessMinor, currency)} more than you owe ${cleanName}`,
+      warningText: formatters?.moreThanYouOwe
+        ? formatters.moreThanYouOwe(excess, cleanName)
+        : `This is ${excess} more than you owe ${cleanName}`,
     };
   }
 

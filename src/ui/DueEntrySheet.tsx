@@ -14,14 +14,14 @@ import {
 } from '@/domain/money';
 import type { DueEntry, DueKind, LocalDate } from '@/domain/types';
 import { MAX_NOTE_LENGTH, MAX_PERSON_NAME_LENGTH, isValidLocalTime } from '@/domain/validation';
-import { t } from '@/i18n';
+import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useAccounts } from '@/state/useAccounts';
 import { usePeople } from '@/state/usePeople';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
-import { AppText } from './AppText';
+import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { Banner } from './Banner';
 import { Button } from './Button';
 import { DateField } from './DateField';
@@ -78,7 +78,10 @@ function DueEntryBody({
   onSaved,
 }: DueEntryBodyProps) {
   const { repo, settings } = useAppContext();
+  const locale = useLocale();
   const { theme } = useTheme();
+  const bnMinWidth = (text: string, fontSize: number) =>
+    locale === 'bn' ? { minWidth: estimateSingleLineMinWidth(text, fontSize) } : null;
   const { showToast } = useToast();
   const { people, allPeople, dueEntries, overview } = usePeople();
   const { accounts, accountsById, overview: accountsOverview } = useAccounts();
@@ -158,18 +161,23 @@ function DueEntryBody({
     return net;
   }, [activePerson, overview.allActivePeople, editingEntry, dueEntries]);
 
-  const overpayment = useMemo(() => {
-    if (validAmountMinor === null || !activePerson) {
-      return { isOverpayment: false, excessMinor: 0, warningText: null };
-    }
-    return checkDueOverpayment({
-      personName: activePerson.name,
-      currentNetMinor: currentPersonNetExcludingEdit,
-      entryKind: kind,
-      amountMinor: validAmountMinor,
-      currency,
-    });
-  }, [validAmountMinor, activePerson, currentPersonNetExcludingEdit, kind, currency]);
+  const overpayment =
+    validAmountMinor !== null && activePerson
+      ? checkDueOverpayment({
+          personName: activePerson.name,
+          currentNetMinor: currentPersonNetExcludingEdit,
+          entryKind: kind,
+          amountMinor: validAmountMinor,
+          currency,
+          formatters: {
+            fallbackPerson: t('due.overpaymentDefaultPerson'),
+            moreThanOwes: (excess, name) =>
+              t('due.overpaymentMoreThanOwes', { excess, name }),
+            moreThanYouOwe: (excess, name) =>
+              t('due.overpaymentMoreThanYouOwe', { excess, name }),
+          },
+        })
+      : { isOverpayment: false, excessMinor: 0, warningText: null };
 
   const selectedAccount = accountId ? accountsById.get(accountId) ?? null : null;
 
@@ -304,7 +312,11 @@ function DueEntryBody({
                 },
               ]}
             >
-              <AppText variant="label" color={active ? 'accent' : 'textSecondary'}>
+              <AppText
+                variant="label"
+                color={active ? 'accent' : 'textSecondary'}
+                numberOfLines={1}
+              >
                 {t(opt.labelKey)}
               </AppText>
             </PressableScale>
@@ -365,6 +377,8 @@ function DueEntryBody({
                     ? 'accent'
                     : 'text'
                 }
+                numberOfLines={1}
+                style={bnMinWidth(t('due.newPersonCta'), 13)}
               >
                 {t('due.newPersonCta')}
               </AppText>
@@ -453,14 +467,22 @@ function DueEntryBody({
           style={({ pressed }) => [styles.flatRow, { opacity: pressed ? 0.72 : 1 }]}
         >
           <WalletAvatar account={selectedAccount} size="xs" />
-          <AppText variant="label" color="textSecondary" style={styles.rowLabel}>
+          <AppText
+            variant="label"
+            color="textSecondary"
+            numberOfLines={1}
+            style={[styles.rowLabel, bnMinWidth(t('due.walletLabel'), 13)]}
+          >
             {t('due.walletLabel')}
           </AppText>
           <AppText
             variant="bodyStrong"
             color={selectedAccount ? 'text' : 'textSecondary'}
             numberOfLines={1}
-            style={styles.rowValue}
+            style={[
+              styles.rowValue,
+              bnMinWidth(selectedAccount?.name ?? t('due.noWallet'), 15),
+            ]}
           >
             {selectedAccount?.name ?? t('due.noWallet')}
           </AppText>
@@ -584,6 +606,7 @@ export function DueEntrySheet({
   titleOverride,
   onSaved,
 }: DueEntrySheetProps) {
+  useLocale();
   const title =
     titleOverride ??
     (editingEntry ? t('due.sheetTitleEdit') : t('due.sheetTitleNew'));

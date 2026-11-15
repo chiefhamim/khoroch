@@ -22,7 +22,7 @@ Live package (untouched until Section 6 step 4 owner approval): `com.hamim.budge
 - [x] 10. Plan (`src/app/(tabs)/plan.tsx`): budget ring, category budgets, past cycles
 - [x] 11. Insights (`src/app/plan/insights.tsx`, `src/screens/InsightsScreen.tsx`)
 - [x] 12. Category detail (`src/app/category/[id].tsx`)
-- [ ] 13. People list (`src/app/(tabs)/people.tsx`) and the Lend or borrow sheet (`src/ui/DueEntrySheet.tsx`)
+- [x] 13. People list (`src/app/(tabs)/people.tsx`) and the Lend or borrow sheet (`src/ui/DueEntrySheet.tsx`)
 - [ ] 14. Person detail (`src/app/people/[id].tsx`) and the person editor sheet
 - [ ] 15. Wallets list (`src/app/wallets/index.tsx`) and the wallet editor sheet
 - [ ] 16. Wallet detail (`src/app/wallets/[id].tsx`): balance chart, adjust balance sheet

@@ -198,6 +198,23 @@ describe('dues domain helpers (TEST-CASES-v1.2 §B)', () => {
       warningText: 'This is ৳500 more than Rafi owes',
     });
 
+    const localizedCheck = checkDueOverpayment({
+      personName: 'Tanvir',
+      currentNetMinor: -80_000,
+      entryKind: 'paid_back',
+      amountMinor: 100_000,
+      currency: 'BDT',
+      formatters: {
+        moreThanYouOwe: (excess, name) =>
+          `আপনি ${name}-কে যতটুকু দেবেন তার চেয়ে ${excess} বেশি হয়েছে`,
+      },
+    });
+    expect(localizedCheck).toEqual({
+      isOverpayment: true,
+      excessMinor: 20_000,
+      warningText: 'আপনি Tanvir-কে যতটুকু দেবেন তার চেয়ে ৳200 বেশি হয়েছে',
+    });
+
     const flippedNet = computePersonNetMinor([
       makeDue({ id: '1', personId: 'p-rafi', kind: 'lent', amountMinor: 150_000 }),
       makeDue({ id: '2', personId: 'p-rafi', kind: 'received_back', amountMinor: 200_000 }),

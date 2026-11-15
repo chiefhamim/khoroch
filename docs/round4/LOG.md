@@ -161,3 +161,19 @@
   - `src/__tests__/category-detail.test.tsx`: Added integration tests covering English period summary/row press, Bangla localization + Fabric `minWidth` + `canGoBack() === false` fallback, and empty period state.
 - **Live verification (`com.hamim.budgetapp.dev`):** Captured Dark EN, Light EN, Light BN, and Dark BN screenshots under `docs/round4/12-category-detail/`, verified `'1 নভে – 30 নভে'`, `'এই মাসে খরচ'`, `'1টি খরচ'` (no word drops), and `'11 নভে · 4:28 PM'`, then restored Dark EN Home (`৳27,380` / `৳20,230`).
 - **Checks after final edit:** `npm run typecheck` (0 errors), `npx expo lint` (0 errors, 1 pre-existing warning in `src/app/wallets/[id].tsx:258`), `npm test` (30/30 suites, 174/174 tests PASS).
+
+
+## 13. People list & Lend or borrow sheet (`src/app/(tabs)/people.tsx`, `src/ui/DueEntrySheet.tsx`)
+- **What broke on code & live device (`R5CY23M7E6L`):**
+  1. Neither `PeopleTabScreen` nor `DueEntrySheet` subscribed to `useLocale()`, leaving `formatFriendlyDate` English in Bangla mode.
+  2. `PeopleTabScreen` hardcoded English `'Owes you'` instead of localized `'আপনি পাবেন'`, `'1 person'` / `'{count} people'` instead of localized `'১ জন'` / `'{count} জন'`, and right-aligned status labels (`আপনি পাবেন`, `আপনার দেনা`, `মিটে গেছে`) lacked `numberOfLines={1}` + `estimateSingleLineMinWidth` + `minWidth: 0`.
+  3. `checkDueOverpayment` (`src/domain/dues.ts`) hardcoded English `'This is {excess} more than {name} owes'` / `'more than you owe {name}'` and `'this person'` even in Bangla mode.
+  4. In `DueEntrySheet`, right-side `'ওয়ালেট (ঐচ্ছিক)'` / `'ওয়ালেট ছাড়া'` lacked `bnMinWidth`, while adding `bnMinWidth` on `DUE_KIND_OPTIONS` direction pills pushed `'পরিশোধ করেছি'` onto row 2 as a stretched full-width bar. Removing `bnMinWidth` from `kindPill` while keeping `numberOfLines={1}` restored all 4 pills cleanly on 1 row (`ধার দিয়েছি | ফেরত পেয়েছি | ধার নিয়েছি | পরিশোধ করেছি`).
+- **Root-cause fixes:**
+  - `src/i18n/en.ts`, `src/i18n/bn.ts`: Added `people.owesYou`, `people.personSingle`, `people.personPlural`, `due.overpaymentDefaultPerson`, `due.overpaymentMoreThanOwes`, and `due.overpaymentMoreThanYouOwe`.
+  - `src/domain/dues.ts`, `src/domain/dues.test.ts`: Added optional backward-compatible `formatters` to `checkDueOverpayment` plus localized test coverage.
+  - `src/app/(tabs)/people.tsx`: Subscribed to `useLocale()`, passed `locale` to `formatFriendlyDate`, localized all status/count strings, applied `bnMinWidth` + `numberOfLines={1}` on Bangla badges/captions/labels, added `minWidth: 0` on `flex1` / `summaryCard` and `rightText: { textAlign: 'right' }`.
+  - `src/ui/DueEntrySheet.tsx`: Subscribed to `useLocale()` in `DueEntryBody` and `DueEntrySheet`, passed localized overpayment formatters, kept `kindPill` unwrapped without `bnMinWidth` so all 4 pills share row 1 evenly, and applied `bnMinWidth` + `numberOfLines={1}` on `due.newPersonCta`, `rowLabel`, and `rowValue`.
+  - `src/__tests__/people.test.tsx`: Added EN + BN integration tests verifying summary/rows, Fabric `minWidth`, and localized overpayment warning.
+- **Live verification (`com.hamim.budgetapp.dev`):** Captured Light BN, Dark BN, Dark EN (+kbd), and Light EN (+kbd + overpayment) under `docs/round4/13-people/` (refreshed `due-sheet-light-bn.png` and `due-sheet-light-bn-kbd.png` after pill fix) and restored Dark EN Home (`৳27,380` / `৳20,230`).
+- **Checks after final edit:** `npm run typecheck` (0 errors), `npx expo lint` (0 errors, 1 pre-existing warning in `src/app/wallets/[id].tsx:258`), `npm test` (31/31 suites, 176/176 tests PASS).
