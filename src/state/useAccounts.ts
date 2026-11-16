@@ -1,7 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { computeAccountsOverview, type AccountsOverview } from '@/domain/accounts';
 import { todayLocalDate } from '@/domain/dates';
-import type { Account, DueEntry, LocalDate, Transaction, Transfer } from '@/domain/types';
+import { computeNetWorth, type NetWorthBreakdown } from '@/domain/netWorth';
+import type {
+  Account,
+  DueEntry,
+  LocalDate,
+  Person,
+  RecurringBill,
+  Transaction,
+  Transfer,
+} from '@/domain/types';
 import { useAppContext } from './AppContext';
 import { useDataVersionStore } from './dataVersion';
 
@@ -13,6 +22,7 @@ export interface UseAccountsResult {
   transactions: Transaction[];
   transfers: Transfer[];
   dueEntries: DueEntry[];
+  netWorth: NetWorthBreakdown;
   untaggedCount: number;
   /** Entries tagged to a zero-balance wallet but dated before that wallet's opening date. */
   predated: { count: number; earliest: LocalDate | null; accountIds: string[] };
@@ -29,6 +39,8 @@ export function useAccounts(asOfDate?: LocalDate): UseAccountsResult {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [dueEntries, setDueEntries] = useState<DueEntry[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [recurringBills, setRecurringBills] = useState<RecurringBill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
@@ -39,17 +51,21 @@ export function useAccounts(asOfDate?: LocalDate): UseAccountsResult {
     let active = true;
     (async () => {
       try {
-        const [accList, txList, trList, dueList] = await Promise.all([
+        const [accList, txList, trList, dueList, peopleList, billsList] = await Promise.all([
           repo.listAccounts({ includeArchived: true }),
           repo.listAllActiveTransactions(),
           repo.listTransfers(),
           repo.listDueEntries(),
+          repo.listPeople({ includeArchived: true }),
+          repo.listRecurringBills(),
         ]);
         if (!active) return;
         setAllAccounts(accList);
         setTransactions(txList);
         setTransfers(trList);
         setDueEntries(dueList);
+        setPeople(peopleList);
+        setRecurringBills(billsList);
         setError(null);
       } catch {
         if (!active) return;
@@ -124,6 +140,17 @@ export function useAccounts(asOfDate?: LocalDate): UseAccountsResult {
     return { count, earliest, accountIds: [...ids] };
   }, [allAccounts, transactions, transfers, dueEntries]);
 
+  const netWorth = useMemo(
+    () =>
+      computeNetWorth({
+        balances: overview.balances,
+        people,
+        dueEntries,
+        recurringBills,
+      }),
+    [overview.balances, people, dueEntries, recurringBills]
+  );
+
   const reload = useCallback(() => {
     setReloadTick((n) => n + 1);
   }, []);
@@ -136,6 +163,7 @@ export function useAccounts(asOfDate?: LocalDate): UseAccountsResult {
     transactions,
     transfers,
     dueEntries,
+    netWorth,
     untaggedCount,
     predated,
     loading,

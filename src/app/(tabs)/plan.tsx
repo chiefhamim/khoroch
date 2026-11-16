@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -10,6 +11,7 @@ import {
   parseMoneyInput,
 } from '@/domain/money';
 import { formatCycleLabel } from '@/domain/period';
+import type { RecurringBill, RecurringBillKind } from '@/domain/types';
 import { isValidBudgetAmount } from '@/domain/validation';
 import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
@@ -18,11 +20,15 @@ import { useBudgets } from '@/state/useBudgets';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
 import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
+import { Banner } from '@/ui/Banner';
 import { BudgetStatusBadge } from '@/ui/BudgetStatusBadge';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
+import { EmptyState } from '@/ui/EmptyState';
 import { ErrorState } from '@/ui/ErrorState';
+import { Field } from '@/ui/Field';
 import { hapticLight, hapticSuccess } from '@/ui/haptics';
+import { IconButton } from '@/ui/IconButton';
 import { IconTile } from '@/ui/IconTile';
 import { Keypad } from '@/ui/Keypad';
 import { ListRow } from '@/ui/ListRow';
@@ -30,6 +36,7 @@ import { Money } from '@/ui/Money';
 import { ProgressBar } from '@/ui/ProgressBar';
 import { ProgressRing } from '@/ui/ProgressRing';
 import { Screen } from '@/ui/Screen';
+import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Sheet } from '@/ui/Sheet';
 import { Surface } from '@/ui/Surface';
 import { useToast } from '@/ui/Toast';
@@ -58,6 +65,9 @@ export default function PlanScreen() {
     history,
     categories,
     categoriesById,
+    accounts,
+    recurringBills,
+    billsCommitment,
     loading,
     error,
     reload,
@@ -65,6 +75,9 @@ export default function PlanScreen() {
     removeOverallBudget,
     setCategoryBudget,
     removeCategoryBudget,
+    addRecurringBill,
+    markRecurringBillPaid,
+    deleteRecurringBill,
     spendRanking,
   } = useBudgets();
 
@@ -74,6 +87,13 @@ export default function PlanScreen() {
   const [sheetError, setSheetError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pastExpanded, setPastExpanded] = useState(false);
+  const [billSheetOpen, setBillSheetOpen] = useState(false);
+  const [billName, setBillName] = useState('');
+  const [billKind, setBillKind] = useState<RecurringBillKind>('bill');
+  const [billAmountText, setBillAmountText] = useState('');
+  const [billDueDayText, setBillDueDayText] = useState('5');
+  const [billInstallmentsText, setBillInstallmentsText] = useState('6');
+  const [billError, setBillError] = useState<string | null>(null);
 
   const budgetedCatIds = useMemo(
     () => new Set(categoryBudgets.map((c) => c.categoryId)),
@@ -593,6 +613,133 @@ export default function PlanScreen() {
         );
       })()}
 
+      {/* Recurring bills & monthly EMIs */}
+      <View style={{ gap: theme.spacing.sm }}>
+        <View style={styles.catSectionHeader}>
+          <AppText variant="headline">{t('budget.billsSection')}</AppText>
+          <Button
+            testID="plan-add-bill-btn"
+            title={t('budget.addBillCta')}
+            leftIcon="plus"
+            size="sm"
+            variant="secondary"
+            onPress={() => {
+              hapticLight();
+              setBillName('');
+              setBillKind('bill');
+              setBillAmountText('');
+              setBillDueDayText('5');
+              setBillInstallmentsText('6');
+              setBillError(null);
+              setBillSheetOpen(true);
+            }}
+          />
+        </View>
+
+        {billsCommitment.unpaidCount > 0 && billsCommitment.uncommittedSafePerDayMinor !== null ? (
+          <Banner
+            tone="accent"
+            icon="calendar"
+            message={t('budget.afterBillsSafe', {
+              amount: formatMoney(billsCommitment.uncommittedSafePerDayMinor, settings.currency, {
+                hidden: hideAmounts,
+                showPoisha: false,
+              }),
+            })}
+          />
+        ) : null}
+
+        {recurringBills.length === 0 ? (
+          <Surface>
+            <EmptyState
+              icon="repeat"
+              title={t('budget.emptyBillsTitle')}
+              body={t('budget.emptyBillsBody')}
+            />
+          </Surface>
+        ) : (
+          <Surface padded={false}>
+            {recurringBills.map((bill: RecurringBill, idx: number) => {
+              const isPaid = bill.lastPaidPeriod === period.start;
+              const subParts = [
+                bill.kind === 'emi'
+                  ? t('budget.billKindEmi')
+                  : bill.kind === 'subscription'
+                    ? t('budget.billKindSub')
+                    : t('budget.billKindBill'),
+                t('budget.unpaidDueDay', { day: bill.dayOfMonth }),
+              ];
+              if (bill.kind === 'emi' && bill.totalInstallments) {
+                subParts.push(
+                  t('budget.emiProgress', {
+                    paid: bill.paidInstallments,
+                    total: bill.totalInstallments,
+                  })
+                );
+              }
+              return (
+                <View key={bill.id}>
+                  <ListRow
+                    testID={`plan-bill-row-${bill.id}`}
+                    left={
+                      <IconTile
+                        icon={bill.kind === 'emi' ? 'credit-card' : bill.kind === 'subscription' ? 'repeat' : 'receipt'}
+                        colorKey={isPaid ? 'green' : 'amber'}
+                        size="md"
+                      />
+                    }
+                    title={bill.name}
+                    subtitle={subParts.join(' · ')}
+                    right={
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Money
+                          variant="bodyStrong"
+                          amountMinor={bill.amountMinor}
+                          currency={settings.currency}
+                          hidden={hideAmounts}
+                        />
+                        {isPaid ? (
+                          <AppText variant="caption" color="income" style={{ fontWeight: '700' }}>
+                            {t('budget.paidBadge')}
+                          </AppText>
+                        ) : (
+                          <Button
+                            testID={`plan-bill-pay-${bill.id}`}
+                            title={t('budget.markPaid')}
+                            size="sm"
+                            variant="secondary"
+                            onPress={() => {
+                              void markRecurringBillPaid(bill).then(() => {
+                                hapticSuccess();
+                                showToast({
+                                  message: t('budget.billPaidToast'),
+                                  icon: 'circle-check',
+                                  tone: 'accent',
+                                });
+                              });
+                            }}
+                          />
+                        )}
+                        <IconButton
+                          testID={`plan-bill-del-${bill.id}`}
+                          icon="trash-2"
+                          variant="ghost"
+                          size={32}
+                          iconSize={15}
+                          accessibilityLabel={t('common.delete')}
+                          onPress={() => void deleteRecurringBill(bill.id)}
+                        />
+                      </View>
+                    }
+                    showDivider={idx < recurringBills.length - 1}
+                  />
+                </View>
+              );
+            })}
+          </Surface>
+        )}
+      </View>
+
       {/* Collapsible Past cycles card */}
       <Surface padded={false}>
         <PressableScale pressScale={0.98}
@@ -760,6 +907,112 @@ export default function PlanScreen() {
             disabled={saving}
           />
         ) : null}
+      </Sheet>
+
+      {/* Add Recurring Bill / EMI sheet */}
+      <Sheet
+        visible={billSheetOpen}
+        onClose={() => setBillSheetOpen(false)}
+        title={t('budget.addBillCta')}
+      >
+        <View style={{ gap: theme.spacing.md }}>
+          <SegmentedControl<RecurringBillKind>
+            value={billKind}
+            onChange={setBillKind}
+            options={[
+              { value: 'bill', label: t('budget.billKindBill') },
+              { value: 'emi', label: t('budget.billKindEmi') },
+              { value: 'subscription', label: t('budget.billKindSub') },
+            ]}
+          />
+          <Field
+            testID="plan-bill-name-input"
+            label={t('budget.billNameLabel')}
+            value={billName}
+            onChangeText={(txt) => {
+              setBillName(txt);
+              if (billError) setBillError(null);
+            }}
+            placeholder={t('budget.billNamePlaceholder')}
+          />
+          <View style={{ flexDirection: 'row', gap: theme.spacing.sm }}>
+            <Field
+              testID="plan-bill-amount-input"
+              label={`${t('budget.billAmountLabel')} (${currencySymbol})`}
+              value={billAmountText}
+              onChangeText={(txt) => {
+                setBillAmountText(txt);
+                if (billError) setBillError(null);
+              }}
+              keyboardType="decimal-pad"
+              placeholder="0"
+              containerStyle={{ flex: 1 }}
+            />
+            <Field
+              testID="plan-bill-day-input"
+              label={t('budget.billDueDayLabel')}
+              value={billDueDayText}
+              onChangeText={setBillDueDayText}
+              keyboardType="number-pad"
+              placeholder="5"
+              containerStyle={{ flex: 1 }}
+            />
+          </View>
+          {billKind === 'emi' ? (
+            <Field
+              testID="plan-bill-installments-input"
+              label={t('budget.billInstallmentsLabel')}
+              value={billInstallmentsText}
+              onChangeText={setBillInstallmentsText}
+              keyboardType="number-pad"
+              placeholder="6"
+            />
+          ) : null}
+          {billError ? (
+            <AppText variant="caption" color="danger">
+              {billError}
+            </AppText>
+          ) : null}
+          <Button
+            testID="plan-bill-save-btn"
+            title={t('common.save')}
+            onPress={() => {
+              const trimmed = billName.trim();
+              const parsed = parseMoneyInput(billAmountText);
+              const dueDay = Number.parseInt(billDueDayText, 10);
+              if (!trimmed) {
+                setBillError(t('wallets.errorNameRequired'));
+                return;
+              }
+              if (!parsed.ok || !parsed.minor || parsed.minor <= 0) {
+                setBillError(t('due.errorAmount'));
+                return;
+              }
+              const validDay = Number.isInteger(dueDay) ? Math.min(31, Math.max(1, dueDay)) : 1;
+              const inst = Number.parseInt(billInstallmentsText, 10);
+              const totalInstallments =
+                billKind === 'emi' && Number.isInteger(inst) && inst > 0 ? inst : null;
+              void addRecurringBill({
+                id: `bill_${Crypto.randomUUID().slice(0, 10)}`,
+                name: trimmed,
+                kind: billKind,
+                amountMinor: parsed.minor,
+                dayOfMonth: validDay,
+                categoryId: billKind === 'subscription' ? 'subscriptions' : billKind === 'emi' ? 'shopping' : 'utilities',
+                accountId: accounts[0]?.id ?? null,
+                totalInstallments,
+              }).then(() => {
+                hapticSuccess();
+                setBillSheetOpen(false);
+                showToast({
+                  message: t('budget.billSavedToast'),
+                  icon: 'circle-check',
+                  tone: 'accent',
+                });
+              });
+            }}
+          />
+        </View>
       </Sheet>
     </Screen>
   );

@@ -42,6 +42,7 @@ export default function OnboardingWalletsScreen() {
     currency,
     walletDrafts,
     toggleWalletPreset,
+    applyWalletPresetBundle,
     updateWalletDraft,
     skipAllWallets,
   } = useOnboardingDraft();
@@ -107,6 +108,37 @@ export default function OnboardingWalletsScreen() {
           title={t('onboarding.accountRegisterTitle')}
           subtitle={t('onboarding.accountRegisterSub')}
         />
+
+        {/* Quick-select Wallet Bundles */}
+        <View style={{ gap: theme.spacing.xs }}>
+          <AppText variant="caption" color="textSecondary">
+            {t('onboarding.quickPresetsTitle')}
+          </AppText>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: theme.spacing.xs }}>
+            <Button
+              testID="onboarding-preset-everyday"
+              title={t('onboarding.presetEveryday')}
+              variant="secondary"
+              size="sm"
+              onPress={() => {
+                hapticSelection();
+                setErrorMsg(null);
+                applyWalletPresetBundle(['cash', 'bkash', 'bank']);
+              }}
+            />
+            <Button
+              testID="onboarding-preset-complete"
+              title={t('onboarding.presetComplete')}
+              variant="secondary"
+              size="sm"
+              onPress={() => {
+                hapticSelection();
+                setErrorMsg(null);
+                applyWalletPresetBundle(['cash', 'bkash', 'nagad', 'bank', 'dps']);
+              }}
+            />
+          </View>
+        </View>
 
         {/* Single-Screen Account Register Table */}
         <Surface padded={false}>

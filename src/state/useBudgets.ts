@@ -1,3 +1,4 @@
+import * as Crypto from 'expo-crypto';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   categoryBudgetStatus,
@@ -10,8 +11,21 @@ import {
   type PeriodSummary,
 } from '@/domain/calc';
 import { todayLocalDate } from '@/domain/dates';
+import {
+  computeUpcomingBillsCommitment,
+  type BillsCommitmentSummary,
+} from '@/domain/netWorth';
 import { getPeriod, previousPeriod, remainingDays } from '@/domain/period';
-import type { Budget, Category, LocalDate, Period, Transaction } from '@/domain/types';
+import type {
+  Account,
+  Budget,
+  Category,
+  LocalDate,
+  NewRecurringBill,
+  Period,
+  RecurringBill,
+  Transaction,
+} from '@/domain/types';
 import { useAppContext } from './AppContext';
 import { bumpDataVersion, useDataVersionStore } from './dataVersion';
 
@@ -34,6 +48,9 @@ export interface UseBudgetsResult {
   history: HistoricalPeriodBudget[];
   categories: Category[];
   categoriesById: Map<string, Category>;
+  accounts: Account[];
+  recurringBills: RecurringBill[];
+  billsCommitment: BillsCommitmentSummary;
   loading: boolean;
   error: string | null;
   reload: () => void;
@@ -41,6 +58,9 @@ export interface UseBudgetsResult {
   removeOverallBudget: () => Promise<void>;
   setCategoryBudget: (categoryId: string, amountMinor: number) => Promise<void>;
   removeCategoryBudget: (categoryId: string) => Promise<void>;
+  addRecurringBill: (bill: NewRecurringBill) => Promise<void>;
+  markRecurringBillPaid: (bill: RecurringBill, opts?: { recordTransaction?: boolean }) => Promise<void>;
+  deleteRecurringBill: (id: string) => Promise<void>;
 }
 
 export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
@@ -59,6 +79,8 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
   const [allBudgets, setAllBudgets] = useState<Budget[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [recurringBills, setRecurringBills] = useState<RecurringBill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
@@ -68,10 +90,12 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
     (async () => {
       try {
         await repo.ensureBudgetsForPeriod(period.start, prevPeriod.start);
-        const [curBudgets, everyBudget, cats] = await Promise.all([
+        const [curBudgets, everyBudget, cats, accs, bills] = await Promise.all([
           repo.getBudgets(period.start),
           repo.getAllBudgets(),
           repo.listCategories({ includeArchived: true }),
+          repo.listAccounts(),
+          repo.listRecurringBills({ includeInactive: true }),
         ]);
 
         let minStart = prevPeriod.start;
@@ -86,6 +110,8 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
         setCurrentBudgets(curBudgets);
         setAllBudgets(everyBudget);
         setCategories(cats);
+        setAccounts(accs);
+        setRecurringBills(bills);
         setTransactions(txs);
         setError(null);
       } catch {
@@ -207,6 +233,63 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
     [repo, period.start]
   );
 
+  const billsCommitment = useMemo(
+    () =>
+      computeUpcomingBillsCommitment({
+        bills: recurringBills,
+        period,
+        today,
+        budgetRemainingMinor: overallSummary.remainingMinor,
+      }),
+    [recurringBills, period, today, overallSummary.remainingMinor]
+  );
+
+  const addRecurringBill = useCallback(
+    async (bill: NewRecurringBill) => {
+      await repo.insertRecurringBill(bill);
+      bumpDataVersion();
+    },
+    [repo]
+  );
+
+  const markRecurringBillPaid = useCallback(
+    async (bill: RecurringBill, opts?: { recordTransaction?: boolean }) => {
+      const nextPaid = bill.paidInstallments + 1;
+      const doneEmi =
+        bill.kind === 'emi' &&
+        bill.totalInstallments !== null &&
+        nextPaid >= bill.totalInstallments;
+      await repo.updateRecurringBill(bill.id, {
+        lastPaidPeriod: period.start,
+        paidInstallments: nextPaid,
+        isActive: doneEmi ? false : bill.isActive,
+      });
+      if (opts?.recordTransaction !== false) {
+        await repo.insertTransaction({
+          id: `tx_bill_${Crypto.randomUUID()}`,
+          type: bill.kind === 'salary' ? 'income' : 'expense',
+          amountMinor: bill.amountMinor,
+          currency,
+          categoryId: bill.categoryId ?? (bill.kind === 'salary' ? 'salary' : 'utilities'),
+          accountId: bill.accountId ?? accounts[0]?.id ?? null,
+          description: bill.name,
+          occurredOn: today,
+          source: 'quick',
+        });
+      }
+      bumpDataVersion();
+    },
+    [repo, period.start, currency, accounts, today]
+  );
+
+  const deleteRecurringBill = useCallback(
+    async (id: string) => {
+      await repo.deleteRecurringBill(id);
+      bumpDataVersion();
+    },
+    [repo]
+  );
+
   return {
     period,
     remainingDaysCount,
@@ -218,6 +301,9 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
     history,
     categories,
     categoriesById,
+    accounts,
+    recurringBills,
+    billsCommitment,
     loading,
     error,
     reload,
@@ -225,5 +311,8 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
     removeOverallBudget,
     setCategoryBudget,
     removeCategoryBudget,
+    addRecurringBill,
+    markRecurringBillPaid,
+    deleteRecurringBill,
   };
 }

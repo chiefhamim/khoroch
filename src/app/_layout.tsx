@@ -1,5 +1,6 @@
 import { useOnboardingPreview } from "@/state/onboardingPreview";
 import React, { useCallback, useEffect, useState } from "react";
+import { AppState } from "react-native";
 import { useFonts } from "expo-font";
 import { HindSiliguri_400Regular } from "@expo-google-fonts/hind-siliguri/400Regular";
 import { HindSiliguri_500Medium } from "@expo-google-fonts/hind-siliguri/500Medium";
@@ -21,6 +22,8 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 
 import { isDevVariant } from "@/config/appVariant";
+import { subscribeCaptureEvents } from "@/capture/nativeCapture";
+import { syncDeviceCaptures } from "@/capture/syncCapture";
 
 import { initRepo } from "@/data/db";
 import { DEFAULT_SETTINGS, type Repo } from "@/data/repo";
@@ -45,7 +48,7 @@ configureNotificationHandler();
 
 function AppNavigator() {
   const { colorScheme, theme } = useTheme();
-  const { settings } = useAppContext();
+  const { repo, settings } = useAppContext();
   const segments = useSegments();
   const router = useRouter();
   const navigationState = useRootNavigationState();
@@ -68,6 +71,31 @@ function AppNavigator() {
       router.push("/check-in");
     });
   }, [navigationState?.key, settings.onboardingDone, router]);
+
+  useEffect(() => {
+    if (!navigationState?.key || !settings.onboardingDone) return;
+    let active = true;
+    const runSync = async () => {
+      const res = await syncDeviceCaptures(repo);
+      if (active && res.sharedKind) {
+        router.push("/inbox" as never);
+      }
+    };
+    void runSync();
+    const unsubEvents = subscribeCaptureEvents(() => {
+      void runSync();
+    });
+    const appStateSub = AppState.addEventListener("change", (state) => {
+      if (state === "active") {
+        void runSync();
+      }
+    });
+    return () => {
+      active = false;
+      unsubEvents();
+      appStateSub.remove();
+    };
+  }, [navigationState?.key, settings.onboardingDone, repo, router]);
 
   return (
     <>
@@ -116,6 +144,7 @@ function AppNavigator() {
         />
         <Stack.Screen name="category/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="plan/insights" options={{ headerShown: false }} />
+        <Stack.Screen name="inbox" options={{ headerShown: false }} />
         <Stack.Screen name="dev/gallery" options={{ headerShown: false }} />
       </Stack>
     </>

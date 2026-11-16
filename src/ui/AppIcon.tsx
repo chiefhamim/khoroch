@@ -45,6 +45,7 @@ import {
   HeartHandshake,
   HeartPulse,
   House,
+  Inbox,
   Info,
   Landmark,
   LayoutGrid,
@@ -61,6 +62,7 @@ import {
   Plus,
   ReceiptText,
   Repeat,
+  ScanLine,
   ScrollText,
   Search,
   Send,
@@ -80,6 +82,8 @@ import {
   TrendingDown,
   TrendingUp,
   TriangleAlert,
+  Upload,
+  FileText,
   Users,
   Utensils,
   Wallet,
@@ -204,6 +208,10 @@ const ICON_MAP: Record<string, LucideIconComponent> = {
   'message-circle': MessageCircle,
   send: Send,
   'share-2': Share2,
+  inbox: Inbox,
+  'scan-line': ScanLine,
+  upload: Upload,
+  'file-text': FileText,
 };
 
 export type AppIconName = keyof typeof ICON_MAP | (string & {});

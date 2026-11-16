@@ -1,4 +1,4 @@
-# LenDen (v1.1.0)
+# Khoroch (v1.1.0)
 
 A calm, offline-first personal budget & expense companion built with **Expo SDK 58**, **React Native 0.88**, **TypeScript 6**, **Expo Router**, **Lucide Icons**, and **expo-sqlite**.
 
@@ -21,7 +21,7 @@ Know where your money goes, log expenses or income in under 10 seconds (by tappi
    adb -s <phone> install -r android\app\build\outputs\apk\release\app-release.apk
    ```
    `android/` is generated, never committed. Check `android\app\build.gradle` says `com.hamim.budgetapp.dev` before installing.
-5. Package IDs stay `com.hamim.budgetapp` / `.dev` even though the app is now called **LenDen**, so updates keep the owner's data. Signing uses Expo's template `debug.keystore`, which prebuild regenerates identically on any PC.
+5. Package IDs stay `com.hamim.budgetapp` / `.dev` even though the app is now called **Khoroch**, so updates keep the owner's data. Signing uses Expo's template `debug.keystore`, which prebuild regenerates identically on any PC.
 6. Latest state of the UI overhaul: `docs/overhaul-copilot/` (BRIEF, ROUND2, REPORT, NOTES, screenshots).
 
 ---
@@ -75,7 +75,7 @@ cd android && ./gradlew assembleRelease
 ## Folder Map
 
 ```text
-budget-app/
+khoroch/
 ├── src/
 │   ├── app/                  # Expo Router screens
 │   │   ├── (tabs)/           # 5-slot V2TabBar: index (Home), activity, budget, insights + [+]

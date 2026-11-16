@@ -30,6 +30,7 @@ export function buildAppConfig(
     'expo-speech-recognition',
     '@react-native-community/datetimepicker',
     'expo-sharing',
+    './plugins/withFinanceCapture',
   ];
 
   if (useNewReleaseSigning) {
@@ -39,11 +40,11 @@ export function buildAppConfig(
   return {
     ...baseConfig,
     name: isDev ? 'Khoroch Dev' : 'Khoroch',
-    slug: 'budget-app',
+    slug: 'khoroch',
     version: '1.1.0',
     orientation: 'portrait',
     icon: isDev ? './assets/images/icon-dev.png' : './assets/images/icon.png',
-    scheme: isDev ? 'budgetapp-dev' : 'budgetapp',
+    scheme: isDev ? 'khoroch-dev' : 'khoroch',
     userInterfaceStyle: 'automatic',
     ios: {
       icon: './assets/expo.icon',

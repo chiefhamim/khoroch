@@ -7,7 +7,7 @@ import type { LocalDate } from '@/domain/types';
 import { assertBackupWithinSizeLimit, MAX_BACKUP_BYTES } from './backup';
 
 export function makeBackupFilename(today: LocalDate): string {
-  return `budget-app-backup-${today}.json`;
+  return `khoroch-backup-${today}.json`;
 }
 
 export async function shareBackupFile(jsonContent: string, filename: string): Promise<void> {

@@ -61,7 +61,7 @@ import {
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
 import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
-import { AVATAR_CATALOG, type AvatarCategory } from '@/ui/AvatarArt';
+import { AVATAR_CATALOG } from '@/ui/AvatarArt';
 import { AVATAR_PHOTO_SETS } from '@/ui/avatarPhotos';
 import { Banner } from '@/ui/Banner';
 import { Button } from '@/ui/Button';
@@ -685,6 +685,16 @@ export default function SettingsScreen() {
               }}
             />
           }
+        />
+        <SettingsRow
+          testID="settings-smart-inbox-row"
+          label={t('settings.smartInboxRow')}
+          subtitle={t('settings.smartInboxSubtitle')}
+          showChevron
+          onPress={() => {
+            hapticLight();
+            router.push('/inbox' as never);
+          }}
         />
       </SettingsGroup>
 

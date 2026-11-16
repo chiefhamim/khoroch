@@ -14,14 +14,19 @@ import {
   type PeriodSummary,
   type WeeklySeriesPoint,
 } from '@/domain/calc';
-import { todayLocalDate } from '@/domain/dates';
+import { diffDays, todayLocalDate } from '@/domain/dates';
+import {
+  computePeriodFeeTotal,
+  computeUpcomingBillsCommitment,
+  type BillsCommitmentSummary,
+} from '@/domain/netWorth';
 import {
   buildRecentPeriodWindows,
   getPeriod,
   previousPeriod,
   shouldShowNewCycleHint,
 } from '@/domain/period';
-import type { Category, LocalDate, Period, Transaction } from '@/domain/types';
+import type { Category, LocalDate, Period, RecurringBill, Transaction } from '@/domain/types';
 import { useAppContext } from './AppContext';
 import { useDataVersionStore } from './dataVersion';
 
@@ -40,6 +45,11 @@ export interface DashboardData {
   mtdComparison: PeriodComparison;
   recentTransactions: Transaction[];
   categoriesById: Map<string, Category>;
+  recurringBills: RecurringBill[];
+  billsCommitment: BillsCommitmentSummary;
+  periodFeesMinor: number;
+  dailyBudgetLimitMinor: number | null;
+  pendingDraftsCount: number;
   loading: boolean;
   error: string | null;
   reload: () => void;
@@ -64,6 +74,8 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [overallBudgetMinor, setOverallBudgetMinor] = useState<number | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [recurringBills, setRecurringBills] = useState<RecurringBill[]>([]);
+  const [pendingDraftsCount, setPendingDraftsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
@@ -75,11 +87,13 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
     (async () => {
       try {
         await repo.ensureBudgetsForPeriod(period.start, prevPeriod.start);
-        const [txs, recentPage, budgets, cats] = await Promise.all([
+        const [txs, recentPage, budgets, cats, bills, pendingDrafts] = await Promise.all([
           repo.listTransactionsInRange(earliestStart, period.endExcl),
           repo.searchTransactions({}, { limit: 5 }),
           repo.getBudgets(period.start),
           repo.listCategories({ includeArchived: true }),
+          repo.listRecurringBills(),
+          repo.listPendingDrafts({ status: 'pending' }),
         ]);
         if (!active) return;
 
@@ -90,6 +104,8 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
         setRecentTransactions(recentPage.rows);
         setOverallBudgetMinor(overallVal);
         setCategories(cats);
+        setRecurringBills(bills);
+        setPendingDraftsCount(pendingDrafts.length);
         setError(null);
       } catch {
         if (!active) return;
@@ -166,6 +182,28 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
     [rangeTxs, today, monthStartDay, currency]
   );
 
+  const periodFeesMinor = useMemo(
+    () => computePeriodFeeTotal(rangeTxs, period, currency),
+    [rangeTxs, period, currency]
+  );
+
+  const billsCommitment = useMemo(
+    () =>
+      computeUpcomingBillsCommitment({
+        bills: recurringBills,
+        period,
+        today,
+        budgetRemainingMinor: summary.remainingMinor,
+      }),
+    [recurringBills, period, today, summary.remainingMinor]
+  );
+
+  const dailyBudgetLimitMinor = useMemo(() => {
+    if (overallBudgetMinor === null || overallBudgetMinor <= 0) return null;
+    const totalDays = Math.max(1, diffDays(period.endExcl, period.start));
+    return Math.floor(overallBudgetMinor / totalDays);
+  }, [overallBudgetMinor, period.start, period.endExcl]);
+
   const reload = useCallback(() => {
     setReloadTick((n) => n + 1);
   }, []);
@@ -185,6 +223,11 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
     mtdComparison,
     recentTransactions,
     categoriesById,
+    recurringBills,
+    billsCommitment,
+    periodFeesMinor,
+    dailyBudgetLimitMinor,
+    pendingDraftsCount,
     loading,
     error,
     reload,

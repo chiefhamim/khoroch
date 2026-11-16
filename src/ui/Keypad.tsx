@@ -39,12 +39,21 @@ export interface KeypadProps {
   value: string;
   onChange: (next: string) => void;
   keyHeight?: number;
+  variant?: 'card' | 'tonal';
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
 
-export function Keypad({ value, onChange, keyHeight = 52, style, testID }: KeypadProps) {
+export function Keypad({
+  value,
+  onChange,
+  keyHeight = 52,
+  variant = 'card',
+  style,
+  testID,
+}: KeypadProps) {
   const { theme, reducedMotion } = useTheme();
+  const isTonal = variant === 'tonal';
 
   const handlePress = (key: string) => {
     const next = applyKeypadKey(value, key);
@@ -75,14 +84,18 @@ export function Keypad({ value, onChange, keyHeight = 52, style, testID }: Keypa
                 onPress={() => handlePress(key)}
                 style={({ pressed }) => [
                   styles.key,
-                  theme.cardShadow,
+                  !isTonal ? theme.cardShadow : null,
                   {
                     height: Math.max(keyHeight, theme.touch.min),
                     borderRadius: theme.radius.keypadKey,
-                    backgroundColor: theme.colors.surface,
-                    borderWidth: 1,
-                    borderColor: theme.colors.cardBorder,
-                    opacity: pressed && !reducedMotion ? 0.65 : 1,
+                    backgroundColor: isTonal
+                      ? pressed
+                        ? theme.colors.surfaceSunken
+                        : theme.colors.surfaceSunken + '99'
+                      : theme.colors.surface,
+                    borderWidth: isTonal ? 0 : 1,
+                    borderColor: isTonal ? 'transparent' : theme.colors.cardBorder,
+                    opacity: pressed && !reducedMotion ? 0.72 : 1,
                   },
                 ]}
               >

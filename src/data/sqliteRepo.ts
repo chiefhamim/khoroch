@@ -25,6 +25,7 @@ import {
   type AccountPatch,
   type Budget,
   type Category,
+  type CaptureSource,
   type CurrencyCode,
   type DayReviewRecord,
   type DueEntry,
@@ -33,12 +34,19 @@ import {
   type LocalDate,
   type NewAccount,
   type NewDueEntry,
+  type NewPendingDraft,
   type NewPerson,
+  type NewRecurringBill,
   type NewTransaction,
   type NewTransfer,
+  type PendingDraft,
+  type PendingDraftStatus,
   type Person,
   type PersonHonorific,
   type PersonPatch,
+  type RecurringBill,
+  type RecurringBillKind,
+  type RecurringBillPatch,
   type Settings,
   type Transaction,
   type TransactionPatch,
@@ -145,6 +153,43 @@ interface BudgetRow {
   category_id: string;
   amount_minor: number;
   updated_at: number;
+}
+
+interface RecurringBillRow {
+  id: string;
+  name: string;
+  kind: RecurringBillKind;
+  amount_minor: number;
+  day_of_month: number;
+  category_id: string | null;
+  account_id: string | null;
+  total_installments: number | null;
+  paid_installments: number;
+  last_paid_period: string | null;
+  is_active: number;
+  created_at: number;
+  updated_at: number;
+}
+
+interface PendingDraftRow {
+  id: string;
+  source: CaptureSource;
+  fingerprint: string;
+  draft_kind: 'transaction' | 'transfer';
+  type: TransactionType;
+  amount_minor: number;
+  fee_minor: number;
+  category_id: string | null;
+  account_id: string | null;
+  from_account_id: string | null;
+  to_account_id: string | null;
+  description: string;
+  raw_text: string;
+  trx_id: string | null;
+  occurred_on: string;
+  occurred_time: string | null;
+  status: PendingDraftStatus;
+  created_at: number;
 }
 
 const SETTING_DB_KEYS: Record<keyof Settings, string> = {
@@ -281,6 +326,47 @@ function mapBudgetRow(row: BudgetRow): Budget {
     categoryId: row.category_id,
     amountMinor: row.amount_minor,
     updatedAt: row.updated_at,
+  };
+}
+
+function mapRecurringBillRow(row: RecurringBillRow): RecurringBill {
+  return {
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    amountMinor: row.amount_minor,
+    dayOfMonth: row.day_of_month,
+    categoryId: row.category_id ?? null,
+    accountId: row.account_id ?? null,
+    totalInstallments: row.total_installments ?? null,
+    paidInstallments: row.paid_installments ?? 0,
+    lastPaidPeriod: row.last_paid_period ?? null,
+    isActive: row.is_active === 1,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapPendingDraftRow(row: PendingDraftRow): PendingDraft {
+  return {
+    id: row.id,
+    source: row.source,
+    fingerprint: row.fingerprint,
+    draftKind: row.draft_kind,
+    type: row.type,
+    amountMinor: row.amount_minor,
+    feeMinor: row.fee_minor ?? 0,
+    categoryId: row.category_id ?? null,
+    accountId: row.account_id ?? null,
+    fromAccountId: row.from_account_id ?? null,
+    toAccountId: row.to_account_id ?? null,
+    description: row.description,
+    rawText: row.raw_text,
+    trxId: row.trx_id ?? null,
+    occurredOn: row.occurred_on,
+    occurredTime: row.occurred_time ?? null,
+    status: row.status,
+    createdAt: row.created_at,
   };
 }
 
@@ -1405,6 +1491,8 @@ export class SqliteRepo implements Repo {
   async deleteAllData(): Promise<void> {
     await this.db.withTransactionAsync(async () => {
       await this.db.execAsync(`
+        DELETE FROM pending_drafts;
+        DELETE FROM recurring_bills;
         DELETE FROM due_entries;
         DELETE FROM people;
         DELETE FROM transactions;
@@ -1427,9 +1515,159 @@ export class SqliteRepo implements Repo {
     await this.db.execAsync('VACUUM;');
   }
 
+  async listRecurringBills(opts?: { includeInactive?: boolean }): Promise<RecurringBill[]> {
+    const includeInactive = opts?.includeInactive ?? false;
+    const rows = await this.db.getAllAsync<RecurringBillRow>(
+      includeInactive
+        ? `SELECT * FROM recurring_bills ORDER BY day_of_month ASC, name ASC`
+        : `SELECT * FROM recurring_bills WHERE is_active = 1 ORDER BY day_of_month ASC, name ASC`
+    );
+    return rows.map(mapRecurringBillRow);
+  }
+
+  async insertRecurringBill(b: NewRecurringBill): Promise<void> {
+    const now = Date.now();
+    await this.db.runAsync(
+      `INSERT OR IGNORE INTO recurring_bills
+       (id, name, kind, amount_minor, day_of_month, category_id, account_id, total_installments, paid_installments, last_paid_period, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        b.id,
+        b.name.trim(),
+        b.kind,
+        b.amountMinor,
+        b.dayOfMonth,
+        b.categoryId ?? null,
+        b.accountId ?? null,
+        b.totalInstallments ?? null,
+        b.paidInstallments ?? 0,
+        b.lastPaidPeriod ?? null,
+        b.isActive === false ? 0 : 1,
+        b.createdAt ?? now,
+        b.updatedAt ?? now,
+      ]
+    );
+  }
+
+  async updateRecurringBill(id: string, patch: RecurringBillPatch): Promise<void> {
+    const sets: string[] = [];
+    const params: (string | number | null)[] = [];
+    if (patch.name !== undefined) {
+      sets.push('name = ?');
+      params.push(patch.name.trim());
+    }
+    if (patch.kind !== undefined) {
+      sets.push('kind = ?');
+      params.push(patch.kind);
+    }
+    if (patch.amountMinor !== undefined) {
+      sets.push('amount_minor = ?');
+      params.push(patch.amountMinor);
+    }
+    if (patch.dayOfMonth !== undefined) {
+      sets.push('day_of_month = ?');
+      params.push(patch.dayOfMonth);
+    }
+    if (patch.categoryId !== undefined) {
+      sets.push('category_id = ?');
+      params.push(patch.categoryId);
+    }
+    if (patch.accountId !== undefined) {
+      sets.push('account_id = ?');
+      params.push(patch.accountId);
+    }
+    if (patch.totalInstallments !== undefined) {
+      sets.push('total_installments = ?');
+      params.push(patch.totalInstallments);
+    }
+    if (patch.paidInstallments !== undefined) {
+      sets.push('paid_installments = ?');
+      params.push(patch.paidInstallments);
+    }
+    if (patch.lastPaidPeriod !== undefined) {
+      sets.push('last_paid_period = ?');
+      params.push(patch.lastPaidPeriod);
+    }
+    if (patch.isActive !== undefined) {
+      sets.push('is_active = ?');
+      params.push(patch.isActive ? 1 : 0);
+    }
+    if (sets.length === 0) return;
+    sets.push('updated_at = ?');
+    params.push(Date.now());
+    params.push(id);
+    await this.db.runAsync(`UPDATE recurring_bills SET ${sets.join(', ')} WHERE id = ?`, params);
+  }
+
+  async deleteRecurringBill(id: string): Promise<void> {
+    await this.db.runAsync(`DELETE FROM recurring_bills WHERE id = ?`, [id]);
+  }
+
+  async listPendingDrafts(opts?: { status?: PendingDraftStatus }): Promise<PendingDraft[]> {
+    const rows = opts?.status
+      ? await this.db.getAllAsync<PendingDraftRow>(
+          `SELECT * FROM pending_drafts WHERE status = ? ORDER BY occurred_on DESC, COALESCE(occurred_time, '') DESC, created_at DESC`,
+          [opts.status]
+        )
+      : await this.db.getAllAsync<PendingDraftRow>(
+          `SELECT * FROM pending_drafts ORDER BY occurred_on DESC, COALESCE(occurred_time, '') DESC, created_at DESC`
+        );
+    return rows.map(mapPendingDraftRow);
+  }
+
+  async upsertPendingDrafts(drafts: NewPendingDraft[]): Promise<number> {
+    if (drafts.length === 0) return 0;
+    let inserted = 0;
+    const now = Date.now();
+    await this.db.withTransactionAsync(async () => {
+      for (const d of drafts) {
+        const res = await this.db.runAsync(
+          `INSERT OR IGNORE INTO pending_drafts
+           (id, source, fingerprint, draft_kind, type, amount_minor, fee_minor, category_id, account_id, from_account_id, to_account_id, description, raw_text, trx_id, occurred_on, occurred_time, status, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?)`,
+          [
+            d.id,
+            d.source,
+            d.fingerprint,
+            d.draftKind ?? 'transaction',
+            d.type,
+            d.amountMinor,
+            d.feeMinor ?? 0,
+            d.categoryId ?? null,
+            d.accountId ?? null,
+            d.fromAccountId ?? null,
+            d.toAccountId ?? null,
+            d.description ?? '',
+            d.rawText,
+            d.trxId ?? null,
+            d.occurredOn,
+            d.occurredTime ?? null,
+            d.createdAt ?? now,
+          ]
+        );
+        if (res.changes > 0) inserted += 1;
+      }
+    });
+    return inserted;
+  }
+
+  async updatePendingDraftStatus(id: string, status: PendingDraftStatus): Promise<void> {
+    await this.db.runAsync(`UPDATE pending_drafts SET status = ? WHERE id = ?`, [status, id]);
+  }
+
+  async clearPendingDrafts(status?: PendingDraftStatus): Promise<void> {
+    if (status) {
+      await this.db.runAsync(`DELETE FROM pending_drafts WHERE status = ?`, [status]);
+    } else {
+      await this.db.runAsync(`DELETE FROM pending_drafts`);
+    }
+  }
+
   async replaceAllDataFromBackup(data: BackupDataSnapshot): Promise<void> {
     await this.db.withTransactionAsync(async () => {
       await this.db.execAsync(`
+        DELETE FROM pending_drafts;
+        DELETE FROM recurring_bills;
         DELETE FROM due_entries;
         DELETE FROM people;
         DELETE FROM transactions;
@@ -1588,6 +1826,29 @@ export class SqliteRepo implements Repo {
           `INSERT INTO budgets (period_start, category_id, amount_minor, updated_at)
            VALUES (?, ?, ?, ?)`,
           [b.periodStart, b.categoryId, b.amountMinor, b.updatedAt]
+        );
+      }
+
+      for (const rb of data.recurring_bills ?? []) {
+        await this.db.runAsync(
+          `INSERT INTO recurring_bills
+           (id, name, kind, amount_minor, day_of_month, category_id, account_id, total_installments, paid_installments, last_paid_period, is_active, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            rb.id,
+            rb.name.trim(),
+            rb.kind,
+            rb.amountMinor,
+            rb.dayOfMonth,
+            rb.categoryId ?? null,
+            rb.accountId ?? null,
+            rb.totalInstallments ?? null,
+            rb.paidInstallments ?? 0,
+            rb.lastPaidPeriod ?? null,
+            rb.isActive ? 1 : 0,
+            rb.createdAt,
+            rb.updatedAt,
+          ]
         );
       }
 

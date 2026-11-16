@@ -56,6 +56,7 @@ export interface OnboardingDraftState {
   setReminderTime: (time: string) => void;
   setReminderDays: (days: ReminderDays) => void;
   toggleWalletPreset: (presetKey: WalletPresetKey) => void;
+  applyWalletPresetBundle: (presetKeys: readonly WalletPresetKey[]) => void;
   updateWalletDraft: (
     presetKey: WalletPresetKey,
     patch: Partial<OnboardingWalletDraft>
@@ -101,6 +102,16 @@ export const useOnboardingDraft = create<OnboardingDraftState>((set) => ({
         w.presetKey === presetKey ? { ...w, enabled: !w.enabled } : w
       ),
     })),
+  applyWalletPresetBundle: (presetKeys) =>
+    set((s) => {
+      const target = new Set(presetKeys);
+      return {
+        walletDrafts: s.walletDrafts.map((w) => ({
+          ...w,
+          enabled: target.has(w.presetKey),
+        })),
+      };
+    }),
   updateWalletDraft: (presetKey, patch) =>
     set((s) => ({
       walletDrafts: s.walletDrafts.map((w) =>

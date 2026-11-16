@@ -4,10 +4,6 @@ import { useRouter } from 'expo-router';
 import Animated, {
   Easing,
   FadeInDown,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withTiming,
 } from 'react-native-reanimated';
 import { setLocale, t } from '@/i18n';
 import { AppContext } from '@/state/AppContext';
@@ -38,17 +34,6 @@ export default function OnboardingWelcomeScreen() {
       setLanguage(locale);
     }
   }, [language, locale, setLanguage]);
-
-  // The taka mark settles in with a soft spring-like ease.
-  const mark = useSharedValue(reducedMotion ? 1 : 0);
-  useEffect(() => {
-    if (reducedMotion) return;
-    mark.set(withDelay(120, withTiming(1, { duration: 700, easing: Easing.out(Easing.cubic) })));
-  }, [mark, reducedMotion]);
-  const markStyle = useAnimatedStyle(() => ({
-    opacity: mark.get(),
-    transform: [{ scale: 0.86 + 0.14 * mark.get() }],
-  }));
 
   const handleSelectLanguage = (nextLang: 'en' | 'bn') => {
     hapticSelection();

@@ -27,6 +27,8 @@ import {
   type LocalDate,
   type Person,
   type PersonHonorific,
+  type RecurringBill,
+  type RecurringBillKind,
   type Settings,
   type ThemePreference,
   type Transaction,
@@ -47,8 +49,9 @@ import {
 } from '@/domain/validation';
 import type { BackupDataSnapshot, Repo } from './repo';
 
-export const BACKUP_APP_ID = 'budget-app';
-export const BACKUP_SCHEMA_VERSION = 4;
+export const BACKUP_APP_ID = 'khoroch';
+const ACCEPTED_BACKUP_APP_IDS: ReadonlySet<string> = new Set([BACKUP_APP_ID, 'budget-app', 'lenden']);
+export const BACKUP_SCHEMA_VERSION = 5;
 export const MAX_BACKUP_BYTES = 20 * 1024 * 1024; // 20 MB
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
@@ -56,7 +59,7 @@ const VALID_COLOR_KEY_SET: ReadonlySet<string> = new Set<string>(CATEGORY_COLOR_
 const VALID_THEMES: ReadonlySet<string> = new Set<ThemePreference>(['system', 'light', 'dark', 'black']);
 const VALID_ACCENTS: ReadonlySet<string> = new Set<AccentTheme>(ACCENT_THEMES);
 const VALID_WEEK_STARTS: ReadonlySet<string> = new Set<string>(WEEK_START_DAYS);
-const VALID_SOURCES: ReadonlySet<string> = new Set<TransactionSource>(['manual', 'quick', 'voice', 'sample']);
+const VALID_SOURCES: ReadonlySet<string> = new Set<TransactionSource>(['manual', 'quick', 'voice', 'capture', 'sample']);
 const DEFAULT_CAT_MAP = new Map(DEFAULT_CATEGORIES.map((d) => [d.id, d]));
 
 export interface BackupFilePayload {
@@ -160,6 +163,7 @@ export async function exportBackupPayload(
     transfers,
     people,
     dueEntries,
+    recurringBills,
     transactions,
     budgets,
     settings,
@@ -170,6 +174,7 @@ export async function exportBackupPayload(
     repo.listAllTransfersForBackup(),
     repo.listPeople({ includeArchived: true }),
     repo.listAllDueEntriesForBackup(),
+    repo.listRecurringBills({ includeInactive: true }),
     repo.listAllTransactionsForBackup(),
     repo.getAllBudgets(),
     repo.getSettings(),
@@ -243,6 +248,7 @@ export async function exportBackupPayload(
         updatedAt: d.updatedAt,
         deletedAt: d.deletedAt,
       })),
+      recurring_bills: recurringBills.map((rb) => ({ ...rb })),
       transactions: transactions.map((tx) => ({
         id: tx.id,
         type: tx.type,
@@ -859,7 +865,7 @@ export function parseAndValidateBackup(
   }
 
   const root = asPlainObject(parsed, 'Backup');
-  if (root.app !== BACKUP_APP_ID) {
+  if (typeof root.app !== 'string' || !ACCEPTED_BACKUP_APP_IDS.has(root.app)) {
     throw new Error('This file is not a Khoroch backup.');
   }
   if (
@@ -1034,6 +1040,40 @@ export function parseAndValidateBackup(
     settings.lastUsedAccountId = null;
   }
 
+  const recurringRaw = Array.isArray(dataObj.recurring_bills) ? dataObj.recurring_bills : [];
+  const recurringBills: RecurringBill[] = [];
+  for (let i = 0; i < recurringRaw.length; i += 1) {
+    const raw = recurringRaw[i];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const obj = raw as Record<string, unknown>;
+    if (typeof obj.id !== 'string' || typeof obj.name !== 'string') continue;
+    const kind: RecurringBillKind =
+      obj.kind === 'emi' || obj.kind === 'subscription' || obj.kind === 'salary'
+        ? obj.kind
+        : 'bill';
+    const amountMinor = typeof obj.amountMinor === 'number' && obj.amountMinor > 0 ? Math.trunc(obj.amountMinor) : 0;
+    const dayOfMonth =
+      typeof obj.dayOfMonth === 'number' && obj.dayOfMonth >= 1 && obj.dayOfMonth <= 31
+        ? Math.trunc(obj.dayOfMonth)
+        : 1;
+    if (amountMinor <= 0) continue;
+    recurringBills.push({
+      id: obj.id,
+      name: obj.name.trim() || 'Bill',
+      kind,
+      amountMinor,
+      dayOfMonth,
+      categoryId: typeof obj.categoryId === 'string' && categoryIds.has(obj.categoryId) ? obj.categoryId : null,
+      accountId: typeof obj.accountId === 'string' && accountIds.has(obj.accountId) ? obj.accountId : null,
+      totalInstallments: typeof obj.totalInstallments === 'number' && obj.totalInstallments > 0 ? Math.trunc(obj.totalInstallments) : null,
+      paidInstallments: typeof obj.paidInstallments === 'number' && obj.paidInstallments >= 0 ? Math.trunc(obj.paidInstallments) : 0,
+      lastPaidPeriod: typeof obj.lastPaidPeriod === 'string' ? obj.lastPaidPeriod : null,
+      isActive: typeof obj.isActive === 'boolean' ? obj.isActive : true,
+      createdAt: typeof obj.createdAt === 'number' ? obj.createdAt : Date.now(),
+      updatedAt: typeof obj.updatedAt === 'number' ? obj.updatedAt : Date.now(),
+    });
+  }
+
   return {
     app: BACKUP_APP_ID,
     schema: BACKUP_SCHEMA_VERSION,
@@ -1044,6 +1084,7 @@ export function parseAndValidateBackup(
       transfers,
       people,
       due_entries: dueEntries,
+      recurring_bills: recurringBills,
       transactions,
       budgets,
       settings,

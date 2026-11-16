@@ -207,7 +207,7 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
 
       const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
       expect(ver?.user_version).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(4);
+      expect(LATEST_SCHEMA_VERSION).toBe(5);
 
       const colsAfter = await db.getAllAsync<{ name: string }>('PRAGMA table_info(categories)');
       expect(colsAfter.some((c) => c.name === 'color_key')).toBe(true);
@@ -353,7 +353,7 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
       await runMigrations(db);
 
       const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-      expect(ver?.user_version).toBe(4);
+      expect(ver?.user_version).toBe(LATEST_SCHEMA_VERSION);
 
       const txCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(transactions)');
       expect(txCols.some((c) => c.name === 'account_id')).toBe(true);
@@ -457,6 +457,53 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
       });
       expect(await repo.listPeople()).toHaveLength(1);
       expect(await repo.listDueEntries({ personId: 'p-rafi' })).toHaveLength(1);
+
+      // v5 tables (recurring_bills, pending_drafts) & DPS account kind + capture source
+      const v5Tables = await db.getAllAsync<{ name: string }>(
+        `SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('recurring_bills', 'pending_drafts')`
+      );
+      expect(v5Tables.map((t) => t.name).sort()).toEqual(['pending_drafts', 'recurring_bills']);
+
+      await repo.insertAccount({
+        id: 'dps-dbbl',
+        name: 'DBBL DPS',
+        kind: 'dps',
+        colorKey: '#0F766E',
+        openingBalanceMinor: 500_000,
+        openingDate: '2026-11-01',
+        includeInTotal: false,
+      });
+      await repo.insertRecurringBill({
+        id: 'bill-rent',
+        name: 'House rent',
+        kind: 'bill',
+        amountMinor: 1_500_000,
+        dayOfMonth: 5,
+      });
+      expect(await repo.listRecurringBills()).toHaveLength(1);
+
+      const inserted = await repo.upsertPendingDrafts([
+        {
+          id: 'cap-1',
+          source: 'notification',
+          fingerprint: 'trx:BKA123',
+          type: 'expense',
+          amountMinor: 35_000,
+          rawText: 'bKash Payment Tk 350',
+          occurredOn: '2026-11-16',
+        },
+        {
+          id: 'cap-2',
+          source: 'statement_csv',
+          fingerprint: 'trx:BKA123',
+          type: 'expense',
+          amountMinor: 35_000,
+          rawText: 'Duplicate CSV row',
+          occurredOn: '2026-11-16',
+        },
+      ]);
+      expect(inserted).toBe(1);
+      expect(await repo.listPendingDrafts({ status: 'pending' })).toHaveLength(1);
     } finally {
       close();
     }

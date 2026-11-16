@@ -90,6 +90,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
   const [walletId, setWalletId] = useState<string | null>(null);
   const [editingWalletOpen, setEditingWalletOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const dateStripRef = useRef<React.ComponentRef<typeof ScrollView>>(null);
 
   const { allAccounts, accountsById, transactions, transfers, dueEntries, loading } = useAccounts();
   const { peopleById } = usePeople();
@@ -151,11 +152,28 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
   }, [transactions, transfers, dueEntries]);
 
   const week = useMemo(() => {
-    // Seven days ending on the later of (selected day + 3) and today-capped.
-    let end = addDays(day, 3);
-    if (end > today) end = today;
-    return Array.from({ length: 7 }, (_, i) => addDays(end, i - 6));
+    // Horizontally scrollable date bar: 90 days ending today (extends earlier if selected day is older).
+    const earliest = addDays(today, -89);
+    const start = day < earliest ? day : earliest;
+    const days: LocalDate[] = [];
+    let cursor = start;
+    while (cursor <= today) {
+      days.push(cursor);
+      cursor = addDays(cursor, 1);
+    }
+    return days;
   }, [day, today]);
+
+  useEffect(() => {
+    const idx = week.indexOf(day);
+    if (idx < 0) return;
+    const itemPitch = 50; // 46px day width + 4px gap
+    const targetX = Math.max(0, idx * itemPitch - itemPitch * 3);
+    const id = setTimeout(() => {
+      dateStripRef.current?.scrollTo({ x: targetX, animated: true });
+    }, 60);
+    return () => clearTimeout(id);
+  }, [day, week]);
 
   const go = (delta: number) => {
     const next = addDays(day, delta);
@@ -406,17 +424,25 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
         </PressableScale>
       </View>
 
-      {/* Week strip */}
-      <View
+      {/* Scrollable Date Strip */}
+      <ScrollView
+        ref={dateStripRef}
+        testID="daybook-date-strip"
+        horizontal
+        showsHorizontalScrollIndicator={false}
         style={[
-          styles.weekRow,
           theme.cardShadow,
           {
-            gap: theme.spacing.xs,
             backgroundColor: theme.colors.surface,
             borderRadius: theme.radius.card,
             borderWidth: 1,
             borderColor: theme.colors.cardBorder,
+          },
+        ]}
+        contentContainerStyle={[
+          styles.weekRow,
+          {
+            gap: 4,
             padding: theme.spacing.xs,
           },
         ]}
@@ -475,7 +501,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
             </PressableScale>
           );
         })}
-      </View>
+      </ScrollView>
 
       {/* Wallet scope: the opening and closing balances follow the chosen wallet */}
       {activeWallets.length > 1 ? (
@@ -683,8 +709,8 @@ const styles = StyleSheet.create({
   navBtn: { width: 44, height: 44, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   navCenter: { flex: 1, alignItems: 'center', minHeight: 48, justifyContent: 'center' },
   navTitle: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  weekRow: { flexDirection: 'row' },
-  weekDay: { flex: 1, alignItems: 'center', paddingVertical: 8, gap: 2, minHeight: 64 },
+  weekRow: { flexDirection: 'row', alignItems: 'center' },
+  weekDay: { width: 46, alignItems: 'center', paddingVertical: 8, gap: 2, minHeight: 64 },
   weekMark: { width: 14, height: 3, borderRadius: 2, marginTop: 2 },
   summary: { borderWidth: 1, padding: 18, gap: 14 },
   summaryTop: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },

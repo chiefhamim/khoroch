@@ -61,8 +61,23 @@ export const WALLET_BRAND_HEX: Readonly<Record<string, string>> = {
   cash: '#123227',
   bank: '#1E40AF',
   credit_card: '#334155',
+  dps: '#0F766E',
+  fdr: '#1D4ED8',
+  sanchaypatra: '#15803D',
+  investment: '#6D28D9',
   other: '#5F5C54',
 };
+
+const SAVINGS_ASSET_SET: ReadonlySet<AccountKind> = new Set<AccountKind>([
+  'dps',
+  'fdr',
+  'sanchaypatra',
+  'investment',
+]);
+
+export function isSavingsAssetKind(kind: AccountKind): boolean {
+  return SAVINGS_ASSET_SET.has(kind);
+}
 
 /**
  * Computes a single wallet's balance (minor units) using exact integer arithmetic:
@@ -249,6 +264,10 @@ export type WalletPresetKey =
   | 'cellfin'
   | 'bank'
   | 'credit_card'
+  | 'dps'
+  | 'fdr'
+  | 'sanchaypatra'
+  | 'investment'
   | 'other';
 
 export interface WalletPreset {
@@ -258,7 +277,7 @@ export interface WalletPreset {
   provider: AccountProvider | null;
   colorKey: string;
   monogram: string | null;
-  iconName: 'wallet' | 'landmark' | 'credit-card' | 'shapes';
+  iconName: 'wallet' | 'landmark' | 'credit-card' | 'shapes' | 'shield-check' | 'trending-up';
   supportsLast4: boolean;
   defaultIncludeInTotal: boolean;
 }
@@ -353,6 +372,50 @@ export const WALLET_PRESETS: readonly WalletPreset[] = [
     defaultIncludeInTotal: true,
   },
   {
+    key: 'dps',
+    name: 'DPS',
+    kind: 'dps',
+    provider: null,
+    colorKey: WALLET_BRAND_HEX.dps,
+    monogram: 'DPS',
+    iconName: 'shield-check',
+    supportsLast4: false,
+    defaultIncludeInTotal: false,
+  },
+  {
+    key: 'fdr',
+    name: 'FDR',
+    kind: 'fdr',
+    provider: null,
+    colorKey: WALLET_BRAND_HEX.fdr,
+    monogram: 'FDR',
+    iconName: 'landmark',
+    supportsLast4: false,
+    defaultIncludeInTotal: false,
+  },
+  {
+    key: 'sanchaypatra',
+    name: 'Sanchaypatra',
+    kind: 'sanchaypatra',
+    provider: null,
+    colorKey: WALLET_BRAND_HEX.sanchaypatra,
+    monogram: 'SP',
+    iconName: 'shield-check',
+    supportsLast4: false,
+    defaultIncludeInTotal: false,
+  },
+  {
+    key: 'investment',
+    name: 'Investments',
+    kind: 'investment',
+    provider: null,
+    colorKey: WALLET_BRAND_HEX.investment,
+    monogram: null,
+    iconName: 'trending-up',
+    supportsLast4: false,
+    defaultIncludeInTotal: false,
+  },
+  {
     key: 'other',
     name: 'Other',
     kind: 'other',
@@ -382,12 +445,18 @@ export const WALLET_COLOR_PALETTE: readonly string[] = [
 
 export function getWalletIconName(
   kind: AccountKind
-): 'wallet' | 'landmark' | 'credit-card' | 'shapes' {
+): 'wallet' | 'landmark' | 'credit-card' | 'shapes' | 'shield-check' | 'trending-up' {
   switch (kind) {
     case 'bank':
+    case 'fdr':
       return 'landmark';
     case 'credit_card':
       return 'credit-card';
+    case 'dps':
+    case 'sanchaypatra':
+      return 'shield-check';
+    case 'investment':
+      return 'trending-up';
     case 'other':
       return 'shapes';
     case 'cash':

@@ -4,7 +4,8 @@ describe('app.config variants and S5 blockedPermissions', () => {
   it('defaults to production Khoroch configuration without release signing plugin', () => {
     const cfg = buildAppConfig({}, {});
     expect(cfg.name).toBe('Khoroch');
-    expect(cfg.scheme).toBe('budgetapp');
+    expect(cfg.slug).toBe('khoroch');
+    expect(cfg.scheme).toBe('khoroch');
     expect(cfg.icon).toBe('./assets/images/icon.png');
     expect(cfg.android?.package).toBe('com.hamim.budgetapp');
     expect(cfg.android?.blockedPermissions).toEqual(
@@ -22,7 +23,8 @@ describe('app.config variants and S5 blockedPermissions', () => {
   it('switches package, app name, scheme, and icons cleanly when APP_VARIANT=dev', () => {
     const cfg = buildAppConfig({}, { appVariant: 'dev' });
     expect(cfg.name).toBe('Khoroch Dev');
-    expect(cfg.scheme).toBe('budgetapp-dev');
+    expect(cfg.slug).toBe('khoroch');
+    expect(cfg.scheme).toBe('khoroch-dev');
     expect(cfg.icon).toBe('./assets/images/icon-dev.png');
     expect(cfg.android?.package).toBe('com.hamim.budgetapp.dev');
     expect(cfg.android?.adaptiveIcon?.backgroundColor).toBe('#DCFCE7');

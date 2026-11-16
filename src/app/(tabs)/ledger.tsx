@@ -64,7 +64,6 @@ import { Money } from '@/ui/Money';
 import { Screen, useTabScrollPadding } from '@/ui/Screen';
 import { SegmentedControl } from '@/ui/SegmentedControl';
 import { Sheet } from '@/ui/Sheet';
-import { Surface } from '@/ui/Surface';
 import { WalletAvatar } from '@/ui/WalletAvatar';
 import { PressableScale } from '@/ui/PressableScale';
 import { DayBookView } from '@/ui/DayBookView';

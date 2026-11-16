@@ -4,6 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import {
   formatAccountBalance,
   formatAccountsTotal,
+  isSavingsAssetKind,
 } from '@/domain/accounts';
 import { formatFriendlyDate, todayLocalDate } from '@/domain/dates';
 import { formatMoney, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
@@ -58,6 +59,7 @@ export default function ManageWalletsScreen() {
     allAccounts,
     overview,
     transactions,
+    netWorth,
     untaggedCount,
     loading,
   } = useAccounts(today);
@@ -199,6 +201,19 @@ export default function ManageWalletsScreen() {
                 : formatAccountsTotal(overview.totalMinor, settings.currency)}
             </AppText>
           </View>
+          {netWorth.savingsAssetsMinor > 0 ? (
+            <AppText variant="caption" color="income">
+              {`${t('overview.savingsLabel')}: ${
+                hideAmounts
+                  ? HIDDEN_AMOUNT_TEXT
+                  : formatAccountsTotal(netWorth.savingsAssetsMinor, settings.currency)
+              } · ${t('overview.netWorthLabel')}: ${
+                hideAmounts
+                  ? HIDDEN_AMOUNT_TEXT
+                  : formatAccountsTotal(netWorth.netWorthMinor, settings.currency)
+              }`}
+            </AppText>
+          ) : null}
           {overview.excludedCount > 0 ? (
             <AppText variant="caption" color="textSecondary">
               {t('overview.walletsExcludedNote', { count: overview.excludedCount })}
@@ -227,8 +242,19 @@ export default function ManageWalletsScreen() {
                 : bal.formatted
               : formatAccountBalance(acc.kind, acc.openingBalanceMinor, settings.currency);
             const metaParts: string[] = [];
+            if (isSavingsAssetKind(acc.kind)) {
+              metaParts.push(
+                acc.kind === 'dps'
+                  ? t('wallets.kindDps')
+                  : acc.kind === 'fdr'
+                    ? t('wallets.kindFdr')
+                    : acc.kind === 'sanchaypatra'
+                      ? t('wallets.kindSanchaypatra')
+                      : t('wallets.kindInvestment')
+              );
+            }
             if (acc.last4) metaParts.push(t('wallets.endingLast4', { last4: acc.last4 }));
-            if (!acc.includeInTotal) metaParts.push(t('wallets.excludedBadge'));
+            if (!acc.includeInTotal && !isSavingsAssetKind(acc.kind)) metaParts.push(t('wallets.excludedBadge'));
             const subtitle = metaParts.length > 0 ? metaParts.join(' · ') : undefined;
 
             return (

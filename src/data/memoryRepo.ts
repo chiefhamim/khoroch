@@ -30,11 +30,17 @@ import {
   type LocalDate,
   type NewAccount,
   type NewDueEntry,
+  type NewPendingDraft,
   type NewPerson,
+  type NewRecurringBill,
   type NewTransaction,
   type NewTransfer,
+  type PendingDraft,
+  type PendingDraftStatus,
   type Person,
   type PersonPatch,
+  type RecurringBill,
+  type RecurringBillPatch,
   type Settings,
   type Transaction,
   type TransactionPatch,
@@ -125,6 +131,8 @@ export class MemoryRepo implements Repo {
   private categories = new Map<string, Category>();
   private budgets = new Map<string, Budget>();
   private seededBudgetPeriods = new Set<LocalDate>();
+  private recurringBills = new Map<string, RecurringBill>();
+  private pendingDrafts = new Map<string, PendingDraft>();
   private settings: Settings = cloneSettings(DEFAULT_SETTINGS);
   private dayReviews = new Map<LocalDate, number>();
 
@@ -896,6 +904,8 @@ export class MemoryRepo implements Repo {
   }
 
   async deleteAllData(): Promise<void> {
+    this.pendingDrafts.clear();
+    this.recurringBills.clear();
     this.dueEntries.clear();
     this.people.clear();
     this.transactions.clear();
@@ -908,6 +918,118 @@ export class MemoryRepo implements Repo {
     this.categories.clear();
     for (const cat of buildDefaultCategories(Date.now())) {
       this.categories.set(cat.id, { ...cat });
+    }
+  }
+
+  async listRecurringBills(opts?: { includeInactive?: boolean }): Promise<RecurringBill[]> {
+    const includeInactive = opts?.includeInactive ?? false;
+    return Array.from(this.recurringBills.values())
+      .filter((b) => includeInactive || b.isActive)
+      .sort((a, b) => a.dayOfMonth - b.dayOfMonth || a.name.localeCompare(b.name));
+  }
+
+  async insertRecurringBill(b: NewRecurringBill): Promise<void> {
+    if (this.recurringBills.has(b.id)) return;
+    const now = Date.now();
+    this.recurringBills.set(b.id, {
+      id: b.id,
+      name: b.name.trim(),
+      kind: b.kind,
+      amountMinor: b.amountMinor,
+      dayOfMonth: b.dayOfMonth,
+      categoryId: b.categoryId ?? null,
+      accountId: b.accountId ?? null,
+      totalInstallments: b.totalInstallments ?? null,
+      paidInstallments: b.paidInstallments ?? 0,
+      lastPaidPeriod: b.lastPaidPeriod ?? null,
+      isActive: b.isActive ?? true,
+      createdAt: b.createdAt ?? now,
+      updatedAt: b.updatedAt ?? now,
+    });
+  }
+
+  async updateRecurringBill(id: string, patch: RecurringBillPatch): Promise<void> {
+    const existing = this.recurringBills.get(id);
+    if (!existing) throw new Error(`Recurring bill "${id}" not found`);
+    this.recurringBills.set(id, {
+      ...existing,
+      ...(patch.name !== undefined ? { name: patch.name.trim() } : {}),
+      ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+      ...(patch.amountMinor !== undefined ? { amountMinor: patch.amountMinor } : {}),
+      ...(patch.dayOfMonth !== undefined ? { dayOfMonth: patch.dayOfMonth } : {}),
+      ...(patch.categoryId !== undefined ? { categoryId: patch.categoryId } : {}),
+      ...(patch.accountId !== undefined ? { accountId: patch.accountId } : {}),
+      ...(patch.totalInstallments !== undefined ? { totalInstallments: patch.totalInstallments } : {}),
+      ...(patch.paidInstallments !== undefined ? { paidInstallments: patch.paidInstallments } : {}),
+      ...(patch.lastPaidPeriod !== undefined ? { lastPaidPeriod: patch.lastPaidPeriod } : {}),
+      ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
+      updatedAt: Date.now(),
+    });
+  }
+
+  async deleteRecurringBill(id: string): Promise<void> {
+    this.recurringBills.delete(id);
+  }
+
+  async listPendingDrafts(opts?: { status?: PendingDraftStatus }): Promise<PendingDraft[]> {
+    const status = opts?.status;
+    return Array.from(this.pendingDrafts.values())
+      .filter((d) => !status || d.status === status)
+      .sort(
+        (a, b) =>
+          b.occurredOn.localeCompare(a.occurredOn) ||
+          (b.occurredTime ?? '').localeCompare(a.occurredTime ?? '') ||
+          b.createdAt - a.createdAt
+      );
+  }
+
+  async upsertPendingDrafts(drafts: NewPendingDraft[]): Promise<number> {
+    let inserted = 0;
+    const seenFp = new Set(Array.from(this.pendingDrafts.values()).map((d) => d.fingerprint));
+    const now = Date.now();
+    for (const d of drafts) {
+      if (seenFp.has(d.fingerprint) || this.pendingDrafts.has(d.id)) continue;
+      seenFp.add(d.fingerprint);
+      this.pendingDrafts.set(d.id, {
+        id: d.id,
+        source: d.source,
+        fingerprint: d.fingerprint,
+        draftKind: d.draftKind ?? 'transaction',
+        type: d.type,
+        amountMinor: d.amountMinor,
+        feeMinor: d.feeMinor ?? 0,
+        categoryId: d.categoryId ?? null,
+        accountId: d.accountId ?? null,
+        fromAccountId: d.fromAccountId ?? null,
+        toAccountId: d.toAccountId ?? null,
+        description: d.description ?? '',
+        rawText: d.rawText,
+        trxId: d.trxId ?? null,
+        occurredOn: d.occurredOn,
+        occurredTime: d.occurredTime ?? null,
+        status: 'pending',
+        createdAt: d.createdAt ?? now,
+      });
+      inserted += 1;
+    }
+    return inserted;
+  }
+
+  async updatePendingDraftStatus(id: string, status: PendingDraftStatus): Promise<void> {
+    const existing = this.pendingDrafts.get(id);
+    if (!existing) return;
+    this.pendingDrafts.set(id, { ...existing, status });
+  }
+
+  async clearPendingDrafts(status?: PendingDraftStatus): Promise<void> {
+    if (!status) {
+      this.pendingDrafts.clear();
+      return;
+    }
+    for (const [id, d] of this.pendingDrafts.entries()) {
+      if (d.status === status) {
+        this.pendingDrafts.delete(id);
+      }
     }
   }
 
@@ -933,11 +1055,16 @@ export class MemoryRepo implements Repo {
     const prevBudgets = new Map(
       Array.from(this.budgets.entries()).map(([k, v]) => [k, { ...v }])
     );
+    const prevRecurring = new Map(
+      Array.from(this.recurringBills.entries()).map(([k, v]) => [k, { ...v }])
+    );
     const prevSeeded = new Set(this.seededBudgetPeriods);
     const prevDayReviews = new Map(this.dayReviews);
     const prevSettings = cloneSettings(this.settings);
 
     try {
+      this.pendingDrafts.clear();
+      this.recurringBills.clear();
       this.dueEntries.clear();
       this.people.clear();
       this.transactions.clear();
@@ -1024,12 +1151,17 @@ export class MemoryRepo implements Repo {
         this.budgets.set(this.budgetKey(b.periodStart, b.categoryId), { ...b });
       }
 
+      for (const rb of data.recurring_bills ?? []) {
+        this.recurringBills.set(rb.id, { ...rb });
+      }
+
       for (const dr of data.day_reviews) {
         this.dayReviews.set(dr.day, dr.reviewedAt);
       }
 
       this.settings = cloneSettings(data.settings);
     } catch (err) {
+      this.recurringBills = prevRecurring;
       this.dueEntries = prevDueEntries;
       this.people = prevPeople;
       this.transactions = prevTransactions;

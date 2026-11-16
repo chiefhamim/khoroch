@@ -1,3 +1,5 @@
+import { AVATAR_PHOTO_IDS } from './avatarPhotoIds';
+
 export type CurrencyCode = 'BDT' | 'USD' | 'EUR';
 
 export const CURRENCIES: readonly CurrencyCode[] = ['BDT', 'USD', 'EUR'];
@@ -15,7 +17,7 @@ export function normalizeAppLanguage(
 
 export type TransactionType = 'expense' | 'income';
 
-export type TransactionSource = 'manual' | 'quick' | 'voice' | 'sample';
+export type TransactionSource = 'manual' | 'quick' | 'voice' | 'capture' | 'sample';
 
 export type CategoryKind = 'expense' | 'income';
 
@@ -212,8 +214,6 @@ export function normalizeExpenseColorKey(
     : fallback;
 }
 
-import { AVATAR_PHOTO_IDS } from './avatarPhotoIds';
-
 export const AVATAR_PRESET_IDS = [
   'initial',
   'prof_exec',
@@ -302,7 +302,16 @@ export interface TransactionPatch {
   occurredTime?: LocalTime | null;
 }
 
-export type AccountKind = 'cash' | 'mobile_wallet' | 'bank' | 'credit_card' | 'other';
+export type AccountKind =
+  | 'cash'
+  | 'mobile_wallet'
+  | 'bank'
+  | 'credit_card'
+  | 'dps'
+  | 'fdr'
+  | 'sanchaypatra'
+  | 'investment'
+  | 'other';
 export type AccountProvider = 'bkash' | 'nagad' | 'upay' | 'rocket' | 'cellfin';
 
 export const ACCOUNT_KINDS: readonly AccountKind[] = [
@@ -310,7 +319,18 @@ export const ACCOUNT_KINDS: readonly AccountKind[] = [
   'mobile_wallet',
   'bank',
   'credit_card',
+  'dps',
+  'fdr',
+  'sanchaypatra',
+  'investment',
   'other',
+];
+
+export const SAVINGS_ASSET_KINDS: readonly AccountKind[] = [
+  'dps',
+  'fdr',
+  'sanchaypatra',
+  'investment',
 ];
 
 export const ACCOUNT_PROVIDERS: readonly AccountProvider[] = [
@@ -612,4 +632,108 @@ export interface DueEntryPatch {
   occurredOn?: LocalDate;
   occurredTime?: LocalTime | null;
   note?: string;
+}
+
+export type RecurringBillKind = 'bill' | 'emi' | 'subscription' | 'salary';
+
+export const RECURRING_BILL_KINDS: readonly RecurringBillKind[] = [
+  'bill',
+  'emi',
+  'subscription',
+  'salary',
+];
+
+export interface RecurringBill {
+  id: string;
+  name: string;
+  kind: RecurringBillKind;
+  amountMinor: number;
+  dayOfMonth: number;
+  categoryId: string | null;
+  accountId: string | null;
+  totalInstallments: number | null;
+  paidInstallments: number;
+  lastPaidPeriod: LocalDate | null;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface NewRecurringBill {
+  id: string;
+  name: string;
+  kind: RecurringBillKind;
+  amountMinor: number;
+  dayOfMonth: number;
+  categoryId?: string | null;
+  accountId?: string | null;
+  totalInstallments?: number | null;
+  paidInstallments?: number;
+  lastPaidPeriod?: LocalDate | null;
+  isActive?: boolean;
+  createdAt?: number;
+  updatedAt?: number;
+}
+
+export interface RecurringBillPatch {
+  name?: string;
+  kind?: RecurringBillKind;
+  amountMinor?: number;
+  dayOfMonth?: number;
+  categoryId?: string | null;
+  accountId?: string | null;
+  totalInstallments?: number | null;
+  paidInstallments?: number;
+  lastPaidPeriod?: LocalDate | null;
+  isActive?: boolean;
+}
+
+export type CaptureSource =
+  | 'notification'
+  | 'statement_pdf'
+  | 'statement_csv'
+  | 'ocr_receipt'
+  | 'share_text';
+
+export type PendingDraftStatus = 'pending' | 'approved' | 'dismissed';
+
+export interface PendingDraft {
+  id: string;
+  source: CaptureSource;
+  fingerprint: string;
+  draftKind: 'transaction' | 'transfer';
+  type: TransactionType;
+  amountMinor: number;
+  feeMinor: number;
+  categoryId: string | null;
+  accountId: string | null;
+  fromAccountId: string | null;
+  toAccountId: string | null;
+  description: string;
+  rawText: string;
+  trxId: string | null;
+  occurredOn: LocalDate;
+  occurredTime: LocalTime | null;
+  status: PendingDraftStatus;
+  createdAt: number;
+}
+
+export interface NewPendingDraft {
+  id: string;
+  source: CaptureSource;
+  fingerprint: string;
+  draftKind?: 'transaction' | 'transfer';
+  type: TransactionType;
+  amountMinor: number;
+  feeMinor?: number;
+  categoryId?: string | null;
+  accountId?: string | null;
+  fromAccountId?: string | null;
+  toAccountId?: string | null;
+  description?: string;
+  rawText: string;
+  trxId?: string | null;
+  occurredOn: LocalDate;
+  occurredTime?: LocalTime | null;
+  createdAt?: number;
 }

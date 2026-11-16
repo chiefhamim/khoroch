@@ -5,7 +5,7 @@ import {
   DEFAULT_CATEGORY_BY_ID,
 } from '@/domain/categories';
 
-export const LATEST_SCHEMA_VERSION = 4;
+export const LATEST_SCHEMA_VERSION = 5;
 
 export const SCHEMA_V1_SQL = `
 CREATE TABLE IF NOT EXISTS categories (
@@ -237,5 +237,117 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       `);
     });
     version = 4;
+  }
+
+  if (version < 5) {
+    await db.execAsync('PRAGMA foreign_keys = OFF;');
+    try {
+      await db.withTransactionAsync(async () => {
+        await db.execAsync(`
+          CREATE TABLE accounts_v5 (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK (kind IN ('cash','mobile_wallet','bank','credit_card','dps','fdr','sanchaypatra','investment','other')),
+            provider TEXT,
+            color_key TEXT NOT NULL,
+            monogram TEXT,
+            last4 TEXT,
+            opening_balance_minor INTEGER NOT NULL DEFAULT 0,
+            opening_date TEXT NOT NULL,
+            include_in_total INTEGER NOT NULL DEFAULT 1,
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            archived_at INTEGER,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          );
+          INSERT INTO accounts_v5 (
+            id, name, kind, provider, color_key, monogram, last4,
+            opening_balance_minor, opening_date, include_in_total,
+            sort_order, archived_at, created_at, updated_at
+          )
+          SELECT
+            id, name, kind, provider, color_key, monogram, last4,
+            opening_balance_minor, opening_date, include_in_total,
+            sort_order, archived_at, created_at, updated_at
+          FROM accounts;
+          DROP TABLE accounts;
+          ALTER TABLE accounts_v5 RENAME TO accounts;
+
+          CREATE TABLE transactions_v5 (
+            id            TEXT PRIMARY KEY,
+            type          TEXT NOT NULL CHECK (type IN ('expense','income')),
+            amount_minor  INTEGER NOT NULL CHECK (amount_minor > 0 AND amount_minor <= 99999999999),
+            currency      TEXT NOT NULL,
+            category_id   TEXT REFERENCES categories(id),
+            account_id    TEXT REFERENCES accounts(id),
+            transfer_id   TEXT,
+            description   TEXT NOT NULL DEFAULT '',
+            note          TEXT NOT NULL DEFAULT '',
+            occurred_on   TEXT NOT NULL,
+            occurred_time TEXT,
+            source        TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('manual','quick','voice','capture','sample')),
+            created_at    INTEGER NOT NULL,
+            updated_at    INTEGER NOT NULL,
+            deleted_at    INTEGER
+          );
+          INSERT INTO transactions_v5 (
+            id, type, amount_minor, currency, category_id, account_id, transfer_id,
+            description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at
+          )
+          SELECT
+            id, type, amount_minor, currency, category_id, account_id, transfer_id,
+            description, note, occurred_on, occurred_time, source, created_at, updated_at, deleted_at
+          FROM transactions;
+          DROP TABLE transactions;
+          ALTER TABLE transactions_v5 RENAME TO transactions;
+          CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions (deleted_at, occurred_on);
+          CREATE INDEX IF NOT EXISTS idx_tx_category ON transactions (category_id, occurred_on);
+          CREATE INDEX IF NOT EXISTS idx_tx_account ON transactions (account_id, occurred_on);
+
+          CREATE TABLE IF NOT EXISTS recurring_bills (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK (kind IN ('bill','emi','subscription','salary')),
+            amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+            day_of_month INTEGER NOT NULL CHECK (day_of_month >= 1 AND day_of_month <= 31),
+            category_id TEXT REFERENCES categories(id),
+            account_id TEXT REFERENCES accounts(id),
+            total_installments INTEGER,
+            paid_installments INTEGER NOT NULL DEFAULT 0,
+            last_paid_period TEXT,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+          );
+
+          CREATE TABLE IF NOT EXISTS pending_drafts (
+            id TEXT PRIMARY KEY,
+            source TEXT NOT NULL CHECK (source IN ('notification','statement_pdf','statement_csv','ocr_receipt','share_text')),
+            fingerprint TEXT NOT NULL UNIQUE,
+            draft_kind TEXT NOT NULL DEFAULT 'transaction' CHECK (draft_kind IN ('transaction','transfer')),
+            type TEXT NOT NULL CHECK (type IN ('expense','income')),
+            amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+            fee_minor INTEGER NOT NULL DEFAULT 0 CHECK (fee_minor >= 0),
+            category_id TEXT,
+            account_id TEXT,
+            from_account_id TEXT,
+            to_account_id TEXT,
+            description TEXT NOT NULL DEFAULT '',
+            raw_text TEXT NOT NULL DEFAULT '',
+            trx_id TEXT,
+            occurred_on TEXT NOT NULL,
+            occurred_time TEXT,
+            status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','dismissed')),
+            created_at INTEGER NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_pending_status ON pending_drafts (status, occurred_on);
+
+          PRAGMA user_version = 5;
+        `);
+      });
+    } finally {
+      await db.execAsync('PRAGMA foreign_keys = ON;');
+    }
+    version = 5;
   }
 }

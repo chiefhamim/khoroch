@@ -27,6 +27,7 @@ export interface SpendingChartProps {
   weekly: WeeklySeriesPoint[];
   monthly: MonthlySeriesPoint[];
   today?: LocalDate;
+  dailyBudgetLimitMinor?: number | null;
   granularity?: ChartGranularity;
   onGranularityChange?: (next: ChartGranularity) => void;
   showHeader?: boolean;
@@ -37,6 +38,7 @@ interface ChartBarItem {
   label: string;
   axisLabel: string;
   spentMinor: number;
+  incomeMinor?: number;
   isCurrent: boolean;
 }
 
@@ -126,6 +128,7 @@ export function SpendingChart({
   weekly,
   monthly,
   today,
+  dailyBudgetLimitMinor = null,
   granularity: controlledGranularity,
   onGranularityChange,
   showHeader = true,
@@ -192,6 +195,7 @@ export function SpendingChart({
         label: monthLabel,
         axisLabel: monthLabel.split(' ')[0],
         spentMinor: pt.spentMinor,
+        incomeMinor: pt.incomeMinor,
         isCurrent: idx === monthly.length - 1,
       };
     });
@@ -201,9 +205,29 @@ export function SpendingChart({
     let max = 0;
     for (const b of bars) {
       if (b.spentMinor > max) max = b.spentMinor;
+      if ((b.incomeMinor ?? 0) > max) max = b.incomeMinor ?? 0;
     }
     return max;
   }, [bars]);
+
+  const referenceInfo = useMemo(() => {
+    if (granularity === 'monthly') return null;
+    if (granularity === 'daily' && dailyBudgetLimitMinor && dailyBudgetLimitMinor > 0) {
+      return {
+        valueMinor: dailyBudgetLimitMinor,
+        label: t('overview.chartLimitLabel'),
+      };
+    }
+    const nonZero = bars.filter((b) => b.spentMinor > 0);
+    if (nonZero.length === 0) return null;
+    const avg = Math.round(nonZero.reduce((s, b) => s + b.spentMinor, 0) / nonZero.length);
+    return avg > 0 ? { valueMinor: avg, label: t('overview.chartAvgLabel') } : null;
+  }, [granularity, dailyBudgetLimitMinor, bars]);
+
+  const scaleMaxMinor = useMemo(() => {
+    if (!referenceInfo || maxMinor === 0) return maxMinor;
+    return Math.max(maxMinor, Math.round(referenceInfo.valueMinor * 1.15));
+  }, [maxMinor, referenceInfo]);
 
   const stats = useMemo(() => {
     const total = bars.reduce((acc, b) => acc + b.spentMinor, 0);
@@ -336,10 +360,12 @@ export function SpendingChart({
               {activeBar.label}
             </AppText>
             <AppText variant="bodyStrong" color="accent" tabularNums>
-              {formatMoney(activeBar.spentMinor, currency, {
-                hidden: hideAmounts,
-                showPoisha,
-              })}
+              {granularity === 'monthly' && activeBar.incomeMinor !== undefined
+                ? `${t('overview.chartInLabel')}: ${formatMoney(activeBar.incomeMinor, currency, { hidden: hideAmounts, showPoisha })} · ${t('overview.chartOutLabel')}: ${formatMoney(activeBar.spentMinor, currency, { hidden: hideAmounts, showPoisha })}`
+                : formatMoney(activeBar.spentMinor, currency, {
+                    hidden: hideAmounts,
+                    showPoisha,
+                  })}
             </AppText>
           </View>
         </View>
@@ -347,6 +373,21 @@ export function SpendingChart({
         <AppText variant="caption" color="textSecondary">
           {t('overview.chartNoData')}
         </AppText>
+      ) : granularity === 'monthly' ? (
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: theme.colors.income }]} />
+            <AppText variant="caption" color="textSecondary">
+              {t('overview.chartInLabel')}
+            </AppText>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: theme.colors.expense }]} />
+            <AppText variant="caption" color="textSecondary">
+              {t('overview.chartOutLabel')}
+            </AppText>
+          </View>
+        </View>
       ) : null}
 
       <View onLayout={handleLayout} style={styles.svgContainer}>
@@ -376,7 +417,7 @@ export function SpendingChart({
             stroke={theme.colors.separator}
             strokeWidth={1}
           />
-          {maxMinor > 0 ? (
+          {scaleMaxMinor > 0 ? (
             <SvgText
               x={0}
               y={TOP_PAD - 2}
@@ -384,31 +425,108 @@ export function SpendingChart({
               fill={theme.colors.textTertiary}
               textAnchor="start"
             >
-              {hideAmounts ? '' : formatMoney(maxMinor, currency, { showPoisha: false })}
+              {hideAmounts ? '' : formatMoney(scaleMaxMinor, currency, { showPoisha: false })}
             </SvgText>
           ) : null}
+          {referenceInfo && scaleMaxMinor > 0 ? (() => {
+            const refH = Math.pow(Math.min(1, referenceInfo.valueMinor / scaleMaxMinor), 0.65) * PLOT_HEIGHT;
+            const refY = TOP_PAD + PLOT_HEIGHT - Math.min(PLOT_HEIGHT - 6, Math.max(4, refH));
+            return (
+              <>
+                <Line
+                  x1={0}
+                  y1={refY}
+                  x2={plotWidth}
+                  y2={refY}
+                  stroke={theme.colors.accent}
+                  strokeOpacity={0.45}
+                  strokeWidth={1}
+                  strokeDasharray="4 4"
+                />
+                <SvgText
+                  x={plotWidth}
+                  y={Math.max(11, refY - 3)}
+                  fontSize={10}
+                  fill={theme.colors.accent}
+                  textAnchor="end"
+                >
+                  {localizeDisplayText(referenceInfo.label, getLocale())}
+                </SvgText>
+              </>
+            );
+          })() : null}
           {bars.map((bar, idx) => {
             const xCenter = idx * slotWidth + slotWidth / 2;
             const x = xCenter - barWidth / 2;
             const hasSpend = bar.spentMinor > 0;
+            const hasIncome = granularity === 'monthly' && (bar.incomeMinor ?? 0) > 0;
             // Gentle curve so one large day does not flatten every other bar; tap a bar for exact amounts.
-            const rawH = maxMinor > 0 ? Math.pow(bar.spentMinor / maxMinor, 0.65) * PLOT_HEIGHT : 0;
+            const rawH = scaleMaxMinor > 0 ? Math.pow(bar.spentMinor / scaleMaxMinor, 0.65) * PLOT_HEIGHT : 0;
             const barH = hasSpend ? Math.max(5, rawH) : 0;
             const y = TOP_PAD + PLOT_HEIGHT - barH;
             const isSelected = selectedIndex === idx;
-            const fill = theme.scheme === 'dark' ? '#FAFAFA' : '#4F46E5';
+            const overDailyLimit =
+              granularity === 'daily' &&
+              dailyBudgetLimitMinor !== null &&
+              dailyBudgetLimitMinor > 0 &&
+              bar.spentMinor > dailyBudgetLimitMinor;
+            const fill = overDailyLimit
+              ? theme.colors.warning
+              : theme.colors.accent;
             const fillOpacity =
               selectedIndex !== null
                 ? isSelected
                   ? 1
                   : 0.25
-                : bar.isCurrent
+                : bar.isCurrent || overDailyLimit
                   ? 1
                   : 0.5;
 
+            const pairedWidth = Math.max(4, Math.min(10, Math.floor(slotWidth * 0.34)));
+            const incH =
+              hasIncome && scaleMaxMinor > 0
+                ? Math.max(5, Math.pow((bar.incomeMinor ?? 0) / scaleMaxMinor, 0.65) * PLOT_HEIGHT)
+                : 0;
+
             return (
               <React.Fragment key={bar.key}>
-                {hasSpend ? (
+                {granularity === 'monthly' ? (
+                  hasIncome || hasSpend ? (
+                    <>
+                      {hasIncome ? (
+                        <Rect
+                          x={xCenter - pairedWidth - 1.5}
+                          y={TOP_PAD + PLOT_HEIGHT - incH}
+                          width={pairedWidth}
+                          height={incH}
+                          rx={pairedWidth / 2}
+                          fill={theme.colors.income}
+                          fillOpacity={selectedIndex !== null ? (isSelected ? 1 : 0.3) : 0.85}
+                        />
+                      ) : null}
+                      {hasSpend ? (
+                        <Rect
+                          x={xCenter + 1.5}
+                          y={y}
+                          width={pairedWidth}
+                          height={barH}
+                          rx={pairedWidth / 2}
+                          fill={theme.colors.expense}
+                          fillOpacity={selectedIndex !== null ? (isSelected ? 1 : 0.3) : 0.85}
+                        />
+                      ) : null}
+                    </>
+                  ) : (
+                    <Rect
+                      x={xCenter - Math.min(barWidth, 6) / 2}
+                      y={TOP_PAD + PLOT_HEIGHT - Math.min(barWidth, 6)}
+                      width={Math.min(barWidth, 6)}
+                      height={Math.min(barWidth, 6)}
+                      rx={Math.min(barWidth, 6) / 2}
+                      fill={theme.colors.separator}
+                    />
+                  )
+                ) : hasSpend ? (
                   <Rect
                     x={x}
                     y={y}
@@ -516,5 +634,20 @@ const styles = StyleSheet.create({
   hitSlice: {
     flex: 1,
     height: '100%',
+  },
+  legendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
 });

@@ -39,6 +39,10 @@ const ACCOUNT_KIND_OPTIONS: readonly { kind: AccountKind; labelKey: TranslationK
   { kind: 'mobile_wallet', labelKey: 'wallets.kindMobile' },
   { kind: 'bank', labelKey: 'wallets.kindBank' },
   { kind: 'credit_card', labelKey: 'wallets.kindCard' },
+  { kind: 'dps', labelKey: 'wallets.kindDps' },
+  { kind: 'fdr', labelKey: 'wallets.kindFdr' },
+  { kind: 'sanchaypatra', labelKey: 'wallets.kindSanchaypatra' },
+  { kind: 'investment', labelKey: 'wallets.kindInvestment' },
   { kind: 'other', labelKey: 'wallets.kindOther' },
 ];
 

@@ -445,7 +445,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       delete tx.transferId;
     }
     const migratedV2 = parseAndValidateBackup(JSON.stringify(v2Raw));
-    expect(migratedV2.schema).toBe(4);
+    expect(migratedV2.schema).toBe(5);
     expect(migratedV2.data.accounts).toEqual([]);
     expect(migratedV2.data.transfers).toEqual([]);
     expect(migratedV2.data.people).toEqual([]);
@@ -485,7 +485,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       });
 
     const migratedV1 = parseAndValidateBackup(JSON.stringify(v1Raw));
-    expect(migratedV1.schema).toBe(4);
+    expect(migratedV1.schema).toBe(5);
     expect(migratedV1.data.day_reviews).toEqual([]);
     expect(migratedV1.data.accounts).toEqual([]);
     expect(migratedV1.data.transfers).toEqual([]);
@@ -632,5 +632,17 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     expect(isBackupDue(null, now)).toBe(true);
     expect(isBackupDue(now - 29 * 24 * 60 * 60 * 1000, now)).toBe(false);
     expect(isBackupDue(now - 31 * 24 * 60 * 60 * 1000, now)).toBe(true);
+  });
+
+  it('exports with app id khoroch and still imports legacy budget-app backups', async () => {
+    const mem = new MemoryRepo();
+    const exported = JSON.parse(await exportBackupJson(mem)) as Record<string, unknown>;
+    expect(exported.app).toBe('khoroch');
+
+    const legacyBudgetApp = parseAndValidateBackup(JSON.stringify({ ...exported, app: 'budget-app' }));
+    expect(legacyBudgetApp.app).toBe('khoroch');
+
+    const legacyLenDen = parseAndValidateBackup(JSON.stringify({ ...exported, app: 'lenden' }));
+    expect(legacyLenDen.app).toBe('khoroch');
   });
 });

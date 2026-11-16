@@ -1,8 +1,7 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, Ellipse, G, Path, Rect } from 'react-native-svg';
 
-import { Image } from 'react-native';
 import type { AvatarPresetId } from '@/domain/types';
 import { AVATAR_PHOTOS } from './avatarPhotos';
 

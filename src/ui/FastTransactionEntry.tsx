@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Keyboard, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Animated, {
@@ -510,10 +511,9 @@ export function FastTransactionEntry({
                   }}
                   style={[
                     styles.catCell,
-                    theme.cardShadow,
                     {
                       borderRadius: theme.radius.md,
-                      borderColor: active ? theme.colors.accent : theme.colors.cardBorder,
+                      borderColor: active ? theme.colors.accent : theme.colors.separator,
                       backgroundColor: active ? theme.colors.accentSoft : theme.colors.surface,
                     },
                   ]}
@@ -596,20 +596,49 @@ export function FastTransactionEntry({
 
         {!keyboardVisible ? (
           <View style={{ gap: theme.spacing.xs }}>
-            {!noteOpen ? (
-              <PressableScale
-                accessibilityRole="button"
-                accessibilityLabel={t('tx.addNoteCta')}
-                onPress={() => setNoteOpen(true)}
-                style={styles.addNote}
-              >
-                <AppIcon name="plus" size={15} color={theme.colors.textSecondary} />
-                <AppText variant="label" color="textSecondary">
-                  {t('tx.addNoteCta')}
-                </AppText>
-              </PressableScale>
-            ) : null}
-            <Keypad value={amountText} onChange={setAmountText} keyHeight={48} testID="fast-keypad" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              {!noteOpen ? (
+                <PressableScale
+                  accessibilityRole="button"
+                  accessibilityLabel={t('tx.addNoteCta')}
+                  onPress={() => setNoteOpen(true)}
+                  style={styles.addNote}
+                >
+                  <AppIcon name="plus" size={15} color={theme.colors.textSecondary} />
+                  <AppText variant="label" color="textSecondary">
+                    {t('tx.addNoteCta')}
+                  </AppText>
+                </PressableScale>
+              ) : (
+                <View />
+              )}
+              {!isEdit ? (
+                <PressableScale
+                  testID="fast-inbox-shortcut"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('fast.captureShortcut')}
+                  onPress={() => {
+                    hapticSelection();
+                    router.push('/inbox' as never);
+                  }}
+                  style={[
+                    styles.addNote,
+                    {
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: theme.radius.pill,
+                      backgroundColor: theme.colors.accentSoft,
+                    },
+                  ]}
+                >
+                  <AppIcon name="scan-line" size={14} color={theme.colors.accent} />
+                  <AppText variant="caption" color="accent" style={{ fontWeight: '600' }}>
+                    {t('fast.captureShortcut')}
+                  </AppText>
+                </PressableScale>
+              ) : null}
+            </View>
+            <Keypad value={amountText} onChange={setAmountText} keyHeight={48} variant="tonal" testID="fast-keypad" />
           </View>
         ) : null}
 

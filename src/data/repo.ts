@@ -12,11 +12,17 @@ import {
   type LocalDate,
   type NewAccount,
   type NewDueEntry,
+  type NewPendingDraft,
   type NewPerson,
+  type NewRecurringBill,
   type NewTransaction,
   type NewTransfer,
+  type PendingDraft,
+  type PendingDraftStatus,
   type Person,
   type PersonPatch,
+  type RecurringBill,
+  type RecurringBillPatch,
   type Settings,
   type Transaction,
   type TransactionPatch,
@@ -34,6 +40,7 @@ export interface BackupDataSnapshot {
   transfers: Transfer[];
   people: Person[];
   due_entries: DueEntry[];
+  recurring_bills?: RecurringBill[];
   transactions: Transaction[];
   budgets: Budget[];
   settings: Settings;
@@ -119,6 +126,18 @@ export interface Repo {
   listAllDayReviews(): Promise<DayReviewRecord[]>;
   deleteAllData(): Promise<void>;
   replaceAllDataFromBackup(data: BackupDataSnapshot): Promise<void>;
+
+  // Recurring bills & EMIs
+  listRecurringBills(opts?: { includeInactive?: boolean }): Promise<RecurringBill[]>;
+  insertRecurringBill(b: NewRecurringBill): Promise<void>;
+  updateRecurringBill(id: string, patch: RecurringBillPatch): Promise<void>;
+  deleteRecurringBill(id: string): Promise<void>;
+
+  // Captured pending drafts (Smart Inbox)
+  listPendingDrafts(opts?: { status?: PendingDraftStatus }): Promise<PendingDraft[]>;
+  upsertPendingDrafts(drafts: NewPendingDraft[]): Promise<number>;
+  updatePendingDraftStatus(id: string, status: PendingDraftStatus): Promise<void>;
+  clearPendingDrafts(status?: PendingDraftStatus): Promise<void>;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
