@@ -595,3 +595,15 @@ Re-read: AGENTS §6 · PLAN §6
   - Not done from docs/PLAN.md: phases 3 to 5 specs (capture incl. SMS parsing, insights, security and sync).
   - f554996: closing review fixes after 813ab78 and b946a91 both passed review. Checks at f554996: typecheck exit 0; 72 suites, 719 tests, none skipped; lint clean. f554996 itself has not been reviewed.
   - Plan phases 3 to 5 written as specs (design only, nothing built): docs/specs/CAPTURE.md (c04e4a7), INSIGHTS.md (79f0eb0), SECURITY-SYNC.md. Each ends with a task list and owner questions. Facts the agents could not confirm are marked NOT VERIFIED inside the files. The specs were not reviewed by a second agent.
+- End of day 2026-11-17, pushed to origin/dev at the owner's request. Checks at 683ae9e: typecheck exit 0; 75 suites, 755 tests, none skipped; lint clean.
+  - a1ce060 (Mark paid in one transaction, wage queue timeout, stale blocked flag): review PASS.
+  - ffd133a + 683ae9e (Inbox fixes, CAPTURE.md task C1): review FAIL on 683ae9e. OPEN, not fixed:
+    1. DATA: approve has no in-flight guard (double tap inserts twice); bulk approve has no catch or reload after a partial failure (a second run re-saves the first drafts); a failed fee insert leaves the draft pending with its entry saved. Fix: per-draft in-flight ref, one repo transaction for entry + fee + status, reload and error toast.
+    2. BUG: src/capture/parser.ts receipt "total" pattern runs before the foreign-currency check, so "Total $25.00" becomes a BDT 25 draft; INR, SAR, AED and similar are not recognised as foreign and are dropped silently.
+    3. Skipped-foreign toast replaces the "drafts added" toast; combine both counts. Spec deviation (no draft for a USD message) stays until a schema change in C12.
+    4. `updatePendingDraft` has no `status = 'pending'` filter in either repo.
+    5. `void queueRecordWage(...)` leaves the timeout rejection unhandled (src/app/(tabs)/index.tsx).
+    6. `recordBillPaid` uses a non-exclusive transaction and has no SQLite-level test.
+    7. Duplicate rule flags normal repeats on adjacent days; the Inbox reloads all entries after each pick.
+    8. Inbox UI rules, mostly older code: pills under 48dp, raw numbers in styles, title clipped to one line, six type styles.
+  - Live reload was silently dead for part of the day (lost adb reverse, Metro not building). Fixed; Home seen on the phone afterwards. Nothing else built today has been seen on the device.
