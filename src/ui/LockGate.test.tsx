@@ -252,6 +252,43 @@ describe('LockGate', () => {
     expect(screen.getByTestId('child-sheet')).toBeTruthy();
   });
 
+  it('opens no sheet window while the app is covered, and shows the sheet once active again', async () => {
+    const { rerender } = await render(app({}, false));
+    await act(async () => {});
+    await unlock();
+
+    // In the background but not locked yet (for example "Lock after: immediately"): a picker
+    // result arrives and a sheet opens.
+    await setState('background');
+    expect(screen.getByTestId('lock-cover')).toBeTruthy();
+    await rerender(app({}, true));
+    expect(screen.queryByTestId('child-sheet', { includeHiddenElements: true })).toBeNull();
+    expect(screen.queryByText('sheet body', { includeHiddenElements: true })).toBeNull();
+
+    // The lock then takes over: still no sheet window above it.
+    await setState('active');
+    await act(async () => {});
+    expect(screen.getByTestId('child-sheet')).toBeTruthy();
+  });
+
+  it('keeps a sheet opened while covered out of the way until the lock is gone', async () => {
+    const { rerender } = await render(app({ appLockTimeoutSec: 0 }, false));
+    await act(async () => {});
+    await unlock();
+
+    await setState('background');
+    await rerender(app({ appLockTimeoutSec: 0 }, true));
+    expect(screen.queryByTestId('child-sheet', { includeHiddenElements: true })).toBeNull();
+
+    await setState('active'); // timeout 0: the lock comes up
+    await act(async () => {});
+    expect(screen.getByTestId('lock-screen')).toBeTruthy();
+    expect(screen.queryByTestId('child-sheet', { includeHiddenElements: true })).toBeNull();
+
+    await unlock();
+    expect(screen.getByTestId('child-sheet')).toBeTruthy();
+  });
+
   it('shows a one-time notice when the setting said on but the stored PIN is gone', async () => {
     credentialState.mockResolvedValue('absent');
     await renderApp({ appLockEnabled: true });
@@ -314,6 +351,46 @@ describe('LockGate', () => {
       expect(updateSetting).toHaveBeenCalledWith('appLockEnabled', false);
       expect(screen.getByTestId('app-child')).toBeTruthy();
       expect(screen.queryByTestId('lock-error')).toBeNull();
+    });
+
+    it('says the data was erased and to press Try again when cleanup fails after the wipe', async () => {
+      credentialState.mockResolvedValue('error');
+      (appLock.clearAll as jest.Mock).mockRejectedValue(new Error('remove failed'));
+      await renderApp();
+      await fireEvent.press(screen.getByTestId('lock-retry'));
+      await act(async () => {});
+      await fireEvent.press(screen.getByTestId('lock-storage-erase'));
+      await act(async () => {});
+      await fireEvent.changeText(screen.getByTestId('lock-forgot-input'), 'DELETE');
+      await fireEvent.press(screen.getByTestId('lock-forgot-confirm'));
+      await act(async () => {});
+      expect(runDeleteAllData).toHaveBeenCalledTimes(1); // the data is gone
+      expect(screen.getByText(/Your data was erased, but the app lock could not be fully cleared/)).toBeTruthy();
+      expect(screen.getByText(/press Try again/)).toBeTruthy();
+      expect(screen.queryByText('Could not update your data. Please try again.')).toBeNull();
+      expect(screen.queryByTestId('app-child')).toBeNull();
+
+      // After a good Retry the lock is found absent and the app opens.
+      (appLock.clearAll as jest.Mock).mockResolvedValue(undefined);
+      credentialState.mockResolvedValue('absent');
+      await fireEvent.press(screen.getByTestId('lock-retry'));
+      await act(async () => {});
+      expect(screen.getByTestId('app-child')).toBeTruthy();
+    });
+
+    it('says the erase failed (nothing erased) when the data wipe itself fails', async () => {
+      credentialState.mockResolvedValue('error');
+      (runDeleteAllData as jest.Mock).mockRejectedValueOnce(new Error('db failed'));
+      await renderApp();
+      await fireEvent.press(screen.getByTestId('lock-retry'));
+      await act(async () => {});
+      await fireEvent.press(screen.getByTestId('lock-storage-erase'));
+      await act(async () => {});
+      await fireEvent.changeText(screen.getByTestId('lock-forgot-input'), 'DELETE');
+      await fireEvent.press(screen.getByTestId('lock-forgot-confirm'));
+      await act(async () => {});
+      expect(screen.getByText('Could not update your data. Please try again.')).toBeTruthy();
+      expect(screen.queryByText(/Your data was erased/)).toBeNull();
     });
 
     it('stays locked and says so when the erase itself fails', async () => {

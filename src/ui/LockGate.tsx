@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Modal, StyleSheet, View } from 'react-native';
 import { runDeleteAllData } from '@/data/deleteAll';
+import { markErasedThenFailed } from '@/data/eraseError';
 import { t } from '@/i18n';
 import { appLock, isAppLockSupported } from '@/security/appLock';
 import { isBiometricAvailable } from '@/security/biometrics';
@@ -190,18 +191,37 @@ export function LockGate({ children }: { children: React.ReactNode }) {
   }, [openApp]);
 
   const handleEraseAll = useCallback(async () => {
+    // A failure here means nothing was erased (generic message). Once the data is wiped, any later
+    // failure is tagged so the sheet says the data is gone and the owner should press Try again.
     await runDeleteAllData(repo);
-    await appLock.clearAll(); // rejects if the credential could not be removed
-    await updateSetting('appLockEnabled', false);
-    await refreshSettings();
+    try {
+      await appLock.clearAll(); // retries each entry, rejects if one could not be removed
+      await updateSetting('appLockEnabled', false);
+      await refreshSettings();
+    } catch (e) {
+      throw markErasedThenFailed(e);
+    }
     setEnabled(false);
     handleUnlocked();
   }, [repo, updateSetting, refreshSettings, handleUnlocked]);
 
+  // Sheets treat a covered app (in the background, not yet locked) as locked, so none opens a new
+  // window then: it would be created after the cover and end up above the lock screen.
+  const sheetsLocked = phase !== 'open' || (enabled && covered);
   const ctx = useMemo<LockState>(
-    () => ({ locked: phase !== 'open', enabled, refresh }),
-    [phase, enabled, refresh],
+    () => ({ locked: sheetsLocked, enabled, refresh }),
+    [sheetsLocked, enabled, refresh],
   );
+
+  // The lock's Modal must always be the newest window. A new key on every move to a locked phase
+  // remounts it, so the platform creates a fresh dialog on top of everything made before.
+  const lockedPhase = phase !== 'open';
+  const [wasLockedPhase, setWasLockedPhase] = useState(false);
+  const [lockEpoch, setLockEpoch] = useState(0);
+  if (lockedPhase !== wasLockedPhase) {
+    setWasLockedPhase(lockedPhase);
+    if (lockedPhase) setLockEpoch((n) => n + 1);
+  }
 
   const showModal = phase === 'locked' || phase === 'error' || (everOpen && phase === 'checking') || (enabled && covered);
   const coverStyle = [styles.cover, { backgroundColor: theme.colors.bg }];
@@ -281,7 +301,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
         </Sheet>
       ) : null}
       {showModal ? (
-        <Modal visible animationType="none" statusBarTranslucent onRequestClose={() => {}}>
+        <Modal key={lockEpoch} visible animationType="none" statusBarTranslucent onRequestClose={() => {}}>
           {modalBody}
         </Modal>
       ) : null}

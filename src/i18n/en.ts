@@ -1111,6 +1111,7 @@ export const en = {
   'lock.storageErase': 'Erase all data',
   'lock.storageEraseTitle': 'The PIN cannot be read',
   'lock.storageEraseBody': 'The stored PIN could not be read on this phone, even after trying again. The only way to open the app now is to erase all data in this app on this device, including every entry, budget and setting. This cannot be undone. If you saved a backup file, you can restore it afterwards.',
+  'lock.erasePartial': 'Your data was erased, but the app lock could not be fully cleared. Close this window and press Try again.',
   'lock.biometricEnableFailed': 'Fingerprint or face unlock was not turned on.',
 } as const;
 

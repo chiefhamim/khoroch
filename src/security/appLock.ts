@@ -4,7 +4,6 @@ import {
   DEFAULT_PIN_ITERATIONS,
   LOCKOUT_FREE_ATTEMPTS,
   LOCKOUT_MAX_SEC,
-  bootMarkerOf,
   hashPin,
   isValidPinFormat,
   lockoutSecondsFor,
@@ -50,6 +49,8 @@ interface CredentialRecord {
   hashHex: string;
 }
 
+const CLEAR_ATTEMPTS = 3;
+
 export type CredentialState = 'present' | 'absent' | 'error';
 
 export type CheckPinResult =
@@ -65,10 +66,7 @@ export interface AppLockDeps {
   store: KeyValueStore;
   digest: DigestFn;
   randomHex: (bytes: number) => string;
-  /**
-   * Wall clock. Never ends a wait on its own: it only feeds the boot marker (wall time minus time
-   * since boot), which detects a reboot or a moved clock so the full wait restarts.
-   */
+  /** Wall clock. Only an identity stamp on the attempt record: it never starts or ends a wait. */
   now: () => number;
   /** Monotonic clock. Fallback for counting a wait inside a session when `elapsed` is unavailable. */
   mono?: () => number;
@@ -87,8 +85,6 @@ interface AttemptState {
   waitSec: number;
   /** Time since boot at the last attempt (null: none was available). */
   lastElapsedMs: number | null;
-  /** Wall time minus time since boot at the last attempt (null: none was available). */
-  bootMarkerMs: number | null;
   /** The wait ran out and was seen to. A finished wait is never restarted. */
   waitDone: boolean;
 }
@@ -122,6 +118,17 @@ export function createAppLock(deps: AppLockDeps) {
     waitSec: number;
     monoAtMs: number;
     remainingMs: number;
+  } | null = null;
+
+  /**
+   * Reference of a restarted wait whose write to storage failed. Kept for the session so the next
+   * check counts down from it instead of restarting the wait again. `from` identifies the stored
+   * record it replaces.
+   */
+  let restarted: {
+    from: { lastAttemptAtMs: number; waitSec: number; lastElapsedMs: number | null };
+    lastElapsedMs: number;
+    lastAttemptAtMs: number;
   } | null = null;
 
   async function readElapsed(): Promise<number | null> {
@@ -159,7 +166,6 @@ export function createAppLock(deps: AppLockDeps) {
       waitSec?: unknown;
       lockedUntilMs?: unknown;
       lastElapsedMs?: unknown;
-      bootMarkerMs?: unknown;
       waitDone?: unknown;
     }>(await store.get(ATTEMPTS_KEY));
     const failed =
@@ -172,7 +178,6 @@ export function createAppLock(deps: AppLockDeps) {
         lastAttemptAtMs: raw.lastAttemptAtMs,
         waitSec: Math.max(0, raw.waitSec),
         lastElapsedMs: isFiniteNumber(raw.lastElapsedMs) ? raw.lastElapsedMs : null,
-        bootMarkerMs: isFiniteNumber(raw.bootMarkerMs) ? raw.bootMarkerMs : null,
         waitDone: raw.waitDone === true,
       };
     }
@@ -184,11 +189,10 @@ export function createAppLock(deps: AppLockDeps) {
         lastAttemptAtMs: at,
         waitSec: remainingLockoutSec(raw.lockedUntilMs, at),
         lastElapsedMs: null,
-        bootMarkerMs: null,
         waitDone: false,
       };
     }
-    return { failed, lastAttemptAtMs: 0, waitSec: 0, lastElapsedMs: null, bootMarkerMs: null, waitDone: true };
+    return { failed, lastAttemptAtMs: 0, waitSec: 0, lastElapsedMs: null, waitDone: true };
   }
 
   async function writeAttempts(state: AttemptState): Promise<void> {
@@ -206,13 +210,15 @@ export function createAppLock(deps: AppLockDeps) {
   /**
    * Remaining wait in ms. Counted on the since-boot clock (sleep counts, the user cannot move it),
    * the same way inside a session and after an app restart. The full wait restarts when the stored
-   * reference cannot be trusted (reboot, moved clock, record without a reference) or when the
-   * since-boot clock is unavailable and this session has not seen the wait yet. A wait that was
-   * seen to finish is stored as finished and never restarts. Wall time alone never ends a wait.
+   * reference cannot be trusted (a reboot: the since-boot clock is smaller than the stored value;
+   * or a record without a reference) or when the since-boot clock is unavailable and this session
+   * has not seen the wait yet. The wall clock plays no part, so clock corrections change nothing.
+   * A wait that was seen to finish is stored as finished and never restarts.
    */
   async function remainingWaitMs(state: AttemptState): Promise<number> {
     if (state.waitSec <= 0 || state.waitDone) {
       anchor = null;
+      restarted = null;
       return 0;
     }
     const fullMs = Math.min(state.waitSec, LOCKOUT_MAX_SEC) * 1000;
@@ -221,18 +227,46 @@ export function createAppLock(deps: AppLockDeps) {
 
     if (elapsedNow !== null) {
       anchor = null;
-      const left = waitRemainingFromElapsed(state, state.waitSec, wall, elapsedNow);
+      let ref = state;
+      if (
+        restarted &&
+        restarted.from.lastAttemptAtMs === state.lastAttemptAtMs &&
+        restarted.from.waitSec === state.waitSec &&
+        restarted.from.lastElapsedMs === state.lastElapsedMs
+      ) {
+        // The restart could not be written earlier: keep counting from the in-memory reference.
+        ref = {
+          ...state,
+          lastAttemptAtMs: restarted.lastAttemptAtMs,
+          lastElapsedMs: restarted.lastElapsedMs,
+        };
+      }
+      const left = waitRemainingFromElapsed(ref, state.waitSec, elapsedNow);
       if (left === null) {
-        await writeQuietly({
+        const next: AttemptState = {
           ...state,
           lastAttemptAtMs: wall,
           lastElapsedMs: elapsedNow,
-          bootMarkerMs: bootMarkerOf(wall, elapsedNow),
           waitDone: false,
-        });
+        };
+        try {
+          await writeAttempts(next);
+          restarted = null;
+        } catch {
+          restarted = {
+            from: {
+              lastAttemptAtMs: state.lastAttemptAtMs,
+              waitSec: state.waitSec,
+              lastElapsedMs: state.lastElapsedMs,
+            },
+            lastElapsedMs: elapsedNow,
+            lastAttemptAtMs: wall,
+          };
+        }
         return fullMs;
       }
       if (left <= 0) {
+        restarted = null;
         await writeQuietly({ ...state, waitDone: true });
         return 0;
       }
@@ -295,16 +329,28 @@ export function createAppLock(deps: AppLockDeps) {
       const rec: CredentialRecord = { v: 1, saltHex, iterations, hashHex };
       await store.set(CREDENTIAL_KEY, JSON.stringify(rec));
       anchor = null;
+      restarted = null;
       await store.remove(ATTEMPTS_KEY);
     },
 
     /** Removes everything. Rejects if the credential could not be removed, so callers can tell. */
     async clearAll(): Promise<void> {
       anchor = null;
-      await store.remove(CREDENTIAL_KEY);
-      await store.remove(ATTEMPTS_KEY);
-      await store.remove(BIOMETRIC_KEY);
-      await store.remove(BIOMETRIC_SECRET_KEY);
+      restarted = null;
+      // Every key is tried (each up to three times) even when one fails, then the first failure
+      // is reported, so one stubborn entry cannot leave the others behind.
+      let failure: unknown = null;
+      for (const key of [CREDENTIAL_KEY, ATTEMPTS_KEY, BIOMETRIC_KEY, BIOMETRIC_SECRET_KEY]) {
+        for (let attempt = 1; attempt <= CLEAR_ATTEMPTS; attempt += 1) {
+          try {
+            await store.remove(key);
+            break;
+          } catch (e) {
+            if (attempt === CLEAR_ATTEMPTS && failure === null) failure = e ?? new Error('remove failed');
+          }
+        }
+      }
+      if (failure !== null) throw failure;
     },
 
     /** Seconds left on the wrong-PIN wait. 0 when none, or when the state cannot be read. */
@@ -352,13 +398,13 @@ export function createAppLock(deps: AppLockDeps) {
           lastAttemptAtMs: at,
           waitSec: lockSec,
           lastElapsedMs: elapsedAt,
-          bootMarkerMs: elapsedAt === null ? null : bootMarkerOf(at, elapsedAt),
           waitDone: lockSec === 0,
         });
       } catch {
         return { status: 'error' }; // cannot count the attempt, so do not check the PIN
       }
 
+      restarted = null; // a new attempt record replaces any unwritten restart
       const ok = await verifyPin(pin, rec, digest);
       if (ok) {
         anchor = null;
@@ -396,6 +442,7 @@ export function createAppLock(deps: AppLockDeps) {
     /** Called after a successful biometric unlock. */
     async resetAttempts(): Promise<void> {
       anchor = null;
+      restarted = null;
       await removeQuietly(ATTEMPTS_KEY);
     },
 
@@ -462,6 +509,7 @@ export function createAppLock(deps: AppLockDeps) {
       if (typeof secret !== 'string' || secret.length < 32) return invalidate();
       await removeQuietly(ATTEMPTS_KEY);
       anchor = null;
+      restarted = null;
       return 'ok';
     },
   };

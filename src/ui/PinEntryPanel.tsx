@@ -118,6 +118,7 @@ export function PinEntryPanel({
       try {
         const res = await lock.checkPin(value);
         if (res.status === 'ok') {
+          setPin(''); // the typed PIN leaves state before anything else happens
           successRef.current();
           return;
         }
@@ -160,6 +161,7 @@ export function PinEntryPanel({
   const tryBiometric = useCallback(async () => {
     const res = await lock.biometricUnlock(t('lock.biometricPrompt'));
     if (res === 'ok') {
+      setPin('');
       successRef.current();
     } else if (res === 'invalidated') {
       setBioOff(true);

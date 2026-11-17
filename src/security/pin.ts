@@ -97,42 +97,26 @@ export function monotonicMs(): number {
   return perf && typeof perf.now === 'function' ? perf.now() : Date.now();
 }
 
-/** How far the boot marker may drift (clock sync, call jitter) before it counts as a changed clock or a reboot. */
-export const BOOT_MARKER_TOLERANCE_MS = 5000;
-
-/**
- * Wall time minus the time since boot. It stays the same while the phone runs, and changes when
- * the phone reboots or the user moves the clock.
- */
-export function bootMarkerOf(wallNowMs: number, elapsedMs: number): number {
-  return Math.round(wallNowMs - elapsedMs);
-}
-
-/** The stored attempt record's time reference. Null fields mean the record has none. */
+/** The stored attempt record's time reference. Null means the record has none. */
 export interface WaitReference {
   /** Time since boot at the last attempt. */
   lastElapsedMs: number | null;
-  /** Boot marker at the last attempt. */
-  bootMarkerMs: number | null;
 }
 
 /**
  * Remaining wait from the since-boot clock, or null when the reference cannot be trusted and the
- * full wait must restart (a reboot, a moved clock, or no reference stored). Wall time alone never
- * ends a wait: it only takes part through the boot marker, and a changed marker lengthens the wait.
+ * full wait must restart (a reboot, or no reference stored). The wall clock plays no part: moving
+ * it, or an automatic correction, cannot shorten or lengthen the wait. After a reboot the
+ * since-boot clock is smaller than the stored value, which is how a reboot is told apart.
  */
 export function waitRemainingFromElapsed(
   ref: WaitReference,
   waitSec: number,
-  wallNowMs: number,
   elapsedNowMs: number,
 ): number | null {
   const fullMs = Math.min(Math.max(waitSec, 0), LOCKOUT_MAX_SEC) * 1000;
-  if (ref.lastElapsedMs === null || ref.bootMarkerMs === null) return null;
+  if (ref.lastElapsedMs === null) return null;
   if (elapsedNowMs < ref.lastElapsedMs) return null; // rebooted
-  if (Math.abs(bootMarkerOf(wallNowMs, elapsedNowMs) - ref.bootMarkerMs) > BOOT_MARKER_TOLERANCE_MS) {
-    return null; // rebooted, or the clock was moved
-  }
   const left = fullMs - (elapsedNowMs - ref.lastElapsedMs);
   return Math.min(Math.max(left, 0), fullMs);
 }

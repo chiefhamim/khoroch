@@ -16,6 +16,8 @@ type TestStore = KeyValueStore & {
   data: Map<string, string>;
   failGet: Set<string>;
   failSet: Set<string>;
+  failRemove: Set<string>;
+  removeFailsLeft: number;
   authReads: number;
 };
 
@@ -25,6 +27,8 @@ function memoryStore(): TestStore {
     data,
     failGet: new Set(),
     failSet: new Set(),
+    failRemove: new Set(),
+    removeFailsLeft: 0,
     authReads: 0,
     get: async (k: string, auth?: StoreAuthOptions) => {
       if (auth) store.authReads += 1;
@@ -36,6 +40,11 @@ function memoryStore(): TestStore {
       data.set(k, v);
     },
     remove: async (k) => {
+      if (store.failRemove.has(k)) throw new Error('keystore remove failed');
+      if (store.removeFailsLeft > 0) {
+        store.removeFailsLeft -= 1;
+        throw new Error('keystore remove failed once');
+      }
       data.delete(k);
     },
   };
@@ -164,14 +173,13 @@ describe('lockout time source', () => {
     return { store, ...k, lock };
   }
 
-  it('stores the attempt time, the since-boot time, the boot marker and the wait', async () => {
+  it('stores the attempt time, the since-boot time and the wait', async () => {
     const { store } = await lockedOut();
     expect(JSON.parse(store.data.get(ATTEMPTS_KEY) ?? '{}')).toEqual({
       failed: 5,
       lastAttemptAtMs: 1_000_000,
       waitSec: 30,
       lastElapsedMs: 400_000,
-      bootMarkerMs: 600_000,
       waitDone: false,
     });
   });
@@ -192,20 +200,27 @@ describe('lockout time source', () => {
     expect(await lock.checkPin('1234')).toEqual({ status: 'ok' });
   });
 
-  it('a clock moved forward inside a session does not end the wait (it restarts in full)', async () => {
+  it('a clock moved forward inside a session has no effect on the wait', async () => {
     const { c, lock, advance } = await lockedOut();
     advance(10_000);
     c.now += 60 * 60 * 1000;
-    expect(await lock.checkPin('1234')).toEqual({ status: 'locked', remainingSec: 30 });
-    advance(30_000);
+    expect(await lock.checkPin('1234')).toEqual({ status: 'locked', remainingSec: 20 });
+    advance(20_000);
     expect(await lock.checkPin('1234')).toEqual({ status: 'ok' });
   });
 
-  it('a clock moved back inside a session restarts the full wait', async () => {
+  it('a clock moved back inside a session has no effect on the wait', async () => {
     const { c, lock, advance } = await lockedOut();
     advance(10_000);
     c.now -= 60 * 60 * 1000;
-    expect(await lock.getLockoutRemainingSec()).toBe(30);
+    expect(await lock.getLockoutRemainingSec()).toBe(20);
+  });
+
+  it('a small automatic clock correction does not restart the wait', async () => {
+    const { c, lock, advance } = await lockedOut();
+    advance(10_000);
+    c.now += 8_000;
+    expect(await lock.getLockoutRemainingSec()).toBe(20);
   });
 
   it('force-stop and reopen: the wait keeps running from the stored reference', async () => {
@@ -217,22 +232,22 @@ describe('lockout time source', () => {
     expect(await reopened.checkPin('1234')).toMatchObject({ status: 'locked' });
   });
 
-  it('force-stop with the clock moved forward does not shorten or end the wait', async () => {
+  it('force-stop with the clock moved forward does not change the wait', async () => {
     const { store, c, advance } = await lockedOut();
     advance(5_000);
     c.now += 3600_000;
     c.mono = 7;
     const reopened = make(store, c);
-    expect(await reopened.getLockoutRemainingSec()).toBe(30);
+    expect(await reopened.getLockoutRemainingSec()).toBe(25);
     expect(await reopened.checkPin('1234')).toMatchObject({ status: 'locked' });
   });
 
-  it('force-stop with the clock moved back restarts the full wait', async () => {
+  it('force-stop with the clock moved back does not change the wait', async () => {
     const { store, c, advance } = await lockedOut();
     advance(5_000);
     c.now -= 600_000;
     c.mono = 7;
-    expect(await make(store, c).getLockoutRemainingSec()).toBe(30);
+    expect(await make(store, c).getLockoutRemainingSec()).toBe(25);
   });
 
   it('reboot: the full wait restarts from now and then counts down', async () => {
@@ -248,12 +263,37 @@ describe('lockout time source', () => {
     expect(await rebooted.getLockoutRemainingSec()).toBe(18);
   });
 
-  it('reboot is also caught when the new since-boot time is already past the old one', async () => {
-    const { store, c } = await lockedOut();
-    c.now += 3_000_000;
-    c.elapsed = 900_000; // larger than 400,000, but the boot marker changed
+  it('a restarted wait whose write failed keeps counting down from memory', async () => {
+    const { store, c, advance } = await lockedOut();
+    advance(5_000);
+    c.elapsed = 2_000; // reboot
     c.mono = 7;
-    expect(await make(store, c).getLockoutRemainingSec()).toBe(30);
+    const rebooted = make(store, c);
+    store.failSet.add(ATTEMPTS_KEY); // the restarted reference cannot be written
+    expect(await rebooted.getLockoutRemainingSec()).toBe(30);
+    c.now += 12_000;
+    c.elapsed += 12_000;
+    expect(await rebooted.getLockoutRemainingSec()).toBe(18); // not restarted again
+    c.now += 18_000;
+    c.elapsed += 18_000;
+    expect(await rebooted.getLockoutRemainingSec()).toBe(0); // and it does end
+  });
+
+  it('reads an old record that still has a boot marker, ignoring the marker', async () => {
+    const { store, c, advance } = await lockedOut();
+    store.data.set(
+      ATTEMPTS_KEY,
+      JSON.stringify({
+        failed: 5,
+        lastAttemptAtMs: 1_000_000,
+        waitSec: 30,
+        lastElapsedMs: 400_000,
+        bootMarkerMs: 1,
+        waitDone: false,
+      }),
+    );
+    advance(10_000);
+    expect(await make(store, c).getLockoutRemainingSec()).toBe(20);
   });
 
   it('a finished wait is stored as finished and is not restarted by a later reboot', async () => {
@@ -301,7 +341,6 @@ describe('lockout time source', () => {
       expect(await reopened.checkPin('1234')).toMatchObject({ status: 'locked' });
       const stored = JSON.parse(store.data.get(ATTEMPTS_KEY) ?? '{}');
       expect(stored.lastElapsedMs).toBeNull();
-      expect(stored.bootMarkerMs).toBeNull();
     });
 
     it('treats a throwing native source like a missing one', async () => {
@@ -343,6 +382,30 @@ describe('lockout time source', () => {
     await lock.setPin('1234');
     store.data.set(ATTEMPTS_KEY, JSON.stringify({ failed: 5, lockedUntilMs: k.c.now + 30_000 }));
     expect(await lock.getLockoutRemainingSec()).toBe(30);
+  });
+});
+
+describe('clearAll', () => {
+  it('retries a failing remove and clears everything', async () => {
+    const store = memoryStore();
+    const lock = make(store, clocks().c);
+    await lock.setPin('1234');
+    await lock.enableBiometric('prompt');
+    store.removeFailsLeft = 2;
+    await lock.clearAll();
+    expect(store.data.size).toBe(0);
+  });
+
+  it('removes the other entries and then rejects when one stays stuck', async () => {
+    const store = memoryStore();
+    const lock = make(store, clocks().c);
+    await lock.setPin('1234');
+    await lock.enableBiometric('prompt');
+    store.failRemove.add(CREDENTIAL_KEY);
+    await expect(lock.clearAll()).rejects.toThrow();
+    expect(store.data.has(BIOMETRIC_KEY)).toBe(false);
+    expect(store.data.has(BIOMETRIC_SECRET_KEY)).toBe(false);
+    expect(store.data.has(CREDENTIAL_KEY)).toBe(true);
   });
 });
 

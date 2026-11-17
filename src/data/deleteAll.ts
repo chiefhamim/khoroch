@@ -1,4 +1,5 @@
 import type { Repo } from '@/data/repo';
+import { markErasedThenFailed } from '@/data/eraseError';
 import { cancelAllReminders } from '@/notifications/reminders';
 import { appLock } from '@/security/appLock';
 
@@ -8,7 +9,12 @@ import { appLock } from '@/security/appLock';
  */
 export async function runDeleteAllData(repo: Repo): Promise<void> {
   await repo.deleteAllData();
-  await cancelAllReminders();
-  // The PIN lives in secure storage, outside the database: wipe it too.
-  await appLock.clearAll().catch(() => {});
+  // From here on the data is gone. A failure below is tagged so the caller can say so plainly.
+  try {
+    await cancelAllReminders();
+    // The PIN lives in secure storage, outside the database: wipe it too (each entry is retried).
+    await appLock.clearAll();
+  } catch (e) {
+    throw markErasedThenFailed(e);
+  }
 }

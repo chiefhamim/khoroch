@@ -119,23 +119,18 @@ describe('shouldLockAfterBackground', () => {
 });
 
 describe('waitRemainingFromElapsed', () => {
-  const ref = { lastElapsedMs: 100_000, bootMarkerMs: 900_000 };
-  // wall = marker + elapsed
+  const ref = { lastElapsedMs: 100_000 };
   it('counts the wait down on the since-boot clock', () => {
-    expect(waitRemainingFromElapsed(ref, 30, 1_000_000, 100_000)).toBe(30_000);
-    expect(waitRemainingFromElapsed(ref, 30, 1_010_000, 110_000)).toBe(20_000);
-    expect(waitRemainingFromElapsed(ref, 30, 1_030_000, 130_000)).toBe(0);
-    expect(waitRemainingFromElapsed(ref, 30, 1_900_000, 1_000_000)).toBe(0);
+    expect(waitRemainingFromElapsed(ref, 30, 100_000)).toBe(30_000);
+    expect(waitRemainingFromElapsed(ref, 30, 110_000)).toBe(20_000);
+    expect(waitRemainingFromElapsed(ref, 30, 130_000)).toBe(0);
+    expect(waitRemainingFromElapsed(ref, 30, 1_000_000)).toBe(0);
   });
-  it('asks for a full restart after a reboot or a moved clock', () => {
-    expect(waitRemainingFromElapsed(ref, 30, 1_010_000, 5_000)).toBeNull(); // since-boot went back
-    expect(waitRemainingFromElapsed(ref, 30, 5_000_000, 110_000)).toBeNull(); // clock forward
-    expect(waitRemainingFromElapsed(ref, 30, 100_000, 110_000)).toBeNull(); // clock back
-    expect(waitRemainingFromElapsed(ref, 30, 3_000_000, 2_100_000)).toBe(0); // same marker, long sleep
+  it('asks for a full restart only after a reboot', () => {
+    expect(waitRemainingFromElapsed(ref, 30, 5_000)).toBeNull(); // since-boot went back
+    expect(waitRemainingFromElapsed(ref, 30, 99_999)).toBeNull();
   });
   it('asks for a full restart when no reference was stored', () => {
-    expect(
-      waitRemainingFromElapsed({ lastElapsedMs: null, bootMarkerMs: null }, 30, 1, 1),
-    ).toBeNull();
+    expect(waitRemainingFromElapsed({ lastElapsedMs: null }, 30, 1)).toBeNull();
   });
 });

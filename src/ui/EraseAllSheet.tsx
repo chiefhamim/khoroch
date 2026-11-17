@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isErasedThenFailed } from '@/data/eraseError';
 import { t } from '@/i18n';
 import { LockedScope } from '@/state/LockContext';
 import { AppText } from './AppText';
@@ -22,20 +23,21 @@ export interface EraseAllSheetProps {
 export function EraseAllSheet({ visible, onClose, onEraseAll, title, body }: EraseAllSheetProps) {
   const [confirmText, setConfirmText] = useState('');
   const [erasing, setErasing] = useState(false);
-  const [eraseFailed, setEraseFailed] = useState(false);
+  const [eraseFailed, setEraseFailed] = useState<'none' | 'generic' | 'erased'>('none');
 
   const canErase = confirmText.trim().toUpperCase() === 'DELETE' && !erasing;
 
   const erase = async () => {
     if (!canErase) return;
     setErasing(true);
-    setEraseFailed(false);
+    setEraseFailed('none');
     try {
       await onEraseAll();
       onClose();
       setConfirmText('');
-    } catch {
-      setEraseFailed(true);
+    } catch (e) {
+      // Data already wiped but the lock cleanup failed: say so, and point at the Try again button.
+      setEraseFailed(isErasedThenFailed(e) ? 'erased' : 'generic');
     } finally {
       setErasing(false);
     }
@@ -61,7 +63,13 @@ export function EraseAllSheet({ visible, onClose, onEraseAll, title, body }: Era
           onChangeText={setConfirmText}
           placeholder={t('settings.deleteAllTypePlaceholder')}
           autoCapitalize="characters"
-          error={eraseFailed ? t('settings.actionError') : null}
+          error={
+            eraseFailed === 'erased'
+              ? t('lock.erasePartial')
+              : eraseFailed === 'generic'
+                ? t('settings.actionError')
+                : null
+          }
         />
         <Button
           testID="lock-forgot-confirm"
