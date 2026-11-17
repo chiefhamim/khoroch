@@ -30,6 +30,8 @@ export function buildAppConfig(
     'expo-speech-recognition',
     '@react-native-community/datetimepicker',
     'expo-sharing',
+    'expo-secure-store',
+    'expo-local-authentication',
     './plugins/withFinanceCapture',
   ];
 

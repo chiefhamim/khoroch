@@ -39,6 +39,7 @@ import { bumpDataVersion } from "@/state/dataVersion";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { useTheme } from "@/theme/useTheme";
 import { ErrorState } from "@/ui/ErrorState";
+import { LockGate } from "@/ui/LockGate";
 import { setHapticsEnabled } from "@/ui/haptics";
 import { Screen } from "@/ui/Screen";
 import { ToastProvider } from "@/ui/Toast";
@@ -303,7 +304,9 @@ export default function RootLayout() {
         >
           <KeyboardProvider>
             <ToastProvider>
-              <AppNavigator />
+              <LockGate>
+                <AppNavigator />
+              </LockGate>
             </ToastProvider>
           </KeyboardProvider>
         </ThemeProvider>

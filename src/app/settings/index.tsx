@@ -63,6 +63,7 @@ import {
 } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
+import { AppLockSettings } from '@/ui/AppLockSettings';
 import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { AVATAR_CATALOG } from '@/ui/AvatarArt';
 import { AVATAR_PHOTO_SETS } from '@/ui/avatarPhotos';
@@ -700,6 +701,9 @@ export default function SettingsScreen() {
           }}
         />
       </SettingsGroup>
+
+      {/* SECURITY: renders nothing where secure storage is unavailable */}
+      <AppLockSettings />
 
       {/* REMINDERS */}
       <SettingsGroup

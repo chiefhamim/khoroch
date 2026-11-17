@@ -239,7 +239,7 @@ const GLIDE_SPEC = {
   config: { duration: 380, easing: RNEasing.bezier(0.22, 1, 0.36, 1) },
 };
 
-const APP_GLASS = { tint: null, backdrop: 0.6 };
+const APP_GLASS = { backdrop: 0.6 };
 
 export default function TabsLayout() {
   const { theme } = useTheme();
