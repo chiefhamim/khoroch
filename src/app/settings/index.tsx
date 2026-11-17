@@ -31,6 +31,7 @@ import {
   APP_LANGUAGES,
   AVATAR_COLOR_KEYS,
   BANGLA_FONT_KEYS,
+  BILL_REMINDER_LEAD_DAYS,
   CURRENCIES,
   EXPENSE_COLOR_KEYS,
   INCOME_COLOR_KEYS,
@@ -39,6 +40,7 @@ import {
   type AppLanguage,
   type AvatarPresetId,
   type BanglaFontKey,
+  type BillReminderLeadDays,
   type CurrencyCode,
   type ExpenseColorKey,
   type IncomeColorKey,
@@ -101,6 +103,12 @@ const CURRENCY_FULL_KEYS: Record<CurrencyCode, TranslationKey> = {
   BDT: 'settings.currencyBdtFull',
   USD: 'settings.currencyUsdFull',
   EUR: 'settings.currencyEurFull',
+};
+
+const BILL_LEAD_KEYS: Record<BillReminderLeadDays, TranslationKey> = {
+  0: 'settings.billRemindersLead0',
+  1: 'settings.billRemindersLead1',
+  3: 'settings.billRemindersLead3',
 };
 
 function formatOrdinal(day: number, locale: AppLanguage): string {
@@ -168,6 +176,8 @@ export default function SettingsScreen() {
   const [dailyWageSheetOpen, setDailyWageSheetOpen] = useState(false);
 
   const [reminderExplainOpen, setReminderExplainOpen] = useState(false);
+  const [billLeadSheetOpen, setBillLeadSheetOpen] = useState(false);
+  const [billBlocked, setBillBlocked] = useState(false);
 
   const [deleteSheetOpen, setDeleteSheetOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -231,10 +241,14 @@ export default function SettingsScreen() {
     if (settings.reminder.enabled) {
       await applyReminderUpdate({ ...settings.reminder, enabled: false });
     }
+    if (settings.billReminders.enabled) {
+      await updateSetting('billReminders', { ...settings.billReminders, enabled: false });
+    }
   }, [
     applyReminderUpdate,
     settings.notificationPermissionDenied,
     settings.reminder,
+    settings.billReminders,
     updateSetting,
   ]);
 
@@ -296,6 +310,41 @@ export default function SettingsScreen() {
       await updateSetting('notificationPermissionDenied', afterStatus === 'denied');
       await applyReminderUpdate({ ...settings.reminder, enabled: false });
     }
+  };
+
+  /**
+   * Turning bill reminders on is the only place that asks for notification permission for them.
+   * The reminders themselves are scheduled by `useBillReminderSync` once the setting is saved.
+   */
+  const handleToggleBillReminders = async (nextEnabled: boolean) => {
+    if (!nextEnabled) {
+      setBillBlocked(false);
+      await updateSetting('billReminders', { ...settings.billReminders, enabled: false });
+      return;
+    }
+    if (!isNotificationsSupported()) {
+      await updateSetting('billReminders', { ...settings.billReminders, enabled: true });
+      return;
+    }
+    let granted = false;
+    const status = await getNotificationPermissionStatus();
+    if (status === 'granted') {
+      granted = true;
+    } else if (status === 'undetermined') {
+      granted = (await requestNotificationPermission()) === 'granted';
+    }
+    if (granted) {
+      setBillBlocked(false);
+      if (settings.notificationPermissionDenied) {
+        await updateSetting('notificationPermissionDenied', false);
+      }
+      await updateSetting('billReminders', { ...settings.billReminders, enabled: true });
+      return;
+    }
+    setBillBlocked(true);
+    const afterStatus = await getNotificationPermissionStatus();
+    await updateSetting('notificationPermissionDenied', afterStatus === 'denied');
+    await updateSetting('billReminders', { ...settings.billReminders, enabled: false });
   };
 
   const handleSaveName = async () => {
@@ -564,6 +613,7 @@ export default function SettingsScreen() {
   const isEveryDay = sameDays(selectedDays, ALL_REMINDER_DAYS);
   const isSunThu = sameDays(selectedDays, SUN_THU_REMINDER_DAYS);
   const reminderActive = settings.reminder.enabled && !settings.notificationPermissionDenied;
+  const billActive = settings.billReminders.enabled && !settings.notificationPermissionDenied;
   const canConfirmDelete = deleteConfirmText.trim().toUpperCase() === 'DELETE' && !busy;
 
   return (
@@ -841,6 +891,56 @@ export default function SettingsScreen() {
           showChevron
           onPress={() => router.push('/check-in')}
         />
+
+        <SettingsRow
+          label={t('settings.billRemindersToggle')}
+          subtitle={t('settings.billRemindersSubtitle')}
+          trailing={
+            <PillSwitch
+              testID="settings-bill-reminders-switch"
+              accessibilityLabel={t('settings.billRemindersToggle')}
+              value={billActive}
+              onValueChange={(val) => void handleToggleBillReminders(val)}
+            />
+          }
+        />
+
+        {billBlocked && !billActive ? (
+          <View
+            testID="settings-bill-reminders-blocked"
+            style={{
+              paddingHorizontal: theme.spacing.lg,
+              paddingVertical: theme.spacing.md,
+              gap: theme.spacing.sm,
+            }}
+          >
+            <AppText variant="caption" color="textSecondary">
+              {t('settings.billRemindersBlocked')}
+            </AppText>
+            <Button
+              testID="settings-bill-open-system-settings"
+              title={t('settings.openSystemSettings')}
+              variant="secondary"
+              size="sm"
+              onPress={() => {
+                Linking.openSettings().catch(() => {});
+              }}
+            />
+          </View>
+        ) : null}
+
+        {billActive ? (
+          <SettingsRow
+            testID="settings-bill-lead-row"
+            label={t('settings.billRemindersLead')}
+            value={t(BILL_LEAD_KEYS[settings.billReminders.leadDays])}
+            showChevron
+            onPress={() => {
+              hapticLight();
+              setBillLeadSheetOpen(true);
+            }}
+          />
+        ) : null}
       </SettingsGroup>
 
       {/* DATA */}
@@ -1154,6 +1254,36 @@ export default function SettingsScreen() {
                   setLocale(code);
                   void updateSetting('language', code);
                   setLanguageSheetOpen(false);
+                }}
+              />
+            );
+          })}
+        </Surface>
+      </Sheet>
+
+      {/* Bill reminder lead time Sheet */}
+      <Sheet
+        testID="settings-bill-lead-sheet"
+        visible={billLeadSheetOpen}
+        onClose={() => setBillLeadSheetOpen(false)}
+        title={t('settings.billRemindersLead')}
+      >
+        <Surface padded={false}>
+          {BILL_REMINDER_LEAD_DAYS.map((days, idx) => {
+            const active = settings.billReminders.leadDays === days;
+            return (
+              <ListRow
+                key={days}
+                testID={`settings-bill-lead-${days}`}
+                title={t(BILL_LEAD_KEYS[days])}
+                showDivider={idx < BILL_REMINDER_LEAD_DAYS.length - 1}
+                right={
+                  active ? <AppIcon name="check" size={18} color={theme.colors.accent} /> : null
+                }
+                onPress={() => {
+                  hapticSelection();
+                  void updateSetting('billReminders', { ...settings.billReminders, leadDays: days });
+                  setBillLeadSheetOpen(false);
                 }}
               />
             );

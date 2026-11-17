@@ -573,6 +573,39 @@ export function normalizeDailyWageLast(raw: unknown): DailyWageLast | null {
   return { id: rec.id, day: rec.day };
 }
 
+/** Days before a bill's due date to send the early reminder. 0 means the due day only. */
+export const BILL_REMINDER_LEAD_DAYS = [0, 1, 3] as const;
+export type BillReminderLeadDays = (typeof BILL_REMINDER_LEAD_DAYS)[number];
+
+/** Bill due reminders: one switch and how early to remind. Off by default. */
+export interface BillReminderSettings {
+  enabled: boolean;
+  leadDays: BillReminderLeadDays;
+}
+
+export const DEFAULT_BILL_REMINDERS: BillReminderSettings = { enabled: false, leadDays: 1 };
+
+export function isBillReminderLeadDays(raw: unknown): raw is BillReminderLeadDays {
+  return raw === 0 || raw === 1 || raw === 3;
+}
+
+/** True only for a complete, well-typed value (used to reject a corrupt backup). */
+export function isValidBillReminderSettings(raw: unknown): raw is BillReminderSettings {
+  if (!raw || typeof raw !== 'object') return false;
+  const rec = raw as { enabled?: unknown; leadDays?: unknown };
+  return typeof rec.enabled === 'boolean' && isBillReminderLeadDays(rec.leadDays);
+}
+
+/** Reads a stored or imported value; anything missing or invalid reads as the defaults (off, 1 day). */
+export function normalizeBillReminderSettings(raw: unknown): BillReminderSettings {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_BILL_REMINDERS };
+  const rec = raw as { enabled?: unknown; leadDays?: unknown };
+  return {
+    enabled: rec.enabled === true,
+    leadDays: isBillReminderLeadDays(rec.leadDays) ? rec.leadDays : DEFAULT_BILL_REMINDERS.leadDays,
+  };
+}
+
 export interface Settings {
   onboardingDone: boolean;
   name: string;
@@ -605,6 +638,8 @@ export interface Settings {
   dailyWage: DailyWage | null;
   /** The newest one-tap wage entry (never exported; reset to null by a backup import). */
   dailyWageLast: DailyWageLast | null;
+  /** Reminders before a recurring bill or instalment is due, and on the day if still unpaid. */
+  billReminders: BillReminderSettings;
 }
 
 export interface Period {

@@ -1181,4 +1181,19 @@ export const bn: Record<TranslationKey, string> = {
   'lock.storageEraseBody': 'আবার চেষ্টা করার পরও এই ফোনে সংরক্ষিত পিন পড়া যায়নি। এখন অ্যাপ খোলার একমাত্র উপায় এই ডিভাইসে এই অ্যাপের সব তথ্য মুছে ফেলা, এর মধ্যে সব এন্ট্রি, বাজেট ও সেটিংস রয়েছে। এটি ফেরানো যাবে না। আপনি ব্যাকআপ ফাইল সংরক্ষণ করে থাকলে পরে সেটি পুনরুদ্ধার করতে পারবেন।',
   'lock.erasePartial': 'আপনার তথ্য মুছে ফেলা হয়েছে, কিন্তু অ্যাপ লক সম্পূর্ণভাবে সরানো যায়নি। এই উইন্ডো বন্ধ করে "আবার চেষ্টা করুন" চাপুন।',
   'lock.biometricEnableFailed': 'আঙুলের ছাপ বা মুখ দিয়ে খোলা চালু করা যায়নি।',
+
+  // Bill due reminders
+  'settings.billRemindersToggle': 'বিল রিমাইন্ডার',
+  'settings.billRemindersSubtitle': 'বিল বা কিস্তির তারিখের আগে এবং তারিখের দিনে, অপরিশোধিত থাকলে মনে করিয়ে দেওয়া হবে। টাকার অঙ্ক কখনোই দেখানো হয় না।',
+  'settings.billRemindersLead': 'মনে করিয়ে দিন',
+  'settings.billRemindersLead0': 'নির্ধারিত দিনে',
+  'settings.billRemindersLead1': '১ দিন আগে',
+  'settings.billRemindersLead3': '৩ দিন আগে',
+  'settings.billRemindersBlocked': 'নোটিফিকেশনের অনুমতি না থাকায় বিল রিমাইন্ডার বন্ধ আছে। সিস্টেম সেটিংসে অনুমতি দিয়ে আবার চালু করুন।',
+  'billReminder.channelName': 'বিল রিমাইন্ডার',
+  'billReminder.titleToday': '{name} আজ পরিশোধের দিন',
+  'billReminder.titleTomorrow': '{name} আগামীকাল পরিশোধের দিন',
+  'billReminder.titleInDays': '{name} {days} দিন পরে পরিশোধের দিন',
+  'billReminder.bodyToday': 'এখনও পরিশোধ করা হয়নি। প্ল্যান খুলে পরিশোধিত হিসেবে চিহ্নিত করুন।',
+  'billReminder.bodyEarly': 'কী কী পরিশোধ করতে হবে তা দেখতে প্ল্যান খুলুন।',
 };

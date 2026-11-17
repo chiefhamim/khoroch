@@ -1,4 +1,5 @@
 import { Platform } from 'react-native';
+import { isBillReminderId } from '@/domain/billReminders';
 import { normalizeReminderDays, type ReminderSettings } from '@/domain/types';
 
 export interface ParsedReminderTime {
@@ -66,7 +67,7 @@ export function buildReminderTriggerSpecs(reminder: ReminderSettings): ReminderT
 
 type NotificationsModule = typeof import('expo-notifications');
 
-function loadNotifications(): NotificationsModule | null {
+export function loadNotifications(): NotificationsModule | null {
   if (Platform.OS === 'web') return null;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -135,7 +136,25 @@ export async function cancelAllReminders(): Promise<void> {
 }
 
 /**
- * Cancels all existing reminders and (when enabled + permitted) schedules fresh local triggers.
+ * Cancels the daily check-in triggers only. Bill due reminders (own id prefix) are scheduled by
+ * `notifications/billReminders.ts` and must survive a check-in reschedule.
+ */
+async function cancelCheckInReminders(): Promise<void> {
+  const Notifications = loadNotifications();
+  if (!Notifications) return;
+  try {
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const request of scheduled) {
+      if (isBillReminderId(request.identifier)) continue;
+      await Notifications.cancelScheduledNotificationAsync(request.identifier);
+    }
+  } catch {
+    // Ignore on unsupported runtimes.
+  }
+}
+
+/**
+ * Cancels the existing check-in reminders and (when enabled + permitted) schedules fresh local triggers.
  * Re-running on app start ensures timezone changes take effect without duplicates.
  */
 let syncQueue: Promise<unknown> = Promise.resolve();
@@ -156,7 +175,7 @@ async function runSyncReminderSchedule(
     return { scheduled: 0 };
   }
 
-  await cancelAllReminders();
+  await cancelCheckInReminders();
 
   const specs = buildReminderTriggerSpecs(reminder);
   if (specs.length === 0) {

@@ -34,7 +34,9 @@ import {
   subscribeToCheckInResponses,
   syncReminderSchedule,
 } from "@/notifications/reminders";
+import { subscribeToBillReminderResponses } from "@/notifications/billReminders";
 import { AppContext, useAppContext } from "@/state/AppContext";
+import { useBillReminderSync } from "@/state/useBillReminderSync";
 import { bumpDataVersion } from "@/state/dataVersion";
 import { ThemeProvider } from "@/theme/ThemeProvider";
 import { useTheme } from "@/theme/useTheme";
@@ -72,6 +74,15 @@ function AppNavigator() {
       router.push("/check-in");
     });
   }, [navigationState?.key, settings.onboardingDone, router]);
+
+  useEffect(() => {
+    if (!navigationState?.key || !settings.onboardingDone) return;
+    return subscribeToBillReminderResponses(() => {
+      router.push("/(tabs)/plan" as never);
+    });
+  }, [navigationState?.key, settings.onboardingDone, router]);
+
+  useBillReminderSync();
 
   useEffect(() => {
     if (!navigationState?.key || !settings.onboardingDone) return;

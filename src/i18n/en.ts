@@ -1168,6 +1168,21 @@ export const en = {
   'lock.storageEraseBody': 'The stored PIN could not be read on this phone, even after trying again. The only way to open the app now is to erase all data in this app on this device, including every entry, budget and setting. This cannot be undone. If you saved a backup file, you can restore it afterwards.',
   'lock.erasePartial': 'Your data was erased, but the app lock could not be fully cleared. Close this window and press Try again.',
   'lock.biometricEnableFailed': 'Fingerprint or face unlock was not turned on.',
+
+  // Bill due reminders
+  'settings.billRemindersToggle': 'Bill reminders',
+  'settings.billRemindersSubtitle': 'Before a bill or instalment is due, and on the day if it is still unpaid. Never shows amounts.',
+  'settings.billRemindersLead': 'Remind me',
+  'settings.billRemindersLead0': 'On the day',
+  'settings.billRemindersLead1': '1 day before',
+  'settings.billRemindersLead3': '3 days before',
+  'settings.billRemindersBlocked': 'Bill reminders stay off because notifications are not allowed. Allow them in system settings, then turn this on again.',
+  'billReminder.channelName': 'Bill reminders',
+  'billReminder.titleToday': '{name} is due today',
+  'billReminder.titleTomorrow': '{name} is due tomorrow',
+  'billReminder.titleInDays': '{name} is due in {days} days',
+  'billReminder.bodyToday': 'Still unpaid. Open Plan to mark it paid.',
+  'billReminder.bodyEarly': 'Open Plan to see what is due.',
 } as const;
 
 export type TranslationKey = keyof typeof en;

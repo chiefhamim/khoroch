@@ -12,6 +12,8 @@ import {
   normalizeBanglaFontKey,
   normalizeExpenseColorKey,
   normalizeHomeSections,
+  isValidBillReminderSettings,
+  normalizeBillReminderSettings,
   normalizeDailyWage,
   normalizePinnedAmounts,
   normalizeIncomeColorKey,
@@ -154,6 +156,7 @@ function sanitizeSettingsForExport(s: Settings): Settings {
         : null,
     pinnedAmounts: normalizePinnedAmounts(s.pinnedAmounts),
     dailyWage: normalizeDailyWage(s.dailyWage),
+    billReminders: normalizeBillReminderSettings(s.billReminders),
     // Entry ids are device-local and may not exist after a restore, so this is never exported.
     dailyWageLast: null,
   };
@@ -793,6 +796,9 @@ function validateSettingsObject(raw: unknown): Settings {
   ) {
     throw new Error('Settings: invalid dailyWage.');
   }
+  if (obj.billReminders !== undefined && !isValidBillReminderSettings(obj.billReminders)) {
+    throw new Error('Settings: invalid billReminders.');
+  }
 
   return {
     onboardingDone: obj.onboardingDone,
@@ -831,6 +837,8 @@ function validateSettingsObject(raw: unknown): Settings {
         : null,
     pinnedAmounts: normalizePinnedAmounts(obj.pinnedAmounts),
     dailyWage: normalizeDailyWage(obj.dailyWage),
+    // Old backups have no key: reminders import as off.
+    billReminders: normalizeBillReminderSettings(obj.billReminders),
     // Always reset on import: an id from another backup may not match any entry here.
     dailyWageLast: null,
   };

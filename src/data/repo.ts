@@ -174,4 +174,5 @@ export const DEFAULT_SETTINGS: Settings = {
   pinnedAmounts: { expense: [], income: [] },
   dailyWage: null,
   dailyWageLast: null,
+  billReminders: { enabled: false, leadDays: 1 },
 };
