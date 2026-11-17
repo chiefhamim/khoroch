@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -15,6 +16,8 @@ import {
   parseLocalDate,
   todayLocalDate,
 } from '@/domain/dates';
+import { fitMoneyGroup } from '@/domain/fitMoney';
+import { getCurrencySymbol } from '@/domain/money';
 import type { Category, LocalDate } from '@/domain/types';
 import { t, useLocale, type Locale } from '@/i18n';
 import { useAccounts } from '@/state/useAccounts';
@@ -27,6 +30,7 @@ import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
 import { Button } from './Button';
 import { DateTimeSheet } from './DateTimeSheet';
+import { dayStripOffset, dayStripPitch, type DayStripLayout } from './dayStrip';
 import { hapticSelection } from './haptics';
 import { IconTile } from './IconTile';
 import { Money } from './Money';
@@ -51,6 +55,31 @@ function weekdayIndex(date: LocalDate): number {
 function longDate(date: LocalDate, locale: Locale): string {
   const { month, day, year } = parseLocalDate(date);
   return `${WEEKDAY_SHORT[locale][weekdayIndex(date)]}, ${day} ${MONTH_SHORT[locale][month - 1]} ${year}`;
+}
+
+/** Type sizes the three KPI amounts may use, largest first; they all share the smallest one needed. */
+const KPI_FIT = ['bodyStrong', 'label'] as const;
+const KPI_COLUMNS = 3;
+
+/** Soft edge on the date strip: cells that continue past the padding fade out instead of being cut. */
+function EdgeFade({ side, width, color }: { side: 'left' | 'right'; width: number; color: string }) {
+  const id = `daystrip-fade-${side}`;
+  return (
+    <View
+      pointerEvents="none"
+      style={[styles.edgeFade, side === 'left' ? styles.edgeFadeLeft : styles.edgeFadeRight, { width }]}
+    >
+      <Svg width="100%" height="100%">
+        <Defs>
+          <LinearGradient id={id} x1="0" y1="0" x2="1" y2="0">
+            <Stop offset="0" stopColor={color} stopOpacity={side === 'left' ? 1 : 0} />
+            <Stop offset="1" stopColor={color} stopOpacity={side === 'left' ? 0 : 1} />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${id})`} />
+      </Svg>
+    </View>
+  );
 }
 
 /** Slides and fades the day's content in from the side you navigated toward. */
@@ -164,16 +193,32 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
     return days;
   }, [day, today]);
 
-  useEffect(() => {
+  const { width: windowW } = useWindowDimensions();
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
+  // Date strip: 48dp cells (the touch minimum), snapped so a cell starts exactly at the inner padding.
+  const stripLayout: DayStripLayout = {
+    count: week.length,
+    cell: theme.touch.min,
+    gap: theme.spacing.xs,
+    pad: theme.spacing.md,
+    viewport: windowW - 2 * theme.geometry.screenMargin - 2,
+  };
+  const stripPitch = dayStripPitch(stripLayout);
+  const stripScrolled = useRef(false);
+
+  const scrollStripToDay = (animated: boolean) => {
     const idx = week.indexOf(day);
     if (idx < 0) return;
-    const itemPitch = 50; // 46px day width + 4px gap
-    const targetX = Math.max(0, idx * itemPitch - itemPitch * 3);
-    const id = setTimeout(() => {
-      dateStripRef.current?.scrollTo({ x: targetX, animated: true });
-    }, 60);
+    dateStripRef.current?.scrollTo({ x: dayStripOffset(stripLayout, idx), animated });
+  };
+
+  useEffect(() => {
+    const animated = stripScrolled.current;
+    stripScrolled.current = true;
+    const id = setTimeout(() => scrollStripToDay(animated), animated ? 60 : 0);
     return () => clearTimeout(id);
-  }, [day, week]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [day, week, windowW]);
 
   const go = (delta: number) => {
     const next = addDays(day, delta);
@@ -190,6 +235,38 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
         : longDate(day, locale).split(',')[0];
   const isToday = day === today;
   const net = book.closingMinor - book.openingMinor;
+  const stripSized = useRef(false);
+
+  // KPI columns: card inner width, minus the column gaps, split three ways, minus the divider and its
+  // padding. All three amounts share one type size, the smallest any of them needs.
+  const kpiGap = theme.spacing.sm;
+  const kpiDividerPad = theme.spacing.sm;
+  const kpiInnerW =
+    windowW - 2 * theme.geometry.screenMargin - 2 - 2 * theme.geometry.cardPadding;
+  const kpiColW = Math.max(
+    0,
+    Math.floor((kpiInnerW - (KPI_COLUMNS - 1) * kpiGap) / KPI_COLUMNS) - 1 - kpiDividerPad
+  );
+  const kpiVariant = hideAmounts
+    ? KPI_FIT[0]
+    : fitMoneyGroup(
+        [
+          { amountMinor: book.inMinor, hasSign: book.inMinor > 0 },
+          { amountMinor: book.outMinor, hasSign: book.outMinor > 0 },
+          { amountMinor: Math.abs(net), hasSign: net !== 0 },
+        ].map((item) => ({
+          ...item,
+          compact: false,
+          showDecimals: showPoisha,
+          roundToWhole: false,
+          symbolChars: getCurrencySymbol(settings.currency).length,
+        })),
+        {
+          availableWidth: kpiColW,
+          variants: KPI_FIT.map((key) => ({ key, fontSize: theme.typography[key].fontSize })),
+          bangla: locale === 'bn',
+        }
+      )[0].variant;
   const untrackedNoteKey = useMemo(() => {
     if (book.untrackedOutMinor + book.untrackedInMinor === 0) return null;
     let hasNoWallet = false;
@@ -425,11 +502,8 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
       </View>
 
       {/* Scrollable Date Strip */}
-      <ScrollView
-        ref={dateStripRef}
-        testID="daybook-date-strip"
-        horizontal
-        showsHorizontalScrollIndicator={false}
+      <View
+        testID="daybook-date-strip-card"
         style={[
           theme.cardShadow,
           {
@@ -439,11 +513,27 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
             borderColor: theme.colors.cardBorder,
           },
         ]}
+      >
+      <View style={[styles.stripClip, { borderRadius: theme.radius.card }]}>
+      <ScrollView
+        ref={dateStripRef}
+        testID="daybook-date-strip"
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={stripPitch}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        onContentSizeChange={() => {
+          if (stripSized.current) return;
+          stripSized.current = true;
+          scrollStripToDay(false);
+        }}
         contentContainerStyle={[
           styles.weekRow,
           {
-            gap: 4,
-            padding: theme.spacing.xs,
+            gap: stripLayout.gap,
+            paddingHorizontal: stripLayout.pad,
+            paddingVertical: theme.spacing.xs,
           },
         ]}
       >
@@ -464,6 +554,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
               style={[
                 styles.weekDay,
                 {
+                  width: stripLayout.cell,
                   // Concentric with the strip: outer radius minus its padding and border.
                   borderRadius: Math.max(0, theme.radius.card - theme.spacing.xs - 1),
                   backgroundColor: selected ? theme.colors.ink : 'transparent',
@@ -502,6 +593,10 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
           );
         })}
       </ScrollView>
+      <EdgeFade side="left" width={stripLayout.pad} color={theme.colors.surface} />
+      <EdgeFade side="right" width={stripLayout.pad} color={theme.colors.surface} />
+      </View>
+      </View>
 
       {/* Wallet scope: the opening and closing balances follow the chosen wallet */}
       {activeWallets.length > 1 ? (
@@ -559,6 +654,8 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
             backgroundColor: theme.colors.surface,
             borderColor: theme.colors.cardBorder,
             borderRadius: theme.radius.heroCard,
+            padding: theme.geometry.cardPadding,
+            gap: theme.spacing.md,
           },
         ]}
         testID="daybook-summary"
@@ -600,41 +697,72 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
           </View>
         </View>
         <View style={[styles.summaryDivider, { backgroundColor: theme.colors.separator }]} />
-        <View style={[styles.statRow, { gap: theme.spacing.sm }]}>
-          <View style={[styles.stat, { backgroundColor: theme.colors.incomeBg, borderRadius: theme.radius.md }]}>
-            <AppIcon name="arrow-down-left" size={15} color={theme.colors.income} />
-            <AppText variant="caption" color="textSecondary">
-              {t('daybook.in')}
-            </AppText>
-            <Money amountMinor={book.inMinor} currency={settings.currency} variant="bodyStrong" hidden={hideAmounts} prefix={book.inMinor > 0 ? '+' : ''} color="income" />
+        <View style={[styles.kpiRow, { gap: kpiGap }]} testID="daybook-kpi-row">
+          <View style={styles.kpiCol}>
+            <View style={[styles.kpiLabelRow, { gap: theme.spacing.xs }]}>
+              <AppIcon name="arrow-down-left" size={15} color={theme.colors.income} />
+              <AppText variant="caption" color="textSecondary" style={styles.kpiLabel}>
+                {t('daybook.in')}
+              </AppText>
+            </View>
+            <Money
+              amountMinor={book.inMinor}
+              currency={settings.currency}
+              variant={kpiVariant}
+              fitWidth={kpiColW}
+              fitVariants={[kpiVariant]}
+              hidden={hideAmounts}
+              prefix={book.inMinor > 0 ? '+' : ''}
+              color="income"
+            />
           </View>
-          <View style={[styles.stat, { backgroundColor: theme.colors.expenseBg, borderRadius: theme.radius.md }]}>
-            <AppIcon name="arrow-up-right" size={15} color={theme.colors.expense} />
-            <AppText variant="caption" color="textSecondary">
-              {t('daybook.out')}
-            </AppText>
+          <View
+            style={[
+              styles.kpiCol,
+              styles.kpiColBorder,
+              { borderLeftColor: theme.colors.separator, paddingLeft: kpiDividerPad },
+            ]}
+          >
+            <View style={[styles.kpiLabelRow, { gap: theme.spacing.xs }]}>
+              <AppIcon name="arrow-up-right" size={15} color={theme.colors.expense} />
+              <AppText variant="caption" color="textSecondary" style={styles.kpiLabel}>
+                {t('daybook.out')}
+              </AppText>
+            </View>
             <Money
               amountMinor={book.outMinor}
               currency={settings.currency}
-              variant="bodyStrong"
+              variant={kpiVariant}
+              fitWidth={kpiColW}
+              fitVariants={[kpiVariant]}
               prefix={book.outMinor > 0 ? '−' : ''}
               color="expense"
               hidden={hideAmounts}
             />
           </View>
-          <View style={[styles.stat, { backgroundColor: theme.colors.accentSoft, borderRadius: theme.radius.md }]}>
-            <AppIcon
-              name={net > 0 ? 'trending-up' : net < 0 ? 'trending-down' : 'minus'}
-              size={15}
-              color={net > 0 ? theme.colors.income : theme.colors.textTertiary}
-            />
-            <AppText variant="caption" color="textSecondary">
-              {t('daybook.net')}
-            </AppText>
+          <View
+            style={[
+              styles.kpiCol,
+              styles.kpiColBorder,
+              { borderLeftColor: theme.colors.separator, paddingLeft: kpiDividerPad },
+            ]}
+          >
+            <View style={[styles.kpiLabelRow, { gap: theme.spacing.xs }]}>
+              <AppIcon
+                name={net > 0 ? 'trending-up' : net < 0 ? 'trending-down' : 'minus'}
+                size={15}
+                color={net > 0 ? theme.colors.income : theme.colors.textSecondary}
+              />
+              <AppText variant="caption" color="textSecondary" style={styles.kpiLabel}>
+                {t('daybook.net')}
+              </AppText>
+            </View>
             <Money
               amountMinor={Math.abs(net)}
               currency={settings.currency}
-              variant="bodyStrong"
+              variant={kpiVariant}
+              fitWidth={kpiColW}
+              fitVariants={[kpiVariant]}
               hidden={hideAmounts}
               prefix={net > 0 ? '+' : net < 0 ? '−' : ''}
               color={net > 0 ? 'income' : net < 0 ? 'expense' : 'text'}
@@ -651,10 +779,8 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
       {/* Timeline */}
       {loading ? null : book.entries.length === 0 ? (
         <View
-          style={[
-            styles.empty,
-            { borderColor: theme.colors.separator, borderRadius: theme.radius.card, gap: theme.spacing.sm },
-          ]}
+          testID="daybook-empty"
+          style={[styles.empty, { paddingVertical: theme.spacing.xxl, gap: theme.spacing.sm }]}
         >
           <AppIcon name="scroll-text" size={22} color={theme.colors.textTertiary} />
           <AppText variant="bodyStrong">{t('daybook.emptyTitle')}</AppText>
@@ -710,13 +836,11 @@ const styles = StyleSheet.create({
   navCenter: { flex: 1, alignItems: 'center', minHeight: 48, justifyContent: 'center' },
   navTitle: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   weekRow: { flexDirection: 'row', alignItems: 'center' },
-  weekDay: { width: 46, alignItems: 'center', paddingVertical: 8, gap: 2, minHeight: 64 },
+  weekDay: { alignItems: 'center', paddingVertical: 8, gap: 2, minHeight: 64 },
   weekMark: { width: 14, height: 3, borderRadius: 2, marginTop: 2 },
-  summary: { borderWidth: 1, padding: 18, gap: 14 },
+  summary: { borderWidth: 1 },
   summaryTop: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
   summaryDivider: { height: StyleSheet.hairlineWidth },
-  statRow: { flexDirection: 'row' },
-  stat: { flex: 1, paddingVertical: 10, paddingHorizontal: 10, gap: 2 },
   entryRow: { flexDirection: 'row', alignItems: 'stretch' },
   timeCol: { width: 40, paddingTop: 15, paddingRight: 2 },
   timeText: { textAlign: 'right', lineHeight: 15 },
@@ -730,5 +854,14 @@ const styles = StyleSheet.create({
   entryAmounts: { alignItems: 'flex-end', gap: 2 },
   leftRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   balanceText: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingRight: 13 },
-  empty: { borderWidth: 1, alignItems: 'center', padding: 24 },
+  empty: { alignItems: 'center' },
+  kpiRow: { flexDirection: 'row', alignItems: 'flex-start' },
+  kpiCol: { flex: 1, gap: 2 },
+  kpiColBorder: { borderLeftWidth: StyleSheet.hairlineWidth },
+  kpiLabelRow: { flexDirection: 'row', alignItems: 'center' },
+  kpiLabel: { flexShrink: 1 },
+  stripClip: { overflow: 'hidden' },
+  edgeFade: { position: 'absolute', top: 0, bottom: 0 },
+  edgeFadeLeft: { left: 0 },
+  edgeFadeRight: { right: 0 },
 });

@@ -233,10 +233,10 @@ export default function OnboardingDoneScreen() {
                     amountMinor={safeDailyMinor}
                     currency={currency}
                     variant="title"
-                    color="heroBar"
+                    color="heroText"
                   />
                 ) : (
-                  <AppText variant="bodyStrong" color="heroBar">
+                  <AppText variant="bodyStrong" color="heroText">
                     —
                   </AppText>
                 )}

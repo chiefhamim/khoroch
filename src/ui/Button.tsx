@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   PixelRatio,
   StyleSheet,
+  View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -145,14 +146,16 @@ export function Button({
       {loading ? (
         <ActivityIndicator size="small" color={theme.colors[textColor]} />
       ) : (
-        <>
+        <View testID={testID ? `${testID}-content` : undefined} style={[styles.content, { gap: theme.spacing.sm }]}>
           {leftIcon ? (
             <AppIcon name={leftIcon} size={18} color={theme.colors[textColor]} />
           ) : null}
           <AppText
             variant={size === 'sm' ? 'label' : 'headline'}
             color={textColor}
-            numberOfLines={numberOfLines}
+            // A short label next to an icon stays on one line: a wrapped, clipped second line is what
+            // left the icon far from the word on Android.
+            numberOfLines={numberOfLines ?? (leftIcon || rightIcon ? 1 : undefined)}
             style={[styles.label, banglaMinWidth !== undefined ? { minWidth: banglaMinWidth } : null]}
           >
             {title}
@@ -160,7 +163,7 @@ export function Button({
           {rightIcon ? (
             <AppIcon name={rightIcon} size={18} color={theme.colors[textColor]} />
           ) : null}
-        </>
+        </View>
       )}
     </PressableScale>
   );
@@ -171,6 +174,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 1,
   },
   label: {
     textAlign: 'center',
