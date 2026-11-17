@@ -568,3 +568,15 @@ Re-read: AGENTS §6 · PLAN §6
 - Checks: `npm run typecheck` passed; `npm test -- --runInBand` passed with 24 suites and 146 tests; `npx expo lint` had 0 errors and one pre-existing warning in `src/app/wallets/[id].tsx`; web export passed.
 - Android: generated and built `com.hamim.budgetapp.dev`, installed with `adb install -r`, and left `com.hamim.budgetapp` untouched.
 - Phone check: skipped visual review because the connected device was locked and sleeping. Full screenshot matrix and timed walkthrough remain not verified.
+
+## Orchestrated plan log (docs/PLAN.md) — 2026-11-17
+- Phase 1 research: six files in docs/research/. Numbers are from search summaries; habits and "top 3 logs" are hypotheses. No real SMS samples found.
+- Phase 2 synthesis: docs/SYNTHESIS.md (personas, MVP cut, 10-task backlog). UI rulebook: docs/UI-FOUNDATION.md with a 19-row code audit.
+- Built on dev (each reviewed by the reviewer agent, findings fixed in follow-up commits): 9aeefbb, 8e5fee7, aae274d (UI foundation 1 to 3), 77dcd86 (money fit), 6a86130 and 9211fd5 (capture shortcuts and review fixes), d6a0ff5 and f45aed2 (app lock and security fixes), 74263b4 (Home amounts fit, wallets tiles).
+- Checks at f45aed2: `npm run typecheck` exit 0; `npm test` 50 suites, 327 tests, none skipped; `npx expo lint` clean.
+- Phone: dev app `com.hamim.budgetapp.dev` rebuilt twice (expo-secure-store, expo-screen-capture) and installed with `adb install -r`, data kept; `com.hamim.budgetapp` untouched. Home tab verified by screenshot in dark mode (docs/screenshots/live/05-home.png): hero strip amounts on one line, wallets tiles on the page background.
+- NOT VERIFIED on a screen: Ledger, Plan, Insights, Settings, onboarding, the add-entry shortcuts row, every app lock screen, light mode, Bangla, 360dp width. Browser check could not run (Playwright browser not installed).
+- Mistake: on one check the planner sent two swipes and one tap to the phone while X was in front, not the dev app. Focus is now checked before any input or screenshot.
+- Metro hung twice with no error (stopped answering HTTP); restarted each time. Cause not found.
+- Backlog done: tasks 1 to 3. Remaining: 4 due date on dues, 5 bill reminders, 6 left after bills, 7 default fee per wallet, 8 weekly period, 9 EMI payoff view, 10 worked-today button. Skipped inside task 1: a dedicated marker for balance adjustments (the `source` column has a CHECK constraint, so it needs a table rebuild).
+- App lock: second security review pending. Known limit: moving the clock forward and restarting the app shortens the wrong-PIN wait.
