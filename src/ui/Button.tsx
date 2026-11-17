@@ -156,9 +156,15 @@ export function Button({
             // A short label next to an icon stays on one line: a wrapped, clipped second line is what
             // left the icon far from the word on Android.
             numberOfLines={numberOfLines ?? (leftIcon || rightIcon ? 1 : undefined)}
+            // Android's default break strategy can wrap a label that exactly fits its measured width.
+            textBreakStrategy="simple"
             style={[styles.label, banglaMinWidth !== undefined ? { minWidth: banglaMinWidth } : null]}
           >
-            {title}
+            {/* Android can wrap a label that exactly fits its measured width and clip the second
+                word; non-breaking spaces keep a one-line label whole. */}
+            {(numberOfLines ?? (leftIcon || rightIcon ? 1 : undefined)) === 1
+              ? title.replace(/ /g, ' ')
+              : title}
           </AppText>
           {rightIcon ? (
             <AppIcon name={rightIcon} size={18} color={theme.colors[textColor]} />
