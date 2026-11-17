@@ -1,10 +1,10 @@
 import * as Crypto from 'expo-crypto';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { isSavingsAssetKind, resolveWalletColorHex } from '@/domain/accounts';
 import { formatUtilizationPct } from '@/domain/calc';
-import { buildWageEntry, hasWageRecordedOn } from '@/domain/dailyWage';
+import { buildWageEntry, isWageRecordedToday } from '@/domain/dailyWage';
 import {
   addDays,
   currentLocalTime,
@@ -12,6 +12,7 @@ import {
   formatShortDate,
   formatWeekdayShortDate,
   isDevice24HourClock,
+  todayLocalDate,
 } from '@/domain/dates';
 import { fitMoneyGroup } from '@/domain/fitMoney';
 import { formatMoney, getCurrencySymbol, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
@@ -25,6 +26,7 @@ import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
 import { useDashboard } from '@/state/useDashboard';
+import { useToday } from '@/state/useToday';
 import { usePeople } from '@/state/usePeople';
 import { getCategoryTileVisual } from '@/theme/categoryColors';
 import type { TypographyVariant } from '@/theme/tokens';
@@ -102,6 +104,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const locale = useLocale();
   const { theme, reducedMotion } = useTheme();
   const router = useRouter();
+  // Today's date refreshes on focus and when the app returns to the foreground.
+  const liveToday = useToday();
 
   const {
     today,
@@ -124,7 +128,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     loading,
     error,
     reload,
-  } = useDashboard(todayOverride);
+  } = useDashboard(todayOverride ?? liveToday);
 
   const [chartGranularity, setChartGranularity] = useState<ChartGranularity>('daily');
   const [howItWorksOpen, setHowItWorksOpen] = useState(false);
@@ -193,21 +197,35 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     wageCategory !== undefined &&
     wageCategory.kind === 'income' &&
     wageCategory.archivedAt === null;
-  const [wageRecorded, setWageRecorded] = useState(false);
+  // Whether today's wage is recorded, for the day it was read. Unknown (null) while the first read
+  // is running, for another day, or after a failed read: the strip then shows no tappable button.
+  const [wageStatus, setWageStatus] = useState<{ day: LocalDate; recorded: boolean } | null>(null);
+  const wageRecorded = wageStatus !== null && wageStatus.day === today ? wageStatus.recorded : null;
   const wageBusyRef = useRef(false);
+  const [anotherWageOpen, setAnotherWageOpen] = useState(false);
+  /** Reads through the repo: the saved pointer is for this day and its entry is still live that day. */
+  const readWageRecorded = useCallback(
+    async (day: LocalDate): Promise<boolean> => {
+      const last = (await repo.getSettings()).dailyWageLast;
+      if (last === null || last.day !== day) return false;
+      return isWageRecordedToday(last, await repo.getTransaction(last.id), day);
+    },
+    [repo]
+  );
   useEffect(() => {
     if (!wageUsable) return;
     let active = true;
-    repo
-      .listTransactionsInRange(today, addDays(today, 1))
-      .then((rows) => {
-        if (active && !wageBusyRef.current) setWageRecorded(hasWageRecordedOn(rows, today));
+    readWageRecorded(today)
+      .then((recorded) => {
+        if (active && !wageBusyRef.current) setWageStatus({ day: today, recorded });
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active && !wageBusyRef.current) setWageStatus(null);
+      });
     return () => {
       active = false;
     };
-  }, [repo, today, dataVersion, wageUsable]);
+  }, [readWageRecorded, today, dataVersion, wageUsable]);
   const wageAmountText =
     dailyWage === null
       ? ''
@@ -216,46 +234,77 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         : locale === 'bn'
           ? toBnDigits(formatMoney(dailyWage.amountMinor, settings.currency, { showPoisha }))
           : formatMoney(dailyWage.amountMinor, settings.currency, { showPoisha });
-  const recordWage = async () => {
-    if (!dailyWage || !wageCategory || wageBusyRef.current || wageRecorded) return;
+  /**
+   * Records the saved wage as income. The day and time come from the clock at the moment of the tap.
+   * The first entry of a day re-checks through the repo just before inserting; a second shift
+   * (again) skips that check because the person confirmed it. A ref blocks re-entry.
+   */
+  const recordWage = async (again: boolean) => {
+    if (!dailyWage || !wageCategory || wageBusyRef.current) return;
+    if (!again && wageRecorded !== false) return;
     wageBusyRef.current = true;
-    // Swap the button for the quiet line at once so a second tap cannot land.
-    setWageRecorded(true);
-    const id = Crypto.randomUUID();
-    const wallet = dailyWage.accountId !== null ? accountsById.get(dailyWage.accountId) : undefined;
-    const accountId =
-      dailyWage.accountId === null
-        ? null
-        : accountsLoading || (wallet !== undefined && wallet.archivedAt == null)
-          ? dailyWage.accountId
-          : null;
+    let insertedId: string | null = null;
     try {
+      const now = new Date();
+      const day = todayLocalDate(now);
+      const previousLast = (await repo.getSettings()).dailyWageLast;
+      if (!again && (await readWageRecorded(day))) {
+        setWageStatus({ day, recorded: true });
+        return;
+      }
+      // The wallet is resolved from the repo, so it never depends on a half-loaded screen.
+      let accountId = dailyWage.accountId;
+      let walletDropped = false;
+      if (accountId !== null) {
+        const wallets = await repo.listAccounts({ includeArchived: true });
+        const wallet = wallets.find((a) => a.id === accountId);
+        if (wallet === undefined || wallet.archivedAt != null) {
+          accountId = null;
+          walletDropped = true;
+        }
+      }
+      const id = Crypto.randomUUID();
       await repo.insertTransaction(
         buildWageEntry({
           id,
           wage: { ...dailyWage, accountId },
           categoryName: wageCategory.name,
           currency: settings.currency,
-          day: today,
-          time: currentLocalTime(),
+          day,
+          time: currentLocalTime(now),
         })
       );
+      insertedId = id;
+      await repo.setSetting('dailyWageLast', { id, day });
+      insertedId = null;
+      setWageStatus({ day, recorded: true });
       hapticLight();
       bumpDataVersion();
       showToast({
-        message: t('dailyWage.savedToast'),
+        message: walletDropped ? t('dailyWage.savedNoWalletToast') : t('dailyWage.savedToast'),
         icon: 'circle-check',
         tone: 'accent',
         actionLabel: t('common.undo'),
         onAction: () => {
-          void repo
-            .softDeleteTransaction(id)
-            .then(() => bumpDataVersion())
-            .catch(() => {});
+          void (async () => {
+            await repo.softDeleteTransaction(id);
+            const current = (await repo.getSettings()).dailyWageLast;
+            // Only the newest entry's pointer is touched; a second shift's undo goes back to the first.
+            if (current !== null && current.id === id) {
+              await repo.setSetting('dailyWageLast', again ? previousLast : null);
+            }
+          })()
+            .catch(() => {})
+            .finally(() => bumpDataVersion());
         },
       });
     } catch {
-      setWageRecorded(false);
+      if (insertedId !== null) {
+        // The entry went in but its pointer did not: take the entry back so nothing is half done.
+        await repo.softDeleteTransaction(insertedId).catch(() => {});
+      }
+      showToast({ message: t('dailyWage.failedToast'), icon: 'circle-alert', tone: 'danger' });
+      bumpDataVersion();
     } finally {
       wageBusyRef.current = false;
     }
@@ -1009,32 +1058,49 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               },
             ]}
           >
-            {wageRecorded ? (
-              <View
-                testID="overview-wage-recorded"
-                accessible
-                accessibilityLabel={t('overview.wageRecorded')}
-                style={[styles.wageRecorded, { gap: theme.spacing.sm }]}
-              >
-                <AppIcon name="circle-check" size={16} color={theme.colors.income} />
-                <AppText variant="label" color="textSecondary">
-                  {t('overview.wageRecorded')}
-                </AppText>
-              </View>
+            {wageRecorded === null ? null : wageRecorded ? (
+              <>
+                <View
+                  testID="overview-wage-recorded"
+                  accessible
+                  accessibilityLabel={t('overview.wageRecorded')}
+                  style={[styles.wageRecorded, { gap: theme.spacing.sm }]}
+                >
+                  <AppIcon name="circle-check" size={16} color={theme.colors.income} />
+                  <AppText variant="label" color="textSecondary">
+                    {t('overview.wageRecorded')}
+                  </AppText>
+                </View>
+                <PressableScale
+                  pressScale={0.97}
+                  testID="overview-wage-add-again"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('overview.wageAddAgainA11y')}
+                  onPress={() => setAnotherWageOpen(true)}
+                  style={[
+                    styles.wageAddAgain,
+                    { minHeight: theme.touch.min, paddingHorizontal: theme.spacing.md },
+                  ]}
+                >
+                  <AppText variant="label" color="accent" style={styles.semiBold}>
+                    {t('overview.wageAddAgain')}
+                  </AppText>
+                </PressableScale>
+              </>
             ) : (
               <PressableScale
                 pressScale={0.97}
                 testID="overview-worked-today-btn"
                 accessibilityRole="button"
                 accessibilityLabel={t('overview.workedTodayA11y', { amount: wageAmountText })}
-                onPress={() => void recordWage()}
+                onPress={() => void recordWage(false)}
                 style={[
                   styles.wageButton,
-                  theme.elevation.e1,
                   {
                     minHeight: theme.touch.min,
                     borderRadius: theme.radius.button,
-                    backgroundColor: theme.colors.surface,
+                    borderWidth: 1,
+                    borderColor: theme.colors.cardBorder,
                     paddingHorizontal: theme.spacing.lg,
                     gap: theme.spacing.sm,
                   },
@@ -1585,6 +1651,34 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
       ) : null}
 
 
+      {/* Second shift: asks before recording another wage for today */}
+      <Sheet
+        testID="overview-wage-another-sheet"
+        visible={anotherWageOpen}
+        onClose={() => setAnotherWageOpen(false)}
+        title={t('overview.wageAnotherTitle')}
+      >
+        <View style={{ gap: theme.spacing.md }}>
+          <AppText variant="body" color="textSecondary">
+            {t('overview.wageAnotherBody', { amount: wageAmountText })}
+          </AppText>
+          <Button
+            testID="overview-wage-another-confirm"
+            title={t('overview.wageAnotherConfirm')}
+            onPress={() => {
+              setAnotherWageOpen(false);
+              void recordWage(true);
+            }}
+          />
+          <Button
+            testID="overview-wage-another-cancel"
+            title={t('common.cancel')}
+            variant="ghost"
+            onPress={() => setAnotherWageOpen(false)}
+          />
+        </View>
+      </Sheet>
+
       {/* Notices: every warning and nudge lives here, not between the hero and the day book */}
       <Sheet
         visible={noticesOpen}
@@ -1767,6 +1861,10 @@ const styles = StyleSheet.create({
   wageRecorded: {
     flex: 1,
     flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  wageAddAgain: {
     alignItems: 'center',
     justifyContent: 'center',
   },

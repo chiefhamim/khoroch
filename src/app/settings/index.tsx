@@ -21,7 +21,8 @@ import {
 import { runDeleteAllData } from '@/data/deleteAll';
 import { buildSampleTransactions } from '@/data/sampleData';
 import { formatShortDate, todayLocalDate } from '@/domain/dates';
-import { formatMoney } from '@/domain/money';
+import { formatMoney, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { toBnDigits } from '@/i18n/displayText';
 import { formatCycleLabel, getPeriod } from '@/domain/period';
 import {
@@ -126,6 +127,8 @@ function sameDays(a: readonly number[], b: readonly number[]): boolean {
 
 export default function SettingsScreen() {
   const locale = useLocale();
+  const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
   const { theme, reducedMotion } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams<{ openBackup?: string }>();
@@ -672,9 +675,13 @@ export default function SettingsScreen() {
           label={t('settings.dailyWageRow')}
           value={
             settings.dailyWage
-              ? locale === 'bn'
-                ? toBnDigits(formatMoney(settings.dailyWage.amountMinor, settings.currency))
-                : formatMoney(settings.dailyWage.amountMinor, settings.currency)
+              ? hideAmounts
+                ? HIDDEN_AMOUNT_TEXT
+                : locale === 'bn'
+                  ? toBnDigits(
+                      formatMoney(settings.dailyWage.amountMinor, settings.currency, { showPoisha })
+                    )
+                  : formatMoney(settings.dailyWage.amountMinor, settings.currency, { showPoisha })
               : t('settings.dailyWageNotSet')
           }
           showChevron

@@ -32,6 +32,21 @@ describe('daily wage in backups', () => {
     expect((await dst.getSettings()).dailyWage).toBeNull();
   });
 
+  it('never exports the last-wage pointer, and an import resets it to none', async () => {
+    const src = new MemoryRepo();
+    await src.setSetting('dailyWageLast', { id: 'w1', day: '2026-11-17' });
+    const json = await exportBackupJson(src, '2026-11-17T10:00:00.000Z');
+    expect(JSON.parse(json).data.settings.dailyWageLast).toBeNull();
+
+    // Even a hand-edited backup that carries a pointer cannot set it.
+    const edited = JSON.parse(json);
+    edited.data.settings.dailyWageLast = { id: 'w1', day: '2026-11-17' };
+    const dst = new MemoryRepo();
+    await dst.setSetting('dailyWageLast', { id: 'old', day: '2026-11-17' });
+    await restoreBackupPayload(dst, parseAndValidateBackup(JSON.stringify(edited)));
+    expect((await dst.getSettings()).dailyWageLast).toBeNull();
+  });
+
   it('accepts an explicit null wage', async () => {
     expect(parseAndValidateBackup(await backupWith(null)).data.settings.dailyWage).toBeNull();
   });

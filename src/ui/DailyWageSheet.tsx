@@ -38,6 +38,7 @@ function DailyWageBody({ currency, wage, onClose, onSave }: BodyProps) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [history, setHistory] = useState<Transaction[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [amountText, setAmountText] = useState(wage ? formatMinorToDraft(wage.amountMinor) : '');
   // What the person picked; until they pick, the saved wage or the history-based default shows.
   const [pickedCategory, setCategoryId] = useState<string | null>(null);
@@ -61,7 +62,10 @@ function DailyWageBody({ currency, wage, onClose, onSave }: BodyProps) {
         setLoaded(true);
       })
       .catch(() => {
-        if (active) setLoaded(true);
+        if (active) {
+          setLoadFailed(true);
+          setLoaded(true);
+        }
       });
     return () => {
       active = false;
@@ -81,9 +85,27 @@ function DailyWageBody({ currency, wage, onClose, onSave }: BodyProps) {
     () => defaultWageChoices(loaded ? history : [], categories, accounts),
     [loaded, history, categories, accounts]
   );
-  const categoryId = pickedCategory ?? wage?.categoryId ?? defaults.categoryId;
+  // A saved category or wallet that has since been archived (or removed) is not offered here, so
+  // the defaults show instead and a note says so. Nothing stale is kept silently.
+  const listsReady = loaded && !loadFailed;
+  const savedCategoryGone =
+    listsReady && wage !== null && !incomeCategories.some((c) => c.id === wage.categoryId);
+  const savedWalletGone =
+    listsReady &&
+    wage !== null &&
+    wage.accountId !== null &&
+    !accounts.some((a) => a.id === wage.accountId);
+  const categoryId =
+    pickedCategory ?? (wage && !savedCategoryGone ? wage.categoryId : defaults.categoryId);
   const accountId =
-    pickedAccount !== undefined ? pickedAccount : wage ? wage.accountId : defaults.accountId;
+    pickedAccount !== undefined
+      ? pickedAccount
+      : wage && !savedWalletGone
+        ? wage.accountId
+        : defaults.accountId;
+  const showFallbackNote =
+    (savedCategoryGone && pickedCategory === null) ||
+    (savedWalletGone && pickedAccount === undefined);
 
   const selectedAccount = accounts.find((a) => a.id === accountId) ?? null;
 
@@ -164,6 +186,12 @@ function DailyWageBody({ currency, wage, onClose, onSave }: BodyProps) {
           onPress={() => setWalletOpen(true)}
         />
       </Surface>
+
+      {showFallbackNote ? (
+        <AppText testID="daily-wage-fallback-note" variant="caption" color="textSecondary">
+          {t('dailyWage.fallbackNote')}
+        </AppText>
+      ) : null}
 
       {error ? (
         <AppText testID="daily-wage-error" variant="label" color="danger">

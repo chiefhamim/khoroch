@@ -154,6 +154,8 @@ function sanitizeSettingsForExport(s: Settings): Settings {
         : null,
     pinnedAmounts: normalizePinnedAmounts(s.pinnedAmounts),
     dailyWage: normalizeDailyWage(s.dailyWage),
+    // Entry ids are device-local and may not exist after a restore, so this is never exported.
+    dailyWageLast: null,
   };
 }
 
@@ -829,6 +831,8 @@ function validateSettingsObject(raw: unknown): Settings {
         : null,
     pinnedAmounts: normalizePinnedAmounts(obj.pinnedAmounts),
     dailyWage: normalizeDailyWage(obj.dailyWage),
+    // Always reset on import: an id from another backup may not match any entry here.
+    dailyWageLast: null,
   };
 }
 

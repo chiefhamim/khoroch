@@ -4,11 +4,17 @@ import {
   buildWageEntry,
   dailyWageProblem,
   defaultWageChoices,
-  hasWageRecordedOn,
   isValidWageAmount,
-  WAGE_NOTE_MARKER,
+  isWageRecordedToday,
+  stripInvisibleNoteMarks,
 } from './dailyWage';
-import { normalizeDailyWage, type Account, type Category, type Transaction } from './types';
+import {
+  normalizeDailyWage,
+  normalizeDailyWageLast,
+  type Account,
+  type Category,
+  type Transaction,
+} from './types';
 
 let seq = 0;
 function tx(over: Partial<Transaction> = {}): Transaction {
@@ -33,8 +39,10 @@ function tx(over: Partial<Transaction> = {}): Transaction {
   };
 }
 
+const LAST = { id: 'w1', day: '2026-11-17' };
+
 function wageTx(over: Partial<Transaction> = {}): Transaction {
-  return tx({ source: 'quick', note: WAGE_NOTE_MARKER, ...over });
+  return tx({ id: 'w1', source: 'quick', note: '', ...over });
 }
 
 function cat(id: string, sortOrder: number, over: Partial<Category> = {}): Category {
@@ -45,46 +53,67 @@ function acc(id: string, over: Partial<Account> = {}): Account {
   return { id, name: id, archivedAt: null, ...over } as Account;
 }
 
-describe('hasWageRecordedOn', () => {
-  it('is false with no entries and true with one wage entry that day', () => {
-    expect(hasWageRecordedOn([], '2026-11-17')).toBe(false);
-    expect(hasWageRecordedOn([wageTx()], '2026-11-17')).toBe(true);
+describe('isWageRecordedToday', () => {
+  it('is true when the pointer is for today and its entry is live and dated today', () => {
+    expect(isWageRecordedToday(LAST, wageTx(), '2026-11-17')).toBe(true);
   });
 
-  it('ignores ordinary income, other quick entries and expenses', () => {
-    const rows = [
-      tx(),
-      tx({ source: 'quick' }),
-      tx({ source: 'quick', note: 'wage' }),
-      wageTx({ type: 'expense' }),
-    ];
-    expect(hasWageRecordedOn(rows, '2026-11-17')).toBe(false);
+  it('is false with no pointer or no entry', () => {
+    expect(isWageRecordedToday(null, wageTx(), '2026-11-17')).toBe(false);
+    expect(isWageRecordedToday(LAST, null, '2026-11-17')).toBe(false);
   });
 
-  it('ignores deleted entries', () => {
-    expect(hasWageRecordedOn([wageTx({ deletedAt: 123 })], '2026-11-17')).toBe(false);
+  it('is false when the pointer names a different entry', () => {
+    expect(isWageRecordedToday(LAST, wageTx({ id: 'other' }), '2026-11-17')).toBe(false);
   });
 
-  it('still counts a wage entry after the person edits amount, category, wallet or description', () => {
-    const edited = wageTx({ amountMinor: 95_000, categoryId: 'freelance', accountId: 'bank', description: 'Extra shift' });
-    expect(hasWageRecordedOn([edited], '2026-11-17')).toBe(true);
+  it('is false for a deleted entry', () => {
+    expect(isWageRecordedToday(LAST, wageTx({ deletedAt: 123 }), '2026-11-17')).toBe(false);
+  });
+
+  it('is false when the pointer is for another day', () => {
+    expect(isWageRecordedToday({ id: 'w1', day: '2026-11-16' }, wageTx(), '2026-11-17')).toBe(false);
+  });
+
+  it('is false when the entry was moved to another day, and true after other edits', () => {
+    expect(isWageRecordedToday(LAST, wageTx({ occurredOn: '2026-11-16' }), '2026-11-17')).toBe(false);
+    const edited = wageTx({ amountMinor: 95_000, categoryId: 'freelance', accountId: 'bank', description: 'Extra shift', note: 'x' });
+    expect(isWageRecordedToday(LAST, edited, '2026-11-17')).toBe(true);
   });
 
   it('uses the local calendar day: 23:59 stays on its day, 00:00 starts the next', () => {
     const late = new Date(2026, 10, 17, 23, 59);
     const midnight = new Date(2026, 10, 18, 0, 0);
-    const rows = [wageTx({ occurredOn: todayLocalDate(late), occurredTime: '23:59' })];
-    expect(hasWageRecordedOn(rows, todayLocalDate(late))).toBe(true);
-    expect(hasWageRecordedOn(rows, todayLocalDate(midnight))).toBe(false);
+    const entry = wageTx({ occurredOn: todayLocalDate(late), occurredTime: '23:59' });
+    const last = { id: 'w1', day: todayLocalDate(late) };
+    expect(isWageRecordedToday(last, entry, todayLocalDate(late))).toBe(true);
+    expect(isWageRecordedToday(last, entry, todayLocalDate(midnight))).toBe(false);
   });
+});
 
-  it('does not count a wage entry from another day', () => {
-    expect(hasWageRecordedOn([wageTx({ occurredOn: '2026-11-16' })], '2026-11-17')).toBe(false);
+describe('stripInvisibleNoteMarks', () => {
+  it('removes the old invisible separators and leaves real text alone', () => {
+    const old = String.fromCharCode(0x2063, 0x2063);
+    expect(stripInvisibleNoteMarks(old)).toBe('');
+    expect(stripInvisibleNoteMarks(`${old}paid in cash`)).toBe('paid in cash');
+    expect(stripInvisibleNoteMarks('plain note')).toBe('plain note');
+    expect(stripInvisibleNoteMarks('')).toBe('');
+  });
+});
+
+describe('normalizeDailyWageLast', () => {
+  it('accepts an id plus a YYYY-MM-DD day and rejects everything else', () => {
+    expect(normalizeDailyWageLast({ id: 'a', day: '2026-11-17' })).toEqual({ id: 'a', day: '2026-11-17' });
+    expect(normalizeDailyWageLast(null)).toBeNull();
+    expect(normalizeDailyWageLast('x')).toBeNull();
+    expect(normalizeDailyWageLast({ id: '', day: '2026-11-17' })).toBeNull();
+    expect(normalizeDailyWageLast({ id: 'a', day: '17-11-2026' })).toBeNull();
+    expect(normalizeDailyWageLast({ id: 'a' })).toBeNull();
   });
 });
 
 describe('buildWageEntry', () => {
-  it('files the wage as quick income today with the marker and the category name', () => {
+  it('files the wage as quick income today with an empty note and the category name', () => {
     const entry = buildWageEntry({
       id: 'w1',
       wage: { amountMinor: 80_000, categoryId: 'salary', accountId: 'cash' },
@@ -103,7 +132,7 @@ describe('buildWageEntry', () => {
       occurredOn: '2026-11-17',
       occurredTime: '08:30',
       source: 'quick',
-      note: WAGE_NOTE_MARKER,
+      note: '',
     });
   });
 });

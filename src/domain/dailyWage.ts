@@ -4,19 +4,23 @@ import type {
   Category,
   CurrencyCode,
   DailyWage,
+  DailyWageLast,
   LocalDate,
   NewTransaction,
   Transaction,
 } from './types';
 
+/** Old builds hid two invisible separator characters (U+2063) in a wage entry's note. */
+const LEGACY_INVISIBLE_SEPARATOR = /⁣/g;
+
 /**
- * Marks an entry made by the "Worked today" button. The source column only allows a fixed list, so
- * the entry uses the allowed source 'quick' and this marker at the start of its note. Two invisible
- * separator characters (U+2063): they carry no words, so they need no translation, they do not show
- * in the note box, and String.trim keeps them. Editing the amount, category, wallet or description
- * leaves the marker alone; only clearing the note removes it.
+ * Removes the invisible separator characters an old build wrote into wage entry notes. Apply it
+ * wherever a note is read into an editor or copied, so existing entries clean themselves up the
+ * next time they are saved. No migration is needed.
  */
-export const WAGE_NOTE_MARKER = '⁣⁣';
+export function stripInvisibleNoteMarks(note: string): string {
+  return note.replace(LEGACY_INVISIBLE_SEPARATOR, '');
+}
 
 export type DailyWageProblem = 'amount' | 'category';
 
@@ -39,26 +43,23 @@ export function dailyWageProblem(wage: {
   return null;
 }
 
-export function isWageEntry(tx: Transaction): boolean {
-  return (
-    tx.deletedAt == null &&
-    tx.type === 'income' &&
-    !tx.transferId &&
-    tx.source === 'quick' &&
-    tx.note.startsWith(WAGE_NOTE_MARKER)
-  );
-}
-
 /**
- * True when a live wage entry exists on the given local calendar day. Days are compared as local
- * dates, so an entry at 23:59 belongs to its own day and not the next. Deleted entries are ignored;
- * an entry the person edited still counts while its marker is intact.
+ * True when today's wage is recorded: the stored pointer is for today and the entry it names still
+ * exists, is not deleted and is still dated today. Moving or deleting the entry reads as not recorded.
  */
-export function hasWageRecordedOn(
-  transactions: readonly Transaction[],
-  day: LocalDate
+export function isWageRecordedToday(
+  last: DailyWageLast | null,
+  tx: Transaction | null,
+  today: LocalDate
 ): boolean {
-  return transactions.some((tx) => tx.occurredOn === day && isWageEntry(tx));
+  return (
+    last !== null &&
+    last.day === today &&
+    tx !== null &&
+    tx.id === last.id &&
+    tx.deletedAt == null &&
+    tx.occurredOn === today
+  );
 }
 
 export function buildWageEntry(input: {
@@ -77,7 +78,7 @@ export function buildWageEntry(input: {
     categoryId: input.wage.categoryId,
     accountId: input.wage.accountId,
     description: input.categoryName,
-    note: WAGE_NOTE_MARKER,
+    note: '',
     occurredOn: input.day,
     occurredTime: input.time,
     source: 'quick',

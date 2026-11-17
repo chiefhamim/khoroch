@@ -558,6 +558,21 @@ export function normalizeDailyWage(raw: unknown): DailyWage | null {
   return { amountMinor: rec.amountMinor, categoryId: rec.categoryId, accountId };
 }
 
+/** The wage entry most recently recorded by the one-tap button, and the local day it was recorded for. */
+export interface DailyWageLast {
+  id: string;
+  day: string;
+}
+
+/** Reads a stored value; anything that is not an id plus a YYYY-MM-DD day reads as none. */
+export function normalizeDailyWageLast(raw: unknown): DailyWageLast | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const rec = raw as { id?: unknown; day?: unknown };
+  if (typeof rec.id !== 'string' || rec.id.trim().length === 0) return null;
+  if (typeof rec.day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(rec.day)) return null;
+  return { id: rec.id, day: rec.day };
+}
+
 export interface Settings {
   onboardingDone: boolean;
   name: string;
@@ -588,6 +603,8 @@ export interface Settings {
   pinnedAmounts: PinnedAmounts;
   /** One-tap "Worked today" income; null until the person sets it. */
   dailyWage: DailyWage | null;
+  /** The newest one-tap wage entry (never exported; reset to null by a backup import). */
+  dailyWageLast: DailyWageLast | null;
 }
 
 export interface Period {

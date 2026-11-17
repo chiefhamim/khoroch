@@ -44,6 +44,7 @@ import {
   MAX_NOTE_LENGTH,
   isValidLocalTime,
 } from '@/domain/validation';
+import { stripInvisibleNoteMarks } from '@/domain/dailyWage';
 import { t, useLocale } from '@/i18n';
 import { CATEGORY_COLORS, CATEGORY_COLOR_KEYS } from '@/theme/categoryColors';
 import {
@@ -623,10 +624,12 @@ function LegacyTransactionForm({
 
   const [description, setDescription] = useState<string>(initialValues?.description ?? '');
   const [note, setNote] = useState<string>(
-    initialTransferValues?.note ?? initialValues?.note ?? ''
+    stripInvisibleNoteMarks(initialTransferValues?.note ?? initialValues?.note ?? '')
   );
   const [noteOpen, setNoteOpen] = useState<boolean>(() => {
-    const initialNoteText = initialTransferValues?.note ?? initialValues?.note ?? '';
+    const initialNoteText = stripInvisibleNoteMarks(
+      initialTransferValues?.note ?? initialValues?.note ?? ''
+    );
     return initialNoteText.trim().length > 0;
   });
   const [occurredOn, setOccurredOn] = useState<LocalDate>(

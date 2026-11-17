@@ -49,7 +49,7 @@ export interface CaptureShortcutsProps {
   onSelectAmount: (amountMinor: number) => void;
   onPin: () => void;
   onRemove: (amountMinor: number) => void;
-  /** When given, a "Set daily wage" chip leads the row (Received side, no wage set yet). */
+  /** When given, a "Set daily wage" text button ends the row (Received side, no wage set yet). */
   onSetDailyWage?: () => void;
 }
 
@@ -89,18 +89,6 @@ export function CaptureShortcuts({
           alignItems: 'center',
         }}
       >
-        {onSetDailyWage ? (
-          <Chip
-            testID="set-daily-wage-chip"
-            variant="sunken"
-            icon="hand-coins"
-            label={t('dailyWage.setChip')}
-            onPress={() => {
-              hapticSelection();
-              onSetDailyWage();
-            }}
-          />
-        ) : null}
         {entries.map((entry) => {
           const name = categoriesById.get(entry.categoryId ?? '')?.name ?? '';
           return (
@@ -162,6 +150,26 @@ export function CaptureShortcuts({
             setSheetOpen(true);
           }}
         />
+        {onSetDailyWage ? (
+          // Last in the row, so it appearing or going away moves nothing before it.
+          <PressableScale
+            testID="set-daily-wage-chip"
+            accessibilityRole="button"
+            accessibilityLabel={t('dailyWage.setChip')}
+            onPress={() => {
+              hapticSelection();
+              onSetDailyWage();
+            }}
+            style={[
+              styles.textAction,
+              { minHeight: theme.touch.min, paddingHorizontal: theme.spacing.md },
+            ]}
+          >
+            <AppText variant="label" color="accent">
+              {t('dailyWage.setChip')}
+            </AppText>
+          </PressableScale>
+        ) : null}
       </ScrollView>
 
       <Sheet
@@ -225,5 +233,6 @@ export function CaptureShortcuts({
 
 const styles = StyleSheet.create({
   preset: { alignItems: 'center', justifyContent: 'center' },
+  textAction: { alignItems: 'center', justifyContent: 'center' },
   sheetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });

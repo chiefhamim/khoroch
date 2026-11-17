@@ -16,6 +16,7 @@ import {
   isDevice24HourClock,
   todayLocalDate,
 } from '@/domain/dates';
+import { stripInvisibleNoteMarks } from '@/domain/dailyWage';
 import { pinAmount, pinBlockReason, recentDistinctEntries, unpinAmount } from '@/domain/captureShortcuts';
 import { formatMinorToDraft, parseMoneyInput } from '@/domain/money';
 import {
@@ -235,8 +236,10 @@ export function FastTransactionEntry({
   const timeUnsetAtStart = isEdit && initialValues?.occurredTime == null;
   const [timeChosen, setTimeChosen] = useState(false);
   const [timeTouched, setTimeTouched] = useState(isEdit);
-  const [noteOpen, setNoteOpen] = useState(Boolean(initialValues?.note));
-  const [note, setNote] = useState(initialValues?.note ?? '');
+  const [noteOpen, setNoteOpen] = useState(
+    Boolean(stripInvisibleNoteMarks(initialValues?.note ?? ''))
+  );
+  const [note, setNote] = useState(stripInvisibleNoteMarks(initialValues?.note ?? ''));
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [whenOpen, setWhenOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
@@ -337,8 +340,9 @@ export function FastTransactionEntry({
     }
     setAmountText(formatMinorToDraft(entry.amountMinor));
     setDescription(entry.description);
-    setNote(entry.note);
-    setNoteOpen(Boolean(entry.note));
+    const copiedNote = stripInvisibleNoteMarks(entry.note);
+    setNote(copiedNote);
+    setNoteOpen(Boolean(copiedNote));
     setOccurredOn(today);
     setOccurredTime(currentLocalTime());
     setTimeTouched(false);

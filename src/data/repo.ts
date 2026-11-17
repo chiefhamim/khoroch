@@ -173,4 +173,5 @@ export const DEFAULT_SETTINGS: Settings = {
   lastUsedAccountId: null,
   pinnedAmounts: { expense: [], income: [] },
   dailyWage: null,
+  dailyWageLast: null,
 };

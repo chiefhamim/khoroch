@@ -18,6 +18,7 @@ import {
   normalizeExpenseColorKey,
   normalizeHomeSections,
   normalizeDailyWage,
+  normalizeDailyWageLast,
   normalizePinnedAmounts,
   normalizeIncomeColorKey,
   normalizeReminderSettings,
@@ -225,6 +226,7 @@ const SETTING_DB_KEYS: Record<keyof Settings, string> = {
   lastUsedAccountId: 'last_used_account_id',
   pinnedAmounts: 'pinned_amounts',
   dailyWage: 'daily_wage',
+  dailyWageLast: 'daily_wage_last',
 };
 
 const BUDGET_SEEDED_KEY = '_budget_periods_seeded';
@@ -1471,6 +1473,9 @@ export class SqliteRepo implements Repo {
       ),
       dailyWage: normalizeDailyWage(
         parseJson<unknown>(SETTING_DB_KEYS.dailyWage, DEFAULT_SETTINGS.dailyWage)
+      ),
+      dailyWageLast: normalizeDailyWageLast(
+        parseJson<unknown>(SETTING_DB_KEYS.dailyWageLast, DEFAULT_SETTINGS.dailyWageLast)
       ),
     };
   }
