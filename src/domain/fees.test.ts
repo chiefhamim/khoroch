@@ -1,8 +1,13 @@
 import {
+  canHaveDefaultFee,
   feeMinorFromRate,
+  feeStateFromText,
   formatFeeRateBp,
+  isCashOutTransfer,
   MAX_FEE_RATE_BP,
   parseFeeRateInput,
+  resolveTransferFee,
+  UNTOUCHED_FEE,
 } from './fees';
 import { MAX_AMOUNT_MINOR } from './money';
 
@@ -62,6 +67,13 @@ describe('parseFeeRateInput', () => {
   it('empty is null', () => {
     expect(parseFeeRateInput('  ')).toEqual({ ok: true, bp: null });
   });
+  it('ignores trailing zeros in the decimal part but still rejects a real third decimal', () => {
+    expect(parseFeeRateInput('1.850')).toEqual({ ok: true, bp: 185 });
+    expect(parseFeeRateInput('1.8500')).toEqual({ ok: true, bp: 185 });
+    expect(parseFeeRateInput('2.000')).toEqual({ ok: true, bp: 200 });
+    expect(parseFeeRateInput('1.851')).toEqual({ ok: false, error: 'too_many_decimals' });
+    expect(parseFeeRateInput('1.8501')).toEqual({ ok: false, error: 'too_many_decimals' });
+  });
   it('rejects bad text, third decimal, and over 100', () => {
     expect(parseFeeRateInput('abc')).toEqual({ ok: false, error: 'invalid' });
     expect(parseFeeRateInput('-1')).toEqual({ ok: false, error: 'invalid' });
@@ -79,5 +91,171 @@ describe('formatFeeRateBp', () => {
     expect(formatFeeRateBp(7)).toBe('0.07');
     expect(formatFeeRateBp(10_000)).toBe('100');
     expect(formatFeeRateBp(0)).toBe('0');
+  });
+});
+
+describe('isCashOutTransfer and canHaveDefaultFee', () => {
+  it('is only mobile wallet to cash', () => {
+    expect(isCashOutTransfer({ kind: 'mobile_wallet' }, { kind: 'cash' })).toBe(true);
+    expect(isCashOutTransfer({ kind: 'mobile_wallet' }, { kind: 'bank' })).toBe(false);
+    expect(isCashOutTransfer({ kind: 'mobile_wallet' }, { kind: 'credit_card' })).toBe(false);
+    expect(isCashOutTransfer({ kind: 'mobile_wallet' }, { kind: 'mobile_wallet' })).toBe(false);
+    expect(isCashOutTransfer({ kind: 'bank' }, { kind: 'cash' })).toBe(false);
+    expect(isCashOutTransfer({ kind: 'cash' }, { kind: 'cash' })).toBe(false);
+    expect(isCashOutTransfer(null, { kind: 'cash' })).toBe(false);
+    expect(isCashOutTransfer({ kind: 'mobile_wallet' }, undefined)).toBe(false);
+  });
+  it('only mobile wallets can carry a rate', () => {
+    expect(canHaveDefaultFee('mobile_wallet')).toBe(true);
+    expect(canHaveDefaultFee('cash')).toBe(false);
+    expect(canHaveDefaultFee('bank')).toBe(false);
+    expect(canHaveDefaultFee('credit_card')).toBe(false);
+  });
+});
+
+describe('resolveTransferFee', () => {
+  const bkash = { kind: 'mobile_wallet' as const, defaultFeeBp: 185 };
+  const cash = { kind: 'cash' as const };
+  const bank = { kind: 'bank' as const };
+
+  it('untouched cash-out shows the default and marks it as default', () => {
+    expect(resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE })).toEqual({
+      feeMinor: 1_850,
+      fromDefault: true,
+      text: '18.5',
+      valid: true,
+      defaultBp: 185,
+    });
+  });
+  it('untouched follows the amount', () => {
+    const r = resolveTransferFee({ from: bkash, to: cash, amountMinor: 1_000_000, state: UNTOUCHED_FEE });
+    expect(r.feeMinor).toBe(18_500);
+    expect(r.text).toBe('185');
+  });
+  it('no default for a bank, card, another mobile wallet, a zero or missing rate', () => {
+    for (const to of [bank, { kind: 'credit_card' as const }, { kind: 'mobile_wallet' as const }]) {
+      const r = resolveTransferFee({ from: bkash, to, amountMinor: 100_000, state: UNTOUCHED_FEE });
+      expect(r).toMatchObject({ feeMinor: 0, fromDefault: false, text: '', defaultBp: null });
+    }
+    expect(
+      resolveTransferFee({ from: { kind: 'mobile_wallet', defaultFeeBp: 0 }, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE })
+    ).toMatchObject({ feeMinor: 0, defaultBp: null });
+    expect(
+      resolveTransferFee({ from: { kind: 'mobile_wallet' }, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE })
+    ).toMatchObject({ feeMinor: 0, defaultBp: null });
+    expect(
+      resolveTransferFee({ from: { kind: 'bank', defaultFeeBp: 185 }, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE })
+    ).toMatchObject({ feeMinor: 0, defaultBp: null });
+  });
+  it('typed text wins and is never overwritten by a changed amount', () => {
+    const a = resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state: feeStateFromText('20') });
+    const b = resolveTransferFee({ from: bkash, to: cash, amountMinor: 9_999_900, state: feeStateFromText('20') });
+    expect(a).toMatchObject({ feeMinor: 2_000, fromDefault: false, text: '20', valid: true, defaultBp: 185 });
+    expect(b.feeMinor).toBe(2_000);
+  });
+  it('cleared stays empty and means no fee even when a default applies', () => {
+    const state = feeStateFromText('  ');
+    expect(state).toEqual({ mode: 'cleared' });
+    expect(resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state })).toEqual({
+      feeMinor: 0,
+      fromDefault: false,
+      text: '',
+      valid: true,
+      defaultBp: 185,
+    });
+  });
+  it('invalid typed text is flagged and saves no fee', () => {
+    expect(resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state: feeStateFromText('12..5') })).toMatchObject({
+      feeMinor: 0,
+      valid: false,
+    });
+  });
+  it('allowDefault false never applies the default and hides the rate', () => {
+    expect(
+      resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE, allowDefault: false })
+    ).toMatchObject({ feeMinor: 0, fromDefault: false, text: '', defaultBp: null });
+  });
+});
+
+describe('isCashOutTransfer and canHaveDefaultFee', () => {
+  it('is only mobile wallet to cash', () => {
+    expect(isCashOutTransfer({ kind: 'mobile_wallet' }, { kind: 'cash' })).toBe(true);
+    expect(isCashOutTransfer({ kind: 'mobile_wallet' }, { kind: 'bank' })).toBe(false);
+    expect(isCashOutTransfer({ kind: 'mobile_wallet' }, { kind: 'credit_card' })).toBe(false);
+    expect(isCashOutTransfer({ kind: 'mobile_wallet' }, { kind: 'mobile_wallet' })).toBe(false);
+    expect(isCashOutTransfer({ kind: 'bank' }, { kind: 'cash' })).toBe(false);
+    expect(isCashOutTransfer({ kind: 'cash' }, { kind: 'cash' })).toBe(false);
+    expect(isCashOutTransfer(null, { kind: 'cash' })).toBe(false);
+    expect(isCashOutTransfer({ kind: 'mobile_wallet' }, undefined)).toBe(false);
+  });
+  it('only mobile wallets can carry a rate', () => {
+    expect(canHaveDefaultFee('mobile_wallet')).toBe(true);
+    expect(canHaveDefaultFee('cash')).toBe(false);
+    expect(canHaveDefaultFee('bank')).toBe(false);
+    expect(canHaveDefaultFee('credit_card')).toBe(false);
+  });
+});
+
+describe('resolveTransferFee', () => {
+  const bkash = { kind: 'mobile_wallet' as const, defaultFeeBp: 185 };
+  const cash = { kind: 'cash' as const };
+  const bank = { kind: 'bank' as const };
+
+  it('untouched cash-out shows the default and marks it as default', () => {
+    expect(resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE })).toEqual({
+      feeMinor: 1_850,
+      fromDefault: true,
+      text: '18.5',
+      valid: true,
+      defaultBp: 185,
+    });
+  });
+  it('untouched follows the amount', () => {
+    const r = resolveTransferFee({ from: bkash, to: cash, amountMinor: 1_000_000, state: UNTOUCHED_FEE });
+    expect(r.feeMinor).toBe(18_500);
+    expect(r.text).toBe('185');
+  });
+  it('no default for a bank, card, another mobile wallet, a zero or missing rate', () => {
+    for (const to of [bank, { kind: 'credit_card' as const }, { kind: 'mobile_wallet' as const }]) {
+      const r = resolveTransferFee({ from: bkash, to, amountMinor: 100_000, state: UNTOUCHED_FEE });
+      expect(r).toMatchObject({ feeMinor: 0, fromDefault: false, text: '', defaultBp: null });
+    }
+    expect(
+      resolveTransferFee({ from: { kind: 'mobile_wallet', defaultFeeBp: 0 }, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE })
+    ).toMatchObject({ feeMinor: 0, defaultBp: null });
+    expect(
+      resolveTransferFee({ from: { kind: 'mobile_wallet' }, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE })
+    ).toMatchObject({ feeMinor: 0, defaultBp: null });
+    expect(
+      resolveTransferFee({ from: { kind: 'bank', defaultFeeBp: 185 }, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE })
+    ).toMatchObject({ feeMinor: 0, defaultBp: null });
+  });
+  it('typed text wins and is never overwritten by a changed amount', () => {
+    const a = resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state: feeStateFromText('20') });
+    const b = resolveTransferFee({ from: bkash, to: cash, amountMinor: 9_999_900, state: feeStateFromText('20') });
+    expect(a).toMatchObject({ feeMinor: 2_000, fromDefault: false, text: '20', valid: true, defaultBp: 185 });
+    expect(b.feeMinor).toBe(2_000);
+  });
+  it('cleared stays empty and means no fee even when a default applies', () => {
+    const state = feeStateFromText('  ');
+    expect(state).toEqual({ mode: 'cleared' });
+    expect(resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state })).toEqual({
+      feeMinor: 0,
+      fromDefault: false,
+      text: '',
+      valid: true,
+      defaultBp: 185,
+    });
+  });
+  it('invalid typed text is flagged and saves no fee', () => {
+    expect(resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state: feeStateFromText('12..5') })).toMatchObject({
+      feeMinor: 0,
+      valid: false,
+    });
+  });
+  it('allowDefault false never applies the default and hides the rate', () => {
+    expect(
+      resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE, allowDefault: false })
+    ).toMatchObject({ feeMinor: 0, fromDefault: false, text: '', defaultBp: null });
   });
 });

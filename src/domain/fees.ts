@@ -1,4 +1,5 @@
-import { normalizeDigits } from './money';
+import { formatMinorToDraft, normalizeDigits, parseNonNegativeMoneyInput } from './money';
+import type { AccountKind } from './types';
 
 /** A fee rate is stored as basis points of a percent with two exact decimals: 1.85% = 185. */
 export const MAX_FEE_RATE_BP = 10_000; // 100.00%
@@ -29,7 +30,8 @@ export function parseFeeRateInput(raw: string): FeeRateParseResult {
 
   const dot = text.indexOf('.');
   const wholeRaw = dot === -1 ? text : text.slice(0, dot);
-  const fracRaw = dot === -1 ? '' : text.slice(dot + 1);
+  // Trailing zeros carry no value: "1.850" is 1.85, but "1.851" has a third real decimal.
+  const fracRaw = dot === -1 ? '' : text.slice(dot + 1).replace(/0+$/, '');
   if (fracRaw.length > 2) return { ok: false, error: 'too_many_decimals' };
 
   const whole = wholeRaw.replace(/^0+/, '') || '0';
@@ -62,4 +64,97 @@ export function feeMinorFromRate(amountMinor: number, rateBp: number | null | un
   if (!isValidFeeRateBp(rateBp)) return 0;
   const scaled = amountMinor * rateBp + BP_DENOMINATOR / 2;
   return (scaled - (scaled % BP_DENOMINATOR)) / BP_DENOMINATOR;
+}
+
+/** Minimal wallet shape the fee rules need. */
+export interface FeeWallet {
+  kind: AccountKind;
+  defaultFeeBp?: number | null;
+}
+
+/** Wallet kinds that can carry a default fee rate: only mobile wallets charge a cash-out fee. */
+export function canHaveDefaultFee(kind: AccountKind): boolean {
+  return kind === 'mobile_wallet';
+}
+
+/**
+ * The one definition of a cash-out: money leaves a mobile wallet and lands in a cash wallet.
+ * Drives the "Cash-out fee?" badge, the "Cash out" wording and the default fee pre-fill.
+ */
+export function isCashOutTransfer(
+  from: Pick<FeeWallet, 'kind'> | null | undefined,
+  to: Pick<FeeWallet, 'kind'> | null | undefined
+): boolean {
+  return from != null && to != null && canHaveDefaultFee(from.kind) && to.kind === 'cash';
+}
+
+/**
+ * What the user has done to the fee field of a transfer:
+ * untouched shows the wallet default when one applies, typed keeps their text, cleared means no fee.
+ */
+export type FeeEntryState =
+  | { mode: 'untouched' }
+  | { mode: 'typed'; text: string }
+  | { mode: 'cleared' };
+
+export const UNTOUCHED_FEE: FeeEntryState = { mode: 'untouched' };
+
+/** Typing text is "typed"; erasing it to nothing is "cleared" (a deliberate no-fee). */
+export function feeStateFromText(text: string): FeeEntryState {
+  return text.trim().length === 0 ? { mode: 'cleared' } : { mode: 'typed', text };
+}
+
+export interface TransferFeeInput {
+  from: FeeWallet | null | undefined;
+  to: Pick<FeeWallet, 'kind'> | null | undefined;
+  amountMinor: number;
+  state: FeeEntryState;
+  /** False when editing a saved transfer: the stored fee is the only truth, the default never applies. */
+  allowDefault?: boolean;
+}
+
+export interface TransferFeeResult {
+  /** Fee in minor units to save (0 when empty or the typed text is not a valid amount). */
+  feeMinor: number;
+  /** True when feeMinor came from the wallet default rather than from the user. */
+  fromDefault: boolean;
+  /** The text the fee field should show. */
+  text: string;
+  /** False when typed text is not a valid non-negative amount. */
+  valid: boolean;
+  /** Default rate in basis points that applies to this pair of wallets, else null. */
+  defaultBp: number | null;
+}
+
+/** The single decision for a transfer fee. Every screen that creates or edits a transfer calls it. */
+export function resolveTransferFee(input: TransferFeeInput): TransferFeeResult {
+  const { from, to, amountMinor, state, allowDefault = true } = input;
+  const rate = from?.defaultFeeBp;
+  const defaultBp =
+    allowDefault && isCashOutTransfer(from, to) && rate != null && rate > 0 && isValidFeeRateBp(rate)
+      ? rate
+      : null;
+
+  if (state.mode === 'untouched') {
+    const feeMinor = feeMinorFromRate(amountMinor, defaultBp);
+    return {
+      feeMinor,
+      fromDefault: feeMinor > 0,
+      text: feeMinor > 0 ? formatMinorToDraft(feeMinor) : '',
+      valid: true,
+      defaultBp,
+    };
+  }
+  if (state.mode === 'cleared') {
+    return { feeMinor: 0, fromDefault: false, text: '', valid: true, defaultBp };
+  }
+  const trimmed = state.text.trim();
+  if (trimmed.length === 0) {
+    return { feeMinor: 0, fromDefault: false, text: state.text, valid: true, defaultBp };
+  }
+  const parsed = parseNonNegativeMoneyInput(trimmed);
+  if (!parsed.ok || parsed.minor === null || parsed.minor < 0) {
+    return { feeMinor: 0, fromDefault: false, text: state.text, valid: false, defaultBp };
+  }
+  return { feeMinor: parsed.minor, fromDefault: false, text: state.text, valid: true, defaultBp };
 }

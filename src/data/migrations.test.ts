@@ -597,30 +597,10 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
   it('migrates a populated v6 database to v7 (nullable default_fee_bp) with every wallet and transfer unchanged', async () => {
     const { db, close } = createNodeSqliteAdapter();
     try {
-      await runMigrations(db);
-      // Rebuild accounts in its exact v6 shape (no default_fee_bp), then fill it with rows.
-      await db.execAsync(`
-        PRAGMA foreign_keys = OFF;
-        DROP TABLE accounts;
-        CREATE TABLE accounts (
-          id TEXT PRIMARY KEY,
-          name TEXT NOT NULL,
-          kind TEXT NOT NULL CHECK (kind IN ('cash','mobile_wallet','bank','credit_card','dps','fdr','sanchaypatra','investment','other')),
-          provider TEXT,
-          color_key TEXT NOT NULL,
-          monogram TEXT,
-          last4 TEXT,
-          opening_balance_minor INTEGER NOT NULL DEFAULT 0,
-          opening_date TEXT NOT NULL,
-          include_in_total INTEGER NOT NULL DEFAULT 1,
-          sort_order INTEGER NOT NULL DEFAULT 0,
-          archived_at INTEGER,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        );
-        PRAGMA foreign_keys = ON;
-        PRAGMA user_version = 6;
-      `);
+      // The real migration chain, stopped at version 6 (the v7 step has not run).
+      await runMigrations(db, 6);
+      const v6 = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+      expect(v6?.user_version).toBe(6);
       const before = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accounts)');
       expect(before.some((c) => c.name === 'default_fee_bp')).toBe(false);
 

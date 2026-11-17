@@ -80,7 +80,14 @@ export async function seedDefaultCategoriesSqlite(
   }
 }
 
-export async function runMigrations(db: SQLiteDatabase): Promise<void> {
+/**
+ * Runs every pending migration step. `targetVersion` exists only so tests can stop the real
+ * chain at an older schema version; the app always calls this with no argument.
+ */
+export async function runMigrations(
+  db: SQLiteDatabase,
+  targetVersion: number = LATEST_SCHEMA_VERSION
+): Promise<void> {
   await db.execAsync('PRAGMA foreign_keys = ON;');
   try {
     await db.execAsync('PRAGMA journal_mode = WAL;');
@@ -91,11 +98,11 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
   const row = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
   let version = row?.user_version ?? 0;
 
-  if (version >= LATEST_SCHEMA_VERSION) {
+  if (version >= targetVersion) {
     return;
   }
 
-  if (version < 1) {
+  if (version < 1 && targetVersion >= 1) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(SCHEMA_V1_SQL);
       await db.execAsync('PRAGMA user_version = 1;');
@@ -103,7 +110,7 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
     version = 1;
   }
 
-  if (version < 2) {
+  if (version < 2 && targetVersion >= 2) {
     await db.withTransactionAsync(async () => {
       const columns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(categories)');
       const hasColorKey = columns.some((c) => c.name === 'color_key');
@@ -132,7 +139,7 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
     version = 2;
   }
 
-  if (version < 3) {
+  if (version < 3 && targetVersion >= 3) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS accounts (
@@ -205,7 +212,7 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
     version = 3;
   }
 
-  if (version < 4) {
+  if (version < 4 && targetVersion >= 4) {
     await db.withTransactionAsync(async () => {
       await db.execAsync(`
         CREATE TABLE IF NOT EXISTS people (
@@ -239,7 +246,7 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
     version = 4;
   }
 
-  if (version < 5) {
+  if (version < 5 && targetVersion >= 5) {
     await db.execAsync('PRAGMA foreign_keys = OFF;');
     try {
       await db.withTransactionAsync(async () => {
@@ -351,7 +358,7 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
     version = 5;
   }
 
-  if (version < 6) {
+  if (version < 6 && targetVersion >= 6) {
     // Additive only: one nullable column, no table rebuild.
     await db.withTransactionAsync(async () => {
       const dueCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(due_entries)');
@@ -363,7 +370,7 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
     version = 6;
   }
 
-  if (version < 7) {
+  if (version < 7 && targetVersion >= 7) {
     // Additive only: one nullable column holding the default transfer fee in basis points of a percent.
     await db.withTransactionAsync(async () => {
       const accCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accounts)');

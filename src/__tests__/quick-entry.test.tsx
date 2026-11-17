@@ -151,3 +151,125 @@ describe('QuickEntryScreen', () => {
     }
   });
 });
+
+describe('QuickEntryScreen transfer fee default', () => {
+  beforeEach(() => {
+    mockBack.mockClear();
+    mockPush.mockClear();
+    mockReplace.mockClear();
+  });
+
+  async function setupRepoWithRate(rateBp: number | null) {
+    const repo = new MemoryRepo();
+    for (const cat of buildDefaultCategories(1)) {
+      await repo.upsertCategory(cat);
+    }
+    await repo.insertAccount({
+      id: 'acc_cash',
+      name: 'Cash',
+      kind: 'cash',
+      colorKey: '#123227',
+      openingBalanceMinor: 100_000,
+      openingDate: '2026-11-10',
+    });
+    await repo.insertAccount({
+      id: 'acc_bkash',
+      name: 'bKash',
+      kind: 'mobile_wallet',
+      provider: 'bkash',
+      colorKey: '#E2136E',
+      defaultFeeBp: rateBp,
+      openingBalanceMinor: 500_000,
+      openingDate: '2026-11-10',
+    });
+    await repo.insertAccount({
+      id: 'acc_bank',
+      name: 'City Bank',
+      kind: 'bank',
+      colorKey: '#1D4ED8',
+      openingBalanceMinor: 500_000,
+      openingDate: '2026-11-10',
+    });
+    return repo;
+  }
+
+  async function parseCashOut(repo: MemoryRepo) {
+    const view = await renderWithProviders(repo);
+    await waitFor(() => expect(view.getByTestId('quick-entry-input')).toBeTruthy());
+    await fireEvent.changeText(view.getByTestId('quick-entry-input'), 'cash out 500 bkash');
+    await fireEvent.press(view.getByTestId('quick-entry-parse-btn'));
+    expect(view.getByTestId('quick-draft-fee-0')).toBeTruthy();
+    return view;
+  }
+
+  it('pre-fills the cash-out fee, keeps a typed fee, keeps a cleared fee, and offers the way back', async () => {
+    const repo = await setupRepoWithRate(185);
+    const view = await parseCashOut(repo);
+
+    // Untouched: the default shows with its source caption, and no way-back button yet.
+    expect(view.getByTestId('quick-draft-fee-0').props.value).toBe('9.25');
+    expect(view.getByTestId('quick-draft-fee-source-0')).toBeTruthy();
+    expect(view.queryByTestId('quick-draft-fee-use-default-0')).toBeNull();
+
+    // Untouched follows the amount.
+    await fireEvent.changeText(view.getByTestId('quick-draft-amount-0'), '1000');
+    expect(view.getByTestId('quick-draft-fee-0').props.value).toBe('18.5');
+
+    // Typed: never overwritten when the amount changes.
+    await fireEvent.changeText(view.getByTestId('quick-draft-fee-0'), '20');
+    await fireEvent.changeText(view.getByTestId('quick-draft-amount-0'), '2000');
+    expect(view.getByTestId('quick-draft-fee-0').props.value).toBe('20');
+    expect(view.queryByTestId('quick-draft-fee-source-0')).toBeNull();
+    const useDefault = view.getByTestId('quick-draft-fee-use-default-0');
+    expect(useDefault.props.accessibilityRole).toBe('button');
+    expect(useDefault.props.accessibilityLabel).toBe('Use 1.85% default');
+
+    // Cleared: stays empty after an amount change and saves no fee.
+    await fireEvent.changeText(view.getByTestId('quick-draft-fee-0'), '');
+    await fireEvent.changeText(view.getByTestId('quick-draft-amount-0'), '3000');
+    expect(view.getByTestId('quick-draft-fee-0').props.value).toBe('');
+    expect(view.getByTestId('quick-draft-fee-use-default-0')).toBeTruthy();
+
+    await fireEvent.press(view.getByTestId('quick-entry-confirm-btn'));
+    await waitFor(async () => {
+      const transfers = await repo.listTransfers();
+      expect(transfers).toHaveLength(1);
+      expect(transfers[0].amountMinor).toBe(300_000);
+      expect(transfers[0].feeMinor).toBe(0);
+    });
+  });
+
+  it('way-back button restores the default and the saved fee is the default', async () => {
+    const repo = await setupRepoWithRate(185);
+    const view = await parseCashOut(repo);
+
+    await fireEvent.changeText(view.getByTestId('quick-draft-fee-0'), '');
+    expect(view.getByTestId('quick-draft-fee-0').props.value).toBe('');
+    await fireEvent.press(view.getByTestId('quick-draft-fee-use-default-0'));
+    expect(view.getByTestId('quick-draft-fee-0').props.value).toBe('9.25');
+    expect(view.queryByTestId('quick-draft-fee-use-default-0')).toBeNull();
+
+    await fireEvent.press(view.getByTestId('quick-entry-confirm-btn'));
+    await waitFor(async () => {
+      const transfers = await repo.listTransfers();
+      expect(transfers).toHaveLength(1);
+      expect(transfers[0].feeMinor).toBe(925);
+    });
+  });
+
+  it('gives no pre-fill when the destination is a bank, and none without a rate', async () => {
+    const repo = await setupRepoWithRate(185);
+    const view = await parseCashOut(repo);
+    expect(view.getByTestId('quick-draft-fee-0').props.value).toBe('9.25');
+
+    await fireEvent.press(view.getByTestId('quick-draft-0-to-wallet-acc_bank'));
+    expect(view.getByTestId('quick-draft-fee-0').props.value).toBe('');
+    expect(view.queryByTestId('quick-draft-fee-source-0')).toBeNull();
+    expect(view.queryByTestId('quick-draft-fee-use-default-0')).toBeNull();
+
+    const repo2 = await setupRepoWithRate(null);
+    const view2 = await parseCashOut(repo2);
+    expect(view2.getByTestId('quick-draft-fee-0').props.value).toBe('');
+    expect(view2.queryByTestId('quick-draft-fee-source-0')).toBeNull();
+  });
+});

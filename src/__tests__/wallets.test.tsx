@@ -190,4 +190,25 @@ describe('ManageWalletsScreen and WalletEditorSheet', () => {
     await fireEvent.press(view.getByTestId('wallet-negative-toggle'));
     expect(view.getByText('জমা ব্যালেন্স (+)')).toBeTruthy();
   });
+
+  it('shows the default fee field only for mobile wallets, with the cash-out only helper line', async () => {
+    const repo = await setupWalletsRepo();
+    const view = await renderWalletsScreen(repo);
+    await waitFor(() => {
+      expect(view.getByText('Cash')).toBeTruthy();
+    });
+
+    await fireEvent.press(view.getByTestId('wallet-edit-acc_card'));
+    await waitFor(() => {
+      expect(view.getByTestId('wallet-editor-sheet')).toBeTruthy();
+    });
+    expect(view.queryByTestId('wallet-default-fee-input')).toBeNull();
+
+    await fireEvent.press(view.getByText('Mobile'));
+    expect(view.getByTestId('wallet-default-fee-input')).toBeTruthy();
+    expect(view.getByText(t('wallets.defaultFeeHint'))).toBeTruthy();
+
+    await fireEvent.press(view.getByText('Bank'));
+    expect(view.queryByTestId('wallet-default-fee-input')).toBeNull();
+  });
 });

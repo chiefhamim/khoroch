@@ -14,11 +14,13 @@ import {
   todayLocalDate,
 } from '@/domain/dates';
 import {
-  formatMinorToDraft,
-  getCurrencySymbol,
-  parseMoneyInput,
-  parseNonNegativeMoneyInput,
-} from '@/domain/money';
+  UNTOUCHED_FEE,
+  feeStateFromText,
+  formatFeeRateBp,
+  resolveTransferFee,
+  type FeeEntryState,
+} from '@/domain/fees';
+import { formatMinorToDraft, getCurrencySymbol, parseMoneyInput } from '@/domain/money';
 import type { Account, Category, DueKind, LocalDate, TransactionType } from '@/domain/types';
 import {
   MAX_DESCRIPTION_LENGTH,
@@ -68,7 +70,7 @@ interface EditableDraft {
   accountId: string | null;
   fromAccountId: string | null;
   toAccountId: string | null;
-  feeText: string;
+  feeState: FeeEntryState;
   asksFee: boolean;
   dueKind: DueKind;
   personId: string | null;
@@ -233,7 +235,7 @@ export default function QuickEntryScreen() {
           accountId: item.accountId ?? null,
           fromAccountId: item.fromAccountId ?? accounts[0]?.id ?? null,
           toAccountId: item.toAccountId ?? accounts[1]?.id ?? null,
-          feeText: item.asksFee ? '0' : '',
+          feeState: UNTOUCHED_FEE,
           asksFee: Boolean(item.asksFee),
           dueKind: item.dueKind ?? 'lent',
           personId: item.personId ?? null,
@@ -366,15 +368,17 @@ export default function QuickEntryScreen() {
           setSaveError(t('quickEntry.fixErrorsBeforeSave'));
           return;
         }
-        const cleanFee = d.feeText.trim();
-        if (cleanFee.length > 0) {
-          const parsedFee = parseNonNegativeMoneyInput(cleanFee);
-          if (!parsedFee.ok || parsedFee.minor === null || parsedFee.minor < 0) {
-            setSaveError(t('quickEntry.fixErrorsBeforeSave'));
-            return;
-          }
-          feeMinor = parsedFee.minor;
+        const resolvedFee = resolveTransferFee({
+          from: accounts.find((a) => a.id === d.fromAccountId),
+          to: accounts.find((a) => a.id === d.toAccountId),
+          amountMinor: validAmt,
+          state: d.feeState,
+        });
+        if (!resolvedFee.valid) {
+          setSaveError(t('quickEntry.fixErrorsBeforeSave'));
+          return;
         }
+        feeMinor = resolvedFee.feeMinor;
       }
 
       if (d.draftKind === 'due' && !d.personId && !d.personName.trim()) {
@@ -622,13 +626,13 @@ export default function QuickEntryScreen() {
                   (!draft.fromAccountId ||
                     !draft.toAccountId ||
                     draft.fromAccountId === draft.toAccountId);
-                const cleanFee = draft.feeText.trim();
-                const parsedFee =
-                  cleanFee.length > 0 ? parseNonNegativeMoneyInput(cleanFee) : null;
-                const invalidFee =
-                  draft.draftKind === 'transfer' &&
-                  cleanFee.length > 0 &&
-                  (!parsedFee || !parsedFee.ok || parsedFee.minor === null || parsedFee.minor < 0);
+                const draftFee = resolveTransferFee({
+                  from: accounts.find((a) => a.id === draft.fromAccountId),
+                  to: accounts.find((a) => a.id === draft.toAccountId),
+                  amountMinor: parsedMoney.ok && parsedMoney.minor !== null ? parsedMoney.minor : 0,
+                  state: draft.feeState,
+                });
+                const invalidFee = draft.draftKind === 'transfer' && !draftFee.valid;
                 const invalidPerson =
                   draft.draftKind === 'due' && !draft.personId && !draft.personName.trim();
                 const selectedCategory = catsForType.find((c) => c.id === draft.categoryId);
@@ -905,13 +909,56 @@ export default function QuickEntryScreen() {
                           label={`${t('quickEntry.feeLabel')} (${currencySymbol})`}
                           placeholder="0"
                           keyboardType="decimal-pad"
-                          value={draft.feeText}
+                          value={draftFee.text}
                           error={saveAttempted && invalidFee ? t('quickEntry.needsFee') : null}
                           errorTestID={`quick-draft-needs-fee-${idx}`}
                           onChangeText={(txt) =>
-                            updateDraft(draft.id, (prev) => ({ ...prev, feeText: txt }))
+                            updateDraft(draft.id, (prev) => ({
+                              ...prev,
+                              feeState: feeStateFromText(txt),
+                            }))
                           }
                         />
+
+                        {draftFee.fromDefault && draftFee.defaultBp !== null ? (
+                          <AppText
+                            testID={`quick-draft-fee-source-${idx}`}
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            {t('transfer.feeFromDefault', {
+                              rate: formatFeeRateBp(draftFee.defaultBp),
+                              wallet:
+                                accounts.find((a) => a.id === draft.fromAccountId)?.name ?? '',
+                            })}
+                          </AppText>
+                        ) : null}
+
+                        {draftFee.defaultBp !== null && draft.feeState.mode !== 'untouched' ? (
+                          <PressableScale
+                            pressScale={0.98}
+                            testID={`quick-draft-fee-use-default-${idx}`}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('transfer.useDefaultFee', {
+                              rate: formatFeeRateBp(draftFee.defaultBp),
+                            })}
+                            onPress={() => {
+                              hapticSelection();
+                              updateDraft(draft.id, (prev) => ({ ...prev, feeState: UNTOUCHED_FEE }));
+                            }}
+                            style={{
+                              minHeight: theme.touch.min,
+                              justifyContent: 'center',
+                              alignSelf: 'flex-start',
+                            }}
+                          >
+                            <AppText variant="label" color="accent">
+                              {t('transfer.useDefaultFee', {
+                                rate: formatFeeRateBp(draftFee.defaultBp),
+                              })}
+                            </AppText>
+                          </PressableScale>
+                        ) : null}
                       </View>
                     ) : null}
 

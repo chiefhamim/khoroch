@@ -19,6 +19,7 @@ import Animated, {
   type SharedValue,
 } from 'react-native-reanimated';
 import { formatWalletSubtitle } from '@/domain/accounts';
+import { isCashOutTransfer } from '@/domain/fees';
 import {
   addDays,
   formatFriendlyDate,
@@ -1004,8 +1005,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
               const toAcc = accountsById.get(tr.toAccountId);
               const fromName = fromAcc?.name ?? t('tx.walletLabel');
               const toName = toAcc?.name ?? t('tx.walletLabel');
-              const isCashOut =
-                fromAcc?.kind === 'mobile_wallet' && toAcc?.kind === 'cash';
+              const isCashOut = isCashOutTransfer(fromAcc, toAcc);
 
               const subParts: string[] = [];
               if (tr.feeMinor > 0) {

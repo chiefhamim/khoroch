@@ -13,14 +13,20 @@ import {
   isValidLocalDate,
   todayLocalDate,
 } from '@/domain/dates';
-import { feeMinorFromRate, formatFeeRateBp } from '@/domain/fees';
+import {
+  UNTOUCHED_FEE,
+  feeStateFromText,
+  formatFeeRateBp,
+  isCashOutTransfer,
+  resolveTransferFee,
+  type FeeEntryState,
+} from '@/domain/fees';
 import {
   formatMinorToDraft,
   formatMoney,
   getCurrencySymbol,
   groupThousands,
   parseMoneyInput,
-  parseNonNegativeMoneyInput,
 } from '@/domain/money';
 import type {
   Account,
@@ -602,13 +608,15 @@ function LegacyTransactionForm({
         : activeAccounts[0]?.id ?? null);
     return activeAccounts.find((a) => a.id !== initFrom)?.id ?? null;
   });
-  const [feeText, setFeeText] = useState<string>(() =>
-    initialTransferValues?.feeMinor && initialTransferValues.feeMinor > 0
-      ? formatMinorToDraft(initialTransferValues.feeMinor)
-      : ''
-  );
-  // True once the user has typed a fee (or opened a saved transfer); false falls back to the wallet default.
-  const [feeEdited, setFeeEdited] = useState<boolean>(() => isEditing);
+  // Three explicit states: untouched (wallet default may show), typed, cleared (no fee).
+  // A saved transfer always starts typed or cleared, so the default can never overwrite its fee.
+  const [feeState, setFeeState] = useState<FeeEntryState>(() => {
+    const initialFee = initialTransferValues?.feeMinor;
+    if (initialFee !== undefined && initialFee > 0) {
+      return { mode: 'typed', text: formatMinorToDraft(initialFee) };
+    }
+    return isEditing ? { mode: 'cleared' } : UNTOUCHED_FEE;
+  });
 
   const [description, setDescription] = useState<string>(initialValues?.description ?? '');
   const [note, setNote] = useState<string>(
@@ -694,29 +702,17 @@ function LegacyTransactionForm({
   const fromAccount = fromAccountId ? accountsMap.get(fromAccountId) ?? null : null;
   const toAccount = toAccountId ? accountsMap.get(toAccountId) ?? null : null;
 
-  // Default fee: pre-fill from the source wallet's rate until the user types a fee by hand.
-  const defaultFeeBp =
-    isTransferMode && fromAccount?.defaultFeeBp != null && fromAccount.defaultFeeBp > 0
-      ? fromAccount.defaultFeeBp
-      : null;
-  const autoFeeMinor = feeMinorFromRate(validAmountMinor ?? 0, defaultFeeBp);
-  const feeIsAuto = defaultFeeBp !== null && !feeEdited;
-  const shownFeeText = feeIsAuto ? (autoFeeMinor > 0 ? formatMinorToDraft(autoFeeMinor) : '') : feeText;
-
-  const feeTrimmed = shownFeeText.trim();
-  const parsedFee = useMemo(
-    () => (feeTrimmed.length > 0 ? parseNonNegativeMoneyInput(feeTrimmed) : null),
-    [feeTrimmed]
-  );
-  const feeMinorValid =
-    feeTrimmed.length === 0 ||
-    (parsedFee !== null && parsedFee.ok && parsedFee.minor !== null && parsedFee.minor >= 0);
-  const validFeeMinor =
-    feeTrimmed.length === 0
-      ? 0
-      : parsedFee && parsedFee.ok && parsedFee.minor !== null
-        ? parsedFee.minor
-        : 0;
+  // One shared decision for the fee: default, typed or cleared. Editing never applies the default.
+  const fee = resolveTransferFee({
+    from: fromAccount,
+    to: toAccount,
+    amountMinor: validAmountMinor ?? 0,
+    state: feeState,
+    allowDefault: !isEditing,
+  });
+  const shownFeeText = fee.text;
+  const feeMinorValid = fee.valid;
+  const validFeeMinor = fee.feeMinor;
 
   const canSave = isTransferMode
     ? validAmountMinor !== null &&
@@ -864,6 +860,12 @@ function LegacyTransactionForm({
     if (isTransferMode) {
       if (isEditing) return submitLabel ?? t('transfer.updateCta');
       const amountStr = formatMoney(validAmountMinor ?? 0, currency);
+      if (validFeeMinor > 0) {
+        return t('transfer.saveWithFeeCta', {
+          amount: amountStr,
+          fee: formatMoney(validFeeMinor, currency),
+        });
+      }
       return t('transfer.saveCta', { amount: amountStr });
     }
     if (submitLabel) return submitLabel;
@@ -879,10 +881,7 @@ function LegacyTransactionForm({
     return txType === 'income' ? t('tx.saveIncomeCta') : t('tx.saveExpenseCta');
   })();
 
-  const showCashOutFeeHint =
-    isTransferMode &&
-    fromAccount?.kind === 'mobile_wallet' &&
-    toAccount?.kind === 'cash';
+  const showCashOutFeeHint = isTransferMode && isCashOutTransfer(fromAccount, toAccount);
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.bg }]}>
@@ -1184,8 +1183,7 @@ function LegacyTransactionForm({
                   testID="transfer-fee-input"
                   value={shownFeeText}
                   onChangeText={(next) => {
-                    setFeeText(next);
-                    setFeeEdited(next.trim().length > 0);
+                    setFeeState(feeStateFromText(next));
                     if (errorMsg) setErrorMsg(null);
                   }}
                   placeholder={t('transfer.feePlaceholder')}
@@ -1214,7 +1212,7 @@ function LegacyTransactionForm({
               </View>
             </View>
 
-            {feeIsAuto && autoFeeMinor > 0 && defaultFeeBp !== null ? (
+            {fee.fromDefault && fee.defaultBp !== null ? (
               <AppText
                 testID="transfer-fee-source"
                 variant="caption"
@@ -1225,10 +1223,35 @@ function LegacyTransactionForm({
                 }}
               >
                 {t('transfer.feeFromDefault', {
-                  rate: formatFeeRateBp(defaultFeeBp),
+                  rate: formatFeeRateBp(fee.defaultBp),
                   wallet: fromAccount?.name ?? '',
                 })}
               </AppText>
+            ) : null}
+
+            {!isEditing && fee.defaultBp !== null && feeState.mode !== 'untouched' ? (
+              <PressableScale
+                pressScale={0.98}
+                testID="transfer-fee-use-default"
+                accessibilityRole="button"
+                accessibilityLabel={t('transfer.useDefaultFee', {
+                  rate: formatFeeRateBp(fee.defaultBp),
+                })}
+                onPress={() => {
+                  hapticSelection();
+                  dismissTextInputs();
+                  setFeeState(UNTOUCHED_FEE);
+                }}
+                style={{
+                  minHeight: theme.touch.min,
+                  justifyContent: 'center',
+                  paddingHorizontal: theme.spacing.md,
+                }}
+              >
+                <AppText variant="label" color="accent">
+                  {t('transfer.useDefaultFee', { rate: formatFeeRateBp(fee.defaultBp) })}
+                </AppText>
+              </PressableScale>
             ) : null}
 
             <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />

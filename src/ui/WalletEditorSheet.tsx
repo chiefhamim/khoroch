@@ -7,7 +7,7 @@ import {
   type WalletPresetKey,
 } from '@/domain/accounts';
 import { todayLocalDate } from '@/domain/dates';
-import { formatFeeRateBp, parseFeeRateInput } from '@/domain/fees';
+import { canHaveDefaultFee, formatFeeRateBp, parseFeeRateInput } from '@/domain/fees';
 import { CURRENCIES as CURRENCY_META, formatMoney, parseMoneyInput } from '@/domain/money';
 import type { Account, AccountKind, CurrencyCode, LocalDate } from '@/domain/types';
 import { t, useLocale, type TranslationKey } from '@/i18n';
@@ -140,7 +140,8 @@ function WalletEditorDialog({
       return;
     }
 
-    const parsedFeeRate = parseFeeRateInput(feeRateText);
+    // The rate only means something for wallet kinds that can charge a cash-out fee.
+    const parsedFeeRate = canHaveDefaultFee(kind) ? parseFeeRateInput(feeRateText) : { ok: true as const, bp: null };
     if (!parsedFeeRate.ok) {
       setErrorMsg(t('wallets.errorDefaultFee'));
       return;
@@ -467,23 +468,25 @@ function WalletEditorDialog({
         />
       ) : null}
 
-      <View style={{ gap: theme.spacing.xs }}>
-        <Field
-          testID="wallet-default-fee-input"
-          label={t('wallets.defaultFeeLabel')}
-          value={feeRateText}
-          onChangeText={(next) => {
-            setFeeRateText(next);
-            if (errorMsg) setErrorMsg(null);
-          }}
-          placeholder={t('wallets.defaultFeePlaceholder')}
-          keyboardType="decimal-pad"
-          maxLength={6}
-        />
-        <AppText variant="caption" color="textSecondary">
-          {t('wallets.defaultFeeHint')}
-        </AppText>
-      </View>
+      {canHaveDefaultFee(kind) ? (
+        <View style={{ gap: theme.spacing.xs }}>
+          <Field
+            testID="wallet-default-fee-input"
+            label={t('wallets.defaultFeeLabel')}
+            value={feeRateText}
+            onChangeText={(next) => {
+              setFeeRateText(next);
+              if (errorMsg) setErrorMsg(null);
+            }}
+            placeholder={t('wallets.defaultFeePlaceholder')}
+            keyboardType="decimal-pad"
+            maxLength={6}
+          />
+          <AppText variant="caption" color="textSecondary">
+            {t('wallets.defaultFeeHint')}
+          </AppText>
+        </View>
+      ) : null}
 
       <View
         style={[
