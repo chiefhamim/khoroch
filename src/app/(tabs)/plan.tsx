@@ -42,6 +42,12 @@ import { Surface } from '@/ui/Surface';
 import { useToast } from '@/ui/Toast';
 import { PressableScale } from '@/ui/PressableScale';
 
+const RING_SIZE = 196;
+const RING_STROKE = 12;
+/** ProgressRing pads its centre content by stroke + 6 on each side (see ProgressRing). */
+const RING_INNER_WIDTH = RING_SIZE - 2 * (RING_STROKE + 6);
+const RING_AMOUNT_VARIANTS = ['display', 'title', 'headline'] as const;
+
 type SheetMode =
   | { kind: 'overall' }
   | { kind: 'addCategory' }
@@ -273,8 +279,8 @@ export default function PlanScreen() {
           <>
             <ProgressRing
               testID="budget-overall-ring"
-              size={196}
-              strokeWidth={12}
+              size={RING_SIZE}
+              strokeWidth={RING_STROKE}
               pct={
                 overallSummary.utilizationPct === null
                   ? null
@@ -286,12 +292,13 @@ export default function PlanScreen() {
             >
               <Money
                 testID="budget-ring-remaining"
-                variant={Math.abs(overallSummary.remainingMinor) >= 10_000_000 ? 'title' : 'display'}
+                variant="display"
+                fitVariants={RING_AMOUNT_VARIANTS}
+                fitWidth={RING_INNER_WIDTH}
                 amountMinor={Math.abs(overallSummary.remainingMinor)}
                 currency={settings.currency}
                 color={isNegativeRemaining ? 'danger' : 'text'}
                 allowCompact
-                numberOfLines={1}
               />
               {(() => {
                 const ringCaption = `${isNegativeRemaining ? t('budget.overSuffix') : t('budget.leftSuffix')} · ${formatUtilizationPct(Math.abs(100 - (overallSummary.utilizationPct ?? 0)))}`;

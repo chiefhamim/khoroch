@@ -1,12 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Text, View, type StyleProp, type TextStyle } from 'react-native';
-import {
-  getCompactNumberPart,
-  getCurrencySymbol,
-  groupThousands,
-  HIDDEN_AMOUNT_TEXT,
-  roundMinorToWhole,
-} from '@/domain/money';
+import { fitMoney, formatNumberPart } from '@/domain/fitMoney';
+import { getCurrencySymbol, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
 import type { CurrencyCode } from '@/domain/types';
 import { useLocale } from '@/i18n';
 import { toBnDigits } from '@/i18n/displayText';
@@ -19,8 +14,6 @@ import {
   type TypographyVariant,
 } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
-
-const SHRINK_MIN_FONT_SCALE = 0.5;
 
 export interface MoneyProps {
   amountMinor: number;
@@ -40,8 +33,13 @@ export interface MoneyProps {
   animate?: boolean;
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
-  /** Shrinks the text to fit its column instead of clipping the amount (needs a single line). */
-  shrinkToFit?: boolean;
+  /**
+   * Available width in dp. When set, Money picks the first of `fitVariants` whose estimated width
+   * fits, and switches to compact numbers if none does (see `src/domain/fitMoney.ts`). Renders on one line.
+   */
+  fitWidth?: number;
+  /** Candidate type variants, largest first. Defaults to `[variant]`. Never goes below the label size. */
+  fitVariants?: readonly TypographyVariant[];
   accessibilityLabel?: string;
   testID?: string;
 }
@@ -125,7 +123,8 @@ export function Money({
   animate,
   style,
   numberOfLines,
-  shrinkToFit = false,
+  fitWidth,
+  fitVariants,
   accessibilityLabel,
   testID,
 }: MoneyProps) {
@@ -190,28 +189,20 @@ export function Money({
   }, [amountMinor, shouldAnimate, theme.motion.countMs]);
 
   const effectiveMinor = shouldAnimate ? animatedMinor : amountMinor;
-
-  const typeStyle = theme.typography[variant];
-  const flattened = Array.isArray(style)
-    ? Object.assign({}, ...style.filter(Boolean))
-    : ((style as TextStyle | undefined) ?? {});
-  const mainFontSize = flattened.fontSize ?? typeStyle.fontSize;
-
   const resolvedMainColor = theme.colors[color];
   const resolvedSymbolColor =
     symbolColor !== undefined ? theme.colors[symbolColor] : resolvedMainColor;
 
   if (resolvedHidden) {
+    const hiddenStyle = theme.typography[variant];
     return (
       <Text
         testID={testID}
-        numberOfLines={shrinkToFit ? 1 : numberOfLines}
-        adjustsFontSizeToFit={shrinkToFit}
-        minimumFontScale={shrinkToFit ? SHRINK_MIN_FONT_SCALE : undefined}
-        ellipsizeMode={numberOfLines !== undefined ? 'clip' : undefined}
+        numberOfLines={fitWidth !== undefined ? 1 : numberOfLines}
+        ellipsizeMode="clip"
         accessibilityLabel={accessibilityLabel ?? HIDDEN_AMOUNT_TEXT}
         style={[
-          typeStyle,
+          hiddenStyle,
           {
             color: resolvedMainColor,
             fontVariant: ['tabular-nums'],
@@ -224,27 +215,17 @@ export function Money({
     );
   }
 
-  const normalizedMinor = roundToWhole
-    ? roundMinorToWhole(effectiveMinor)
-    : Math.trunc(effectiveMinor);
-  const isNegative = normalizedMinor < 0;
-  const absMinor = Math.abs(normalizedMinor);
-
-  let numberPart: string;
-  if (resolvedCompact) {
-    numberPart = getCompactNumberPart(normalizedMinor).numberPart;
-  } else {
-    const frac = absMinor % 100;
-    const whole = (absMinor - frac) / 100;
-    const wholeStr = groupThousands(String(whole));
-    const includeDecimals = frac !== 0 || resolvedShowDecimals;
-    numberPart = includeDecimals
-      ? `${wholeStr}.${String(frac).padStart(2, '0')}`
-      : wholeStr;
-  }
-
   const symbol = getCurrencySymbol(currency);
-  const resolvedSign =
+  const partOptions = {
+    compact: resolvedCompact,
+    showDecimals: resolvedShowDecimals,
+    roundToWhole,
+  };
+
+  // The exact amount (as the user's own compact setting would show it) drives the accessibility
+  // label and the fit decision, so neither flickers during count-up or changes when Money shrinks.
+  const target = formatNumberPart(amountMinor, partOptions);
+  const signFor = (isNegative: boolean) =>
     prefix === '-'
       ? '−'
       : prefix.length > 0
@@ -252,28 +233,39 @@ export function Money({
         : showSign === 'auto' && isNegative
           ? '−'
           : '';
+  const targetSign = signFor(target.isNegative);
 
-  // Compute exact accessibility label from target amountMinor
-  const targetNormalized = roundToWhole ? roundMinorToWhole(amountMinor) : Math.trunc(amountMinor);
-  const targetAbs = Math.abs(targetNormalized);
-  const targetNumberPart = resolvedCompact
-    ? getCompactNumberPart(targetNormalized).numberPart
-    : (() => {
-        const frac = targetAbs % 100;
-        const wholeStr = groupThousands(String((targetAbs - frac) / 100));
-        return frac !== 0 || resolvedShowDecimals
-          ? `${wholeStr}.${String(frac).padStart(2, '0')}`
-          : wholeStr;
-      })();
-  const targetSign =
-    prefix === '-'
-      ? '−'
-      : prefix.length > 0
-        ? prefix
-        : showSign === 'auto' && targetNormalized < 0
-          ? '−'
-          : '';
-  const formattedPlain = `${targetSign}${symbol}${targetNumberPart}`;
+  const fit =
+    fitWidth !== undefined
+      ? fitMoney({
+          amountMinor,
+          availableWidth: fitWidth,
+          variants: (fitVariants && fitVariants.length > 0 ? fitVariants : [variant]).map((key) => ({
+            key,
+            fontSize: theme.typography[key].fontSize,
+          })),
+          bangla: locale === 'bn',
+          hasSign: targetSign.length > 0,
+          symbolChars: symbol.length,
+          ...partOptions,
+        })
+      : null;
+
+  const chosenVariant = fit ? fit.variant : variant;
+  const typeStyle = theme.typography[chosenVariant];
+  const flattened = Array.isArray(style)
+    ? Object.assign({}, ...style.filter(Boolean))
+    : ((style as TextStyle | undefined) ?? {});
+  const mainFontSize = flattened.fontSize ?? typeStyle.fontSize;
+
+  const shown = formatNumberPart(effectiveMinor, {
+    ...partOptions,
+    compact: fit ? fit.compact : resolvedCompact,
+  });
+  const numberPart = shown.numberPart;
+  const resolvedSign = signFor(shown.isNegative);
+
+  const formattedPlain = `${targetSign}${symbol}${target.numberPart}`;
   const computedA11y =
     accessibilityLabel ??
     (targetSign && !formattedPlain.startsWith(targetSign)
@@ -285,10 +277,8 @@ export function Money({
   return (
     <Text
       testID={testID}
-      numberOfLines={shrinkToFit ? 1 : numberOfLines}
-      adjustsFontSizeToFit={shrinkToFit}
-      minimumFontScale={shrinkToFit ? SHRINK_MIN_FONT_SCALE : undefined}
-      ellipsizeMode={numberOfLines !== undefined ? 'clip' : undefined}
+      numberOfLines={fitWidth !== undefined ? 1 : numberOfLines}
+      ellipsizeMode="clip"
       accessibilityLabel={computedA11y}
       style={[
         typeStyle,

@@ -3,11 +3,15 @@ import { StyleSheet, View } from 'react-native';
 import { TAKA_FONT_FAMILY } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
+import { Money } from './Money';
 
 /** Illustration sizes; decorative only, so they live here rather than in the global scale. */
 const COIN = 120;
 const COIN_RING_INSET = 8;
 const DOT = 8;
+/** Sample amounts for the illustration, in integer minor units (poisha). */
+const SAMPLE_INCOME_MINOR = 50_000;
+const SAMPLE_EXPENSE_MINOR = 12_000;
 
 /** A calm flat illustration: an accent taka coin on a soft card with two plain amount pills. */
 export function CoinScene({ height = 270 }: { height?: number }) {
@@ -60,9 +64,14 @@ export function CoinScene({ height = 270 }: { height?: number }) {
         ]}
       >
         <View style={[styles.dot, { backgroundColor: colors.income }]} />
-        <AppText variant="label" tabularNums>
-          {'+৳ 500'}
-        </AppText>
+        <Money
+          amountMinor={SAMPLE_INCOME_MINOR}
+          currency="BDT"
+          variant="label"
+          prefix="+"
+          animate={false}
+          hidden={false}
+        />
       </View>
       <View
         style={[
@@ -80,9 +89,14 @@ export function CoinScene({ height = 270 }: { height?: number }) {
         ]}
       >
         <View style={[styles.dot, { backgroundColor: colors.expense }]} />
-        <AppText variant="label" tabularNums>
-          {'−৳ 120'}
-        </AppText>
+        <Money
+          amountMinor={SAMPLE_EXPENSE_MINOR}
+          currency="BDT"
+          variant="label"
+          prefix="-"
+          animate={false}
+          hidden={false}
+        />
       </View>
     </View>
   );
@@ -93,7 +107,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   coin: {
     width: COIN,
@@ -107,8 +121,7 @@ const styles = StyleSheet.create({
     width: COIN - COIN_RING_INSET * 2,
     height: COIN - COIN_RING_INSET * 2,
     borderRadius: (COIN - COIN_RING_INSET * 2) / 2,
-    borderWidth: 1,
-    opacity: 0.5,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   glyph: {
     includeFontPadding: false,
@@ -117,7 +130,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   dot: { width: DOT, height: DOT, borderRadius: DOT / 2 },
 });

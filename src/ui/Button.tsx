@@ -29,8 +29,6 @@ function estimateBanglaCtaMinWidth(title: string, fontSize: number): number | un
 export interface ButtonProps {
   title: string;
   onPress: () => void;
-  /** Overrides the primary fill colour (used by onboarding steps). */
-  tint?: string;
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'dangerSoft';
   size?: 'md' | 'sm';
   leftIcon?: AppIconName;
@@ -48,7 +46,6 @@ export function Button({
   title,
   onPress,
   variant = 'primary',
-  tint,
   size = 'md',
   leftIcon,
   rightIcon,
@@ -70,7 +67,7 @@ export function Button({
     isDisabled && isFilled
       ? theme.colors.surfaceSunken
       : variant === 'primary'
-        ? tint ?? theme.colors.accent
+        ? theme.colors.accent
         : variant === 'secondary'
           ? glass
             ? glassFill(theme.colors).fill

@@ -140,6 +140,7 @@ export function SpendingChart({
   const granularity = controlledGranularity ?? internalGranularity;
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [plotWidth, setPlotWidth] = useState(280);
+  const [statsWidth, setStatsWidth] = useState(0);
 
   const setGranularity = (next: ChartGranularity) => {
     setSelectedIndex(null);
@@ -269,6 +270,20 @@ export function SpendingChart({
     }
   };
 
+  const handleStatsLayout = (e: LayoutChangeEvent) => {
+    const w = Math.floor(e.nativeEvent.layout.width);
+    if (w > 0 && w !== statsWidth) setStatsWidth(w);
+  };
+
+  // Bars with any activity. Zero or one entry is a Total-only state with no chart (UI-FOUNDATION 6).
+  const activeBarCount = bars.filter(
+    (b) => b.spentMinor > 0 || (granularity === 'monthly' && (b.incomeMinor ?? 0) > 0)
+  ).length;
+  const showChart = activeBarCount >= 2;
+  const showTiles = activeBarCount >= 2 && stats.total > 0;
+  // Each tile is half the row minus the inner gutter that the divider tile adds.
+  const tileFitWidth = statsWidth > 0 ? Math.floor(statsWidth / 2 - theme.spacing.md) : undefined;
+
   const count = Math.max(1, bars.length);
   const slotWidth = plotWidth / count;
   const gapRatio = count > 14 ? 0.34 : 0.4;
@@ -292,8 +307,8 @@ export function SpendingChart({
         </View>
       ) : null}
 
-      {stats.total > 0 ? (
-        <View style={{ gap: theme.spacing.md }}>
+      {(
+        <View style={{ gap: theme.spacing.md }} onLayout={handleStatsLayout}>
           <View style={{ gap: theme.spacing.sm }}>
             <AppText variant="label" color="textSecondary" numberOfLines={1} ellipsizeMode="clip">
               {t('overview.chartTotal')}
@@ -301,14 +316,22 @@ export function SpendingChart({
             <Money
               amountMinor={stats.total}
               currency={currency}
-              variant="title"
+              variant="headline"
               allowCompact
-              shrinkToFit
+              fitWidth={statsWidth > 0 ? statsWidth : undefined}
               hidden={hideAmounts}
               animate={false}
             />
+            {activeBarCount < 2 ? (
+              <AppText variant="caption" color="textSecondary">
+                {t(activeBarCount === 0 ? 'overview.chartNoEntries' : 'overview.chartFirstEntry')}
+              </AppText>
+            ) : null}
           </View>
-          <View style={[styles.statDivider, { backgroundColor: theme.colors.separator }]} />
+          {showTiles ? (
+            <View style={[styles.statDivider, { backgroundColor: theme.colors.separator }]} />
+          ) : null}
+          {showTiles ? (
           <View style={styles.statRow}>
             {[
               {
@@ -352,7 +375,7 @@ export function SpendingChart({
                   currency={currency}
                   variant="headline"
                   allowCompact
-                  shrinkToFit
+                  fitWidth={tileFitWidth}
                   hidden={hideAmounts}
                   animate={false}
                 />
@@ -364,10 +387,11 @@ export function SpendingChart({
               </View>
             ))}
           </View>
+          ) : null}
         </View>
-      ) : null}
+      )}
 
-      {activeBar ? (
+      {!showChart ? null : activeBar ? (
         <View
           style={[
             styles.tooltipBar,
@@ -414,6 +438,7 @@ export function SpendingChart({
         </View>
       ) : null}
 
+      {showChart ? (
       <View onLayout={handleLayout} style={styles.svgContainer}>
         <Svg
           width={plotWidth}
@@ -619,6 +644,7 @@ export function SpendingChart({
           ))}
         </View>
       </View>
+      ) : null}
     </Surface>
   );
 }

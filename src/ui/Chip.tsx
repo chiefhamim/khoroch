@@ -33,24 +33,21 @@ export function Chip({
 }: ChipProps) {
   const { theme, reducedMotion } = useTheme();
   const glass = useGlass();
-  const tint = glass?.tint ?? null;
   const g = glassFill(theme.colors);
 
   const backgroundColor = selected
-    ? tint
-      ? `${tint}29`
-      : theme.colors.accentSoft
+    ? theme.colors.accentSoft
     : variant === 'sunken'
       ? theme.colors.surfaceSunken
       : glass
         ? g.fill
         : theme.colors.surface;
 
-  const borderColor = selected ? (tint ?? theme.colors.accent) : glass ? g.rim : 'transparent';
+  const borderColor = selected ? theme.colors.accent : glass ? g.rim : 'transparent';
   const elevationStyle =
     !selected && variant === 'surface' ? theme.elevation.e1 : theme.elevation.none;
 
-  const fgColor = selected ? (tint ?? theme.colors.accent) : theme.colors.text;
+  const fgColor = selected ? theme.colors.accent : theme.colors.text;
 
   return (
     <PressableScale

@@ -473,6 +473,8 @@ export const en = {
   'overview.chartAvgMonth': 'Avg / month',
   'overview.chartPeak': 'Highest',
   'overview.chartNoData': 'No spending recorded in this period yet.',
+  'overview.chartNoEntries': 'No entries yet',
+  'overview.chartFirstEntry': 'First entry',
   'overview.chartWeekLabel': 'Wk {week}',
   'overview.breakdownTitle': 'Spending by category',
   'overview.breakdownOtherGroup': 'Other categories',
@@ -1048,6 +1050,16 @@ export const en = {
   'onboarding.presetEveryday': 'Cash + bKash + Bank',
   'onboarding.presetComplete': 'Cash + bKash + Nagad + Bank + DPS',
   'fast.captureShortcut': 'Paste / Scan',
+  'fast.repeatLabel': 'Repeat',
+  'fast.repeatChipA11y': 'Repeat {amount} for {category}',
+  'fast.presetsLabel': 'Quick amounts',
+  'fast.presetA11y': 'Use {amount}',
+  'fast.presetHint': 'Press and hold an amount to remove it',
+  'fast.pinAmount': 'Pin amount',
+  'fast.pinAmountA11y': 'Pin {amount} as a quick amount',
+  'fast.removePresetTitle': 'Remove quick amount',
+  'fast.removePresetBody': 'Remove {amount} from your quick amounts?',
+  'fast.removePreset': 'Remove',
 } as const;
 
 export type TranslationKey = keyof typeof en;
