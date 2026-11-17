@@ -481,6 +481,85 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('pre-fills the fee from the source wallet default rate until the user edits it', async () => {
+    const categories = buildDefaultCategories(1700000000000);
+    const base = {
+      last4: null,
+      openingBalanceMinor: 0,
+      openingDate: '2026-11-10',
+      includeInTotal: true,
+      archivedAt: null,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const accounts: Account[] = [
+      {
+        ...base,
+        id: 'acc_bkash',
+        name: 'bKash',
+        kind: 'mobile_wallet',
+        provider: 'bkash',
+        colorKey: '#E2136E',
+        monogram: 'bK',
+        defaultFeeBp: 185,
+        sortOrder: 0,
+      },
+      {
+        ...base,
+        id: 'acc_cash',
+        name: 'Cash',
+        kind: 'cash',
+        provider: null,
+        colorKey: '#123227',
+        monogram: null,
+        sortOrder: 1,
+      },
+    ];
+    const onSubmitTransfer = jest.fn(async () => {});
+
+    const view = await render(
+      <ThemeProvider preference="light">
+        <TransactionForm
+          currency="BDT"
+          categories={categories}
+          accounts={accounts}
+          defaultAccountId="acc_bkash"
+          onSubmit={jest.fn(async () => {})}
+          onSubmitTransfer={onSubmitTransfer}
+        />
+      </ThemeProvider>
+    );
+
+    await fireEvent.press(view.getByText('Transfer'));
+    expect(view.getByTestId('transfer-fee-input').props.value).toBe('');
+
+    await fireEvent.press(view.getByTestId('tx-keypad-key-1'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+    expect(view.getByTestId('transfer-fee-input').props.value).toBe('18.5');
+    expect(view.getByText('1.85% default for bKash')).toBeTruthy();
+
+    // The pre-fill follows the amount.
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+    expect(view.getByTestId('transfer-fee-input').props.value).toBe('185');
+
+    // A hand-typed fee stops the updates.
+    await fireEvent.changeText(view.getByTestId('transfer-fee-input'), '20');
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+    expect(view.getByTestId('transfer-fee-input').props.value).toBe('20');
+    expect(view.queryByTestId('transfer-fee-source')).toBeNull();
+    await fireEvent.press(view.getByTestId('save-tx-button'));
+    await waitFor(() => expect(onSubmitTransfer).toHaveBeenCalledTimes(1));
+    expect(onSubmitTransfer).toHaveBeenCalledWith(
+      expect.objectContaining({ amountMinor: 10_000_000, feeMinor: 2_000 })
+    );
+
+    // Clearing the field returns to the pre-fill.
+    await fireEvent.changeText(view.getByTestId('transfer-fee-input'), '');
+    expect(view.getByTestId('transfer-fee-input').props.value).toBe('1850');
+  });
+
   it('keeps Delete visible with transfer-fee-input focus and confirms soft delete in EditTransferScreen', async () => {
     const repo = new MemoryRepo();
     await repo.insertAccount({

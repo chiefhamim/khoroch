@@ -384,6 +384,7 @@ export class MemoryRepo implements Repo {
       colorKey: a.colorKey.trim(),
       monogram: a.monogram !== undefined && a.monogram !== null ? a.monogram.trim() || null : null,
       last4: a.last4 ?? null,
+      defaultFeeBp: a.defaultFeeBp ?? null,
       openingBalanceMinor: a.openingBalanceMinor ?? 0,
       openingDate: a.openingDate,
       includeInTotal: a.includeInTotal ?? true,

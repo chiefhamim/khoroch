@@ -1,4 +1,5 @@
 import { isValidLocalDate } from './dates';
+import { isValidFeeRateBp } from './fees';
 import { MAX_AMOUNT_MINOR } from './money';
 import {
   ACCOUNT_KINDS,
@@ -173,6 +174,7 @@ export function validateAccountInput(acc: {
   colorKey: unknown;
   monogram?: unknown;
   last4?: unknown;
+  defaultFeeBp?: unknown;
   openingBalanceMinor?: unknown;
   openingDate: unknown;
 }): ValidationResult {
@@ -216,6 +218,13 @@ export function validateAccountInput(acc: {
     (typeof acc.last4 !== 'string' || !/^\d{4}$/.test(acc.last4))
   ) {
     errors.push('invalid_last4');
+  }
+  if (
+    acc.defaultFeeBp !== undefined &&
+    acc.defaultFeeBp !== null &&
+    !isValidFeeRateBp(acc.defaultFeeBp)
+  ) {
+    errors.push('invalid_default_fee');
   }
   const openingBal = acc.openingBalanceMinor ?? 0;
   if (

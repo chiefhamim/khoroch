@@ -13,6 +13,7 @@ import {
   isValidLocalDate,
   todayLocalDate,
 } from '@/domain/dates';
+import { feeMinorFromRate, formatFeeRateBp } from '@/domain/fees';
 import {
   formatMinorToDraft,
   formatMoney,
@@ -606,6 +607,8 @@ function LegacyTransactionForm({
       ? formatMinorToDraft(initialTransferValues.feeMinor)
       : ''
   );
+  // True once the user has typed a fee (or opened a saved transfer); false falls back to the wallet default.
+  const [feeEdited, setFeeEdited] = useState<boolean>(() => isEditing);
 
   const [description, setDescription] = useState<string>(initialValues?.description ?? '');
   const [note, setNote] = useState<string>(
@@ -687,7 +690,20 @@ function LegacyTransactionForm({
       ? parsedAmount.minor
       : null;
 
-  const feeTrimmed = feeText.trim();
+  const selectedAccount = accountId ? accountsMap.get(accountId) ?? null : null;
+  const fromAccount = fromAccountId ? accountsMap.get(fromAccountId) ?? null : null;
+  const toAccount = toAccountId ? accountsMap.get(toAccountId) ?? null : null;
+
+  // Default fee: pre-fill from the source wallet's rate until the user types a fee by hand.
+  const defaultFeeBp =
+    isTransferMode && fromAccount?.defaultFeeBp != null && fromAccount.defaultFeeBp > 0
+      ? fromAccount.defaultFeeBp
+      : null;
+  const autoFeeMinor = feeMinorFromRate(validAmountMinor ?? 0, defaultFeeBp);
+  const feeIsAuto = defaultFeeBp !== null && !feeEdited;
+  const shownFeeText = feeIsAuto ? (autoFeeMinor > 0 ? formatMinorToDraft(autoFeeMinor) : '') : feeText;
+
+  const feeTrimmed = shownFeeText.trim();
   const parsedFee = useMemo(
     () => (feeTrimmed.length > 0 ? parseNonNegativeMoneyInput(feeTrimmed) : null),
     [feeTrimmed]
@@ -701,10 +717,6 @@ function LegacyTransactionForm({
       : parsedFee && parsedFee.ok && parsedFee.minor !== null
         ? parsedFee.minor
         : 0;
-
-  const selectedAccount = accountId ? accountsMap.get(accountId) ?? null : null;
-  const fromAccount = fromAccountId ? accountsMap.get(fromAccountId) ?? null : null;
-  const toAccount = toAccountId ? accountsMap.get(toAccountId) ?? null : null;
 
   const canSave = isTransferMode
     ? validAmountMinor !== null &&
@@ -1170,9 +1182,10 @@ function LegacyTransactionForm({
                 <TextInput
                   ref={feeRef}
                   testID="transfer-fee-input"
-                  value={feeText}
+                  value={shownFeeText}
                   onChangeText={(next) => {
                     setFeeText(next);
+                    setFeeEdited(next.trim().length > 0);
                     if (errorMsg) setErrorMsg(null);
                   }}
                   placeholder={t('transfer.feePlaceholder')}
@@ -1187,7 +1200,7 @@ function LegacyTransactionForm({
                     {
                       color: feeMinorValid ? theme.colors.text : theme.colors.danger,
                       fontFamily:
-                        locale === 'bn' || containsBengali(feeText)
+                        locale === 'bn' || containsBengali(shownFeeText)
                           ? mapFontToBangla(
                               theme.typography.bodyStrong.fontFamily,
                               undefined,
@@ -1200,6 +1213,23 @@ function LegacyTransactionForm({
                 />
               </View>
             </View>
+
+            {feeIsAuto && autoFeeMinor > 0 && defaultFeeBp !== null ? (
+              <AppText
+                testID="transfer-fee-source"
+                variant="caption"
+                color="textSecondary"
+                style={{
+                  paddingHorizontal: theme.spacing.md,
+                  paddingBottom: theme.spacing.xs,
+                }}
+              >
+                {t('transfer.feeFromDefault', {
+                  rate: formatFeeRateBp(defaultFeeBp),
+                  wallet: fromAccount?.name ?? '',
+                })}
+              </AppText>
+            ) : null}
 
             <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />
 

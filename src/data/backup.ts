@@ -52,7 +52,7 @@ import type { BackupDataSnapshot, Repo } from './repo';
 
 export const BACKUP_APP_ID = 'khoroch';
 const ACCEPTED_BACKUP_APP_IDS: ReadonlySet<string> = new Set([BACKUP_APP_ID, 'budget-app', 'lenden']);
-export const BACKUP_SCHEMA_VERSION = 6;
+export const BACKUP_SCHEMA_VERSION = 7;
 export const MAX_BACKUP_BYTES = 20 * 1024 * 1024; // 20 MB
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
@@ -207,6 +207,7 @@ export async function exportBackupPayload(
         colorKey: a.colorKey,
         monogram: a.monogram,
         last4: a.last4,
+        defaultFeeBp: a.defaultFeeBp ?? null,
         openingBalanceMinor: a.openingBalanceMinor,
         openingDate: a.openingDate,
         includeInTotal: Boolean(a.includeInTotal),
@@ -379,6 +380,7 @@ function validateAccountRow(raw: unknown, index: number): Account {
     colorKey: obj.colorKey,
     monogram: obj.monogram,
     last4: obj.last4,
+    defaultFeeBp: obj.defaultFeeBp,
     openingBalanceMinor: obj.openingBalanceMinor ?? 0,
     openingDate: obj.openingDate,
   });
@@ -409,6 +411,7 @@ function validateAccountRow(raw: unknown, index: number): Account {
         ? (obj.monogram as string).trim() || null
         : null,
     last4: (obj.last4 ?? null) as string | null,
+    defaultFeeBp: (obj.defaultFeeBp ?? null) as number | null,
     openingBalanceMinor: (obj.openingBalanceMinor ?? 0) as number,
     openingDate: obj.openingDate as LocalDate,
     includeInTotal: obj.includeInTotal,

@@ -207,7 +207,7 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
 
       const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
       expect(ver?.user_version).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(6);
+      expect(LATEST_SCHEMA_VERSION).toBe(7);
 
       const colsAfter = await db.getAllAsync<{ name: string }>('PRAGMA table_info(categories)');
       expect(colsAfter.some((c) => c.name === 'color_key')).toBe(true);
@@ -561,7 +561,7 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
       await runMigrations(db); // idempotent
 
       const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-      expect(ver?.user_version).toBe(6);
+      expect(ver?.user_version).toBe(7);
 
       const cols = await db.getAllAsync<{ name: string; type: string; notnull: number }>(
         'PRAGMA table_info(due_entries)'
@@ -589,6 +589,90 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
       expect((await repo.getDueEntry('d-1'))?.amountMinor).toBe(200_000);
       await repo.updateDueEntry('d-1', { dueOn: null });
       expect((await repo.getDueEntry('d-1'))?.dueOn).toBeNull();
+    } finally {
+      close();
+    }
+  });
+
+  it('migrates a populated v6 database to v7 (nullable default_fee_bp) with every wallet and transfer unchanged', async () => {
+    const { db, close } = createNodeSqliteAdapter();
+    try {
+      await runMigrations(db);
+      // Rebuild accounts in its exact v6 shape (no default_fee_bp), then fill it with rows.
+      await db.execAsync(`
+        PRAGMA foreign_keys = OFF;
+        DROP TABLE accounts;
+        CREATE TABLE accounts (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          kind TEXT NOT NULL CHECK (kind IN ('cash','mobile_wallet','bank','credit_card','dps','fdr','sanchaypatra','investment','other')),
+          provider TEXT,
+          color_key TEXT NOT NULL,
+          monogram TEXT,
+          last4 TEXT,
+          opening_balance_minor INTEGER NOT NULL DEFAULT 0,
+          opening_date TEXT NOT NULL,
+          include_in_total INTEGER NOT NULL DEFAULT 1,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          archived_at INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        PRAGMA foreign_keys = ON;
+        PRAGMA user_version = 6;
+      `);
+      const before = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accounts)');
+      expect(before.some((c) => c.name === 'default_fee_bp')).toBe(false);
+
+      const accRows: (string | number | null)[][] = [
+        ['cash', 'Cash', 'cash', null, 'cash', null, null, 50_000, '2026-11-01', 1, 0, null, 1700000000000, 1700000000000],
+        ['bkash', 'bKash', 'mobile_wallet', 'bkash', 'bkash', 'bK', null, 100_000, '2026-11-01', 1, 1, null, 1700000001000, 1700000001000],
+      ];
+      for (const r of accRows) {
+        await db.runAsync(
+          `INSERT INTO accounts (id, name, kind, provider, color_key, monogram, last4, opening_balance_minor, opening_date, include_in_total, sort_order, archived_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          r
+        );
+      }
+      await db.runAsync(
+        `INSERT INTO transfers (id, from_account_id, to_account_id, amount_minor, fee_minor, occurred_on, occurred_time, note, created_at, updated_at, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ['tr-1', 'bkash', 'cash', 1_000_000, 18_500, '2026-11-02', null, 'cash out', 1700000002000, 1700000002000, null]
+      );
+      const accBefore = await db.getAllAsync<Record<string, unknown>>('SELECT * FROM accounts ORDER BY id');
+      const trBefore = await db.getAllAsync<Record<string, unknown>>('SELECT * FROM transfers ORDER BY id');
+
+      await runMigrations(db);
+      await runMigrations(db); // idempotent
+
+      const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+      expect(ver?.user_version).toBe(7);
+
+      const cols = await db.getAllAsync<{ name: string; notnull: number }>('PRAGMA table_info(accounts)');
+      const col = cols.find((c) => c.name === 'default_fee_bp');
+      expect(col).toBeDefined();
+      expect(col?.notnull).toBe(0);
+
+      const accAfter = await db.getAllAsync<Record<string, unknown>>('SELECT * FROM accounts ORDER BY id');
+      expect(accAfter).toHaveLength(2);
+      for (let i = 0; i < accBefore.length; i += 1) {
+        const { default_fee_bp: newCol, ...rest } = accAfter[i];
+        expect(newCol).toBeNull(); // nothing is seeded with a rate
+        expect(rest).toEqual(accBefore[i]);
+      }
+      expect(await db.getAllAsync('SELECT * FROM transfers ORDER BY id')).toEqual(trBefore);
+
+      const repo = new SqliteRepo(db);
+      expect((await repo.getAccount('bkash'))?.defaultFeeBp).toBeNull();
+      await repo.updateAccount('bkash', { defaultFeeBp: 185 });
+      expect((await repo.getAccount('bkash'))?.defaultFeeBp).toBe(185);
+      expect((await repo.getAccount('bkash'))?.openingBalanceMinor).toBe(100_000);
+      await repo.updateAccount('bkash', { defaultFeeBp: null });
+      expect((await repo.getAccount('bkash'))?.defaultFeeBp).toBeNull();
+      await expect(repo.updateAccount('bkash', { defaultFeeBp: 10_001 })).rejects.toThrow(
+        /invalid_default_fee/
+      );
     } finally {
       close();
     }

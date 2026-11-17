@@ -350,6 +350,8 @@ export interface Account {
   colorKey: string;
   monogram: string | null;
   last4: string | null;
+  /** Default transfer fee rate in basis points of a percent (185 = 1.85%); null or absent means none. */
+  defaultFeeBp?: number | null;
   openingBalanceMinor: number;
   openingDate: LocalDate;
   includeInTotal: boolean;
@@ -367,6 +369,7 @@ export interface NewAccount {
   colorKey: string;
   monogram?: string | null;
   last4?: string | null;
+  defaultFeeBp?: number | null;
   openingBalanceMinor?: number;
   openingDate: LocalDate;
   includeInTotal?: boolean;
@@ -383,6 +386,7 @@ export interface AccountPatch {
   colorKey?: string;
   monogram?: string | null;
   last4?: string | null;
+  defaultFeeBp?: number | null;
   openingBalanceMinor?: number;
   openingDate?: LocalDate;
   includeInTotal?: boolean;

@@ -90,6 +90,7 @@ interface AccountRow {
   color_key: string;
   monogram: string | null;
   last4: string | null;
+  default_fee_bp: number | null;
   opening_balance_minor: number;
   opening_date: string;
   include_in_total: number;
@@ -255,6 +256,7 @@ function mapAccountRow(row: AccountRow): Account {
     colorKey: row.color_key,
     monogram: row.monogram,
     last4: row.last4,
+    defaultFeeBp: row.default_fee_bp ?? null,
     openingBalanceMinor: row.opening_balance_minor,
     openingDate: row.opening_date,
     includeInTotal: row.include_in_total === 1,
@@ -726,8 +728,8 @@ export class SqliteRepo implements Repo {
     const now = Date.now();
     await this.db.runAsync(
       `INSERT OR IGNORE INTO accounts
-       (id, name, kind, provider, color_key, monogram, last4, opening_balance_minor, opening_date, include_in_total, sort_order, archived_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, kind, provider, color_key, monogram, last4, default_fee_bp, opening_balance_minor, opening_date, include_in_total, sort_order, archived_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         a.id,
         a.name.trim(),
@@ -736,6 +738,7 @@ export class SqliteRepo implements Repo {
         a.colorKey.trim(),
         a.monogram !== undefined && a.monogram !== null ? a.monogram.trim() || null : null,
         a.last4 ?? null,
+        a.defaultFeeBp ?? null,
         a.openingBalanceMinor ?? 0,
         a.openingDate,
         (a.includeInTotal ?? true) ? 1 : 0,
@@ -766,7 +769,7 @@ export class SqliteRepo implements Repo {
     assertValidAccountInput(merged);
     await this.db.runAsync(
       `UPDATE accounts
-       SET name = ?, kind = ?, provider = ?, color_key = ?, monogram = ?, last4 = ?, opening_balance_minor = ?, opening_date = ?, include_in_total = ?, sort_order = ?, archived_at = ?, updated_at = ?
+       SET name = ?, kind = ?, provider = ?, color_key = ?, monogram = ?, last4 = ?, default_fee_bp = ?, opening_balance_minor = ?, opening_date = ?, include_in_total = ?, sort_order = ?, archived_at = ?, updated_at = ?
        WHERE id = ?`,
       [
         merged.name,
@@ -775,6 +778,7 @@ export class SqliteRepo implements Repo {
         merged.colorKey,
         merged.monogram,
         merged.last4,
+        merged.defaultFeeBp ?? null,
         merged.openingBalanceMinor,
         merged.openingDate,
         merged.includeInTotal ? 1 : 0,
@@ -1713,8 +1717,8 @@ export class SqliteRepo implements Repo {
         assertValidAccountInput(acc);
         await this.db.runAsync(
           `INSERT INTO accounts
-           (id, name, kind, provider, color_key, monogram, last4, opening_balance_minor, opening_date, include_in_total, sort_order, archived_at, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, name, kind, provider, color_key, monogram, last4, default_fee_bp, opening_balance_minor, opening_date, include_in_total, sort_order, archived_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             acc.id,
             acc.name.trim(),
@@ -1723,6 +1727,7 @@ export class SqliteRepo implements Repo {
             acc.colorKey.trim(),
             acc.monogram ?? null,
             acc.last4 ?? null,
+            acc.defaultFeeBp ?? null,
             acc.openingBalanceMinor,
             acc.openingDate,
             acc.includeInTotal ? 1 : 0,

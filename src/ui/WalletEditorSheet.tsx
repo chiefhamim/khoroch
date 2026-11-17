@@ -7,6 +7,7 @@ import {
   type WalletPresetKey,
 } from '@/domain/accounts';
 import { todayLocalDate } from '@/domain/dates';
+import { formatFeeRateBp, parseFeeRateInput } from '@/domain/fees';
 import { CURRENCIES as CURRENCY_META, formatMoney, parseMoneyInput } from '@/domain/money';
 import type { Account, AccountKind, CurrencyCode, LocalDate } from '@/domain/types';
 import { t, useLocale, type TranslationKey } from '@/i18n';
@@ -98,6 +99,9 @@ function WalletEditorDialog({
     account ? account.openingDate : today
   );
   const [last4, setLast4] = useState(() => (account?.last4 ?? ''));
+  const [feeRateText, setFeeRateText] = useState(() =>
+    account?.defaultFeeBp != null ? formatFeeRateBp(account.defaultFeeBp) : ''
+  );
   const [includeInTotal, setIncludeInTotal] = useState(() =>
     account ? account.includeInTotal : true
   );
@@ -136,6 +140,13 @@ function WalletEditorDialog({
       return;
     }
 
+    const parsedFeeRate = parseFeeRateInput(feeRateText);
+    if (!parsedFeeRate.ok) {
+      setErrorMsg(t('wallets.errorDefaultFee'));
+      return;
+    }
+    const defaultFeeBp = parsedFeeRate.bp;
+
     const trimmedBal = balanceText.trim();
     let openingMinor = 0;
     if (trimmedBal.length > 0) {
@@ -160,6 +171,7 @@ function WalletEditorDialog({
           colorKey,
           monogram,
           last4: cleanLast4.length === 4 ? cleanLast4 : null,
+          defaultFeeBp,
           openingBalanceMinor: openingMinor,
           openingDate,
           includeInTotal,
@@ -178,6 +190,7 @@ function WalletEditorDialog({
           colorKey,
           monogram,
           last4: cleanLast4.length === 4 ? cleanLast4 : null,
+          defaultFeeBp,
           openingBalanceMinor: openingMinor,
           openingDate,
           includeInTotal,
@@ -453,6 +466,24 @@ function WalletEditorDialog({
           maxLength={4}
         />
       ) : null}
+
+      <View style={{ gap: theme.spacing.xs }}>
+        <Field
+          testID="wallet-default-fee-input"
+          label={t('wallets.defaultFeeLabel')}
+          value={feeRateText}
+          onChangeText={(next) => {
+            setFeeRateText(next);
+            if (errorMsg) setErrorMsg(null);
+          }}
+          placeholder={t('wallets.defaultFeePlaceholder')}
+          keyboardType="decimal-pad"
+          maxLength={6}
+        />
+        <AppText variant="caption" color="textSecondary">
+          {t('wallets.defaultFeeHint')}
+        </AppText>
+      </View>
 
       <View
         style={[

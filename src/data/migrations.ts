@@ -5,7 +5,7 @@ import {
   DEFAULT_CATEGORY_BY_ID,
 } from '@/domain/categories';
 
-export const LATEST_SCHEMA_VERSION = 6;
+export const LATEST_SCHEMA_VERSION = 7;
 
 export const SCHEMA_V1_SQL = `
 CREATE TABLE IF NOT EXISTS categories (
@@ -361,5 +361,19 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       await db.execAsync('PRAGMA user_version = 6;');
     });
     version = 6;
+  }
+
+  if (version < 7) {
+    // Additive only: one nullable column holding the default transfer fee in basis points of a percent.
+    await db.withTransactionAsync(async () => {
+      const accCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(accounts)');
+      if (!accCols.some((c) => c.name === 'default_fee_bp')) {
+        await db.execAsync(
+          'ALTER TABLE accounts ADD COLUMN default_fee_bp INTEGER CHECK (default_fee_bp IS NULL OR (default_fee_bp >= 0 AND default_fee_bp <= 10000));'
+        );
+      }
+      await db.execAsync('PRAGMA user_version = 7;');
+    });
+    version = 7;
   }
 }

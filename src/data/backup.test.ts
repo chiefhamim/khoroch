@@ -460,7 +460,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       delete tx.transferId;
     }
     const migratedV2 = parseAndValidateBackup(JSON.stringify(v2Raw));
-    expect(migratedV2.schema).toBe(6);
+    expect(migratedV2.schema).toBe(7);
     expect(migratedV2.data.accounts).toEqual([]);
     expect(migratedV2.data.transfers).toEqual([]);
     expect(migratedV2.data.people).toEqual([]);
@@ -501,7 +501,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       });
 
     const migratedV1 = parseAndValidateBackup(JSON.stringify(v1Raw));
-    expect(migratedV1.schema).toBe(6);
+    expect(migratedV1.schema).toBe(7);
     expect(migratedV1.data.day_reviews).toEqual([]);
     expect(migratedV1.data.accounts).toEqual([]);
     expect(migratedV1.data.transfers).toEqual([]);
@@ -556,6 +556,47 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       const bad = JSON.parse(json) as { data: { due_entries: Record<string, unknown>[] } };
       bad.data.due_entries[0].dueOn = '2026-13-40';
       expect(() => parseAndValidateBackup(JSON.stringify(bad))).toThrow(/invalid_due_on/);
+    } finally {
+      src.close();
+      dst.close();
+    }
+  });
+
+  it('exports the default fee rate, imports older backups without it as null, and rejects a bad one', async () => {
+    const src = createSqliteHarness();
+    const dst = createSqliteHarness();
+    try {
+      await runMigrations(src.db);
+      await runMigrations(dst.db);
+      await seedComplexState(src.repo);
+      await src.repo.updateAccount('bkash', { defaultFeeBp: 185 });
+
+      const json = await exportBackupJson(src.repo, '2026-11-13T10:00:00.000Z');
+      const parsed = parseAndValidateBackup(json);
+      expect(parsed.schema).toBe(7);
+      expect(parsed.data.accounts.find((a) => a.id === 'bkash')?.defaultFeeBp).toBe(185);
+      expect(parsed.data.accounts.find((a) => a.id === 'cash')?.defaultFeeBp).toBeNull();
+
+      await restoreBackupPayload(dst.repo, parsed);
+      expect((await dst.repo.getAccount('bkash'))?.defaultFeeBp).toBe(185);
+      expect((await dst.repo.getAccount('cash'))?.defaultFeeBp).toBeNull();
+
+      // An older backup (schema 6) has no defaultFeeBp key at all.
+      const old = JSON.parse(json) as {
+        schema: number;
+        data: { accounts: Record<string, unknown>[] };
+      };
+      old.schema = 6;
+      for (const row of old.data.accounts) delete row.defaultFeeBp;
+      const oldParsed = parseAndValidateBackup(JSON.stringify(old));
+      expect(oldParsed.data.accounts.every((a) => a.defaultFeeBp === null)).toBe(true);
+      await restoreBackupPayload(dst.repo, oldParsed);
+      expect((await dst.repo.getAccount('bkash'))?.defaultFeeBp).toBeNull();
+      expect((await dst.repo.getAccount('bkash'))?.openingBalanceMinor).toBe(1_000_000);
+
+      const bad = JSON.parse(json) as { data: { accounts: Record<string, unknown>[] } };
+      bad.data.accounts[0].defaultFeeBp = 12.5;
+      expect(() => parseAndValidateBackup(JSON.stringify(bad))).toThrow(/invalid_default_fee/);
     } finally {
       src.close();
       dst.close();

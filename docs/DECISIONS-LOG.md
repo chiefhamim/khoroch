@@ -152,3 +152,13 @@ Format:
 - If an overpayment flips the balance, the old entries are not open and nothing is overdue.
 - People list caption: overdue amount wins; otherwise "Due today" or "Due in N days" when the next due date is 0 to 7 days away. No dots, badges or new colours: overdue uses the existing `danger` token, the rest `textSecondary`.
 - No notifications in this task.
+
+## Default fee per wallet (schema 7)
+
+- Column `accounts.default_fee_bp INTEGER NULL` with a CHECK of 0 to 10000. Basis points of a percent, two decimals exact (1.85% = 185). Additive `ALTER TABLE ... ADD COLUMN`, guarded by `PRAGMA table_info(accounts)`, one transaction. `LATEST_SCHEMA_VERSION` and `BACKUP_SCHEMA_VERSION` are now 7. No wallet is seeded with a rate. Backups before 7 import with null; a non-integer or out-of-range value is rejected as `invalid_default_fee`.
+- `Account.defaultFeeBp` is optional in the type (null or absent means no default) so existing fixtures and callers keep working.
+- Fee maths in `src/domain/fees.ts`: `fee = round_half_up(amountMinor * rateBp / 10000)`, computed as integer multiply, add 5000, then an exact quotient using the remainder (no float division). 333.33 at 1.85% = 33333 * 185 = 6,166,605, which is 616.66 poisha, so 617 poisha = 6.17. Largest amount times 10000 is about 1e15, below Number.MAX_SAFE_INTEGER. Rate 0 or null, or an amount of 0 or less, gives 0.
+- Rate text parses by digit strings (Latin or Bangla), at most 3 whole digits and 2 decimals, max 100.
+- The field shows on every wallet kind in the editor (it only has an effect on transfers out of that wallet). Empty clears it to null; 0 is stored as 0 and treated as no default.
+- Transfer form: the fee field is derived, not copied. While the user has not typed a fee and the source wallet has a rate above 0, the field shows the computed fee and follows the amount and the source wallet. Typing a non-empty fee sets "edited" and it stops following; clearing the field returns to the pre-fill. Opening a saved transfer starts as edited, so its stored fee is shown as is. The caption "{rate}% default for {wallet}" shows only while the pre-fill is active and above 0. The saved fee is the parsed text shown in the field.
+- Fee text is shown without a trailing zero, as before (`18.5`, `185`).
