@@ -1,4 +1,5 @@
 import { AVATAR_PHOTO_IDS } from './avatarPhotoIds';
+import { MAX_AMOUNT_MINOR } from './money';
 
 export type CurrencyCode = 'BDT' | 'USD' | 'EUR';
 
@@ -512,6 +513,7 @@ function normalizePinnedList(raw: unknown): number[] {
   const out: number[] = [];
   for (const item of raw) {
     if (typeof item !== 'number' || !Number.isSafeInteger(item) || item <= 0) continue;
+    if (item > MAX_AMOUNT_MINOR) continue;
     if (out.includes(item)) continue;
     out.push(item);
     if (out.length === MAX_PINNED_AMOUNTS) break;

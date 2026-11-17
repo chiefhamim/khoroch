@@ -71,7 +71,8 @@ describe('v2 design system components', () => {
     const dec = view.getByTestId('m-dec');
     expect(dec.props.accessibilityLabel).toBe('$1,250.50');
 
-    expect(view.getByTestId('m-compact').props.accessibilityLabel).toBe('৳48.4k');
+    // The screen reader always gets the exact amount, even when the figure on screen is compact.
+    expect(view.getByTestId('m-compact').props.accessibilityLabel).toBe('৳48,350');
     expect(view.getByTestId('m-whole').props.accessibilityLabel).toBe('৳2,488');
     expect(view.getByText('Hidden')).toBeTruthy();
   });

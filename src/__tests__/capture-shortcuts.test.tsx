@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor, within } from '@testing-library/react-native';
 import { buildDefaultCategories } from '@/domain/categories';
 import type { Account, PinnedAmounts, Transaction } from '@/domain/types';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { TransactionForm, type TransactionFormValues } from '@/ui/TransactionForm';
 
@@ -85,13 +86,36 @@ function Harness({
 }
 
 describe('Capture shortcuts on the add-entry screen', () => {
-  it('shows nothing extra without history or pinned amounts', async () => {
+  it('always shows the one shortcuts row with the Quick amounts chip, whatever is typed', async () => {
     const view = await render(
       <Harness onSubmit={jest.fn(async () => {})} recent={[]} initialPinned={{ expense: [], income: [] }} />
     );
-    expect(view.queryByTestId('repeat-chips')).toBeNull();
-    expect(view.queryByTestId('preset-amounts')).toBeNull();
+    expect(view.getByTestId('capture-shortcuts')).toBeTruthy();
+    expect(view.getByTestId('preset-open')).toBeTruthy();
     expect(view.queryByTestId('preset-pin')).toBeNull();
+
+    await fireEvent.press(view.getByTestId('fast-keypad-key-2'));
+    await fireEvent.press(view.getByTestId('fast-keypad-key-5'));
+    expect(view.getAllByTestId('capture-shortcuts')).toHaveLength(1);
+    expect(view.getByTestId('preset-open')).toBeTruthy();
+    // Typing adds no pin button above the keypad: pinning lives in the sheet.
+    expect(view.queryByTestId('preset-pin')).toBeNull();
+  });
+
+  it('keeps amounts readable in the row when the app hides amounts', async () => {
+    await act(async () => usePrivacyStore.setState({ hideAmounts: true }));
+    try {
+      const view = await render(
+        <Harness onSubmit={jest.fn(async () => {})} recent={[lunch]} initialPinned={{ expense: [50_000], income: [] }} />
+      );
+      expect(view.getByTestId('repeat-chip-tx-lunch').props.accessibilityLabel).toContain('350');
+      expect(view.getByTestId('preset-50000').props.accessibilityLabel).toContain('500');
+      // The typed amount hero is hidden app-wide, but the shortcuts row must not be.
+      const row = within(view.getByTestId('capture-shortcuts'));
+      expect(row.queryAllByText('Hidden')).toHaveLength(0);
+    } finally {
+      await act(async () => usePrivacyStore.setState({ hideAmounts: false }));
+    }
   });
 
   it('fills the form from a repeat chip without saving, then saves on Save', async () => {
@@ -121,7 +145,7 @@ describe('Capture shortcuts on the add-entry screen', () => {
     );
   });
 
-  it('sets the amount from a preset, pins the typed amount and removes a preset on long press', async () => {
+  it('sets the amount from a pinned amount chip and saves it', async () => {
     const onSubmit = jest.fn(async () => {});
     const view = await render(
       <Harness onSubmit={onSubmit} recent={[]} initialPinned={{ expense: [50_000], income: [] }} />
@@ -133,22 +157,50 @@ describe('Capture shortcuts on the add-entry screen', () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ amountMinor: 50_000 }));
   });
 
-  it('pins the typed amount and removes it again through the confirmation sheet', async () => {
+  it('disables pinning in the sheet and says why when nothing is typed', async () => {
     const view = await render(
       <Harness onSubmit={jest.fn(async () => {})} recent={[]} initialPinned={{ expense: [], income: [] }} />
     );
-    expect(view.queryByTestId('preset-pin')).toBeNull();
 
+    // Nothing typed: the pin button is disabled and says why.
+    await fireEvent.press(view.getByTestId('preset-open'));
+    expect(view.getByTestId('preset-pin').props.accessibilityState.disabled).toBe(true);
+    expect(view.getByText('Type an amount to pin it')).toBeTruthy();
+  });
+
+  it('pins and removes through the sheet once an amount is typed', async () => {
+    const view = await render(
+      <Harness onSubmit={jest.fn(async () => {})} recent={[]} initialPinned={{ expense: [], income: [] }} />
+    );
     await fireEvent.press(view.getByTestId('fast-keypad-key-2'));
     await fireEvent.press(view.getByTestId('fast-keypad-key-5'));
     await fireEvent.press(view.getByTestId('fast-keypad-key-0'));
+
+    await fireEvent.press(view.getByTestId('preset-open'));
+    expect(view.getByTestId('preset-pin').props.accessibilityState.disabled).toBe(false);
     await fireEvent.press(view.getByTestId('preset-pin'));
 
     expect(view.getByTestId('preset-25000')).toBeTruthy();
-    expect(view.queryByTestId('preset-pin')).toBeNull();
+    expect(view.getByTestId('preset-row-25000')).toBeTruthy();
+    // Already pinned now: the button is disabled and the reason is shown.
+    expect(view.getByTestId('preset-pin').props.accessibilityState.disabled).toBe(true);
+    expect(view.getByText('This amount is already pinned')).toBeTruthy();
 
-    await fireEvent(view.getByTestId('preset-25000'), 'longPress');
-    await fireEvent.press(view.getByTestId('preset-remove-confirm'));
+    await fireEvent.press(view.getByTestId('preset-remove-25000'));
     await waitFor(() => expect(view.queryByTestId('preset-25000')).toBeNull());
+  });
+
+  it('explains the four-amount limit in the sheet', async () => {
+    const view = await render(
+      <Harness
+        onSubmit={jest.fn(async () => {})}
+        recent={[]}
+        initialPinned={{ expense: [100, 200, 300, 400], income: [] }}
+      />
+    );
+    await fireEvent.press(view.getByTestId('fast-keypad-key-7'));
+    await fireEvent.press(view.getByTestId('preset-open'));
+    expect(view.getByTestId('preset-pin').props.accessibilityState.disabled).toBe(true);
+    expect(view.getByTestId('preset-pin-reason')).toBeTruthy();
   });
 });

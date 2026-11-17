@@ -1,3 +1,4 @@
+import { MAX_AMOUNT_MINOR } from './money';
 import {
   MAX_PINNED_AMOUNTS,
   type PinnedAmounts,
@@ -21,7 +22,8 @@ function newestFirst(a: Transaction, b: Transaction): number {
 
 /**
  * The most recent distinct entries a person may want to repeat. Distinct means a different
- * type, amount, category and wallet. Deleted rows, transfer legs and balance adjustments are skipped.
+ * type, amount and category (the wallet is not part of the key, so the chip carries the wallet of the
+ * most recent matching entry). Deleted rows, transfer legs and balance adjustments are skipped.
  */
 export function recentDistinctEntries(
   transactions: readonly Transaction[],
@@ -35,7 +37,7 @@ export function recentDistinctEntries(
     if (out.length >= limit) break;
     if (tx.deletedAt != null || tx.transferId || !tx.categoryId || tx.amountMinor <= 0) continue;
     if (tx.occurredTime === null && adjustments.includes(tx.description)) continue;
-    const key = `${tx.type}|${tx.amountMinor}|${tx.categoryId}|${tx.accountId ?? ''}`;
+    const key = `${tx.type}|${tx.amountMinor}|${tx.categoryId}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(tx);
@@ -52,9 +54,25 @@ export function canPinAmount(
     amountMinor !== null &&
     Number.isSafeInteger(amountMinor) &&
     amountMinor > 0 &&
+    amountMinor <= MAX_AMOUNT_MINOR &&
     pinned[type].length < MAX_PINNED_AMOUNTS &&
     !pinned[type].includes(amountMinor)
   );
+}
+
+export type PinBlockReason = 'none' | 'duplicate' | 'full';
+
+/** Why the typed amount cannot be pinned right now, or null when it can. */
+export function pinBlockReason(
+  pinned: PinnedAmounts,
+  type: TransactionType,
+  amountMinor: number | null
+): PinBlockReason | null {
+  if (canPinAmount(pinned, type, amountMinor)) return null;
+  if (amountMinor === null || !Number.isSafeInteger(amountMinor) || amountMinor <= 0) return 'none';
+  if (amountMinor > MAX_AMOUNT_MINOR) return 'none';
+  if (pinned[type].includes(amountMinor)) return 'duplicate';
+  return 'full';
 }
 
 export function pinAmount(

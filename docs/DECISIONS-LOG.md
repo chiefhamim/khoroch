@@ -138,3 +138,7 @@ Format:
 - Reviewer findings on 9aeefbb, applied: card enter is now ease-out timing (a spring with a duration ran about 1.5x long); the onboarding coin scene is static; the sheet backdrop is hidden from TalkBack when a header close button exists.
 - Deliberate exception to UI-FOUNDATION section 8: the Money count-up stays on the JS thread (about 18 re-renders of one Text, hero and display amounts only, 300 ms). A UI-thread version needs an animated TextInput and worklet formatting; not worth the regression risk now.
 - Sheet open and close stay at 220 ms tokens (within the 300 ms ceiling) rather than motion.normal 200.
+- Repeat chips fill the form and do not save by themselves (SYNTHESIS task 1 said "saves a matching entry"): one extra tap on Save is the price of never saving an entry by accident.
+- Capture shortcuts are one constant-height row above the keypad (repeat chips, pinned amounts, a "Quick amounts" chip that opens a sheet for pinning and removing). Nothing above the keypad may change height while typing. Long-press removal was dropped.
+- Money amounts never shrink with adjustsFontSizeToFit; they pick a type size from a width estimate (src/domain/fitMoney.ts) and fall back to compact.
+- App lock needs expo-secure-store (installed at ~58.0.3, plugins added in app.config.ts); the dev app was rebuilt for it. The PIN hash, salt and attempt counter live in secure storage only, never in SQLite or backups.

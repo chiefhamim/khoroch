@@ -4,8 +4,8 @@ import { Stack } from 'expo-router';
 import { GlassContext } from '@/ui/glass';
 import { OnboardingBackdrop } from '@/ui/OnboardingBackdrop';
 
-/** One accent for the whole flow: tint null keeps the theme accent. */
-const ONBOARDING_GLASS = { tint: null };
+/** One accent for the whole flow: the theme accent. */
+const ONBOARDING_GLASS = {};
 
 export default function OnboardingLayout() {
   return (

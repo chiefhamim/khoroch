@@ -41,6 +41,34 @@ describe('Money fitWidth', () => {
     expect(node.props.children).toContain('1.2M');
   });
 
+  it('reads the exact amount even when short numbers are on', async () => {
+    const view = await renderMoney({ compact: true });
+    const node = view.getByTestId('m');
+    expect(node.props.children).toContain('1.2M');
+    expect(node.props.accessibilityLabel).toBe('৳1,234,567');
+  });
+
+  it('fits to the wider of the start and end amounts while counting', async () => {
+    const tree = (amountMinor: number) => (
+      <ThemeProvider preference="light" accent="ocean">
+        <Money
+          testID="m"
+          amountMinor={amountMinor}
+          currency="BDT"
+          variant="display"
+          fitVariants={VARIANTS}
+          fitWidth={150}
+        />
+      </ThemeProvider>
+    );
+    const view = await render(tree(123_456_700));
+    expect(StyleSheet.flatten(view.getByTestId('m').props.style).fontSize).toBe(22);
+    // End amount alone would fit the largest size, but the start amount is wider: stay at 22 while counting.
+    await view.rerender(tree(500));
+    expect(StyleSheet.flatten(view.getByTestId('m').props.style).fontSize).toBe(22);
+    expect(view.getByTestId('m').props.accessibilityLabel).toBe('৳5');
+  });
+
   it('clips instead of the default tail ellipsis for any single line', async () => {
     const view = await renderMoney({ numberOfLines: 1 });
     expect(view.getByTestId('m').props.ellipsizeMode).toBe('clip');

@@ -1,6 +1,8 @@
+import { MAX_AMOUNT_MINOR } from './money';
 import {
   canPinAmount,
   pinAmount,
+  pinBlockReason,
   recentDistinctEntries,
   unpinAmount,
 } from './captureShortcuts';
@@ -34,13 +36,23 @@ describe('recentDistinctEntries', () => {
     expect(recentDistinctEntries([])).toEqual([]);
   });
 
-  it('collapses duplicates by type, amount, category and wallet', () => {
+  it('collapses duplicates by type, amount and category, ignoring the wallet', () => {
     const a = tx({ occurredOn: '2026-11-12' });
     const dupe = tx({ occurredOn: '2026-11-11' });
     const otherWallet = tx({ accountId: 'bkash', occurredOn: '2026-11-10' });
     const otherAmount = tx({ amountMinor: 40_000, occurredOn: '2026-11-09' });
-    const out = recentDistinctEntries([dupe, otherAmount, a, otherWallet]);
-    expect(out.map((x) => x.id)).toEqual([a.id, otherWallet.id, otherAmount.id]);
+    const otherCategory = tx({ categoryId: 'transport', occurredOn: '2026-11-08' });
+    const out = recentDistinctEntries([dupe, otherAmount, a, otherWallet, otherCategory]);
+    expect(out.map((x) => x.id)).toEqual([a.id, otherAmount.id, otherCategory.id]);
+    expect(out[0].accountId).toBe('cash');
+  });
+
+  it('uses the wallet of the most recent matching entry', () => {
+    const older = tx({ accountId: 'cash', occurredOn: '2026-11-01' });
+    const newer = tx({ accountId: 'bkash', occurredOn: '2026-11-09' });
+    const out = recentDistinctEntries([older, newer]);
+    expect(out).toHaveLength(1);
+    expect(out[0].accountId).toBe('bkash');
   });
 
   it('skips transfers, deleted rows, uncategorised rows and balance adjustments', () => {
@@ -90,6 +102,25 @@ describe('pinned amounts', () => {
     expect(canPinAmount(p, 'expense', 40_000)).toBe(false);
     expect(pinAmount(p, 'expense', 40_000)).toBe(p);
     expect(unpinAmount(p, 'expense', 10_000).expense).toEqual([50_000, 20_000, 30_000]);
+  });
+
+  it('rejects amounts above MAX_AMOUNT_MINOR when pinning and when normalizing', () => {
+    expect(canPinAmount(empty, 'expense', MAX_AMOUNT_MINOR)).toBe(true);
+    expect(canPinAmount(empty, 'expense', MAX_AMOUNT_MINOR + 1)).toBe(false);
+    expect(pinAmount(empty, 'expense', MAX_AMOUNT_MINOR + 1)).toBe(empty);
+    expect(normalizePinnedAmounts({ expense: [MAX_AMOUNT_MINOR + 1, MAX_AMOUNT_MINOR, 5], income: [] })).toEqual({
+      expense: [MAX_AMOUNT_MINOR, 5],
+      income: [],
+    });
+  });
+
+  it('explains why an amount cannot be pinned', () => {
+    const full: PinnedAmounts = { expense: [1, 2, 3, 4], income: [] };
+    expect(pinBlockReason(empty, 'expense', null)).toBe('none');
+    expect(pinBlockReason(empty, 'expense', 0)).toBe('none');
+    expect(pinBlockReason({ expense: [5], income: [] }, 'expense', 5)).toBe('duplicate');
+    expect(pinBlockReason(full, 'expense', 9)).toBe('full');
+    expect(pinBlockReason(full, 'income', 9)).toBeNull();
   });
 
   it('normalizes junk to integer positive unique values, max four', () => {

@@ -147,6 +147,8 @@ export function Money({
     !resolvedHidden;
 
   const [animatedMinor, setAnimatedMinor] = useState(amountMinor);
+  // Where the running count-up started; null when idle. Used to size the fit for the widest value.
+  const [animStart, setAnimStart] = useState<number | null>(null);
   const fromRef = useRef(amountMinor);
   const rafRef = useRef<number | null>(null);
 
@@ -154,10 +156,12 @@ export function Money({
     if (!shouldAnimate || fromRef.current === amountMinor) {
       fromRef.current = amountMinor;
       setAnimatedMinor(amountMinor);
+      setAnimStart(null);
       return;
     }
 
     const startVal = fromRef.current;
+    setAnimStart(startVal);
     const endVal = amountMinor;
     const duration = theme.motion.countMs;
     const startTime = Date.now();
@@ -175,6 +179,7 @@ export function Money({
       } else {
         fromRef.current = endVal;
         setAnimatedMinor(endVal);
+        setAnimStart(null);
         rafRef.current = null;
       }
     };
@@ -222,9 +227,9 @@ export function Money({
     roundToWhole,
   };
 
-  // The exact amount (as the user's own compact setting would show it) drives the accessibility
-  // label and the fit decision, so neither flickers during count-up or changes when Money shrinks.
-  const target = formatNumberPart(amountMinor, partOptions);
+  // The exact amount, never compact, drives the accessibility label so a screen reader always reads
+  // the full figure even when short numbers or the fit fallback show a compact value on screen.
+  const target = formatNumberPart(amountMinor, { ...partOptions, compact: false });
   const signFor = (isNegative: boolean) =>
     prefix === '-'
       ? '−'
@@ -235,10 +240,18 @@ export function Money({
           : '';
   const targetSign = signFor(target.isNegative);
 
+  // While counting, fit to the wider of the start and end amounts so in-between values never clip.
+  let fitMinor = amountMinor;
+  if (animStart !== null && animStart !== amountMinor) {
+    const startWidth = formatNumberPart(animStart, partOptions).numberPart.length;
+    const endWidth = formatNumberPart(amountMinor, partOptions).numberPart.length;
+    if (startWidth > endWidth) fitMinor = animStart;
+  }
+
   const fit =
     fitWidth !== undefined
       ? fitMoney({
-          amountMinor,
+          amountMinor: fitMinor,
           availableWidth: fitWidth,
           variants: (fitVariants && fitVariants.length > 0 ? fitVariants : [variant]).map((key) => ({
             key,

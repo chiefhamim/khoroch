@@ -2,8 +2,6 @@ import { createContext, useContext } from 'react';
 import type { ColorPalette } from '@/theme/tokens';
 
 export interface GlassValue {
-  /** Accent for chips and fills inside glass surfaces; null keeps the theme accent. */
-  tint: string | null;
   /** When set, every Screen draws its own colour backdrop at this strength (tabs). */
   backdrop?: number;
 }

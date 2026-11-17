@@ -16,7 +16,7 @@ import {
   isDevice24HourClock,
   todayLocalDate,
 } from '@/domain/dates';
-import { canPinAmount, pinAmount, recentDistinctEntries, unpinAmount } from '@/domain/captureShortcuts';
+import { pinAmount, pinBlockReason, recentDistinctEntries, unpinAmount } from '@/domain/captureShortcuts';
 import { formatMinorToDraft, parseMoneyInput } from '@/domain/money';
 import {
   emptyPinnedAmounts,
@@ -38,7 +38,7 @@ import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { Button } from './Button';
-import { PresetAmounts, RepeatChips } from './CaptureShortcuts';
+import { CaptureShortcuts } from './CaptureShortcuts';
 import { DateTimeSheet } from './DateTimeSheet';
 import { hapticSelection } from './haptics';
 import { IconTile } from './IconTile';
@@ -344,7 +344,7 @@ export function FastTransactionEntry({
   const pinned = pinnedAmounts ?? emptyPinnedAmounts();
   const presetsEnabled = !isEdit && onPinnedAmountsChange !== undefined;
   const presetAmounts = presetsEnabled ? pinned[type] : [];
-  const canPin = presetsEnabled && canPinAmount(pinned, type, parsedAmount);
+  const pinBlocked = pinBlockReason(pinned, type, parsedAmount);
 
   const whenLabel = (() => {
     const day =
@@ -682,19 +682,16 @@ export function FastTransactionEntry({
                 </PressableScale>
               ) : null}
             </View>
-            <RepeatChips
-              entries={repeatEntries}
-              categoriesById={categoriesById}
-              currency={currency}
-              onSelect={applyRepeat}
-            />
             {presetsEnabled ? (
-              <PresetAmounts
-                amounts={presetAmounts}
-                typedAmountMinor={parsedAmount}
-                canPin={canPin}
+              <CaptureShortcuts
+                entries={repeatEntries}
+                categoriesById={categoriesById}
                 currency={currency}
-                onSelect={(minor) => setAmountText(formatMinorToDraft(minor))}
+                pinnedAmounts={presetAmounts}
+                typedAmountMinor={parsedAmount}
+                pinBlocked={pinBlocked}
+                onSelectRepeat={applyRepeat}
+                onSelectAmount={(minor) => setAmountText(formatMinorToDraft(minor))}
                 onPin={() => {
                   if (parsedAmount !== null) onPinnedAmountsChange?.(pinAmount(pinned, type, parsedAmount));
                 }}

@@ -275,10 +275,9 @@ export function SpendingChart({
     if (w > 0 && w !== statsWidth) setStatsWidth(w);
   };
 
-  // Bars with any activity. Zero or one entry is a Total-only state with no chart (UI-FOUNDATION 6).
-  const activeBarCount = bars.filter(
-    (b) => b.spentMinor > 0 || (granularity === 'monthly' && (b.incomeMinor ?? 0) > 0)
-  ).length;
+  // Bars with spending. Zero or one is a Total-only state with no chart (UI-FOUNDATION 6);
+  // income alone is not spending activity.
+  const activeBarCount = bars.filter((b) => b.spentMinor > 0).length;
   const showChart = activeBarCount >= 2;
   const showTiles = activeBarCount >= 2 && stats.total > 0;
   // Each tile is half the row minus the inner gutter that the divider tile adds.
@@ -324,7 +323,13 @@ export function SpendingChart({
             />
             {activeBarCount < 2 ? (
               <AppText variant="caption" color="textSecondary">
-                {t(activeBarCount === 0 ? 'overview.chartNoEntries' : 'overview.chartFirstEntry')}
+                {t(
+                  activeBarCount === 0
+                    ? 'overview.chartNoEntries'
+                    : granularity === 'daily'
+                      ? 'overview.chartOneDay'
+                      : 'overview.chartOnePeriod'
+                )}
               </AppText>
             ) : null}
           </View>

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import type { PinBlockReason } from '@/domain/captureShortcuts';
 import { formatMoney } from '@/domain/money';
 import type { Category, CurrencyCode, Transaction } from '@/domain/types';
 import { t, useLocale } from '@/i18n';
 import { toBnDigits } from '@/i18n/displayText';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { useTheme } from '@/theme/useTheme';
-import { AppIcon } from './AppIcon';
-import { AppText, estimateSingleLineMinWidth } from './AppText';
+import { AppText } from './AppText';
 import { Button } from './Button';
 import { Chip } from './Chip';
 import { hapticSelection } from './haptics';
@@ -14,40 +15,75 @@ import { Money } from './Money';
 import { PressableScale } from './PressableScale';
 import { Sheet } from './Sheet';
 
-/** Spoken and testable amount text, with Bangla digits when the app is in Bangla. */
+/**
+ * Spoken amount text that matches the on-screen Money: the same poisha setting and Bangla digits
+ * when the app is in Bangla.
+ */
 function useAmountText(currency: CurrencyCode): (minor: number) => string {
   const locale = useLocale();
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
   return (minor) => {
-    const text = formatMoney(minor, currency);
+    const text = formatMoney(minor, currency, { showPoisha });
     return locale === 'bn' ? toBnDigits(text) : text;
   };
 }
 
-export interface RepeatChipsProps {
+const PIN_REASON_KEY = {
+  none: 'fast.pinWhyNone',
+  duplicate: 'fast.pinWhyDuplicate',
+  full: 'fast.pinWhyFull',
+} as const;
+
+export interface CaptureShortcutsProps {
+  /** Recent distinct entries to repeat (already filtered). */
   entries: readonly Transaction[];
   categoriesById: ReadonlyMap<string, Category>;
   currency: CurrencyCode;
-  onSelect: (entry: Transaction) => void;
+  /** Pinned amounts for the current transaction type. */
+  pinnedAmounts: readonly number[];
+  /** Amount currently typed, or null when empty or zero. */
+  typedAmountMinor: number | null;
+  /** Why the typed amount cannot be pinned, or null when it can. */
+  pinBlocked: PinBlockReason | null;
+  onSelectRepeat: (entry: Transaction) => void;
+  onSelectAmount: (amountMinor: number) => void;
+  onPin: () => void;
+  onRemove: (amountMinor: number) => void;
 }
 
-/** One scrollable row of "amount category" chips; tapping one only fills the form. */
-export function RepeatChips({ entries, categoriesById, currency, onSelect }: RepeatChipsProps) {
+/**
+ * One horizontally scrolling row of constant height above the keypad: repeat chips, pinned amounts,
+ * then a "Quick amounts" chip that opens the sheet for pinning and removing. Nothing in it appears,
+ * disappears or resizes while the user types, so the keypad never moves. Amounts here stay readable
+ * even when the app-wide hide-amounts setting is on (the typed amount is visible on this screen too).
+ */
+export function CaptureShortcuts({
+  entries,
+  categoriesById,
+  currency,
+  pinnedAmounts,
+  typedAmountMinor,
+  pinBlocked,
+  onSelectRepeat,
+  onSelectAmount,
+  onPin,
+  onRemove,
+}: CaptureShortcutsProps) {
   const { theme } = useTheme();
   const amountText = useAmountText(currency);
-  if (entries.length === 0) return null;
+  const [sheetOpen, setSheetOpen] = useState(false);
+
   return (
-    <View testID="repeat-chips" style={{ gap: theme.spacing.xs }}>
-      <AppText variant="overline" color="textTertiary">
-        {t('fast.repeatLabel').toUpperCase()}
-      </AppText>
+    <View testID="capture-shortcuts">
       <ScrollView
         horizontal
         keyboardShouldPersistTaps="handled"
         showsHorizontalScrollIndicator={false}
-        style={{ marginHorizontal: -theme.geometry.screenMargin }}
+        style={{ height: theme.touch.min, flexGrow: 0, marginHorizontal: -theme.geometry.screenMargin }}
         contentContainerStyle={{
           paddingHorizontal: theme.geometry.screenMargin,
           gap: theme.spacing.sm,
+          alignItems: 'center',
         }}
       >
         {entries.map((entry) => {
@@ -68,164 +104,111 @@ export function RepeatChips({ entries, categoriesById, currency, onSelect }: Rep
                   currency={currency}
                   variant="label"
                   color={entry.type === 'income' ? 'income' : 'text'}
+                  hidden={false}
                 />
               }
               onPress={() => {
                 hapticSelection();
-                onSelect(entry);
+                onSelectRepeat(entry);
               }}
             />
           );
         })}
-      </ScrollView>
-    </View>
-  );
-}
-
-export interface PresetAmountsProps {
-  amounts: readonly number[];
-  /** Amount currently typed, or null when empty or zero. */
-  typedAmountMinor: number | null;
-  canPin: boolean;
-  currency: CurrencyCode;
-  onSelect: (amountMinor: number) => void;
-  onPin: () => void;
-  onRemove: (amountMinor: number) => void;
-}
-
-/** Pinned amounts as buttons plus a labelled "Pin amount" action. Renders nothing when idle. */
-export function PresetAmounts({
-  amounts,
-  typedAmountMinor,
-  canPin,
-  currency,
-  onSelect,
-  onPin,
-  onRemove,
-}: PresetAmountsProps) {
-  const { theme } = useTheme();
-  const amountText = useAmountText(currency);
-  const [pendingRemove, setPendingRemove] = useState<number | null>(null);
-  const showPin = canPin && typedAmountMinor !== null;
-  if (amounts.length === 0 && !showPin) return null;
-
-  const pinButton = showPin ? (
-    <PressableScale
-      testID="preset-pin"
-      accessibilityRole="button"
-      accessibilityLabel={t('fast.pinAmountA11y', { amount: amountText(typedAmountMinor ?? 0) })}
-      onPress={() => {
-        hapticSelection();
-        onPin();
-      }}
-      style={[styles.pin, { gap: theme.spacing.xs, paddingHorizontal: theme.spacing.md }]}
-    >
-      <AppIcon name="plus" size={15} color={theme.colors.accent} />
-      <AppText
-        variant="label"
-        color="accent"
-        numberOfLines={1}
-        style={{
-          minWidth: estimateSingleLineMinWidth(t('fast.pinAmount'), theme.typography.label.fontSize),
-        }}
-      >
-        {t('fast.pinAmount')}
-      </AppText>
-    </PressableScale>
-  ) : null;
-
-  return (
-    <View testID="preset-amounts" style={{ gap: theme.spacing.xs }}>
-      {amounts.length > 0 ? (
-        <>
-          <AppText variant="overline" color="textTertiary">
-            {t('fast.presetsLabel').toUpperCase()}
-          </AppText>
-          <ScrollView
-            horizontal
-            keyboardShouldPersistTaps="handled"
-            showsHorizontalScrollIndicator={false}
-            style={{ marginHorizontal: -theme.geometry.screenMargin }}
-            contentContainerStyle={{
-              paddingHorizontal: theme.geometry.screenMargin,
-              gap: theme.spacing.sm,
-              alignItems: 'center',
+        {pinnedAmounts.map((amount) => (
+          <PressableScale
+            key={amount}
+            testID={`preset-${amount}`}
+            accessibilityRole="button"
+            accessibilityLabel={t('fast.presetA11y', { amount: amountText(amount) })}
+            onPress={() => {
+              hapticSelection();
+              onSelectAmount(amount);
             }}
+            style={[
+              styles.preset,
+              {
+                minHeight: theme.touch.min,
+                borderRadius: theme.radius.chip,
+                backgroundColor: theme.colors.surfaceSunken,
+                paddingHorizontal: theme.spacing.lg,
+              },
+            ]}
           >
-            {amounts.map((amount) => (
-              <PressableScale
-                key={amount}
-                testID={`preset-${amount}`}
-                accessibilityRole="button"
-                accessibilityLabel={t('fast.presetA11y', { amount: amountText(amount) })}
-                accessibilityHint={t('fast.presetHint')}
-                onPress={() => {
-                  hapticSelection();
-                  onSelect(amount);
-                }}
-                onLongPress={() => {
-                  hapticSelection();
-                  setPendingRemove(amount);
-                }}
-                style={[
-                  styles.preset,
-                  {
-                    borderRadius: theme.radius.chip,
-                    backgroundColor: theme.colors.surfaceSunken,
-                    paddingHorizontal: theme.spacing.lg,
-                  },
-                ]}
-              >
-                <Money amountMinor={amount} currency={currency} variant="label" />
-              </PressableScale>
-            ))}
-            {pinButton}
-          </ScrollView>
-          <AppText variant="caption" color="textSecondary">
-            {t('fast.presetHint')}
-          </AppText>
-        </>
-      ) : (
-        pinButton
-      )}
+            <Money amountMinor={amount} currency={currency} variant="label" hidden={false} />
+          </PressableScale>
+        ))}
+        <Chip
+          testID="preset-open"
+          variant="sunken"
+          icon="plus"
+          label={t('fast.presetsLabel')}
+          onPress={() => {
+            hapticSelection();
+            setSheetOpen(true);
+          }}
+        />
+      </ScrollView>
 
       <Sheet
-        visible={pendingRemove !== null}
-        onClose={() => setPendingRemove(null)}
-        title={t('fast.removePresetTitle')}
-        testID="preset-remove-sheet"
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title={t('fast.presetsLabel')}
+        testID="preset-sheet"
         footer={
-          <View style={[styles.footer, { gap: theme.spacing.sm }]}>
+          <View style={{ gap: theme.spacing.sm }}>
+            {pinBlocked !== null ? (
+              <AppText variant="caption" color="textSecondary" testID="preset-pin-reason">
+                {t(PIN_REASON_KEY[pinBlocked])}
+              </AppText>
+            ) : null}
             <Button
-              title={t('common.cancel')}
-              variant="secondary"
-              onPress={() => setPendingRemove(null)}
-              style={styles.flex}
-            />
-            <Button
-              title={t('fast.removePreset')}
-              variant="danger"
-              onPress={() => {
-                if (pendingRemove !== null) onRemove(pendingRemove);
-                setPendingRemove(null);
-              }}
-              style={styles.flex}
-              testID="preset-remove-confirm"
+              testID="preset-pin"
+              title={
+                typedAmountMinor !== null
+                  ? t('fast.pinAmountButton', { amount: amountText(typedAmountMinor) })
+                  : t('fast.pinAmount')
+              }
+              accessibilityLabel={
+                typedAmountMinor !== null
+                  ? t('fast.pinAmountA11y', { amount: amountText(typedAmountMinor) })
+                  : t('fast.pinAmount')
+              }
+              disabled={pinBlocked !== null}
+              onPress={onPin}
             />
           </View>
         }
       >
-        <AppText variant="body">
-          {t('fast.removePresetBody', { amount: amountText(pendingRemove ?? 0) })}
-        </AppText>
+        {pinnedAmounts.length === 0 ? (
+          <AppText variant="body" color="textSecondary">
+            {t('fast.presetsEmpty')}
+          </AppText>
+        ) : (
+          <View style={{ gap: theme.spacing.sm }}>
+            {pinnedAmounts.map((amount) => (
+              <View
+                key={amount}
+                testID={`preset-row-${amount}`}
+                style={[styles.sheetRow, { minHeight: theme.touch.min, gap: theme.spacing.md }]}
+              >
+                <Money amountMinor={amount} currency={currency} variant="bodyStrong" hidden={false} />
+                <Button
+                  testID={`preset-remove-${amount}`}
+                  title={t('fast.removePreset')}
+                  accessibilityLabel={t('fast.removePresetA11y', { amount: amountText(amount) })}
+                  variant="secondary"
+                  onPress={() => onRemove(amount)}
+                />
+              </View>
+            ))}
+          </View>
+        )}
       </Sheet>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  preset: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
-  pin: { minHeight: 48, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
-  footer: { flexDirection: 'row' },
-  flex: { flex: 1 },
+  preset: { alignItems: 'center', justifyContent: 'center' },
+  sheetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 });
