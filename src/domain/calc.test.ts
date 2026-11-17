@@ -458,12 +458,22 @@ describe('left after unpaid bills', () => {
     expect(isBillPaidInPeriod(makeBill({ id: 'a', amountMinor: 1, lastPaidPeriod: '2026-11-01' }), p)).toBe(true);
     expect(isBillPaidInPeriod(makeBill({ id: 'a', amountMinor: 1, lastPaidPeriod: '2026-10-12' }), p)).toBe(false);
     expect(isBillPaidInPeriod(makeBill({ id: 'a', amountMinor: 1 }), p)).toBe(false);
-    expect(isPaidInPeriod('garbage', p.start)).toBe(false);
+    expect(isPaidInPeriod('garbage', p.start, p.endExcl)).toBe(false);
     const unpaid = summarizeUnpaidBills(
       [makeBill({ id: 'a', amountMinor: 500, lastPaidPeriod: '2026-11-12' })],
       p
     );
     expect(unpaid).toEqual({ unpaidCount: 0, unpaidMinor: 0 });
+  });
+
+  it('paid is bounded: a stamp in the next period leaves this period unpaid', () => {
+    const p = getPeriod('2026-11-13', 1);
+    const future = makeBill({ id: 'a', amountMinor: 500, lastPaidPeriod: '2026-12-01' });
+    expect(isBillPaidInPeriod(future, p)).toBe(false);
+    expect(isBillPaidInPeriod(future, getPeriod('2026-12-05', 1))).toBe(true);
+    // End is exclusive: the last day of the period counts, the next period start does not.
+    expect(isBillPaidInPeriod(makeBill({ id: 'a', amountMinor: 1, lastPaidPeriod: '2026-11-30' }), p)).toBe(true);
+    expect(summarizeUnpaidBills([future], p)).toEqual({ unpaidCount: 1, unpaidMinor: 500 });
   });
 
   it('a bill whose payment is recorded as a transaction is not subtracted twice', () => {

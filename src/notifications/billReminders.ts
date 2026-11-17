@@ -102,13 +102,21 @@ function triggerMs(trigger: unknown): number | null {
   return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
 }
 
+function payloadFireMs(data: unknown): number | null {
+  if (!data || typeof data !== 'object') return null;
+  const raw = (data as { fireMs?: unknown }).fireMs;
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+}
+
 async function listOwn(Notifications: NotificationsModule): Promise<ScheduledOwn[]> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   return scheduled
     .filter((r) => isBillReminderId(r.identifier))
     .map((r) => ({
       id: r.identifier,
-      fireMs: triggerMs(r.trigger),
+      // iOS reports a date trigger as a time interval with no absolute date; fall back to the fire
+      // time we stored in the payload (milliseconds, no user text).
+      fireMs: triggerMs(r.trigger) ?? payloadFireMs(r.content.data),
       title: r.content.title ?? '',
       body: r.content.body ?? '',
     }));
@@ -183,7 +191,11 @@ async function runSyncBillReminders(input: SyncBillRemindersInput): Promise<Sync
     for (const { reminder, content } of toSchedule) {
       await Notifications.scheduleNotificationAsync({
         identifier: reminder.id,
-        content: { title: content.title, body: content.body, data: { ...content.data } },
+        content: {
+          title: content.title,
+          body: content.body,
+          data: { ...content.data, fireMs: reminder.fireAt.getTime() },
+        },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
           date: reminder.fireAt,

@@ -31,6 +31,29 @@ describe('bill reminders in backups', () => {
     expect((await dst.getSettings()).billReminders).toEqual({ enabled: false, leadDays: 1 });
   });
 
+  it('restoring an older backup keeps Hide bill names on when the device has it on', async () => {
+    const dst = new MemoryRepo();
+    await dst.setSetting('billReminders', { enabled: true, leadDays: 3, hideNames: true });
+    await restoreBackupPayload(dst, parseAndValidateBackup(await backupWith({ enabled: true, leadDays: 1 })));
+    expect((await dst.getSettings()).billReminders).toEqual({ enabled: true, leadDays: 1, hideNames: true });
+    await restoreBackupPayload(dst, parseAndValidateBackup(await backupWith(undefined)));
+    expect((await dst.getSettings()).billReminders.hideNames).toBe(true);
+  });
+
+  it('a backup may turn Hide bill names on but never off', async () => {
+    const dst = new MemoryRepo();
+    await dst.setSetting('billReminders', { enabled: true, leadDays: 1 });
+    await restoreBackupPayload(
+      dst,
+      parseAndValidateBackup(await backupWith({ enabled: true, leadDays: 1, hideNames: true }))
+    );
+    expect((await dst.getSettings()).billReminders.hideNames).toBe(true);
+
+    const off = new MemoryRepo();
+    await restoreBackupPayload(off, parseAndValidateBackup(await backupWith({ enabled: true, leadDays: 1 })));
+    expect((await off.getSettings()).billReminders.hideNames).toBeUndefined();
+  });
+
   it('defaults to off in a fresh store', async () => {
     expect((await new MemoryRepo().getSettings()).billReminders).toEqual({
       enabled: false,

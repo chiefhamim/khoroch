@@ -1210,7 +1210,7 @@ export const bn: Record<TranslationKey, string> = {
 
   // Bill due reminders
   'settings.billRemindersToggle': 'বিল রিমাইন্ডার',
-  'settings.billRemindersSubtitle': 'বিল বা কিস্তির তারিখের আগে এবং তারিখের দিনে, অপরিশোধিত থাকলে মনে করিয়ে দেওয়া হবে। টাকার অঙ্ক কখনোই দেখানো হয় না।',
+  'settings.billRemindersSubtitle': 'বিল বা কিস্তির তারিখের আগে এবং তারিখের দিনে মনে করিয়ে দেওয়া হবে। টাকার অঙ্ক কখনোই দেখানো হয় না।',
   'settings.billRemindersLead': 'মনে করিয়ে দিন',
   'settings.billRemindersLead0': 'নির্ধারিত দিনে',
   'settings.billRemindersLead1': '১ দিন আগে',

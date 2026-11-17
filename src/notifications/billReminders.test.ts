@@ -134,8 +134,9 @@ describe('syncBillReminders', () => {
       kind: BILL_REMINDER_DATA_KIND,
       route: BILL_REMINDER_ROUTE,
       billId: 'rent',
+      fireMs: new Date(2026, 10, 4, 9, 0, 0, 0).getTime(),
     });
-    const day = mockState.store.find((s) => s.identifier === 'bill-due:rent:2026-11-05')!;
+    const day =mockState.store.find((s) => s.identifier === 'bill-due:rent:2026-11-05')!;
     expect(day.content.title).toBe('Rent is due today');
   });
 
@@ -262,6 +263,23 @@ describe('syncBillReminders: only the difference is touched', () => {
     const res = await syncBillReminders(input());
     expect(res).toEqual({ scheduled: 4, unchanged: true });
     expect(callCounts()).toEqual({ schedule: 0, cancel: 0 });
+  });
+
+  it('iOS reports a time interval with no date: compares the stored fire time, no reschedule', async () => {
+    await syncBillReminders(input());
+    mockState.store = mockState.store.map((s) =>
+      s.identifier.startsWith('bill-due:')
+        ? ({ ...s, trigger: { type: 'timeInterval', seconds: 3600, repeats: false } } as unknown as Stored)
+        : s
+    );
+    NotificationsMock.scheduleNotificationAsync.mockClear();
+    NotificationsMock.cancelScheduledNotificationAsync.mockClear();
+    const same = await syncBillReminders(input());
+    expect(same).toEqual({ scheduled: 4, unchanged: true });
+    expect(callCounts()).toEqual({ schedule: 0, cancel: 0 });
+    // A real change in fire time is still noticed through the payload.
+    await syncBillReminders(input({ time: '10:30' }));
+    expect(callCounts().schedule).toBe(4);
   });
 
   it('reschedules only the reminders whose time changed', async () => {

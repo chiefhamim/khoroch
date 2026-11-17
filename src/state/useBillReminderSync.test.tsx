@@ -129,12 +129,53 @@ describe('useBillReminderSync', () => {
     );
     await renderHook(() => useBillReminderSync(), { wrapper });
     await flush();
-    expect(updateSetting).toHaveBeenCalledTimes(1);
     expect(updateSetting).toHaveBeenCalledWith('billReminders', {
       enabled: false,
       leadDays: 3,
       hideNames: true,
     });
+    // The denied state is recorded too, so settings shows the blocked row and its button.
+    expect(updateSetting).toHaveBeenCalledWith('notificationPermissionDenied', true);
+    expect(updateSetting).toHaveBeenCalledTimes(2);
+  });
+
+  it('runs at once, without the debounce, when hiding names turns on', async () => {
+    const repo = new MemoryRepo();
+    let current = makeSettings();
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <AppContext.Provider
+        value={{
+          repo,
+          backend: 'memory',
+          settings: current,
+          updateSetting: (async () => {}) as never,
+          refreshSettings: async () => {},
+        }}
+      >
+        {children}
+      </AppContext.Provider>
+    );
+    const { rerender } = await renderHook(() => useBillReminderSync(), { wrapper });
+    await flush();
+    expect(mockSync).toHaveBeenCalledTimes(1);
+    expect(mockSync.mock.calls[0][0]).toMatchObject({ hideNames: false });
+
+    current = makeSettings({ billReminders: { enabled: true, leadDays: 1, hideNames: true } });
+    await act(async () => {
+      rerender({});
+    });
+    // No timers advanced: the run already happened.
+    expect(mockSync).toHaveBeenCalledTimes(2);
+    expect(mockSync.mock.calls[1][0]).toMatchObject({ hideNames: true });
+
+    // Turning another setting later is debounced as usual.
+    current = makeSettings({ billReminders: { enabled: true, leadDays: 3, hideNames: true } });
+    await act(async () => {
+      rerender({});
+    });
+    expect(mockSync).toHaveBeenCalledTimes(2);
+    await flush();
+    expect(mockSync).toHaveBeenCalledTimes(3);
   });
 
   it('does not touch the setting when permission is fine', async () => {

@@ -1210,7 +1210,8 @@ export function buildBackupPreview(payload: BackupFilePayload): BackupPreview {
  * Restores a backup. The app lock is never changed by an import: whether the lock is on is
  * decided by the credential in secure storage on this device, so a backup (old, edited or from
  * another phone) cannot switch it off or change its timeout. Those two settings keep their
- * current values on this device. Exporting them is harmless and unchanged.
+ * current values on this device. Exporting them is harmless and unchanged. Likewise "Hide bill names":
+ * a backup may turn it on but never off, so restoring an older file cannot put names back on the lock screen.
  */
 export async function restoreBackupPayload(
   repo: Repo,
@@ -1224,6 +1225,10 @@ export async function restoreBackupPayload(
       ...payload.data.settings,
       appLockEnabled: current.appLockEnabled,
       appLockTimeoutSec: current.appLockTimeoutSec,
+      billReminders:
+        current.billReminders.hideNames === true
+          ? { ...payload.data.settings.billReminders, hideNames: true }
+          : payload.data.settings.billReminders,
     },
   });
   // The worked-today pointer is device-local and never in a backup. Keep the local ids that exist

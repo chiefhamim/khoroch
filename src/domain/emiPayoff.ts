@@ -68,7 +68,7 @@ export function countBehindPeriods(
  */
 export function computeEmiPayoff(
   bill: RecurringBill,
-  period: Pick<Period, 'start'>
+  period: Pick<Period, 'start' | 'endExcl'>
 ): EmiPayoff | null {
   if (bill.kind !== 'emi') return null;
   const total = bill.totalInstallments;
@@ -89,7 +89,7 @@ export function computeEmiPayoff(
     state = 'paused';
   } else {
     const start = parseLocalDate(period.start);
-    const paidThisPeriod = isPaidInPeriod(bill.lastPaidPeriod, period.start);
+    const paidThisPeriod = isPaidInPeriod(bill.lastPaidPeriod, period.start, period.endExcl);
     const periodsAhead = paidThisPeriod ? left : left - 1;
     const dueShift = bill.dayOfMonth < start.day ? 1 : 0;
     const zeroBased = start.year * 12 + (start.month - 1) + periodsAhead + dueShift;

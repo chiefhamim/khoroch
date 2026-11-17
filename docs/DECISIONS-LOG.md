@@ -253,3 +253,11 @@ Beyond A to E:
 - In weekly mode the "Where it went" rows are plain rows (no "Set budget" tap), because category budgets are edited only in monthly mode.
 - Insights, the Activity date presets, the category-budget screens of onboarding and the bill reminders stay monthly. The category detail screen opened from Home follows the spending period.
 - A weekly amount of 0 is stored as unset (null).
+
+## Review fixes: paid-in-period bounds, restore keeps hide-names, wage undo queue
+- Paid in a period is now bounded: period start <= stamp < period end (exclusive), by date. `isPaidInPeriod` takes the end as a required third argument. A stamp from a future period (clock ahead, restored data) no longer makes earlier periods read as paid; its reminder stays scheduled and its amount stays in the unpaid total. `countBehindPeriods` is unchanged and returns 0 for a future stamp.
+- Restore keeps the device's "Hide bill names" when it is on; a backup may turn it on, never off (same idea as the app lock keys).
+- Bill reminder sync: when hiding names turns on (setting or app lock) the sync runs at once with no debounce. When the sync turns the switch off for missing permission it also sets `notificationPermissionDenied` so the blocked row explains it.
+- Scheduled bill reminders carry `fireMs` (milliseconds, no user text) in their data. When the OS trigger has no absolute date (iOS interval) the diff compares that value. Reminders scheduled by an older build have none, so they are rescheduled once on iOS.
+- Worked today: record and Undo run through one serial queue (`createSerialQueue`); Undo removes only its own id from the freshly read pointer (`undoWageEntry`). Fallback "recorded today": a live quick income entry of today with the wage's category and exact amount, used only when the pointer has no live id; it shows the recorded line with "Add again" (which confirms).
+- Settings subtitle for bill reminders no longer says "if it is still unpaid", matching the neutral notification body.

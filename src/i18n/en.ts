@@ -1197,7 +1197,7 @@ export const en = {
 
   // Bill due reminders
   'settings.billRemindersToggle': 'Bill reminders',
-  'settings.billRemindersSubtitle': 'Before a bill or instalment is due, and on the day if it is still unpaid. Never shows amounts.',
+  'settings.billRemindersSubtitle': 'Before a bill or instalment is due, and on the due day. Never shows amounts.',
   'settings.billRemindersLead': 'Remind me',
   'settings.billRemindersLead0': 'On the day',
   'settings.billRemindersLead1': '1 day before',

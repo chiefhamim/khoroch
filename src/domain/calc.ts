@@ -186,26 +186,36 @@ export function isExpenseBillOutstanding(bill: RecurringBill): boolean {
 }
 
 /**
- * True when a payment stamp lies inside (or after) the period: stamp >= period start, compared by date.
+ * True when a payment stamp lies inside the period: periodStart <= stamp < periodEndExcl, compared by date.
  * Date-based on purpose: a stamp left over from before the cycle start day was changed still counts
- * when it is on or after the new period start.
+ * when it is inside the new period. Bounded on purpose: a stamp from a future period (a phone clock that
+ * was ahead, restored data) does not make earlier periods read as paid.
  */
-export function isPaidInPeriod(lastPaidPeriod: string | null | undefined, periodStart: string): boolean {
+export function isPaidInPeriod(
+  lastPaidPeriod: string | null | undefined,
+  periodStart: string,
+  periodEndExcl: string
+): boolean {
   return (
     lastPaidPeriod != null &&
     isValidLocalDate(lastPaidPeriod) &&
     isValidLocalDate(periodStart) &&
-    lastPaidPeriod >= periodStart
+    isValidLocalDate(periodEndExcl) &&
+    lastPaidPeriod >= periodStart &&
+    lastPaidPeriod < periodEndExcl
   );
 }
 
 /**
- * The one paid rule: a bill is paid for a period when its payment stamp is on or after `period.start`.
+ * The one paid rule: a bill is paid for a period when its payment stamp is inside `[period.start, period.endExcl)`.
  * Marking a bill paid stamps it and records its transaction together, so a paid bill is already inside
  * "spent" and must never be subtracted again.
  */
-export function isBillPaidInPeriod(bill: RecurringBill, period: Pick<Period, 'start'>): boolean {
-  return isPaidInPeriod(bill.lastPaidPeriod, period.start);
+export function isBillPaidInPeriod(
+  bill: RecurringBill,
+  period: Pick<Period, 'start' | 'endExcl'>
+): boolean {
+  return isPaidInPeriod(bill.lastPaidPeriod, period.start, period.endExcl);
 }
 
 export interface UnpaidBillsSummary {
@@ -215,7 +225,7 @@ export interface UnpaidBillsSummary {
 
 export function summarizeUnpaidBills(
   bills: readonly RecurringBill[],
-  period: Pick<Period, 'start'>
+  period: Pick<Period, 'start' | 'endExcl'>
 ): UnpaidBillsSummary {
   let unpaidCount = 0;
   let unpaidMinor = 0;
@@ -258,7 +268,7 @@ export function summarizeUnpaidBillsDueInPeriod(
     for (const { year, month } of months) {
       const due = formatLocalDate(year, month, Math.min(bill.dayOfMonth, daysInMonth(year, month)));
       if (!isInPeriodRange(due, period.start, period.endExcl)) continue;
-      if (isPaidInPeriod(bill.lastPaidPeriod, getPeriod(due, monthStartDay).start)) continue;
+      if (isBillPaidInPeriod(bill, getPeriod(due, monthStartDay))) continue;
       unpaidCount += 1;
       unpaidMinor += bill.amountMinor;
     }

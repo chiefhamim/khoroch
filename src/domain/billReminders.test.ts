@@ -113,6 +113,14 @@ describe('buildBillReminders', () => {
     ]);
   });
 
+  it('a stamp from the next period leaves this period unpaid and its reminders scheduled', () => {
+    const early = bill({ lastPaidPeriod: '2026-12-02' });
+    expect(ids(run([early], at(2026, 11, 2)))).toEqual([
+      'bill-due:rent:2026-11-04',
+      'bill-due:rent:2026-11-05',
+    ]);
+  });
+
   it('never schedules in the past', () => {
     // After the early reminder time but before the due-day time.
     expect(ids(run([bill()], at(2026, 11, 5, 8, 0))).slice(0, 2)).toEqual([

@@ -88,6 +88,57 @@ export function removeWageId(last: DailyWageLast | null, id: string): DailyWageL
   return ids.length === 0 ? null : { day: last.day, ids };
 }
 
+/**
+ * Fallback for "recorded today" when the pointer has no live id for today (an entry went in but its
+ * pointer could not be written and the rollback failed, then the app restarted): a live income entry
+ * dated today with the wage's category and exact amount and source `quick`. A different amount or
+ * category, a manual entry, a deleted one or one from another day does not match.
+ */
+export function hasMatchingQuickWageEntry(
+  wage: { amountMinor: number; categoryId: string },
+  transactions: readonly Transaction[],
+  today: LocalDate
+): boolean {
+  return transactions.some(
+    (tx) =>
+      tx.deletedAt == null &&
+      tx.type === 'income' &&
+      !tx.transferId &&
+      tx.source === 'quick' &&
+      tx.occurredOn === today &&
+      tx.categoryId === wage.categoryId &&
+      tx.amountMinor === wage.amountMinor
+  );
+}
+
+/** Runs tasks one after another, in the order they were queued. A failing task does not stop the next. */
+export function createSerialQueue(): { run<T>(task: () => Promise<T>): Promise<T> } {
+  let tail: Promise<unknown> = Promise.resolve();
+  return {
+    run<T>(task: () => Promise<T>): Promise<T> {
+      const result = tail.then(task, task);
+      tail = result.catch(() => {});
+      return result;
+    },
+  };
+}
+
+export interface WageUndoStore {
+  softDeleteTransaction(id: string): Promise<unknown>;
+  getSettings(): Promise<{ dailyWageLast: DailyWageLast | null }>;
+  setSetting(key: 'dailyWageLast', value: DailyWageLast | null): Promise<unknown>;
+}
+
+/**
+ * Undo of one wage entry: removes the entry, then reads the pointer fresh and takes out only this
+ * entry's id. Run it through the same serial queue as recording so it never works from a stale value.
+ */
+export async function undoWageEntry(store: WageUndoStore, id: string): Promise<void> {
+  await store.softDeleteTransaction(id);
+  const current = (await store.getSettings()).dailyWageLast;
+  if (current !== null) await store.setSetting('dailyWageLast', removeWageId(current, id));
+}
+
 export function buildWageEntry(input: {
   id: string;
   wage: DailyWage;

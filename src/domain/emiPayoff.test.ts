@@ -1,8 +1,11 @@
 import { describe, expect, it } from '@jest/globals';
 import { computeEmiPayoff, countBehindPeriods, isPaidInPeriod } from './emiPayoff';
-import type { Period, RecurringBill } from './types';
+import { getPeriod } from './period';
+import type { RecurringBill } from './types';
 
-const nov: Pick<Period, 'start'> = { start: '2026-11-01' };
+// The period that starts on `start` (its day is the cycle start day).
+const per = (start: string) => getPeriod(start, Number(start.slice(8)));
+const nov = per('2026-11-01');
 
 function emi(partial: Partial<RecurringBill> = {}): RecurringBill {
   return {
@@ -116,7 +119,7 @@ describe('computeEmiPayoff', () => {
   it('crosses the year boundary', () => {
     const p = computeEmiPayoff(
       emi({ totalInstallments: 3, paidInstallments: 0 }),
-      { start: '2026-11-01' }
+      per('2026-11-01')
     )!;
     expect([p.endYear, p.endMonth]).toEqual([2027, 1]);
   });
@@ -125,13 +128,13 @@ describe('computeEmiPayoff', () => {
     // Cycle starts the 25th; a bill due on the 5th is due in the next calendar month.
     const p = computeEmiPayoff(
       emi({ totalInstallments: 2, paidInstallments: 0, dayOfMonth: 5 }),
-      { start: '2026-11-25' }
+      per('2026-11-25')
     )!;
     // Period 1: due 5 Dec; period 2: due 5 Jan.
     expect([p.endYear, p.endMonth]).toEqual([2027, 1]);
     const same = computeEmiPayoff(
       emi({ totalInstallments: 2, paidInstallments: 0, dayOfMonth: 28 }),
-      { start: '2026-11-25' }
+      per('2026-11-25')
     )!;
     expect([same.endYear, same.endMonth]).toEqual([2026, 12]);
   });
@@ -139,7 +142,7 @@ describe('computeEmiPayoff', () => {
 
 describe('behind periods', () => {
   const behind = (partial: Partial<RecurringBill>, start = '2026-11-01') =>
-    computeEmiPayoff(emi(partial), { start })!.behindPeriods;
+    computeEmiPayoff(emi(partial), per(start))!.behindPeriods;
 
   it('is 0 for a bill that was never paid (no baseline)', () => {
     expect(behind({ paidInstallments: 0, lastPaidPeriod: null })).toBe(0);
@@ -184,7 +187,7 @@ describe('behind periods', () => {
 
   it('cycle day changed to the 25th: a stamp inside the current period counts as paid', () => {
     // Today is 10 Nov, the cycle now starts on the 25th so the current period began 25 Oct.
-    const cur = { start: '2026-10-25' };
+    const cur = per('2026-10-25');
     const paid = computeEmiPayoff(
       emi({ paidInstallments: 3, lastPaidPeriod: '2026-11-01' }),
       cur
@@ -192,9 +195,19 @@ describe('behind periods', () => {
     expect(paid.behindPeriods).toBe(0);
     // Paid-this-period projection: 9 left start next period (25 Nov), 9th is Jul 2027 + due shift 1 = Aug.
     expect([paid.endYear, paid.endMonth]).toEqual([2027, 8]);
-    expect(isPaidInPeriod('2026-11-01', '2026-10-25')).toBe(true);
-    expect(isPaidInPeriod('2026-10-25', '2026-10-25')).toBe(true);
-    expect(isPaidInPeriod('2026-10-24', '2026-10-25')).toBe(false);
+    expect(isPaidInPeriod('2026-11-01', '2026-10-25', '2026-11-25')).toBe(true);
+    expect(isPaidInPeriod('2026-10-25', '2026-10-25', '2026-11-25')).toBe(true);
+    expect(isPaidInPeriod('2026-10-24', '2026-10-25', '2026-11-25')).toBe(false);
+    // End is exclusive.
+    expect(isPaidInPeriod('2026-11-25', '2026-10-25', '2026-11-25')).toBe(false);
+  });
+
+  it('a stamp from a future period is not paid now and is not behind', () => {
+    const p = computeEmiPayoff(emi({ paidInstallments: 3, lastPaidPeriod: '2026-12-05' }), nov)!;
+    expect(p.behindPeriods).toBe(0);
+    // Treated as unpaid this period: 9 left starting November ends July 2027.
+    expect([p.endYear, p.endMonth]).toEqual([2027, 7]);
+    expect(countBehindPeriods('2026-12-05', '2026-11-01')).toBe(0);
   });
 
   it('cycle day changed: an old stamp is compared by date against the new grid', () => {

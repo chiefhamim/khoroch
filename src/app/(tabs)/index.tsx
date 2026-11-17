@@ -4,7 +4,14 @@ import { StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } f
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { isSavingsAssetKind, resolveWalletColorHex } from '@/domain/accounts';
 import { formatUtilizationPct } from '@/domain/calc';
-import { addWageId, buildWageEntry, pruneWageLast, removeWageId } from '@/domain/dailyWage';
+import {
+  addWageId,
+  buildWageEntry,
+  createSerialQueue,
+  hasMatchingQuickWageEntry,
+  pruneWageLast,
+  undoWageEntry,
+} from '@/domain/dailyWage';
 import {
   addDays,
   currentLocalTime,
@@ -221,10 +228,33 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     },
     [repo]
   );
+  // Recording and Undo run one after another through this queue, so each reads the latest pointer.
+  const wageQueueRef = useRef(createSerialQueue());
+  const wageAmountMinor = dailyWage?.amountMinor ?? null;
+  const wageCategoryId = dailyWage?.categoryId ?? null;
+  /**
+   * Fallback used only when the pointer has no live id for the day (an entry went in, its pointer
+   * was not written and the rollback failed, then the app restarted): a live quick income entry of
+   * that day with the wage's category and exact amount.
+   */
+  const readWageFallback = useCallback(
+    async (day: LocalDate): Promise<boolean> => {
+      if (wageAmountMinor === null || wageCategoryId === null) return false;
+      const entries = await repo.listTransactionsInRange(day, addDays(day, 1));
+      return hasMatchingQuickWageEntry(
+        { amountMinor: wageAmountMinor, categoryId: wageCategoryId },
+        entries,
+        day
+      );
+    },
+    [repo, wageAmountMinor, wageCategoryId]
+  );
   const readWageRecorded = useCallback(
     async (day: LocalDate): Promise<boolean> =>
-      wageForcedDayRef.current === day || (await readWageLast(day)) !== null,
-    [readWageLast]
+      wageForcedDayRef.current === day ||
+      (await readWageLast(day)) !== null ||
+      (await readWageFallback(day)),
+    [readWageLast, readWageFallback]
   );
   useEffect(() => {
     if (!wageUsable) return;
@@ -265,7 +295,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
       const day = todayLocalDate(now);
       recordDay = day;
       const previous = await readWageLast(day);
-      if (!again && (previous !== null || wageForcedDayRef.current === day)) {
+      if (
+        !again &&
+        (previous !== null || wageForcedDayRef.current === day || (await readWageFallback(day)))
+      ) {
         setWageStatus({ day, recorded: true });
         return;
       }
@@ -306,12 +339,9 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         tone: 'accent',
         actionLabel: t('common.undo'),
         onAction: () => {
-          void (async () => {
-            await repo.softDeleteTransaction(id);
-            // Only this entry's id leaves the list; the other entries of the day stay recorded.
-            const current = (await repo.getSettings()).dailyWageLast;
-            if (current !== null) await repo.setSetting('dailyWageLast', removeWageId(current, id));
-          })()
+          // Queued with recording: only this entry's id leaves the freshly read list.
+          void wageQueueRef.current
+            .run(() => undoWageEntry(repo, id))
             .catch(() => {})
             .finally(() => bumpDataVersion());
         },
@@ -340,6 +370,9 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
       setWageSaving(false);
     }
   };
+
+  /** What the buttons call: recording goes through the same queue as Undo. */
+  const queueRecordWage = (again: boolean) => wageQueueRef.current.run(() => recordWage(again));
 
   const hour = hourOverride ?? new Date().getHours();
   const greeting = buildGreeting(hour);
@@ -1142,7 +1175,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 testID="overview-worked-today-btn"
                 accessibilityRole="button"
                 accessibilityLabel={t('overview.workedTodayA11y', { amount: wageAmountText })}
-                onPress={() => void recordWage(false)}
+                onPress={() => void queueRecordWage(false)}
                 style={[
                   styles.wageButton,
                   {
@@ -1719,7 +1752,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               if (wageConfirmedRef.current) return;
               wageConfirmedRef.current = true;
               setAnotherWageOpen(false);
-              void recordWage(true);
+              void queueRecordWage(true);
             }}
           />
           <Button

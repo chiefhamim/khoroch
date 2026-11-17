@@ -52,11 +52,16 @@ export function useBillReminderSync(): void {
   // stored 21:00 is only a default, which is too late for a bill, so use the morning default.
   const time = settings.reminder.enabled ? settings.reminder.time : DEFAULT_BILL_REMINDER_TIME;
 
+  // Names must leave the lock screen at once: when hiding turns on, skip the debounce.
+  const prevHideNamesRef = useRef(hideNames);
+
   useEffect(() => {
+    const hidingJustTurnedOn = hideNames && !prevHideNamesRef.current;
+    prevHideNamesRef.current = hideNames;
     if (!onboardingDone) return;
     if (!enabled && clearedRef.current) return;
     let active = true;
-    const timer = setTimeout(() => {
+    const run = () => {
       (async () => {
         if (!enabled) {
           await syncBillReminders({
@@ -89,9 +94,18 @@ export function useBillReminderSync(): void {
             ...billSettingsRef.current,
             enabled: false,
           });
+          // Also record the denied state so the settings screen shows the blocked row and its button.
+          await updateSettingRef.current('notificationPermissionDenied', true);
         }
       })().catch(() => {});
-    }, BILL_REMINDER_SYNC_DEBOUNCE_MS);
+    };
+    if (hidingJustTurnedOn) {
+      run();
+      return () => {
+        active = false;
+      };
+    }
+    const timer = setTimeout(run, BILL_REMINDER_SYNC_DEBOUNCE_MS);
     return () => {
       active = false;
       clearTimeout(timer);
