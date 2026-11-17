@@ -580,3 +580,10 @@ Re-read: AGENTS §6 · PLAN §6
 - Metro hung twice with no error (stopped answering HTTP); restarted each time. Cause not found.
 - Backlog done: tasks 1 to 3. Remaining: 4 due date on dues, 5 bill reminders, 6 left after bills, 7 default fee per wallet, 8 weekly period, 9 EMI payoff view, 10 worked-today button. Skipped inside task 1: a dedicated marker for balance adjustments (the `source` column has a CHECK constraint, so it needs a table rebuild).
 - App lock: second security review pending. Known limit: moving the clock forward and restarting the app shortens the wrong-PIN wait.
+- Later the same day (2026-11-17), all on dev, each built by a builder agent and reviewed; checks at d8947be: typecheck exit 0, `npm test` 59 suites 536 tests none skipped, lint clean.
+  - App lock: rounds 2 and 3 (f217d6b, fc57fa1). Third security review PASS on code. NOT VERIFIED on a device (biometric path, uptime clock, top-window fix). Dev app rebuilt and reinstalled with `install -r` for the new native method; data kept. Known limit: a debug build can be read over adb regardless of the lock.
+  - Backlog 6 left after bills (898c965), 4 due dates (81dbb6c, fixes 89dbf47; schema 6), 7 default fee per wallet (2598270, fixes a3d758f; schema 7), 9 EMI payoff (99f1d26, fixes 57f5c13), 10 worked today (94f9f17, fixes d8947be). Remaining: 5 bill reminders, 8 weekly period.
+  - UI: hero strip contrast (b74985c), Day book polish (fbcc4dc), button labels cannot wrap (5683a0e).
+  - Seen on the phone (dev app, light mode): Home, Ledger Day book, Plan, People. Migrations 6 and 7 ran on the dev app and it opens normally. NOT VERIFIED on a screen: due-date captions, fee pre-fill in quick entry, payoff block, worked-today strip (none have data on the phone), all sheets, Settings, onboarding, lock screens, Bangla, 360dp width.
+  - Backups from the dev app are now schema 7; the owner's main app refuses them until it is updated.
+  - Metro hangs after every Android build; restart it. Builders sometimes leave a file invalid for a few seconds mid-edit (two transient red-screen errors logged by Metro).
