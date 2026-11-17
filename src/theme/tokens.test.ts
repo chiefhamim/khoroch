@@ -85,6 +85,8 @@ function assertPaletteContrast(name: string, p: ColorPalette): void {
   const strip = compositeOver(p.heroStrip, p.hero);
   expect(contrastRatio(p.heroText, strip)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(p.heroTextSecondary, strip)).toBeGreaterThanOrEqual(4.5);
+  // heroBar is a bar and ring colour: it is not text-safe in light mode (about 1.5:1), so text on the
+  // hero and its strips always uses heroText.
 
   // Glass fills are opaque hex in dark modes; the light ones are translucent and cannot be measured here.
   if (p.glassFill.startsWith('#')) {

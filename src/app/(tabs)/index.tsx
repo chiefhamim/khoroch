@@ -409,7 +409,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                   fitVariants={[walletsStripVariant]}
                   amountMinor={netWorth.savingsAssetsMinor}
                   currency={settings.currency}
-                  color="heroBar"
+                  color="heroText"
                   hidden={hideAmounts}
                 />
               </View>
@@ -516,7 +516,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     fitVariants={[budgetStripVariant]}
                     amountMinor={safePerDayMinor}
                     currency={settings.currency}
-                    color="heroBar"
+                    color="heroText"
                     hidden={hideAmounts}
                   />
                 ) : (
@@ -629,10 +629,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               <AppText variant="label" color="heroTextSecondary" style={styles.flexOne}>
                 {t('overview.noBudgetInline')}
               </AppText>
-              <AppText variant="label" color="heroBar" style={styles.semiBold}>
+              <AppText variant="label" color="heroText" style={styles.semiBold}>
                 {t('overview.setBudgetCta')}
               </AppText>
-              <AppIcon name="chevron-right" size={16} color={theme.colors.heroBar} />
+              <AppIcon name="chevron-right" size={16} color={theme.colors.heroText} />
             </PressableScale>
           </>
   );
@@ -715,7 +715,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             fitVariants={[netWorthStripVariant]}
             amountMinor={Math.abs(netWorth.savingsAssetsMinor)}
             currency={settings.currency}
-            color="heroBar"
+            color="heroText"
             hidden={hideAmounts}
           />
         </View>
