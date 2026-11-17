@@ -68,4 +68,32 @@ describe('markRecurringBillPaid with a stamp in a later period', () => {
     expect(after.paidInstallments).toBe(3);
     expect(await repo.listTransactionsInRange('2026-01-01', '2027-01-01')).toHaveLength(1);
   });
+
+  it('leaves the bill unstamped and the instalment unchanged when the entry insert fails', async () => {
+    const { repo, result } = await setup('2026-10-01');
+    const bill = { ...result.current.recurringBills[0], accountId: 'missing-wallet' };
+    await act(async () => {
+      await expect(result.current.markRecurringBillPaid(bill)).rejects.toThrow();
+    });
+    const after = (await repo.listRecurringBills({ includeInactive: true }))[0];
+    expect(after.lastPaidPeriod).toBe('2026-10-01');
+    expect(after.paidInstallments).toBe(2);
+    expect(await repo.listTransactionsInRange('2026-01-01', '2027-01-01')).toHaveLength(0);
+  });
+
+  it('two concurrent calls on the same stale bill make one expense and one increment', async () => {
+    const { repo, result } = await setup('2026-10-01');
+    const bill = result.current.recurringBills[0];
+    let outcomes: string[] = [];
+    await act(async () => {
+      outcomes = await Promise.all([
+        result.current.markRecurringBillPaid(bill),
+        result.current.markRecurringBillPaid(bill),
+      ]);
+    });
+    expect(outcomes.sort()).toEqual(['already_recorded', 'recorded']);
+    const after = (await repo.listRecurringBills({ includeInactive: true }))[0];
+    expect(after.paidInstallments).toBe(3);
+    expect(await repo.listTransactionsInRange('2026-01-01', '2027-01-01')).toHaveLength(1);
+  });
 });

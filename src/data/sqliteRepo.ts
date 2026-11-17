@@ -1647,6 +1647,49 @@ export class SqliteRepo implements Repo {
     await this.db.runAsync(`DELETE FROM recurring_bills WHERE id = ?`, [id]);
   }
 
+  /** Mark-paid calls run one after another so two taps never open nested transactions. */
+  private billPaidTail: Promise<unknown> = Promise.resolve();
+
+  recordBillPaid(input: {
+    billId: string;
+    periodStart: LocalDate;
+    transaction: NewTransaction | null;
+  }): Promise<'recorded' | 'already_paid'> {
+    const run = () => this.recordBillPaidInner(input);
+    const result = this.billPaidTail.then(run, run);
+    this.billPaidTail = result.catch(() => {});
+    return result;
+  }
+
+  private async recordBillPaidInner(input: {
+    billId: string;
+    periodStart: LocalDate;
+    transaction: NewTransaction | null;
+  }): Promise<'recorded' | 'already_paid'> {
+    let outcome: 'recorded' | 'already_paid' = 'already_paid';
+    await this.db.withTransactionAsync(async () => {
+      const row = await this.db.getFirstAsync<RecurringBillRow>(
+        `SELECT * FROM recurring_bills WHERE id = ?`,
+        [input.billId]
+      );
+      if (!row) throw new Error(`Recurring bill "${input.billId}" not found`);
+      const bill = mapRecurringBillRow(row);
+      if (bill.lastPaidPeriod != null && bill.lastPaidPeriod >= input.periodStart) return;
+      const nextPaid = bill.paidInstallments + 1;
+      const doneEmi =
+        bill.kind === 'emi' &&
+        bill.totalInstallments !== null &&
+        nextPaid >= bill.totalInstallments;
+      await this.db.runAsync(
+        `UPDATE recurring_bills SET last_paid_period = ?, paid_installments = ?, is_active = ?, updated_at = ? WHERE id = ?`,
+        [input.periodStart, nextPaid, doneEmi ? 0 : bill.isActive ? 1 : 0, Date.now(), input.billId]
+      );
+      if (input.transaction) await this.insertTransaction(input.transaction);
+      outcome = 'recorded';
+    });
+    return outcome;
+  }
+
   async listPendingDrafts(opts?: { status?: PendingDraftStatus }): Promise<PendingDraft[]> {
     const rows = opts?.status
       ? await this.db.getAllAsync<PendingDraftRow>(

@@ -75,6 +75,50 @@ describe('createSerialQueue', () => {
   });
 });
 
+describe('createSerialQueue with a task timeout', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
+  it('rejects a task that never settles and runs the next one', async () => {
+    const queue = createSerialQueue({ taskTimeoutMs: 10_000 });
+    const hung = queue.run(() => new Promise<void>(() => {}));
+    const hungResult = hung.then(
+      () => 'ok',
+      (e: Error) => e.message
+    );
+    const next = queue.run(async () => 'next');
+    await jest.advanceTimersByTimeAsync(9_999);
+    let settled = false;
+    void hungResult.then(() => {
+      settled = true;
+    });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    await jest.advanceTimersByTimeAsync(2);
+    expect(await hungResult).toBe('Queued task timed out');
+    expect(await next).toBe('next');
+  });
+
+  it('does not fire for tasks that finish in time, and keeps order', async () => {
+    const queue = createSerialQueue({ taskTimeoutMs: 10_000 });
+    const order: string[] = [];
+    const a = queue.run(async () => {
+      await new Promise((r) => setTimeout(r, 5_000));
+      order.push('a');
+      return 1;
+    });
+    const b = queue.run(async () => {
+      order.push('b');
+      return 2;
+    });
+    await jest.advanceTimersByTimeAsync(5_000);
+    expect(await a).toBe(1);
+    expect(await b).toBe(2);
+    await jest.advanceTimersByTimeAsync(20_000);
+    expect(order).toEqual(['a', 'b']);
+  });
+});
+
 describe('Undo of entry A racing a second record B', () => {
   async function seedA(repo: MemoryRepo) {
     await repo.insertTransaction(tx({ id: 'A' }) as never);

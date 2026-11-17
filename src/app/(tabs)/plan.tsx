@@ -104,6 +104,31 @@ export default function PlanScreen() {
   const [billDueDayText, setBillDueDayText] = useState('5');
   const [billInstallmentsText, setBillInstallmentsText] = useState('6');
   const [billError, setBillError] = useState<string | null>(null);
+  // Bills whose Mark paid is in flight: the button is disabled and a second tap is ignored.
+  const [payingBillIds, setPayingBillIds] = useState<string[]>([]);
+  const payingBillRef = React.useRef<Set<string>>(new Set());
+  const payBill = (bill: RecurringBill) => {
+    if (payingBillRef.current.has(bill.id)) return;
+    payingBillRef.current.add(bill.id);
+    setPayingBillIds(Array.from(payingBillRef.current));
+    markRecurringBillPaid(bill)
+      .then((outcome) => {
+        hapticSuccess();
+        showToast({
+          message:
+            outcome === 'already_recorded' ? t('budget.billAlreadyPaidToast') : t('budget.billPaidToast'),
+          icon: 'circle-check',
+          tone: 'accent',
+        });
+      })
+      .catch(() => {
+        showToast({ message: t('settings.actionError'), icon: 'circle-alert', tone: 'danger' });
+      })
+      .finally(() => {
+        payingBillRef.current.delete(bill.id);
+        setPayingBillIds(Array.from(payingBillRef.current));
+      });
+  };
 
   const budgetedCatIds = useMemo(
     () => new Set(categoryBudgets.map((c) => c.categoryId)),
@@ -770,19 +795,8 @@ export default function PlanScreen() {
                             title={t('budget.markPaid')}
                             size="sm"
                             variant="secondary"
-                            onPress={() => {
-                              void markRecurringBillPaid(bill).then((outcome) => {
-                                hapticSuccess();
-                                showToast({
-                                  message:
-                                    outcome === 'already_recorded'
-                                      ? t('budget.billAlreadyPaidToast')
-                                      : t('budget.billPaidToast'),
-                                  icon: 'circle-check',
-                                  tone: 'accent',
-                                });
-                              });
-                            }}
+                            disabled={payingBillIds.includes(bill.id)}
+                            onPress={() => payBill(bill)}
                           />
                         )}
                         <IconButton

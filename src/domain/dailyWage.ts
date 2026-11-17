@@ -111,12 +111,35 @@ export function hasMatchingQuickWageEntry(
   );
 }
 
-/** Runs tasks one after another, in the order they were queued. A failing task does not stop the next. */
-export function createSerialQueue(): { run<T>(task: () => Promise<T>): Promise<T> } {
+/**
+ * Runs tasks one after another, in the order they were queued. A failing task does not stop the next.
+ * With `taskTimeoutMs`, a task that has not settled by then is given up on: its caller gets a
+ * rejection and the queue moves on, so one hung task cannot block everything after it.
+ */
+export function createSerialQueue(opts?: { taskTimeoutMs?: number }): {
+  run<T>(task: () => Promise<T>): Promise<T>;
+} {
+  const timeoutMs = opts?.taskTimeoutMs;
   let tail: Promise<unknown> = Promise.resolve();
+  const guarded = <T>(task: () => Promise<T>): Promise<T> => {
+    if (timeoutMs === undefined) return task();
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Queued task timed out')), timeoutMs);
+      task().then(
+        (v) => {
+          clearTimeout(timer);
+          resolve(v);
+        },
+        (e) => {
+          clearTimeout(timer);
+          reject(e);
+        }
+      );
+    });
+  };
   return {
     run<T>(task: () => Promise<T>): Promise<T> {
-      const result = tail.then(task, task);
+      const result = tail.then(() => guarded(task), () => guarded(task));
       tail = result.catch(() => {});
       return result;
     },

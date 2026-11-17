@@ -989,6 +989,38 @@ export class MemoryRepo implements Repo {
     this.recurringBills.delete(id);
   }
 
+  async recordBillPaid(input: {
+    billId: string;
+    periodStart: LocalDate;
+    transaction: NewTransaction | null;
+  }): Promise<'recorded' | 'already_paid'> {
+    const existing = this.recurringBills.get(input.billId);
+    if (!existing) throw new Error(`Recurring bill "${input.billId}" not found`);
+    if (existing.lastPaidPeriod != null && existing.lastPaidPeriod >= input.periodStart) {
+      return 'already_paid';
+    }
+    const nextPaid = existing.paidInstallments + 1;
+    const doneEmi =
+      existing.kind === 'emi' &&
+      existing.totalInstallments !== null &&
+      nextPaid >= existing.totalInstallments;
+    // Stamp synchronously (before any await) so a concurrent call sees it; undo if the insert fails.
+    this.recurringBills.set(input.billId, {
+      ...existing,
+      lastPaidPeriod: input.periodStart,
+      paidInstallments: nextPaid,
+      isActive: doneEmi ? false : existing.isActive,
+      updatedAt: Date.now(),
+    });
+    try {
+      if (input.transaction) await this.insertTransaction(input.transaction);
+    } catch (e) {
+      this.recurringBills.set(input.billId, existing);
+      throw e;
+    }
+    return 'recorded';
+  }
+
   async listPendingDrafts(opts?: { status?: PendingDraftStatus }): Promise<PendingDraft[]> {
     const status = opts?.status;
     return Array.from(this.pendingDrafts.values())

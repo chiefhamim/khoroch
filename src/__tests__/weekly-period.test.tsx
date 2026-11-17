@@ -579,6 +579,58 @@ describe('Home hero caption row wraps instead of clipping', () => {
   });
 });
 
+describe('Home hero caption row in monthly mode', () => {
+  beforeEach(() => setLocale('en'));
+  afterEach(() => {
+    cleanup();
+    setLocale('en');
+  });
+
+  async function openHero(withFees: boolean) {
+    const repo = await seedRepo(async (r) => {
+      await r.setBudget('2026-11-01', '', 4_000_000);
+      if (withFees) {
+        await r.insertTransaction({
+          id: 'fee1',
+          type: 'expense',
+          amountMinor: 1_500,
+          currency: 'BDT',
+          categoryId: 'fees',
+          description: 'Fee',
+          occurredOn: '2026-11-16',
+        });
+      }
+      await r.insertRecurringBill({
+        id: 'b1',
+        name: 'Internet',
+        kind: 'bill',
+        amountMinor: 50_000,
+        dayOfMonth: 18,
+      });
+    });
+    const view = await renderIn(repo, <OverviewContent todayOverride={TODAY} hourOverride={10} />);
+    await waitFor(() => expect(view.getByTestId('overview-hero-tab-networth')).toBeTruthy());
+    await act(async () => {
+      fireEvent.press(view.getByTestId('overview-hero-tab-networth'));
+    });
+    await waitFor(() => expect(view.getByTestId('hero-subrow')).toBeTruthy());
+    return view;
+  }
+
+  it('keeps the after-bills caption on the right when there are no fees', async () => {
+    const view = await openHero(false);
+    expect(view.queryByTestId('hero-fees-caption')).toBeNull();
+    const style = StyleSheet.flatten(view.getByTestId('hero-afterbills-caption').props.style);
+    expect(style.marginLeft).toBe('auto');
+  });
+
+  it('shows both captions when fees are present', async () => {
+    const view = await openHero(true);
+    expect(view.getByTestId('hero-fees-caption')).toBeTruthy();
+    expect(view.getByTestId('hero-afterbills-caption')).toBeTruthy();
+  });
+});
+
 describe('weekly period: defaults', () => {
   it('the default settings are monthly, Saturday and no weekly budget', () => {
     expect(DEFAULT_SETTINGS.periodKind).toBe('month');

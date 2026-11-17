@@ -286,3 +286,9 @@ Beyond A to E:
 - USD: the spec wants a draft with an empty amount, but `pending_drafts.amount_minor` is `CHECK (> 0)` and a schema change is out of scope, so a USD-only message makes no draft. Revisit in C12.
 - Raw text: `updatePendingDraftStatus` blanks `raw_text` as soon as a draft is approved or dismissed (the spec says 7 days, which needs a timestamp column; C12). The row stays so the fingerprint still blocks the same message.
 - Sender allow-list is not touched (C14).
+
+## Atomic Mark paid and three small fixes
+- New `Repo.recordBillPaid({ billId, periodStart, transaction })` does stamp, instalment increment (EMI ends at its last instalment) and the entry in one transaction. SqliteRepo re-reads the bill inside `withTransactionAsync` and calls are chained so two taps never open nested transactions. MemoryRepo stamps before its first await and restores the bill if the insert fails. "Already paid" means the stored stamp is at or after the period start; the hook reports it as `already_recorded`, so the existing "already paid" toast shows. The future-stamp re-stamp path (decideMarkBillPaid) is unchanged.
+- Plan: Mark paid is disabled per bill while pending (a ref also blocks a second tap before re-render). Failure shows the existing `settings.actionError` text as a danger toast; no new string.
+- `createSerialQueue({ taskTimeoutMs })`: after the timeout the caller's promise rejects and the queue moves on; the hung task itself is not cancelled (JS cannot), so a late finish is ignored. Wage queue uses 10 seconds.
+- Bill reminder sync: when permission is undetermined and `notificationPermissionDenied` is true, it is set to false. It only writes while the flag is true, and the same run turns reminders off, so it cannot loop.

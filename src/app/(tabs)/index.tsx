@@ -96,7 +96,7 @@ const HERO_FIT = ['hero', 'display', 'title'] as const;
  * It lives at module level so an Undo from a toast that outlives a Home remount still waits for, and
  * is waited for by, a new record made by the next mount.
  */
-export const dailyWageQueue = createSerialQueue();
+export const dailyWageQueue = createSerialQueue({ taskTimeoutMs: 10_000 });
 /** Candidate type sizes for wallet tile balances, largest first. */
 const WALLET_TILE_FIT = ['headline', 'bodyStrong', 'label'] as const;
 const STRIP_COLUMNS = 3;

@@ -30,9 +30,11 @@ export function useBillReminderSync(): void {
   const clearedRef = useRef(false);
   const billSettingsRef = useRef(settings.billReminders);
   const updateSettingRef = useRef(updateSetting);
+  const deniedRef = useRef(settings.notificationPermissionDenied);
   useEffect(() => {
     billSettingsRef.current = settings.billReminders;
     updateSettingRef.current = updateSetting;
+    deniedRef.current = settings.notificationPermissionDenied;
   });
 
   useEffect(() => {
@@ -98,6 +100,10 @@ export function useBillReminderSync(): void {
           // (undetermined) just gets the switch turned off, so settings shows no blocked row.
           if (result.permission === 'denied') {
             await updateSettingRef.current('notificationPermissionDenied', true);
+          } else if (result.permission === 'undetermined' && deniedRef.current) {
+            // An earlier build wrongly flagged a never-asked phone as blocked: clear it. Only
+            // while it is still true, so this writes once and cannot loop.
+            await updateSettingRef.current('notificationPermissionDenied', false);
           }
         }
       })().catch(() => {});

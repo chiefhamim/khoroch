@@ -132,6 +132,17 @@ export interface Repo {
   insertRecurringBill(b: NewRecurringBill): Promise<void>;
   updateRecurringBill(id: string, patch: RecurringBillPatch): Promise<void>;
   deleteRecurringBill(id: string): Promise<void>;
+  /**
+   * Mark a bill paid for one bill period in ONE transaction: stamp, instalment increment (ending
+   * an EMI at its last instalment) and the optional entry. Re-reads the bill; if it is already
+   * stamped for this period (or later) nothing is written and 'already_paid' is returned.
+   * If the entry insert fails, nothing is changed.
+   */
+  recordBillPaid(input: {
+    billId: string;
+    periodStart: LocalDate;
+    transaction: NewTransaction | null;
+  }): Promise<'recorded' | 'already_paid'>;
 
   // Captured pending drafts (Smart Inbox)
   listPendingDrafts(opts?: { status?: PendingDraftStatus }): Promise<PendingDraft[]>;

@@ -143,6 +143,24 @@ describe('useBillReminderSync', () => {
     expect(updateSetting).not.toHaveBeenCalledWith('notificationPermissionDenied', true);
   });
 
+  it('clears a wrongly set denied flag when the phone was never asked', async () => {
+    mockSync.mockResolvedValue({ scheduled: 0, permissionMissing: true, permission: 'undetermined' });
+    const { wrapper, updateSetting } = setup(makeSettings({ notificationPermissionDenied: true }));
+    await renderHook(() => useBillReminderSync(), { wrapper });
+    await flush();
+    expect(updateSetting).toHaveBeenCalledWith('notificationPermissionDenied', false);
+    expect(updateSetting).toHaveBeenCalledTimes(2);
+    expect(updateSetting).not.toHaveBeenCalledWith('notificationPermissionDenied', true);
+  });
+
+  it('does not write the denied flag when it is already false and the phone was never asked', async () => {
+    mockSync.mockResolvedValue({ scheduled: 0, permissionMissing: true, permission: 'undetermined' });
+    const { wrapper, updateSetting } = setup(makeSettings({ notificationPermissionDenied: false }));
+    await renderHook(() => useBillReminderSync(), { wrapper });
+    await flush();
+    expect(updateSetting).not.toHaveBeenCalledWith('notificationPermissionDenied', false);
+  });
+
   it('turns the setting off and marks denied when notification permission is really denied', async () => {
     mockSync.mockResolvedValue({ scheduled: 0, permissionMissing: true, permission: 'denied' });
     const { wrapper, updateSetting } = setup(

@@ -367,31 +367,28 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
         bumpDataVersion();
         return 'already_recorded';
       }
-      const nextPaid = bill.paidInstallments + 1;
-      const doneEmi =
-        bill.kind === 'emi' &&
-        bill.totalInstallments !== null &&
-        nextPaid >= bill.totalInstallments;
-      await repo.updateRecurringBill(bill.id, {
-        lastPaidPeriod: billPeriod.start,
-        paidInstallments: nextPaid,
-        isActive: doneEmi ? false : bill.isActive,
+      // Stamp, instalment and entry are one repository transaction. It re-reads the bill, so a
+      // second tap on the same stale bill object is a no-op.
+      const outcome = await repo.recordBillPaid({
+        billId: bill.id,
+        periodStart: billPeriod.start,
+        transaction:
+          opts?.recordTransaction !== false
+            ? {
+                id: `tx_bill_${Crypto.randomUUID()}`,
+                type: bill.kind === 'salary' ? 'income' : 'expense',
+                amountMinor: bill.amountMinor,
+                currency,
+                categoryId: bill.categoryId ?? (bill.kind === 'salary' ? 'salary' : 'utilities'),
+                accountId: bill.accountId ?? accounts[0]?.id ?? null,
+                description: bill.name,
+                occurredOn: today,
+                source: 'quick',
+              }
+            : null,
       });
-      if (opts?.recordTransaction !== false) {
-        await repo.insertTransaction({
-          id: `tx_bill_${Crypto.randomUUID()}`,
-          type: bill.kind === 'salary' ? 'income' : 'expense',
-          amountMinor: bill.amountMinor,
-          currency,
-          categoryId: bill.categoryId ?? (bill.kind === 'salary' ? 'salary' : 'utilities'),
-          accountId: bill.accountId ?? accounts[0]?.id ?? null,
-          description: bill.name,
-          occurredOn: today,
-          source: 'quick',
-        });
-      }
       bumpDataVersion();
-      return 'recorded';
+      return outcome === 'already_paid' ? 'already_recorded' : 'recorded';
     },
     [repo, billPeriod, currency, accounts, today]
   );
