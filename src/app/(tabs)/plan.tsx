@@ -116,6 +116,25 @@ export default function PlanScreen() {
     [categories, budgetedCatIds]
   );
 
+  const dividerStyle = useMemo(
+    () => ({
+      backgroundColor: theme.colors.separator,
+      marginLeft: theme.geometry.dividerInset,
+      marginRight: theme.spacing.lg,
+    }),
+    [theme.colors.separator, theme.geometry.dividerInset, theme.spacing.lg]
+  );
+  const payoffBoxStyle = useMemo(
+    () => ({
+      paddingLeft: theme.geometry.dividerInset,
+      paddingRight: theme.spacing.lg,
+      paddingBottom: theme.spacing.md,
+      gap: theme.spacing.xs,
+    }),
+    [theme.geometry.dividerInset, theme.spacing.lg, theme.spacing.md, theme.spacing.xs]
+  );
+  const billRightStyle = useMemo(() => ({ gap: theme.spacing.xs }), [theme.spacing.xs]);
+
   if (error && !loading) {
     return (
       <Screen>
@@ -476,21 +495,12 @@ export default function PlanScreen() {
                       <ProgressBar
                         pct={item.utilizationPct}
                         status={item.status}
-                        height={4}
+                        height={theme.geometry.progressBarThin}
                       />
                     </View>
                   </PressableScale>
                   {idx < categoryBudgets.length - 1 ? (
-                    <View
-                      style={[
-                        styles.divider,
-                        {
-                          backgroundColor: theme.colors.separator,
-                          marginLeft: theme.geometry.dividerInset,
-                          marginRight: theme.spacing.lg,
-                        },
-                      ]}
-                    />
+                    <View style={[styles.divider, dividerStyle]} />
                   ) : null}
                 </View>
               );
@@ -594,20 +604,15 @@ export default function PlanScreen() {
                             {t('plan.wentSetBudget')}
                           </AppText>
                         </View>
-                        <ProgressBar pct={share} tone="accent" height={4} />
+                        <ProgressBar
+                          pct={share}
+                          tone="accent"
+                          height={theme.geometry.progressBarThin}
+                        />
                       </View>
                     </PressableScale>
                     {idx < rows.length - 1 ? (
-                      <View
-                        style={[
-                          styles.divider,
-                          {
-                            backgroundColor: theme.colors.separator,
-                            marginLeft: theme.geometry.dividerInset,
-                            marginRight: theme.spacing.lg,
-                          },
-                        ]}
-                      />
+                      <View style={[styles.divider, dividerStyle]} />
                     ) : null}
                   </View>
                 );
@@ -619,14 +624,18 @@ export default function PlanScreen() {
 
       {/* Recurring bills & monthly EMIs */}
       <View style={{ gap: theme.spacing.sm }}>
-        <View style={styles.catSectionHeader}>
-          <AppText variant="headline">{t('budget.billsSection')}</AppText>
+        <View testID="plan-bills-header" style={[styles.billsHeader, { gap: theme.spacing.sm }]}>
+          <AppText testID="plan-bills-title" variant="headline" style={styles.billsHeaderTitle}>
+            {t('budget.billsSection')}
+          </AppText>
           <Button
             testID="plan-add-bill-btn"
-            title={t('budget.addBillCta')}
+            title={t('budget.addBillShort')}
+            accessibilityLabel={t('budget.addBillCta')}
             leftIcon="plus"
             size="sm"
             variant="secondary"
+            style={styles.billsHeaderButton}
             onPress={() => {
               hapticLight();
               setBillName('');
@@ -680,7 +689,13 @@ export default function PlanScreen() {
                     total: payoff.totalInstallments,
                   })
                 : '';
-              const payoffDetailText = payoff
+              const behindText =
+                payoff && payoff.behindPeriods > 0
+                  ? payoff.behindPeriods === 1
+                    ? t('budget.emiBehindOne')
+                    : t('budget.emiBehindMany', { count: payoff.behindPeriods })
+                  : '';
+              const payoffBaseText = payoff
                 ? payoff.state === 'finished'
                   ? t('budget.emiFinished', { total: payoff.totalInstallments })
                   : payoff.endYear !== null && payoff.endMonth !== null
@@ -698,6 +713,9 @@ export default function PlanScreen() {
                         }),
                       })
                 : '';
+              const payoffDetailText = behindText
+                ? `${payoffBaseText} · ${behindText}`
+                : payoffBaseText;
               return (
                 <View key={bill.id}>
                   <ListRow
@@ -712,7 +730,7 @@ export default function PlanScreen() {
                     title={bill.name}
                     subtitle={subParts.join(' · ')}
                     right={
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={[styles.billRight, billRightStyle]}>
                         <Money
                           variant="bodyStrong"
                           amountMinor={bill.amountMinor}
@@ -720,7 +738,7 @@ export default function PlanScreen() {
                           hidden={hideAmounts}
                         />
                         {isPaid ? (
-                          <AppText variant="caption" color="income" style={{ fontWeight: '700' }}>
+                          <AppText variant="caption" color="income" style={styles.paidBadge}>
                             {t('budget.paidBadge')}
                           </AppText>
                         ) : (
@@ -765,14 +783,9 @@ export default function PlanScreen() {
                           total: payoff.totalInstallments,
                           detail: payoffDetailText,
                         })}
-                        style={{
-                          paddingLeft: theme.geometry.dividerInset,
-                          paddingRight: theme.spacing.lg,
-                          paddingBottom: theme.spacing.md,
-                          gap: theme.spacing.xs,
-                        }}
+                        style={payoffBoxStyle}
                       >
-                        <ProgressBar pct={payoff.pct} height={4} />
+                        <ProgressBar pct={payoff.pct} height={theme.geometry.progressBarThin} />
                         <AppText variant="caption" color="textSecondary" tabularNums>
                           {payoffPaidText}
                         </AppText>
@@ -785,16 +798,7 @@ export default function PlanScreen() {
                         </AppText>
                       </View>
                       {idx < recurringBills.length - 1 ? (
-                        <View
-                          style={[
-                            styles.divider,
-                            {
-                              backgroundColor: theme.colors.separator,
-                              marginLeft: theme.geometry.dividerInset,
-                              marginRight: theme.spacing.lg,
-                            },
-                          ]}
-                        />
+                        <View style={[styles.divider, dividerStyle]} />
                       ) : null}
                     </>
                   ) : null}
@@ -1094,6 +1098,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
+  },
+  billsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  billsHeaderTitle: {
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  billsHeaderButton: {
+    flexShrink: 0,
+  },
+  billRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paidBadge: {
+    fontWeight: '700',
   },
   heroFooter: {
     flexDirection: 'row',

@@ -17,6 +17,7 @@ import {
   UNTOUCHED_FEE,
   feeStateFromText,
   formatFeeRateBp,
+  isFeeLargerThanAmount,
   resolveTransferFee,
   type FeeEntryState,
 } from '@/domain/fees';
@@ -919,6 +920,20 @@ export default function QuickEntryScreen() {
                             }))
                           }
                         />
+
+                        {draftFee.valid &&
+                        isFeeLargerThanAmount(
+                          draftFee.feeMinor,
+                          parsedMoney.ok && parsedMoney.minor !== null ? parsedMoney.minor : 0
+                        ) ? (
+                          <AppText
+                            testID={`quick-draft-fee-large-${idx}`}
+                            variant="caption"
+                            color="warning"
+                          >
+                            {t('transfer.feeLargerThanAmount')}
+                          </AppText>
+                        ) : null}
 
                         {draftFee.fromDefault && draftFee.defaultBp !== null ? (
                           <AppText

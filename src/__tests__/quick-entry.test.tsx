@@ -257,6 +257,26 @@ describe('QuickEntryScreen transfer fee default', () => {
     });
   });
 
+  it('warns, without blocking, when the typed fee is larger than the amount', async () => {
+    const repo = await setupRepoWithRate(185);
+    const view = await parseCashOut(repo);
+    expect(view.queryByTestId('quick-draft-fee-large-0')).toBeNull();
+
+    await fireEvent.changeText(view.getByTestId('quick-draft-fee-0'), '500');
+    expect(view.queryByTestId('quick-draft-fee-large-0')).toBeNull();
+    await fireEvent.changeText(view.getByTestId('quick-draft-fee-0'), '600');
+    expect(view.getByTestId('quick-draft-fee-large-0')).toBeTruthy();
+    expect(view.getByText('Fee is larger than the amount')).toBeTruthy();
+
+    await fireEvent.press(view.getByTestId('quick-entry-confirm-btn'));
+    await waitFor(async () => {
+      const transfers = await repo.listTransfers();
+      expect(transfers).toHaveLength(1);
+      expect(transfers[0].amountMinor).toBe(50_000);
+      expect(transfers[0].feeMinor).toBe(60_000);
+    });
+  });
+
   it('gives no pre-fill when the destination is a bank, and none without a rate', async () => {
     const repo = await setupRepoWithRate(185);
     const view = await parseCashOut(repo);

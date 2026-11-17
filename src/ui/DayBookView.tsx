@@ -25,6 +25,7 @@ import { useAppContext } from '@/state/AppContext';
 import { useDataVersionStore } from '@/state/dataVersion';
 import { usePeople } from '@/state/usePeople';
 import { usePrivacyStore } from '@/state/privacyStore';
+import { spacing } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText } from './AppText';
@@ -201,7 +202,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
     cell: theme.touch.min,
     gap: theme.spacing.xs,
     pad: theme.spacing.md,
-    viewport: windowW - 2 * theme.geometry.screenMargin - 2,
+    viewport: windowW - 2 * theme.geometry.screenMargin - CARD_BORDER_BOTH_SIDES,
   };
   const stripPitch = dayStripPitch(stripLayout);
   const stripScrolled = useRef(false);
@@ -242,7 +243,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
   const kpiGap = theme.spacing.sm;
   const kpiDividerPad = theme.spacing.sm;
   const kpiInnerW =
-    windowW - 2 * theme.geometry.screenMargin - 2 - 2 * theme.geometry.cardPadding;
+    windowW - 2 * theme.geometry.screenMargin - CARD_BORDER_BOTH_SIDES - 2 * theme.geometry.cardPadding;
   const kpiColW = Math.max(
     0,
     Math.floor((kpiInnerW - (KPI_COLUMNS - 1) * kpiGap) / KPI_COLUMNS) - 1 - kpiDividerPad
@@ -509,7 +510,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
           {
             backgroundColor: theme.colors.surface,
             borderRadius: theme.radius.card,
-            borderWidth: 1,
+            borderWidth: CARD_BORDER_WIDTH,
             borderColor: theme.colors.cardBorder,
           },
         ]}
@@ -826,6 +827,10 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
   );
 }
 
+/** The cards drawn here use a 1dp border on each side (not a hairline), so layout maths subtracts it twice. */
+const CARD_BORDER_WIDTH = 1;
+const CARD_BORDER_BOTH_SIDES = 2 * CARD_BORDER_WIDTH;
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   alignEnd: { alignItems: 'flex-end' },
@@ -838,7 +843,7 @@ const styles = StyleSheet.create({
   weekRow: { flexDirection: 'row', alignItems: 'center' },
   weekDay: { alignItems: 'center', paddingVertical: 8, gap: 2, minHeight: 64 },
   weekMark: { width: 14, height: 3, borderRadius: 2, marginTop: 2 },
-  summary: { borderWidth: 1 },
+  summary: { borderWidth: CARD_BORDER_WIDTH },
   summaryTop: { flexDirection: 'row', alignItems: 'flex-end', gap: 12 },
   summaryDivider: { height: StyleSheet.hairlineWidth },
   entryRow: { flexDirection: 'row', alignItems: 'stretch' },
@@ -856,7 +861,7 @@ const styles = StyleSheet.create({
   balanceText: { flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, paddingRight: 13 },
   empty: { alignItems: 'center' },
   kpiRow: { flexDirection: 'row', alignItems: 'flex-start' },
-  kpiCol: { flex: 1, gap: 2 },
+  kpiCol: { flex: 1, gap: spacing.xs },
   kpiColBorder: { borderLeftWidth: StyleSheet.hairlineWidth },
   kpiLabelRow: { flexDirection: 'row', alignItems: 'center' },
   kpiLabel: { flexShrink: 1 },

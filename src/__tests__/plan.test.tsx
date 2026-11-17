@@ -4,7 +4,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { DEFAULT_SETTINGS } from '@/data/repo';
 import { buildDefaultCategories } from '@/domain/categories';
-import { todayLocalDate } from '@/domain/dates';
+import { formatLocalDate, parseLocalDate, todayLocalDate } from '@/domain/dates';
 import { formatCycleLabel, getPeriod } from '@/domain/period';
 import { setLocale } from '@/i18n';
 import { AppContext } from '@/state/AppContext';
@@ -170,5 +170,80 @@ describe('PlanScreen', () => {
       fireEvent.press(view.getByTestId('plan-insights-row'));
     });
     expect(mockPush).toHaveBeenCalledWith('/plan/insights');
+  });
+
+  it('bills header: title shrinks and wraps, the Add button keeps its width and has the long label', async () => {
+    const repo = await setupPlanRepo({ withBudgets: true });
+    const view = await renderPlan(repo);
+    await waitFor(() => {
+      expect(view.getByTestId('plan-bills-header')).toBeTruthy();
+    });
+
+    const header = StyleSheet.flatten(view.getByTestId('plan-bills-header').props.style);
+    expect(header.flexDirection).toBe('row');
+    expect(header.flexWrap).toBeUndefined();
+
+    const title = view.getByTestId('plan-bills-title');
+    expect(title.props.numberOfLines).toBeUndefined();
+    const titleStyle = StyleSheet.flatten(title.props.style);
+    expect(titleStyle.flexShrink).toBe(1);
+    expect(titleStyle.minWidth).toBe(0);
+
+    const button = view.getByTestId('plan-add-bill-btn');
+    expect(button.props.accessibilityLabel).toBe('Add bill or EMI');
+    expect(StyleSheet.flatten(button.props.style).flexShrink).toBe(0);
+    expect(view.getByText('Add')).toBeTruthy();
+  });
+
+  it('shows how many instalments an EMI is behind next to the payoff line', async () => {
+    const repo = await setupPlanRepo({ withBudgets: true });
+    const cur = parseLocalDate(getPeriod(todayLocalDate(), DEFAULT_SETTINGS.monthStartDay).start);
+    const back = (months: number) => {
+      const idx = cur.year * 12 + (cur.month - 1) - months;
+      return formatLocalDate(Math.floor(idx / 12), (idx % 12) + 1, cur.day);
+    };
+    await repo.insertRecurringBill({
+      id: 'bill_a',
+      name: 'Phone',
+      kind: 'emi',
+      amountMinor: 100_000,
+      dayOfMonth: 5,
+      totalInstallments: 12,
+      paidInstallments: 3,
+      lastPaidPeriod: back(2),
+    });
+    await repo.insertRecurringBill({
+      id: 'bill_b',
+      name: 'Fridge',
+      kind: 'emi',
+      amountMinor: 100_000,
+      dayOfMonth: 5,
+      totalInstallments: 12,
+      paidInstallments: 3,
+      lastPaidPeriod: back(4),
+    });
+    await repo.insertRecurringBill({
+      id: 'bill_c',
+      name: 'Sofa',
+      kind: 'emi',
+      amountMinor: 100_000,
+      dayOfMonth: 5,
+      totalInstallments: 12,
+      paidInstallments: 3,
+      lastPaidPeriod: back(1),
+    });
+    const view = await renderPlan(repo);
+    await waitFor(() => {
+      expect(view.getByTestId('plan-bill-payoff-bill_a')).toBeTruthy();
+    });
+    expect(view.getByTestId('plan-bill-payoff-bill_a').props.accessibilityLabel).toContain(
+      '1 instalment behind'
+    );
+    expect(view.getByTestId('plan-bill-payoff-bill_b').props.accessibilityLabel).toContain(
+      '3 instalments behind'
+    );
+    expect(view.getByTestId('plan-bill-payoff-bill_c').props.accessibilityLabel).not.toContain(
+      'behind'
+    );
   });
 });

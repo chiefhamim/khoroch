@@ -18,6 +18,7 @@ import {
   feeStateFromText,
   formatFeeRateBp,
   isCashOutTransfer,
+  isFeeLargerThanAmount,
   resolveTransferFee,
   type FeeEntryState,
 } from '@/domain/fees';
@@ -1213,6 +1214,20 @@ function LegacyTransactionForm({
                 />
               </View>
             </View>
+
+            {fee.valid && isFeeLargerThanAmount(fee.feeMinor, validAmountMinor ?? 0) ? (
+              <AppText
+                testID="transfer-fee-large"
+                variant="caption"
+                color="warning"
+                style={{
+                  paddingHorizontal: theme.spacing.md,
+                  paddingBottom: theme.spacing.xs,
+                }}
+              >
+                {t('transfer.feeLargerThanAmount')}
+              </AppText>
+            ) : null}
 
             {fee.fromDefault && fee.defaultBp !== null ? (
               <AppText

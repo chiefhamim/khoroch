@@ -118,6 +118,8 @@ export const geometry = {
   sectionGap: 20,
   cardGap: 12,
   progressBarHeight: 6,
+  /** Thin progress bar inside list rows (budget category rows, EMI payoff). */
+  progressBarThin: 4,
   buttonHeight: 50,
   smallButtonHeight: 40,
   sheetHandleWidth: 36,

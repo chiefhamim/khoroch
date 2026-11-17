@@ -481,6 +481,52 @@ describe('Phase 9 TransactionForm helpers & flows', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('shows a non-blocking caption when the transfer fee is larger than the amount', async () => {
+    const categories = buildDefaultCategories(1700000000000);
+    const base = {
+      last4: null,
+      openingBalanceMinor: 1_000_000,
+      openingDate: '2026-11-10',
+      includeInTotal: true,
+      archivedAt: null,
+      createdAt: 1,
+      updatedAt: 1,
+    };
+    const accounts: Account[] = [
+      { ...base, id: 'acc_bkash', name: 'bKash', kind: 'mobile_wallet', provider: 'bkash', colorKey: '#E2136E', monogram: 'bK', sortOrder: 0 },
+      { ...base, id: 'acc_cash', name: 'Cash', kind: 'cash', provider: null, colorKey: '#123227', monogram: null, sortOrder: 1 },
+    ];
+    const onSubmitTransfer = jest.fn(async () => {});
+    const view = await render(
+      <ThemeProvider preference="light">
+        <TransactionForm
+          currency="BDT"
+          categories={categories}
+          accounts={accounts}
+          defaultAccountId="acc_bkash"
+          onSubmit={jest.fn(async () => {})}
+          onSubmitTransfer={onSubmitTransfer}
+        />
+      </ThemeProvider>
+    );
+    await fireEvent.press(view.getByText('Transfer'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-1'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+    await fireEvent.press(view.getByTestId('tx-keypad-key-0'));
+
+    await fireEvent.changeText(view.getByTestId('transfer-fee-input'), '100');
+    expect(view.queryByTestId('transfer-fee-large')).toBeNull();
+    await fireEvent.changeText(view.getByTestId('transfer-fee-input'), '150');
+    expect(view.getByTestId('transfer-fee-large')).toBeTruthy();
+    expect(view.getByText('Fee is larger than the amount')).toBeTruthy();
+
+    await fireEvent.press(view.getByTestId('save-tx-button'));
+    await waitFor(() => expect(onSubmitTransfer).toHaveBeenCalledTimes(1));
+    expect(onSubmitTransfer).toHaveBeenCalledWith(
+      expect.objectContaining({ amountMinor: 10_000, feeMinor: 15_000 })
+    );
+  });
+
   describe('EditTransferScreen never applies the wallet default fee', () => {
     async function renderEdit(feeMinor: number) {
       const repo = new MemoryRepo();

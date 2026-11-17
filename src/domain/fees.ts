@@ -158,3 +158,16 @@ export function resolveTransferFee(input: TransferFeeInput): TransferFeeResult {
   }
   return { feeMinor: parsed.minor, fromDefault: false, text: state.text, valid: true, defaultBp };
 }
+
+/**
+ * True when a transfer fee is larger than the amount moved. Advisory only: saving stays allowed.
+ * No caption before an amount is entered (amount 0) or for a fee that is zero.
+ */
+export function isFeeLargerThanAmount(feeMinor: number, amountMinor: number): boolean {
+  return (
+    Number.isInteger(feeMinor) &&
+    Number.isInteger(amountMinor) &&
+    amountMinor > 0 &&
+    feeMinor > amountMinor
+  );
+}

@@ -60,6 +60,9 @@ function getDueKindLabel(kind: DueKind): string {
   }
 }
 
+/** Size of the icon inside a Button (see Button). */
+const BUTTON_ICON_SIZE = 18;
+
 export default function PersonDetailScreen() {
   const locale = useLocale();
   const { id } = useLocalSearchParams<{ id?: string | string[] }>();
@@ -67,6 +70,12 @@ export default function PersonDetailScreen() {
 
   const { repo, settings } = useAppContext();
   const { theme } = useTheme();
+  // Width a medium Button with a leading icon needs for this label on one line.
+  const iconButtonMinWidth = (title: string) =>
+    estimateSingleLineMinWidth(title, theme.typography.headline.fontSize) +
+    BUTTON_ICON_SIZE +
+    theme.spacing.sm +
+    2 * theme.spacing.xl;
   const { showToast } = useToast();
   const { peopleById, allPeople, dueEntries, loading } = usePeople();
   const { accountsById } = useAccounts();
@@ -332,7 +341,7 @@ export default function PersonDetailScreen() {
           </View>
         </View>
 
-        <View style={[styles.actionsRow, { gap: theme.spacing.sm }]}>
+        <View style={[styles.actionsRow, styles.giveGetRow, { gap: theme.spacing.sm }]}>
           <Button
             testID="person-gave-btn"
             title={t('people.gave')}
@@ -342,7 +351,7 @@ export default function PersonDetailScreen() {
               hapticSelection();
               setDueSheetState({ mode: 'add', action: 'gave' });
             }}
-            style={styles.flex1}
+            style={[styles.giveGetBtn, { minWidth: iconButtonMinWidth(t('people.gave')) }]}
           />
           <Button
             testID="person-got-btn"
@@ -353,7 +362,7 @@ export default function PersonDetailScreen() {
               hapticSelection();
               setDueSheetState({ mode: 'add', action: 'got' });
             }}
-            style={styles.flex1}
+            style={[styles.giveGetBtn, { minWidth: iconButtonMinWidth(t('people.got')) }]}
           />
         </View>
       </Surface>
@@ -756,6 +765,14 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  // Two icon buttons share a row when both labels fit, otherwise the second drops to its own row.
+  giveGetRow: {
+    flexWrap: 'wrap',
+  },
+  giveGetBtn: {
+    flexGrow: 1,
+    flexBasis: 0,
   },
   sectionHeader: {
     flexDirection: 'row',

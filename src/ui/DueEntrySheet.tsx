@@ -55,6 +55,9 @@ export interface DueEntrySheetProps {
   onSaved?: (savedPersonId: string) => void;
 }
 
+/** Size of the icon inside a Button (see Button). */
+const DELETE_ICON_SIZE = 18;
+
 const DUE_KIND_OPTIONS: readonly { kind: DueKind; labelKey: Parameters<typeof t>[0] }[] = [
   { kind: 'lent', labelKey: 'people.kindLent' },
   { kind: 'received_back', labelKey: 'people.kindReceivedBack' },
@@ -626,7 +629,17 @@ function DueEntryBody({
             variant="secondary"
             leftIcon="trash-2"
             onPress={() => setConfirmDeleteOpen(true)}
-            style={styles.flex1}
+            style={[
+              styles.flex1,
+              {
+                // Label + icon + gap + padding on one line; the row wraps when this does not fit beside Save.
+                minWidth:
+                  estimateSingleLineMinWidth(t('common.delete'), theme.typography.headline.fontSize) +
+                  DELETE_ICON_SIZE +
+                  theme.spacing.sm +
+                  2 * theme.spacing.xl,
+              },
+            ]}
           />
         ) : null}
         <Button

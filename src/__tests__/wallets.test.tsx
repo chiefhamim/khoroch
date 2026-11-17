@@ -211,4 +211,69 @@ describe('ManageWalletsScreen and WalletEditorSheet', () => {
     await fireEvent.press(view.getByText('Bank'));
     expect(view.queryByTestId('wallet-default-fee-input')).toBeNull();
   });
+
+  it('tells the user a default fee will be removed when the kind cannot have one', async () => {
+    const repo = await setupWalletsRepo();
+    await repo.insertAccount({
+      id: 'acc_mfs',
+      name: 'bKash',
+      kind: 'mobile_wallet',
+      colorKey: '#E2136E',
+      defaultFeeBp: 185,
+      openingBalanceMinor: 1_000,
+      openingDate: todayLocalDate(),
+      sortOrder: 2,
+    });
+    await repo.insertAccount({
+      id: 'acc_oldbank',
+      name: 'Old bank',
+      kind: 'bank',
+      colorKey: '#1D4ED8',
+      defaultFeeBp: 100,
+      openingBalanceMinor: 1_000,
+      openingDate: todayLocalDate(),
+      sortOrder: 3,
+    });
+    const view = await renderWalletsScreen(repo);
+    await waitFor(() => {
+      expect(view.getByText('Cash')).toBeTruthy();
+    });
+
+    // Mobile wallet with a rate: no caption until the kind changes.
+    await fireEvent.press(view.getByTestId('wallet-edit-acc_mfs'));
+    await waitFor(() => {
+      expect(view.getByTestId('wallet-editor-sheet')).toBeTruthy();
+    });
+    expect(view.queryByTestId('wallet-default-fee-removed-note')).toBeNull();
+    await fireEvent.press(view.getByText('Bank'));
+    expect(view.getByTestId('wallet-default-fee-removed-note')).toBeTruthy();
+    expect(view.getByText(t('wallets.defaultFeeWillBeRemoved'))).toBeTruthy();
+    await fireEvent.press(view.getByText('Mobile'));
+    expect(view.queryByTestId('wallet-default-fee-removed-note')).toBeNull();
+  });
+
+  it('shows the caption on a non-mobile wallet that already holds a stored rate', async () => {
+    const repo = await setupWalletsRepo();
+    await repo.insertAccount({
+      id: 'acc_oldbank',
+      name: 'Old bank',
+      kind: 'bank',
+      colorKey: '#1D4ED8',
+      defaultFeeBp: 100,
+      openingBalanceMinor: 1_000,
+      openingDate: todayLocalDate(),
+      sortOrder: 3,
+    });
+    const view = await renderWalletsScreen(repo);
+    await waitFor(() => {
+      expect(view.getByText('Old bank')).toBeTruthy();
+    });
+    await fireEvent.press(view.getByTestId('wallet-edit-acc_oldbank'));
+    await waitFor(() => {
+      expect(view.getByTestId('wallet-editor-sheet')).toBeTruthy();
+    });
+    expect(view.getByTestId('wallet-default-fee-removed-note')).toBeTruthy();
+    // A wallet with no stored rate shows nothing.
+    expect(view.queryByTestId('wallet-default-fee-input')).toBeNull();
+  });
 });

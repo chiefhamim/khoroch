@@ -488,6 +488,12 @@ function WalletEditorDialog({
         </View>
       ) : null}
 
+      {!canHaveDefaultFee(kind) && (account?.defaultFeeBp != null || feeRateText.trim().length > 0) ? (
+        <AppText testID="wallet-default-fee-removed-note" variant="caption" color="warning">
+          {t('wallets.defaultFeeWillBeRemoved')}
+        </AppText>
+      ) : null}
+
       <View
         style={[
           styles.switchRow,

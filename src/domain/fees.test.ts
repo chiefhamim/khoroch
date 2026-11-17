@@ -4,6 +4,7 @@ import {
   feeStateFromText,
   formatFeeRateBp,
   isCashOutTransfer,
+  isFeeLargerThanAmount,
   MAX_FEE_RATE_BP,
   parseFeeRateInput,
   resolveTransferFee,
@@ -257,5 +258,22 @@ describe('resolveTransferFee', () => {
     expect(
       resolveTransferFee({ from: bkash, to: cash, amountMinor: 100_000, state: UNTOUCHED_FEE, allowDefault: false })
     ).toMatchObject({ feeMinor: 0, fromDefault: false, text: '', defaultBp: null });
+  });
+});
+
+describe('isFeeLargerThanAmount', () => {
+  it('flags a fee strictly above the amount', () => {
+    expect(isFeeLargerThanAmount(10_001, 10_000)).toBe(true);
+    expect(isFeeLargerThanAmount(500, 100)).toBe(true);
+  });
+  it('does not flag an equal, smaller or zero fee', () => {
+    expect(isFeeLargerThanAmount(10_000, 10_000)).toBe(false);
+    expect(isFeeLargerThanAmount(9_999, 10_000)).toBe(false);
+    expect(isFeeLargerThanAmount(0, 10_000)).toBe(false);
+  });
+  it('does not flag before an amount is entered or for non-integers', () => {
+    expect(isFeeLargerThanAmount(500, 0)).toBe(false);
+    expect(isFeeLargerThanAmount(500, -1)).toBe(false);
+    expect(isFeeLargerThanAmount(1.5, 1)).toBe(false);
   });
 });
