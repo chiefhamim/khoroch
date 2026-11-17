@@ -178,13 +178,55 @@ describe('Bill reminders in Settings', () => {
     );
   });
 
-  it('saves the choice where notifications are not supported (web)', async () => {
+  it('hides every bill reminder row where notifications are not supported (web)', async () => {
     mockSupported.mockReturnValue(false);
-    const { repo, view } = await setup();
-    await fireEvent.press(view.getByTestId('settings-bill-reminders-switch'));
-    await waitFor(() => expect(switchChecked(view)).toBe(true));
-    expect((await repo.getSettings()).billReminders.enabled).toBe(true);
-    expect(mockRequest).not.toHaveBeenCalled();
+    const repo = new MemoryRepo();
+    await repo.setSetting('onboardingDone', true);
+    await repo.setSetting('billReminders', { enabled: true, leadDays: 1 });
+    const view = await render(<Harness repo={repo} initial={await repo.getSettings()} />);
+    await waitFor(() => expect(view.getByTestId('settings-checkin-row')).toBeTruthy());
+    expect(view.queryByTestId('settings-bill-reminders-switch')).toBeNull();
+    expect(view.queryByTestId('settings-bill-lead-row')).toBeNull();
+    expect(view.queryByTestId('settings-bill-hide-names-switch')).toBeNull();
+    expect(view.queryByText(t('settings.billRemindersToggle'))).toBeNull();
+  });
+
+  describe('hide bill names', () => {
+    const hideChecked = (view: Awaited<ReturnType<typeof render>>) =>
+      view.getByTestId('settings-bill-hide-names-switch').props.accessibilityState;
+
+    it('is not shown while bill reminders are off', async () => {
+      const { view } = await setup();
+      expect(view.queryByTestId('settings-bill-hide-names-switch')).toBeNull();
+    });
+
+    it('is off by default, can be turned on, and is saved', async () => {
+      const { repo, view } = await setup({ enabled: true, leadDays: 1 });
+      expect(hideChecked(view).checked).toBe(false);
+      expect(hideChecked(view).disabled).toBe(false);
+      expect(view.queryByText(t('settings.billRemindersHideNamesLocked'))).toBeNull();
+      await fireEvent.press(view.getByTestId('settings-bill-hide-names-switch'));
+      await waitFor(() => expect(hideChecked(view).checked).toBe(true));
+      expect((await repo.getSettings()).billReminders).toEqual({
+        enabled: true,
+        leadDays: 1,
+        hideNames: true,
+      });
+    });
+
+    it('is forced on, disabled and explained while app lock is on', async () => {
+      const repo = new MemoryRepo();
+      await repo.setSetting('onboardingDone', true);
+      await repo.setSetting('appLockEnabled', true);
+      await repo.setSetting('billReminders', { enabled: true, leadDays: 1 });
+      const view = await render(<Harness repo={repo} initial={await repo.getSettings()} />);
+      await waitFor(() => expect(view.getByTestId('settings-bill-hide-names-switch')).toBeTruthy());
+      expect(hideChecked(view).checked).toBe(true);
+      expect(hideChecked(view).disabled).toBe(true);
+      expect(view.getByText(t('settings.billRemindersHideNamesLocked'))).toBeTruthy();
+      await fireEvent.press(view.getByTestId('settings-bill-hide-names-switch'));
+      expect((await repo.getSettings()).billReminders.hideNames).toBeUndefined();
+    });
   });
 
   it('renders the Bangla labels', async () => {

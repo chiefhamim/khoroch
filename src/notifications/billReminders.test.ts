@@ -28,6 +28,7 @@ const mockState = {
 
 jest.mock('expo-notifications', () => ({
   AndroidImportance: { DEFAULT: 3 },
+  AndroidNotificationVisibility: { PRIVATE: 2 },
   SchedulableTriggerInputTypes: { DATE: 'date', WEEKLY: 'weekly', DAILY: 'daily' },
   getPermissionsAsync: jest.fn(async () => ({ granted: mockState.granted, canAskAgain: true })),
   getAllScheduledNotificationsAsync: jest.fn(async () => mockState.store.map((s) => ({ ...s }))),
@@ -55,6 +56,7 @@ jest.mock('expo-notifications', () => ({
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const NotificationsMock = require('expo-notifications') as {
   scheduleNotificationAsync: jest.Mock;
+  cancelScheduledNotificationAsync: jest.Mock;
   getPermissionsAsync: jest.Mock;
 };
 
@@ -111,6 +113,7 @@ beforeEach(async () => {
   mockState.listener = null;
   mockState.removed = 0;
   NotificationsMock.scheduleNotificationAsync.mockClear();
+  NotificationsMock.cancelScheduledNotificationAsync.mockClear();
 });
 
 describe('syncBillReminders', () => {
@@ -236,6 +239,126 @@ describe('syncBillReminders', () => {
       'bill-due:rent:2026-11-05',
       'bill-due:rent:2026-12-05',
     ]);
+  });
+});
+
+describe('syncBillReminders: only the difference is touched', () => {
+  const callCounts = () => ({
+    schedule: NotificationsMock.scheduleNotificationAsync.mock.calls.length,
+    cancel: NotificationsMock.cancelScheduledNotificationAsync.mock.calls.length,
+  });
+
+  it('makes zero cancel and zero schedule calls on a second run after a restart', async () => {
+    await syncBillReminders(input());
+    // The schedule lives in the OS and the module keeps no memory of it, so a restart is just
+    // another run against what the OS already holds. Android reports a date trigger as { value: ms }.
+    mockState.store = mockState.store.map((s) =>
+      s.identifier.startsWith('bill-due:')
+        ? ({ ...s, trigger: { type: 'date', value: s.trigger.date.getTime() } } as unknown as Stored)
+        : s
+    );
+    NotificationsMock.scheduleNotificationAsync.mockClear();
+    NotificationsMock.cancelScheduledNotificationAsync.mockClear();
+    const res = await syncBillReminders(input());
+    expect(res).toEqual({ scheduled: 4, unchanged: true });
+    expect(callCounts()).toEqual({ schedule: 0, cancel: 0 });
+  });
+
+  it('reschedules only the reminders whose time changed', async () => {
+    await syncBillReminders(input({ bills: [bill(), bill({ id: 'water', name: 'Water', dayOfMonth: 20 })] }));
+    NotificationsMock.scheduleNotificationAsync.mockClear();
+    NotificationsMock.cancelScheduledNotificationAsync.mockClear();
+    // Move only the rent reminders: bill day 5 -> 6.
+    await syncBillReminders(
+      input({ bills: [bill({ dayOfMonth: 6 }), bill({ id: 'water', name: 'Water', dayOfMonth: 20 })] })
+    );
+    const scheduled = NotificationsMock.scheduleNotificationAsync.mock.calls.map(
+      (c: [{ identifier: string }]) => c[0].identifier
+    );
+    expect(scheduled.sort()).toEqual([
+      'bill-due:rent:2026-11-05',
+      'bill-due:rent:2026-11-06',
+      'bill-due:rent:2026-12-05',
+      'bill-due:rent:2026-12-06',
+    ]);
+    const cancelled = NotificationsMock.cancelScheduledNotificationAsync.mock.calls.map(
+      (c: [string]) => c[0]
+    );
+    expect(cancelled.every((id: string) => id.startsWith('bill-due:rent:'))).toBe(true);
+    expect(own().filter((s) => s.identifier.includes(':water:'))).toHaveLength(4);
+  });
+
+  it('reschedules a reminder whose fire time moved but keeps the others', async () => {
+    await syncBillReminders(input());
+    NotificationsMock.scheduleNotificationAsync.mockClear();
+    NotificationsMock.cancelScheduledNotificationAsync.mockClear();
+    await syncBillReminders(input({ time: '10:30' }));
+    expect(callCounts().schedule).toBe(4);
+    expect(callCounts().cancel).toBe(0);
+    const day = mockState.store.find((s) => s.identifier === 'bill-due:rent:2026-11-05')!;
+    expect(day.trigger.date.getTime()).toBe(new Date(2026, 10, 5, 10, 30, 0, 0).getTime());
+  });
+});
+
+describe('syncBillReminders: bill names on the lock screen', () => {
+  const secret = 'Zamindar Landlord';
+  const secretBill = () => bill({ id: 'b1', name: secret });
+  const allText = () => JSON.stringify(mockState.store.filter((s) => s.identifier.startsWith('bill-due:')));
+
+  it('puts the bill name in the notification when names are not hidden', async () => {
+    await syncBillReminders(input({ bills: [secretBill()] }));
+    expect(allText()).toContain(secret);
+  });
+
+  it('keeps every bill name out of what is scheduled when names are hidden', async () => {
+    await syncBillReminders(input({ bills: [secretBill()], leadDays: 3, hideNames: true }));
+    expect(own().length).toBeGreaterThan(0);
+    expect(allText()).not.toContain(secret);
+    expect(own().map((s) => s.content.title).sort()).toEqual([
+      'A bill is due in 3 days',
+      'A bill is due in 3 days',
+      'A bill is due today',
+      'A bill is due today',
+    ]);
+  });
+
+  it('rewrites already scheduled reminders when hiding is turned on', async () => {
+    await syncBillReminders(input({ bills: [secretBill()] }));
+    expect(allText()).toContain(secret);
+    await syncBillReminders(input({ bills: [secretBill()], hideNames: true }));
+    expect(allText()).not.toContain(secret);
+  });
+
+  it('has generic titles in both languages, singular for one day and no name', () => {
+    const reminder = (daysUntilDue: number) => ({
+      id: 'bill-due:b1:2026-11-05',
+      billId: 'b1',
+      billName: secret,
+      dueDate: '2026-11-05',
+      fireDate: '2026-11-05',
+      daysUntilDue,
+      fireAt: NOW,
+    });
+    setLocale('en');
+    expect(buildBillReminderContent(reminder(0), { hideNames: true }).title).toBe('A bill is due today');
+    expect(buildBillReminderContent(reminder(1), { hideNames: true }).title).toBe('A bill is due tomorrow');
+    expect(buildBillReminderContent(reminder(3), { hideNames: true }).title).toBe('A bill is due in 3 days');
+    setLocale('bn');
+    expect(buildBillReminderContent(reminder(3), { hideNames: true }).title).toBe(
+      'একটি বিল ৩ দিন পরে পরিশোধের দিন'
+    );
+    expect(buildBillReminderContent(reminder(0), { hideNames: true }).title).not.toContain(secret);
+    setLocale('en');
+  });
+
+  it('asks the person to mark it paid only if already paid, without claiming it is unpaid', () => {
+    setLocale('en');
+    const c = buildBillReminderContent(
+      { id: 'x', billId: 'b1', billName: 'Rent', dueDate: '2026-11-05', fireDate: '2026-11-05', daysUntilDue: 0, fireAt: NOW },
+      { hideNames: true }
+    );
+    expect(c.body).toBe('If you have already paid it, open Plan and mark it paid.');
+    expect(c.body.toLowerCase()).not.toContain('unpaid');
   });
 });
 

@@ -4,7 +4,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { DEFAULT_SETTINGS } from '@/data/repo';
 import { buildDefaultCategories } from '@/domain/categories';
-import { formatLocalDate, parseLocalDate, todayLocalDate } from '@/domain/dates';
+import { addDays, formatLocalDate, parseLocalDate, todayLocalDate } from '@/domain/dates';
 import { formatCycleLabel, getPeriod } from '@/domain/period';
 import { setLocale } from '@/i18n';
 import { AppContext } from '@/state/AppContext';
@@ -245,5 +245,27 @@ describe('PlanScreen', () => {
     expect(view.getByTestId('plan-bill-payoff-bill_c').props.accessibilityLabel).not.toContain(
       'behind'
     );
+  });
+
+  it('counts a payment stamped inside this period as paid even when it is not the period start', async () => {
+    // A stamp left over from before the cycle day was changed: after the period start, not equal to it.
+    const repo = await setupPlanRepo({ withBudgets: true });
+    const period = getPeriod(todayLocalDate(), DEFAULT_SETTINGS.monthStartDay);
+    const stamp = addDays(period.endExcl, -1);
+    expect(stamp > period.start).toBe(true);
+    await repo.insertRecurringBill({
+      id: 'bill_paid',
+      name: 'Water',
+      kind: 'bill',
+      amountMinor: 50_000,
+      dayOfMonth: 5,
+      lastPaidPeriod: stamp,
+    });
+    const view = await renderPlan(repo);
+    await waitFor(() => {
+      expect(view.getByText('Water')).toBeTruthy();
+    });
+    expect(view.queryByTestId('plan-bill-pay-bill_paid')).toBeNull();
+    expect(view.getByText('Paid')).toBeTruthy();
   });
 });

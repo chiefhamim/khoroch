@@ -1183,7 +1183,12 @@ export const en = {
   'billReminder.titleToday': '{name} is due today',
   'billReminder.titleTomorrow': '{name} is due tomorrow',
   'billReminder.titleInDays': '{name} is due in {days} days',
-  'billReminder.bodyToday': 'Still unpaid. Open Plan to mark it paid.',
+  'billReminder.titleTodayGeneric': 'A bill is due today',
+  'billReminder.titleTomorrowGeneric': 'A bill is due tomorrow',
+  'billReminder.titleInDaysGeneric': 'A bill is due in {days} days',
+  'settings.billRemindersHideNames': 'Hide bill names in reminders',
+  'settings.billRemindersHideNamesLocked': 'Bill names stay hidden in reminders while app lock is on.',
+  'billReminder.bodyToday': 'If you have already paid it, open Plan and mark it paid.',
   'billReminder.bodyEarly': 'Open Plan to see what is due.',
 } as const;
 

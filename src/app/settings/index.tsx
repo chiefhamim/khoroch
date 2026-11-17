@@ -57,6 +57,7 @@ import {
 } from '@/notifications/reminders';
 import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
 import { useSettings } from '@/state/useSettings';
+import { useLockState } from '@/state/LockContext';
 import {
   ACCENT_DEFINITIONS,
   BANGLA_FONT_FAMILIES,
@@ -144,6 +145,7 @@ export default function SettingsScreen() {
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
   const { repo, backend, settings, hasTransactions, updateSetting, refreshSettings } =
     useSettings();
+  const lockState = useLockState();
 
   const bnMinWidth = (text: string, fontSize: number) =>
     locale === 'bn' ? { minWidth: estimateSingleLineMinWidth(text, fontSize) } : undefined;
@@ -614,6 +616,9 @@ export default function SettingsScreen() {
   const isSunThu = sameDays(selectedDays, SUN_THU_REMINDER_DAYS);
   const reminderActive = settings.reminder.enabled && !settings.notificationPermissionDenied;
   const billActive = settings.billReminders.enabled && !settings.notificationPermissionDenied;
+  const billSupported = isNotificationsSupported();
+  const appLockOn = lockState.enabled || settings.appLockEnabled;
+  const billHideNamesOn = appLockOn || settings.billReminders.hideNames === true;
   const canConfirmDelete = deleteConfirmText.trim().toUpperCase() === 'DELETE' && !busy;
 
   return (
@@ -892,54 +897,79 @@ export default function SettingsScreen() {
           onPress={() => router.push('/check-in')}
         />
 
-        <SettingsRow
-          label={t('settings.billRemindersToggle')}
-          subtitle={t('settings.billRemindersSubtitle')}
-          trailing={
-            <PillSwitch
-              testID="settings-bill-reminders-switch"
-              accessibilityLabel={t('settings.billRemindersToggle')}
-              value={billActive}
-              onValueChange={(val) => void handleToggleBillReminders(val)}
+        {billSupported ? (
+          <>
+            <SettingsRow
+              label={t('settings.billRemindersToggle')}
+              subtitle={t('settings.billRemindersSubtitle')}
+              trailing={
+                <PillSwitch
+                  testID="settings-bill-reminders-switch"
+                  accessibilityLabel={t('settings.billRemindersToggle')}
+                  value={billActive}
+                  onValueChange={(val) => void handleToggleBillReminders(val)}
+                />
+              }
             />
-          }
-        />
 
-        {billBlocked && !billActive ? (
-          <View
-            testID="settings-bill-reminders-blocked"
-            style={{
-              paddingHorizontal: theme.spacing.lg,
-              paddingVertical: theme.spacing.md,
-              gap: theme.spacing.sm,
-            }}
-          >
-            <AppText variant="caption" color="textSecondary">
-              {t('settings.billRemindersBlocked')}
-            </AppText>
-            <Button
-              testID="settings-bill-open-system-settings"
-              title={t('settings.openSystemSettings')}
-              variant="secondary"
-              size="sm"
-              onPress={() => {
-                Linking.openSettings().catch(() => {});
-              }}
-            />
-          </View>
-        ) : null}
+            {billBlocked && !billActive ? (
+              <View
+                testID="settings-bill-reminders-blocked"
+                style={{
+                  paddingHorizontal: theme.spacing.lg,
+                  paddingVertical: theme.spacing.md,
+                  gap: theme.spacing.sm,
+                }}
+              >
+                <AppText variant="caption" color="textSecondary">
+                  {t('settings.billRemindersBlocked')}
+                </AppText>
+                <Button
+                  testID="settings-bill-open-system-settings"
+                  title={t('settings.openSystemSettings')}
+                  variant="secondary"
+                  size="sm"
+                  onPress={() => {
+                    Linking.openSettings().catch(() => {});
+                  }}
+                />
+              </View>
+            ) : null}
 
-        {billActive ? (
-          <SettingsRow
-            testID="settings-bill-lead-row"
-            label={t('settings.billRemindersLead')}
-            value={t(BILL_LEAD_KEYS[settings.billReminders.leadDays])}
-            showChevron
-            onPress={() => {
-              hapticLight();
-              setBillLeadSheetOpen(true);
-            }}
-          />
+            {billActive ? (
+              <SettingsRow
+                testID="settings-bill-lead-row"
+                label={t('settings.billRemindersLead')}
+                value={t(BILL_LEAD_KEYS[settings.billReminders.leadDays])}
+                showChevron
+                onPress={() => {
+                  hapticLight();
+                  setBillLeadSheetOpen(true);
+                }}
+              />
+            ) : null}
+
+            {billActive ? (
+              <SettingsRow
+                label={t('settings.billRemindersHideNames')}
+                subtitle={appLockOn ? t('settings.billRemindersHideNamesLocked') : undefined}
+                trailing={
+                  <PillSwitch
+                    testID="settings-bill-hide-names-switch"
+                    accessibilityLabel={t('settings.billRemindersHideNames')}
+                    value={billHideNamesOn}
+                    disabled={appLockOn}
+                    onValueChange={(val) =>
+                      void updateSetting('billReminders', {
+                        ...settings.billReminders,
+                        hideNames: val,
+                      })
+                    }
+                  />
+                }
+              />
+            ) : null}
+          </>
         ) : null}
       </SettingsGroup>
 

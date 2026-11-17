@@ -230,3 +230,11 @@ Format:
 - Midnight with Home open: `useTodayWithRefresh` exposes `refresh`; Home calls it after a successful record whose day differs from the screen's today.
 - Bangla strip: the recorded label wraps to two lines (`flexShrink: 1`, clip) and "Add again" is `flexShrink: 0`. Two label lines are 36 against a 66 strip (button height 50 + 2 x 8), so no string was shortened.
 - DailyWageSheet: when the lists fail to load the existing error line shows `dailyWage.loadFailed` and Save stays disabled.
+
+## Bill reminders, review fixes (2026-11-17)
+- Delivery is inexact: without the exact-alarm permission Android may deliver a bill reminder late, by up to roughly an hour. The app does not request exact-alarm permission.
+- A reminder whose fire time passes while the phone is switched off is dropped, not delivered at the next boot. The next app open schedules the following ones.
+- Fire times are fixed in absolute time when scheduled, so after a timezone change the reminders keep their old moment until the app next opens and reschedules them (the diff sees the new local time and reschedules only what moved).
+- Bill names on the lock screen: the setting `billReminders.hideNames` (optional, absent means off) hides them; app lock being on forces it on, shown as on and disabled with a caption. The bill channel is created with private lock-screen visibility. Android lets the user override a channel's visibility, and an existing channel keeps the visibility it was first created with, so the generic text is the real protection.
+- The reminder body no longer says "still unpaid" (the bill may have been paid early as a plain entry); it asks the person to open Plan and mark it paid if they already paid.
+- One paid-this-period rule for bills: `isPaidInPeriod` in `src/domain/calc.ts` (payment stamp on or after the period start, by date), used by `isBillPaidInPeriod`, the Plan badge and button, bills totals, reminders and the EMI payoff.

@@ -1,4 +1,4 @@
-import { addDays, diffDays } from './dates';
+import { addDays, diffDays, isValidLocalDate } from './dates';
 import { elapsedDays, getPeriod, previousPeriod, remainingDays } from './period';
 import type {
   Budget,
@@ -179,12 +179,26 @@ export function isExpenseBillOutstanding(bill: RecurringBill): boolean {
 }
 
 /**
- * The one paid rule: a bill is paid for a period when it is stamped `lastPaidPeriod === period.start`.
+ * True when a payment stamp lies inside (or after) the period: stamp >= period start, compared by date.
+ * Date-based on purpose: a stamp left over from before the cycle start day was changed still counts
+ * when it is on or after the new period start.
+ */
+export function isPaidInPeriod(lastPaidPeriod: string | null | undefined, periodStart: string): boolean {
+  return (
+    lastPaidPeriod != null &&
+    isValidLocalDate(lastPaidPeriod) &&
+    isValidLocalDate(periodStart) &&
+    lastPaidPeriod >= periodStart
+  );
+}
+
+/**
+ * The one paid rule: a bill is paid for a period when its payment stamp is on or after `period.start`.
  * Marking a bill paid stamps it and records its transaction together, so a paid bill is already inside
  * "spent" and must never be subtracted again.
  */
 export function isBillPaidInPeriod(bill: RecurringBill, period: Pick<Period, 'start'>): boolean {
-  return bill.lastPaidPeriod === period.start;
+  return isPaidInPeriod(bill.lastPaidPeriod, period.start);
 }
 
 export interface UnpaidBillsSummary {

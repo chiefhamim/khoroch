@@ -2,7 +2,7 @@ import * as Crypto from 'expo-crypto';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { formatUtilizationPct } from '@/domain/calc';
+import { formatUtilizationPct, isBillPaidInPeriod } from '@/domain/calc';
 import {
   formatMinorToDraft,
   formatMoney,
@@ -673,7 +673,7 @@ export default function PlanScreen() {
         ) : (
           <Surface padded={false}>
             {recurringBills.map((bill: RecurringBill, idx: number) => {
-              const isPaid = bill.lastPaidPeriod === period.start;
+              const isPaid = isBillPaidInPeriod(bill, period);
               const subParts = [
                 bill.kind === 'emi'
                   ? t('budget.billKindEmi')

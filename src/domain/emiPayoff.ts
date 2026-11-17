@@ -1,4 +1,5 @@
 import { daysInMonth, formatLocalDate, isValidLocalDate, parseLocalDate } from './dates';
+import { isPaidInPeriod } from './calc';
 import type { Period, RecurringBill } from './types';
 
 export type EmiPayoffState = 'finished' | 'paused' | 'active';
@@ -27,15 +28,8 @@ export interface EmiPayoff {
 
 const MAX_BEHIND_SCAN = 1200;
 
-/** True when a payment stamp lies inside (or after) the current period: stamp >= current start, by date. */
-export function isPaidInPeriod(lastPaidPeriod: string | null | undefined, periodStart: string): boolean {
-  return (
-    lastPaidPeriod != null &&
-    isValidLocalDate(lastPaidPeriod) &&
-    isValidLocalDate(periodStart) &&
-    lastPaidPeriod >= periodStart
-  );
-}
+// The one date-based paid predicate lives in calc.ts; re-exported so existing imports keep working.
+export { isPaidInPeriod };
 
 /**
  * Periods strictly between the last payment stamp and the current period that have no payment.

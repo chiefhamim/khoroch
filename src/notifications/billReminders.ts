@@ -21,20 +21,33 @@ export interface BillReminderContent {
   data: { kind: string; route: string; billId: string };
 }
 
+export interface BillReminderContentOptions {
+  /** True keeps the bill name out of the title: a generic "A bill is due" text is used instead. */
+  hideNames?: boolean;
+}
+
 /**
- * Lock-screen text: the bill name and when it is due. Never an amount (AGENTS.md section 5); the
- * strings have no amount placeholder and a test enforces that.
+ * Lock-screen text: the bill name (unless hidden) and when it is due. Never an amount (AGENTS.md
+ * section 5); the strings have no amount placeholder and a test enforces that.
  */
-export function buildBillReminderContent(reminder: BillReminder): BillReminderContent {
+export function buildBillReminderContent(
+  reminder: BillReminder,
+  options: BillReminderContentOptions = {}
+): BillReminderContent {
   const name = reminder.billName.trim();
+  const generic = options.hideNames === true;
+  const days = getLocale() === 'bn' ? toBnDigits(String(reminder.daysUntilDue)) : reminder.daysUntilDue;
   let title: string;
   if (reminder.daysUntilDue <= 0) {
-    title = t('billReminder.titleToday', { name });
+    title = generic ? t('billReminder.titleTodayGeneric') : t('billReminder.titleToday', { name });
   } else if (reminder.daysUntilDue === 1) {
-    title = t('billReminder.titleTomorrow', { name });
+    title = generic
+      ? t('billReminder.titleTomorrowGeneric')
+      : t('billReminder.titleTomorrow', { name });
   } else {
-    const days = getLocale() === 'bn' ? toBnDigits(String(reminder.daysUntilDue)) : reminder.daysUntilDue;
-    title = t('billReminder.titleInDays', { name, days });
+    title = generic
+      ? t('billReminder.titleInDaysGeneric', { days })
+      : t('billReminder.titleInDays', { name, days });
   }
   return {
     title,
@@ -46,6 +59,8 @@ export function buildBillReminderContent(reminder: BillReminder): BillReminderCo
 export interface SyncBillRemindersInput extends BillReminderInput {
   /** The feature switch. Off cancels this feature's reminders and schedules nothing. */
   enabled: boolean;
+  /** Keep bill names out of the notification text (the setting, or app lock being on). */
+  hideNames?: boolean;
 }
 
 export interface SyncBillRemindersResult {
@@ -57,12 +72,12 @@ export interface SyncBillRemindersResult {
 }
 
 let syncQueue: Promise<unknown> = Promise.resolve();
-let lastSignature: string | null = null;
 
 /**
  * Brings this feature's scheduled reminders in line with `input`. Safe to call as often as you like:
- * calls run one after another, and a call whose result would equal what is already scheduled does
- * nothing. Only identifiers with the bill prefix are ever cancelled. It never asks for permission.
+ * calls run one after another, and only the difference against what the OS already holds is
+ * cancelled or scheduled, so a run that finds nothing to change touches nothing. Only identifiers
+ * with the bill prefix are ever cancelled. It never asks for permission.
  */
 export function syncBillReminders(input: SyncBillRemindersInput): Promise<SyncBillRemindersResult> {
   const run = syncQueue.then(() => runSyncBillReminders(input));
@@ -72,14 +87,36 @@ export function syncBillReminders(input: SyncBillRemindersInput): Promise<SyncBi
 
 type NotificationsModule = NonNullable<ReturnType<typeof loadNotifications>>;
 
-async function listOwnIds(Notifications: NotificationsModule): Promise<string[]> {
+interface ScheduledOwn {
+  id: string;
+  fireMs: number | null;
+  title: string;
+  body: string;
+}
+
+function triggerMs(trigger: unknown): number | null {
+  if (!trigger || typeof trigger !== 'object') return null;
+  const rec = trigger as { date?: unknown; value?: unknown };
+  const raw = rec.date ?? rec.value;
+  if (raw instanceof Date) return raw.getTime();
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : null;
+}
+
+async function listOwn(Notifications: NotificationsModule): Promise<ScheduledOwn[]> {
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  return scheduled.map((r) => r.identifier).filter(isBillReminderId);
+  return scheduled
+    .filter((r) => isBillReminderId(r.identifier))
+    .map((r) => ({
+      id: r.identifier,
+      fireMs: triggerMs(r.trigger),
+      title: r.content.title ?? '',
+      body: r.content.body ?? '',
+    }));
 }
 
 async function cancelOwn(Notifications: NotificationsModule): Promise<void> {
-  for (const id of await listOwnIds(Notifications)) {
-    await Notifications.cancelScheduledNotificationAsync(id);
+  for (const item of await listOwn(Notifications)) {
+    await Notifications.cancelScheduledNotificationAsync(item.id);
   }
 }
 
@@ -91,46 +128,51 @@ async function runSyncBillReminders(input: SyncBillRemindersInput): Promise<Sync
   try {
     if (!input.enabled) {
       await cancelOwn(Notifications);
-      lastSignature = null;
       return { scheduled: 0 };
     }
 
     const perm = await Notifications.getPermissionsAsync();
     if (!perm.granted) {
       await cancelOwn(Notifications);
-      lastSignature = null;
       return { scheduled: 0, permissionMissing: true };
     }
 
     const reminders = buildBillReminders(input);
-    const items = reminders.map((reminder) => ({ reminder, content: buildBillReminderContent(reminder) }));
-    const signature = items
-      .map(
-        ({ reminder, content }) =>
-          `${reminder.id}|${reminder.fireAt.getTime()}|${content.title}|${content.body}`
-      )
-      .join('\n');
+    const items = reminders.map((reminder) => ({
+      reminder,
+      content: buildBillReminderContent(reminder, { hideNames: input.hideNames }),
+    }));
 
-    const existing = await listOwnIds(Notifications);
+    const existing = await listOwn(Notifications);
+    const existingById = new Map(existing.map((e) => [e.id, e]));
     const wanted = new Set(items.map(({ reminder }) => reminder.id));
-    if (
-      lastSignature === signature &&
-      existing.length === wanted.size &&
-      existing.every((id) => wanted.has(id))
-    ) {
+
+    const stale = existing.filter((e) => !wanted.has(e.id));
+    const toSchedule = items.filter(({ reminder, content }) => {
+      const have = existingById.get(reminder.id);
+      return (
+        !have ||
+        have.fireMs !== reminder.fireAt.getTime() ||
+        have.title !== content.title ||
+        have.body !== content.body
+      );
+    });
+
+    if (stale.length === 0 && toSchedule.length === 0) {
       return { scheduled: items.length, unchanged: true };
     }
 
-    for (const id of existing) {
-      await Notifications.cancelScheduledNotificationAsync(id);
+    for (const e of stale) {
+      await Notifications.cancelScheduledNotificationAsync(e.id);
     }
 
     let channelId: string | undefined;
-    if (Platform.OS === 'android' && items.length > 0) {
+    if (Platform.OS === 'android' && toSchedule.length > 0) {
       try {
         await Notifications.setNotificationChannelAsync(BILL_REMINDER_CHANNEL_ID, {
           name: t('billReminder.channelName'),
           importance: Notifications.AndroidImportance.DEFAULT,
+          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
         });
         channelId = BILL_REMINDER_CHANNEL_ID;
       } catch {
@@ -138,7 +180,7 @@ async function runSyncBillReminders(input: SyncBillRemindersInput): Promise<Sync
       }
     }
 
-    for (const { reminder, content } of items) {
+    for (const { reminder, content } of toSchedule) {
       await Notifications.scheduleNotificationAsync({
         identifier: reminder.id,
         content: { title: content.title, body: content.body, data: { ...content.data } },
@@ -149,10 +191,8 @@ async function runSyncBillReminders(input: SyncBillRemindersInput): Promise<Sync
         },
       });
     }
-    lastSignature = signature;
     return { scheduled: items.length };
   } catch (err) {
-    lastSignature = null;
     if (__DEV__) {
       console.warn('[billReminders] sync failed:', err);
     }

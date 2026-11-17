@@ -97,6 +97,14 @@ describe('buildBillReminders', () => {
     ]);
   });
 
+  it('treats a stamp after the period start as paid even when it is not the start (cycle day changed)', () => {
+    const paid = bill({ lastPaidPeriod: '2026-11-12' });
+    expect(ids(run([paid], at(2026, 11, 13)))).toEqual([
+      'bill-due:rent:2026-12-04',
+      'bill-due:rent:2026-12-05',
+    ]);
+  });
+
   it('is unpaid again when the stamp belongs to an older period', () => {
     const old = bill({ lastPaidPeriod: '2026-10-01' });
     expect(ids(run([old], at(2026, 11, 2))).slice(0, 2)).toEqual([

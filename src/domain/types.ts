@@ -590,6 +590,8 @@ export type BillReminderLeadDays = (typeof BILL_REMINDER_LEAD_DAYS)[number];
 export interface BillReminderSettings {
   enabled: boolean;
   leadDays: BillReminderLeadDays;
+  /** Keep bill names out of the reminder text. Absent means off; app lock forces it on. */
+  hideNames?: boolean;
 }
 
 export const DEFAULT_BILL_REMINDERS: BillReminderSettings = { enabled: false, leadDays: 1 };
@@ -608,10 +610,11 @@ export function isValidBillReminderSettings(raw: unknown): raw is BillReminderSe
 /** Reads a stored or imported value; anything missing or invalid reads as the defaults (off, 1 day). */
 export function normalizeBillReminderSettings(raw: unknown): BillReminderSettings {
   if (!raw || typeof raw !== 'object') return { ...DEFAULT_BILL_REMINDERS };
-  const rec = raw as { enabled?: unknown; leadDays?: unknown };
+  const rec = raw as { enabled?: unknown; leadDays?: unknown; hideNames?: unknown };
   return {
     enabled: rec.enabled === true,
     leadDays: isBillReminderLeadDays(rec.leadDays) ? rec.leadDays : DEFAULT_BILL_REMINDERS.leadDays,
+    ...(rec.hideNames === true ? { hideNames: true } : {}),
   };
 }
 

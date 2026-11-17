@@ -7,6 +7,8 @@ import {
   computeBudgetStatus,
   dailySeries,
   formatUtilizationPct,
+  isBillPaidInPeriod,
+  isPaidInPeriod,
   spendByCategory,
   summarize,
   summarizeBudgetAllocation,
@@ -447,6 +449,21 @@ describe('left after unpaid bills', () => {
     );
     expect(r.unpaidCount).toBe(0);
     expect(r.leftAfterBillsMinor).toBe(2000000);
+  });
+
+  it('paid is date-based: a stamp on or after the period start counts, an earlier one does not', () => {
+    // Cycle day changed from 12 to 1: the old stamp 2026-11-12 is inside the new period starting 2026-11-01.
+    const p = getPeriod('2026-11-13', 1);
+    expect(isBillPaidInPeriod(makeBill({ id: 'a', amountMinor: 1, lastPaidPeriod: '2026-11-12' }), p)).toBe(true);
+    expect(isBillPaidInPeriod(makeBill({ id: 'a', amountMinor: 1, lastPaidPeriod: '2026-11-01' }), p)).toBe(true);
+    expect(isBillPaidInPeriod(makeBill({ id: 'a', amountMinor: 1, lastPaidPeriod: '2026-10-12' }), p)).toBe(false);
+    expect(isBillPaidInPeriod(makeBill({ id: 'a', amountMinor: 1 }), p)).toBe(false);
+    expect(isPaidInPeriod('garbage', p.start)).toBe(false);
+    const unpaid = summarizeUnpaidBills(
+      [makeBill({ id: 'a', amountMinor: 500, lastPaidPeriod: '2026-11-12' })],
+      p
+    );
+    expect(unpaid).toEqual({ unpaidCount: 0, unpaidMinor: 0 });
   });
 
   it('a bill whose payment is recorded as a transaction is not subtracted twice', () => {

@@ -1196,6 +1196,11 @@ export const bn: Record<TranslationKey, string> = {
   'billReminder.titleToday': '{name} আজ পরিশোধের দিন',
   'billReminder.titleTomorrow': '{name} আগামীকাল পরিশোধের দিন',
   'billReminder.titleInDays': '{name} {days} দিন পরে পরিশোধের দিন',
-  'billReminder.bodyToday': 'এখনও পরিশোধ করা হয়নি। প্ল্যান খুলে পরিশোধিত হিসেবে চিহ্নিত করুন।',
+  'billReminder.titleTodayGeneric': 'একটি বিল আজ পরিশোধের দিন',
+  'billReminder.titleTomorrowGeneric': 'একটি বিল আগামীকাল পরিশোধের দিন',
+  'billReminder.titleInDaysGeneric': 'একটি বিল {days} দিন পরে পরিশোধের দিন',
+  'settings.billRemindersHideNames': 'রিমাইন্ডারে বিলের নাম লুকান',
+  'settings.billRemindersHideNamesLocked': 'অ্যাপ লক চালু থাকলে রিমাইন্ডারে বিলের নাম লুকানো থাকে।',
+  'billReminder.bodyToday': 'ইতিমধ্যে পরিশোধ করে থাকলে প্ল্যান খুলে সেটি পরিশোধিত হিসেবে চিহ্নিত করুন।',
   'billReminder.bodyEarly': 'কী কী পরিশোধ করতে হবে তা দেখতে প্ল্যান খুলুন।',
 };

@@ -162,4 +162,33 @@ describe('netWorth, fee intelligence & upcoming bills', () => {
     // 15 remaining days inclusive in Nov (16..30) -> 750,000 / 15 = 50,000
     expect(res.uncommittedSafePerDayMinor).toBe(50_000);
   });
+
+  it('counts a bill stamped inside the period as paid after the cycle day changed', () => {
+    const res = computeUpcomingBillsCommitment({
+      bills: [
+        {
+          id: 'b3',
+          name: 'Water',
+          kind: 'bill',
+          amountMinor: 200_000,
+          dayOfMonth: 5,
+          categoryId: 'utilities',
+          accountId: null,
+          totalInstallments: null,
+          paidInstallments: 0,
+          // Not the period start: left over from the old cycle day.
+          lastPaidPeriod: '2026-11-12',
+          isActive: true,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      ],
+      period,
+      today: '2026-11-16',
+      budgetRemainingMinor: 1_000_000,
+    });
+    expect(res.paidCount).toBe(1);
+    expect(res.unpaidCount).toBe(0);
+    expect(res.uncommittedRemainingMinor).toBe(1_000_000);
+  });
 });
