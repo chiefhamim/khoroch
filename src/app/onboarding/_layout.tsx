@@ -1,25 +1,15 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { View } from 'react-native';
-import { Stack, usePathname } from 'expo-router';
+import { Stack } from 'expo-router';
 import { GlassContext } from '@/ui/glass';
 import { OnboardingBackdrop } from '@/ui/OnboardingBackdrop';
 
-/** Deep colour per step, matching the header tile and the Continue button. */
-const STEP_TINT: Record<string, string> = {
-  preferences: '#0369A1',
-  budget: '#047857',
-  categories: '#B45309',
-  reminder: '#BE185D',
-  wallets: '#0F766E',
-  done: '#15803D',
-};
+/** One accent for the whole flow: tint null keeps the theme accent. */
+const ONBOARDING_GLASS = { tint: null };
 
 export default function OnboardingLayout() {
-  const path = usePathname();
-  const last = path.split('/').filter(Boolean).pop() ?? '';
-  const value = useMemo(() => ({ tint: STEP_TINT[last] ?? '#4338CA' }), [last]);
   return (
-    <GlassContext.Provider value={value}>
+    <GlassContext.Provider value={ONBOARDING_GLASS}>
       <View style={{ flex: 1 }}>
         <OnboardingBackdrop />
         <Stack

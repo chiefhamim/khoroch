@@ -112,6 +112,8 @@ export const geometry = {
   screenMargin: 16,
   cardPadding: 16,
   listRowHeight: 56,
+  /** Rows with a title, a caption and a progress element (budget category rows). */
+  listRowTallHeight: 72,
   iconTile: 38,
   sectionGap: 20,
   cardGap: 12,
@@ -505,6 +507,12 @@ export interface ColorPalette {
   surfaceSunken: string;
   separator: string;
   cardBorder: string;
+  /** Stronger card rim used by Surface: equals cardBorder in light, a translucent white edge in dark modes. */
+  cardEdge: string;
+  /** Translucent card fill, rim and soft fill for surfaces drawn over a colour backdrop (GlassContext). */
+  glassFill: string;
+  glassRim: string;
+  glassSoft: string;
   text: string;
   textSecondary: string;
   textTertiary: string;
@@ -539,6 +547,10 @@ const LIGHT_BASE = {
   surfaceSunken: '#EAE8E0',
   separator: '#E2DFD6',
   cardBorder: '#E5E2D9',
+  cardEdge: '#E5E2D9',
+  glassFill: 'rgba(255, 255, 255, 0.62)',
+  glassRim: 'rgba(255, 255, 255, 0.85)',
+  glassSoft: 'rgba(255, 255, 255, 0.4)',
   text: '#16150F',
   textSecondary: '#5B5850',
   textTertiary: '#68655D',
@@ -563,6 +575,10 @@ const DARK_BASE = {
   surfaceSunken: '#0D0D0F',
   separator: '#232326',
   cardBorder: '#2A2A2F',
+  cardEdge: 'rgba(255, 255, 255, 0.16)',
+  glassFill: '#111113',
+  glassRim: '#2A2A2F',
+  glassSoft: '#0D0D0F',
   text: '#F2F1EE',
   textSecondary: '#ABA8A0',
   textTertiary: '#98958E',
@@ -587,6 +603,10 @@ const BLACK_BASE = {
   surfaceSunken: '#08080B',
   separator: '#202024',
   cardBorder: '#27272C',
+  cardEdge: 'rgba(255, 255, 255, 0.16)',
+  glassFill: '#111113',
+  glassRim: '#2A2A2F',
+  glassSoft: '#0D0D0F',
   text: '#F2F1EE',
   textSecondary: '#ABA8A0',
   textTertiary: '#96938C',
@@ -657,6 +677,8 @@ export interface ElevationTokens {
   e1: ViewStyle;
   e2: ViewStyle;
   e3: ViewStyle;
+  /** Upward shadow for the bottom tab bar. */
+  tabBar: ViewStyle;
 }
 
 export const lightElevation: ElevationTokens = {
@@ -673,6 +695,7 @@ export const lightElevation: ElevationTokens = {
     boxShadow:
       '0 0 0 0.5px rgba(22,22,44,0.10), 0 8px 18px rgba(22,22,44,0.10), 0 28px 56px -16px rgba(22,22,44,0.38)',
   },
+  tabBar: { boxShadow: '0 -3px 14px rgba(17, 17, 22, 0.06)' },
 };
 
 export const darkElevation: ElevationTokens = {
@@ -689,6 +712,7 @@ export const darkElevation: ElevationTokens = {
     boxShadow:
       '0 0 0 1px rgba(255,255,255,0.13), 0 8px 18px rgba(0,0,0,0.56), 0 30px 60px -16px rgba(0,0,0,0.88)',
   },
+  tabBar: { boxShadow: '0 -3px 16px rgba(0, 0, 0, 0.35)' },
 };
 
 export const lightCardShadow: ViewStyle = lightElevation.e1;

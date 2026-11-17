@@ -20,6 +20,8 @@ import {
 } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 
+const SHRINK_MIN_FONT_SCALE = 0.5;
+
 export interface MoneyProps {
   amountMinor: number;
   currency: CurrencyCode;
@@ -38,6 +40,8 @@ export interface MoneyProps {
   animate?: boolean;
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
+  /** Shrinks the text to fit its column instead of clipping the amount (needs a single line). */
+  shrinkToFit?: boolean;
   accessibilityLabel?: string;
   testID?: string;
 }
@@ -121,6 +125,7 @@ export function Money({
   animate,
   style,
   numberOfLines,
+  shrinkToFit = false,
   accessibilityLabel,
   testID,
 }: MoneyProps) {
@@ -200,7 +205,9 @@ export function Money({
     return (
       <Text
         testID={testID}
-        numberOfLines={numberOfLines}
+        numberOfLines={shrinkToFit ? 1 : numberOfLines}
+        adjustsFontSizeToFit={shrinkToFit}
+        minimumFontScale={shrinkToFit ? SHRINK_MIN_FONT_SCALE : undefined}
         ellipsizeMode={numberOfLines !== undefined ? 'clip' : undefined}
         accessibilityLabel={accessibilityLabel ?? HIDDEN_AMOUNT_TEXT}
         style={[
@@ -278,7 +285,9 @@ export function Money({
   return (
     <Text
       testID={testID}
-      numberOfLines={numberOfLines}
+      numberOfLines={shrinkToFit ? 1 : numberOfLines}
+      adjustsFontSizeToFit={shrinkToFit}
+      minimumFontScale={shrinkToFit ? SHRINK_MIN_FONT_SCALE : undefined}
       ellipsizeMode={numberOfLines !== undefined ? 'clip' : undefined}
       accessibilityLabel={computedA11y}
       style={[

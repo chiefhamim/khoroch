@@ -1230,7 +1230,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
             <AppText variant="label" color="textSecondary">
               {t('activity.filterWallet')}
             </AppText>
-            <View style={[styles.wrapChips, { gap: theme.spacing.xs }]}>
+            <View style={[styles.wrapChips, { gap: theme.spacing.sm }]}>
               <Chip
                 testID="filter-wallet-all"
                 label={t('activity.filterAllWallets')}
@@ -1251,7 +1251,6 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                   <PressableScale pressScale={0.98}
                     key={w.id}
                     testID={`filter-wallet-${w.id}`}
-                    hitSlop={{ top: theme.spacing.xs, bottom: theme.spacing.xs }}
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     onPress={() => {
@@ -1261,7 +1260,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                     style={({ pressed }) => [
                       styles.categoryTileBtn,
                       {
-                        minHeight: 40,
+                        minHeight: theme.touch.min,
                         paddingHorizontal: theme.spacing.sm,
                         paddingVertical: theme.spacing.xs,
                         borderRadius: theme.radius.pill,

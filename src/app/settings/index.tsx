@@ -55,8 +55,11 @@ import { useSettings } from '@/state/useSettings';
 import {
   ACCENT_DEFINITIONS,
   BANGLA_FONT_FAMILIES,
+  blackColors,
+  darkColors,
   EXPENSE_COLOR_PRESETS,
   INCOME_COLOR_PRESETS,
+  lightColors,
 } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
@@ -1039,7 +1042,7 @@ export default function SettingsScreen() {
                       ]}
                     >
                       <View style={[styles.toneDot, { backgroundColor: swatch }]}>
-                        {selected ? <AppIcon name="check" size={14} color="#FFFFFF" /> : null}
+                        {selected ? <AppIcon name="check" size={14} color={lightColors.onAccent} /> : null}
                       </View>
                     </PressableScale>
                   );
@@ -1295,7 +1298,7 @@ export default function SettingsScreen() {
                           { backgroundColor: def.swatchColor },
                         ]}
                       >
-                        {selected ? <AppIcon name="check" size={16} color="#FFFFFF" /> : null}
+                        {selected ? <AppIcon name="check" size={16} color={lightColors.onAccent} /> : null}
                       </View>
                     </View>
                     <AppText
@@ -1327,22 +1330,11 @@ export default function SettingsScreen() {
               ).map(({ pref, label }) => {
                 const selected = settings.theme === pref;
                 const activeAccentDef = ACCENT_DEFINITIONS[settings.accent];
-                const bgHex =
-                  pref === 'light'
-                    ? '#F6F5F1'
-                    : pref === 'black'
-                      ? '#000000'
-                      : '#0B0B0C';
-                const surfaceHex =
-                  pref === 'light'
-                    ? '#FFFFFF'
-                    : pref === 'black'
-                      ? '#0B0B0D'
-                      : '#151517';
-                const lineHex =
-                  pref === 'light'
-                    ? '#161513'
-                    : '#F2F0EB';
+                const previewPalette =
+                  pref === 'light' ? lightColors : pref === 'black' ? blackColors : darkColors;
+                const bgHex = previewPalette.bg;
+                const surfaceHex = previewPalette.surface;
+                const lineHex = previewPalette.ink;
                 const barHex =
                   pref === 'light'
                     ? activeAccentDef.light.accent
@@ -1374,8 +1366,8 @@ export default function SettingsScreen() {
                     <View style={styles.swatchPreviewFrame}>
                       {pref === 'system' ? (
                         <View style={styles.splitPreview}>
-                          <View style={[styles.splitHalf, { backgroundColor: '#F6F5F1' }]}>
-                            <View style={[styles.miniCard, { backgroundColor: '#FFFFFF' }]}>
+                          <View style={[styles.splitHalf, { backgroundColor: lightColors.bg }]}>
+                            <View style={[styles.miniCard, { backgroundColor: lightColors.surface }]}>
                               <View
                                 style={[
                                   styles.miniBar,
@@ -1384,8 +1376,8 @@ export default function SettingsScreen() {
                               />
                             </View>
                           </View>
-                          <View style={[styles.splitHalf, { backgroundColor: '#0B0B0C' }]}>
-                            <View style={[styles.miniCard, { backgroundColor: '#151517' }]}>
+                          <View style={[styles.splitHalf, { backgroundColor: darkColors.bg }]}>
+                            <View style={[styles.miniCard, { backgroundColor: darkColors.surface }]}>
                               <View
                                 style={[
                                   styles.miniBar,
@@ -1464,7 +1456,7 @@ export default function SettingsScreen() {
                       ]}
                     >
                       <View style={[styles.accentSwatch, { backgroundColor: preset.swatch }]}>
-                        {selected ? <AppIcon name="check" size={15} color="#FFFFFF" /> : null}
+                        {selected ? <AppIcon name="check" size={15} color={lightColors.onAccent} /> : null}
                       </View>
                     </View>
                     <AppText
@@ -1511,7 +1503,7 @@ export default function SettingsScreen() {
                       ]}
                     >
                       <View style={[styles.accentSwatch, { backgroundColor: preset.swatch }]}>
-                        {selected ? <AppIcon name="check" size={15} color="#FFFFFF" /> : null}
+                        {selected ? <AppIcon name="check" size={15} color={lightColors.onAccent} /> : null}
                       </View>
                     </View>
                     <AppText

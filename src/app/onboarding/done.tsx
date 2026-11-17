@@ -301,7 +301,6 @@ export default function OnboardingDoneScreen() {
         />
         <Button
           testID="onboarding-done-cta"
-          tint="#15803D"
           title={t('onboarding.doneCta')}
           loading={saving}
           disabled={saving}

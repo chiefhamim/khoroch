@@ -208,7 +208,6 @@ export default function OnboardingBudgetScreen() {
           />
           <Button
             testID="onboarding-budget-continue"
-          tint="#047857"
             title={
               budgetMinor !== null
                 ? t('onboarding.savePlanCta', {

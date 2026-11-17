@@ -22,6 +22,18 @@ function contrastRatio(fg: string, bg: string): number {
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
 
+/** Flattens an rgba() colour over an opaque hex background into a hex colour. */
+function compositeOver(rgba: string, bgHex: string): string {
+  const m = rgba.match(/rgba?\(([^)]+)\)/);
+  if (!m) return rgba;
+  const [r, g, b, a = '1'] = m[1].split(',').map((v) => Number.parseFloat(v));
+  const alpha = Number(a);
+  const bg = Number.parseInt(bgHex.slice(1), 16);
+  const mix = (fg: number, back: number) => Math.round(fg * alpha + back * (1 - alpha));
+  const out = [mix(r, (bg >> 16) & 255), mix(g, (bg >> 8) & 255), mix(b, bg & 255)];
+  return `#${out.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
+}
+
 type SurfaceKey = 'bg' | 'surface' | 'surfaceRaised';
 type TextRoleKey =
   | 'text'
@@ -68,6 +80,19 @@ function assertPaletteContrast(name: string, p: ColorPalette): void {
   expect(contrastRatio(p.onInk, p.ink)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(p.heroText, p.hero)).toBeGreaterThanOrEqual(4.5);
   expect(contrastRatio(p.heroTextSecondary, p.hero)).toBeGreaterThanOrEqual(4.5);
+
+  // heroStrip is translucent white over the hero fill: composite it, then check the text drawn on it.
+  const strip = compositeOver(p.heroStrip, p.hero);
+  expect(contrastRatio(p.heroText, strip)).toBeGreaterThanOrEqual(4.5);
+  expect(contrastRatio(p.heroTextSecondary, strip)).toBeGreaterThanOrEqual(4.5);
+
+  // Glass fills are opaque hex in dark modes; the light ones are translucent and cannot be measured here.
+  if (p.glassFill.startsWith('#')) {
+    for (const glass of [p.glassFill, p.glassSoft]) {
+      expect(contrastRatio(p.text, glass)).toBeGreaterThanOrEqual(4.5);
+      expect(contrastRatio(p.textSecondary, glass)).toBeGreaterThanOrEqual(4.5);
+    }
+  }
 }
 
 describe('v1.2 token WCAG AA contrast across all 5 accents x 3 resolved modes', () => {

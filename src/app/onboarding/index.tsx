@@ -137,7 +137,6 @@ export default function OnboardingWelcomeScreen() {
       <Animated.View entering={enter(420)} style={{ paddingTop: theme.spacing.xl }}>
         <Button
           testID="onboarding-welcome-continue"
-          tint="#4338CA"
           title={t('onboarding.openNotebookCta')}
           rightIcon="chevron-right"
           onPress={() => router.push('/onboarding/preferences')}

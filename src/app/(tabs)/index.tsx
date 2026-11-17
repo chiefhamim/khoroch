@@ -279,7 +279,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                   borderWidth: 1,
                   borderColor: theme.colors.heroLine,
                   paddingHorizontal: theme.spacing.md,
-                  paddingVertical: theme.spacing.sm + 2,
+                  paddingVertical: theme.spacing.sm,
                 },
               ]}
             >
@@ -393,7 +393,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                   borderWidth: 1,
                   borderColor: theme.colors.heroLine,
                   paddingHorizontal: theme.spacing.md,
-                  paddingVertical: theme.spacing.sm + 2,
+                  paddingVertical: theme.spacing.sm,
                 },
               ]}
             >
@@ -567,7 +567,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             borderWidth: 1,
             borderColor: theme.colors.heroLine,
             paddingHorizontal: theme.spacing.md,
-            paddingVertical: theme.spacing.sm + 2,
+            paddingVertical: theme.spacing.sm,
           },
         ]}
       >
@@ -702,7 +702,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               { value: 'wallets', label: tr('overview.heroTabWallets'), testID: 'overview-hero-tab-wallets' },
             ]}
           />
+        </View>
 
+        {(effectiveHeroMode === 'budget' && overallBudgetMinor !== null && summary.status !== 'over') ||
+        (effectiveHeroMode === 'budget' && overallBudgetMinor === null) ? (
           <View style={[styles.heroTopRight, { gap: theme.spacing.xs }]}>
             {effectiveHeroMode === 'budget' &&
             overallBudgetMinor !== null &&
@@ -721,7 +724,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               />
             ) : null}
           </View>
-        </View>
+        ) : null}
 
         {effectiveHeroMode === 'net_worth' ? (
           <View style={{ gap: theme.spacing.md }}>{netWorthBody}</View>
@@ -765,7 +768,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               backgroundColor: theme.colors.surfaceSunken,
               borderBottomColor: theme.colors.separator,
               paddingHorizontal: theme.spacing.lg,
-              paddingVertical: theme.spacing.sm + 2,
+              paddingVertical: theme.spacing.sm,
             },
           ]}
         >
@@ -1428,7 +1431,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   heroTopRight: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',

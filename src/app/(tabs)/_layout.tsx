@@ -122,11 +122,8 @@ export function V2TabBar({ state, emitter, navigateToTab }: V2TabBarProps) {
           paddingBottom: bottomPadding,
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.separator,
-          boxShadow:
-            theme.mode === "light"
-              ? "0 -3px 14px rgba(17, 17, 22, 0.06)"
-              : "0 -3px 16px rgba(0, 0, 0, 0.35)",
         },
+        theme.elevation.tabBar,
       ]}
     >
       {LEFT_TABS.map(renderTab)}

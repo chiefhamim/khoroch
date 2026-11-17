@@ -73,7 +73,7 @@ export function Button({
         ? tint ?? theme.colors.accent
         : variant === 'secondary'
           ? glass
-            ? glassFill(theme.scheme === 'light' ? 'light' : 'dark').fill
+            ? glassFill(theme.colors).fill
             : theme.colors.surface
           : variant === 'danger'
             ? theme.colors.danger

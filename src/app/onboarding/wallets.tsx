@@ -334,7 +334,6 @@ export default function OnboardingWalletsScreen() {
           />
           <Button
             testID="onboarding-wallets-continue"
-            tint="#0F766E"
             title={t('common.continue')}
             onPress={handleValidateAndContinue}
             style={styles.navBtnPrimary}

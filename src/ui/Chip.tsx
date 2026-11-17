@@ -34,7 +34,7 @@ export function Chip({
   const { theme, reducedMotion } = useTheme();
   const glass = useGlass();
   const tint = glass?.tint ?? null;
-  const g = glassFill(theme.scheme === 'light' ? 'light' : 'dark');
+  const g = glassFill(theme.colors);
 
   const backgroundColor = selected
     ? tint

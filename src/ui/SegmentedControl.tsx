@@ -72,7 +72,8 @@ export function SegmentedControl<T extends string>({
       testID={testID}
       style={[
         styles.container,
-        isCompact && styles.compactNoShrink,
+        isCompact && !isHero && styles.compactNoShrink,
+        isHero && styles.heroContainer,
         {
           backgroundColor: isHero ? theme.colors.heroLine : theme.colors.surfaceSunken,
           borderRadius: theme.radius.pill,
@@ -113,7 +114,7 @@ export function SegmentedControl<T extends string>({
             key={`${opt.value}:${opt.label}`}
             testID={opt.testID}
             disabled={disabled}
-            hitSlop={isCompact ? 6 : undefined}
+            hitSlop={isCompact ? { top: theme.spacing.sm, bottom: theme.spacing.sm } : undefined}
             accessibilityRole="button"
             accessibilityLabel={opt.label}
             accessibilityState={{ selected: active, disabled }}
@@ -131,7 +132,7 @@ export function SegmentedControl<T extends string>({
             }}
             style={({ pressed }) => [
               styles.option,
-              isCompact ? styles.compactOption : styles.optionFill,
+              isCompact && !isHero ? styles.compactOption : styles.optionFill,
               {
                 minHeight: itemMinHeight,
                 paddingHorizontal: isCompact
@@ -140,9 +141,11 @@ export function SegmentedControl<T extends string>({
                 borderRadius: theme.radius.pill,
                 backgroundColor:
                   active && !target
-                    ? theme.scheme === "dark"
-                      ? theme.colors.ink
-                      : theme.colors.surfaceRaised
+                    ? isHero
+                      ? theme.colors.heroText
+                      : theme.scheme === "dark"
+                        ? theme.colors.ink
+                        : theme.colors.surfaceRaised
                     : "transparent",
                 opacity: pressed && !reducedMotion ? 0.86 : 1,
               },
@@ -162,10 +165,12 @@ export function SegmentedControl<T extends string>({
                     : "textSecondary"
               }
               numberOfLines={1}
+              adjustsFontSizeToFit={isHero}
+              minimumFontScale={isHero ? HERO_MIN_FONT_SCALE : undefined}
               style={[
                 styles.label,
-                !isCompact && styles.labelStretch,
-                isCompact
+                (!isCompact || isHero) && styles.labelStretch,
+                isCompact && !isHero
                   ? { minWidth: estimateSingleLineMinWidth(opt.label, 13) }
                   : null,
               ]}
@@ -179,6 +184,7 @@ export function SegmentedControl<T extends string>({
   );
 }
 
+const HERO_MIN_FONT_SCALE = 0.85;
 const THUMB_SPRING = { damping: 24, stiffness: 300, mass: 0.8 } as const;
 
 const styles = StyleSheet.create({
@@ -190,6 +196,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flexShrink: 1,
+  },
+  heroContainer: {
+    flex: 1,
   },
   compactNoShrink: {
     flexShrink: 0,

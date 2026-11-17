@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react';
+import type { ColorPalette } from '@/theme/tokens';
 
 export interface GlassValue {
   /** Accent for chips and fills inside glass surfaces; null keeps the theme accent. */
@@ -14,9 +15,11 @@ export function useGlass(): GlassValue | null {
   return useContext(GlassContext);
 }
 
-/** Translucent card fill and rim for light and dark schemes. */
-export function glassFill(scheme: 'light' | 'dark'): { fill: string; rim: string; soft: string } {
-  return scheme === 'light'
-    ? { fill: 'rgba(255, 255, 255, 0.62)', rim: 'rgba(255, 255, 255, 0.85)', soft: 'rgba(255, 255, 255, 0.4)' }
-    : { fill: '#111113', rim: '#2A2A2F', soft: '#0D0D0F' };
+/** Translucent card fill and rim, read from the active palette. */
+export function glassFill(colors: Pick<ColorPalette, 'glassFill' | 'glassRim' | 'glassSoft'>): {
+  fill: string;
+  rim: string;
+  soft: string;
+} {
+  return { fill: colors.glassFill, rim: colors.glassRim, soft: colors.glassSoft };
 }

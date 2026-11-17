@@ -397,7 +397,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
             style={{ gap: theme.spacing.sm }}
           >
             <View style={{ gap: 4 }}>
-              <AppText variant="display" tabularNums style={{ fontSize: 25, lineHeight: 31 }}>
+              <AppText variant="title" tabularNums>
                 {preset === 'this_month'
                   ? t('insights.spentSoFarHeadline', {
                       amount: formatMoney(currCompMinor, settings.currency, {
@@ -962,10 +962,10 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                   toExcl: selectedBar.period.endExcl,
                 })
               }
-              hitSlop={{ top: theme.spacing.sm, bottom: theme.spacing.sm }}
               style={[
                 styles.tooltipBox,
                 {
+                  minHeight: theme.touch.min,
                   backgroundColor: theme.colors.surfaceSunken,
                   borderRadius: theme.radius.sm,
                   paddingHorizontal: theme.spacing.md,

@@ -286,17 +286,12 @@ export default function PlanScreen() {
             >
               <Money
                 testID="budget-ring-remaining"
-                variant="display"
+                variant={Math.abs(overallSummary.remainingMinor) >= 10_000_000 ? 'title' : 'display'}
                 amountMinor={Math.abs(overallSummary.remainingMinor)}
                 currency={settings.currency}
                 color={isNegativeRemaining ? 'danger' : 'text'}
                 allowCompact
                 numberOfLines={1}
-                style={
-                  Math.abs(overallSummary.remainingMinor) >= 10_000_000
-                    ? styles.ringMoneyCompact
-                    : styles.ringMoney
-                }
               />
               {(() => {
                 const ringCaption = `${isNegativeRemaining ? t('budget.overSuffix') : t('budget.leftSuffix')} · ${formatUtilizationPct(Math.abs(100 - (overallSummary.utilizationPct ?? 0)))}`;
@@ -434,7 +429,7 @@ export default function PlanScreen() {
                     style={({ pressed }) => [
                       styles.catRow,
                       {
-                        minHeight: 72,
+                        minHeight: theme.geometry.listRowTallHeight,
                         paddingHorizontal: theme.spacing.lg,
                         paddingVertical: theme.spacing.md,
                         gap: theme.spacing.md,
@@ -556,7 +551,7 @@ export default function PlanScreen() {
                       style={({ pressed }) => [
                         styles.catRow,
                         {
-                          minHeight: 72,
+                          minHeight: theme.geometry.listRowTallHeight,
                           paddingHorizontal: theme.spacing.lg,
                           paddingVertical: theme.spacing.md,
                           gap: theme.spacing.md,
@@ -1029,16 +1024,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
-  },
-  ringMoney: {
-    fontSize: 30,
-    lineHeight: 36,
-    letterSpacing: -0.6,
-  },
-  ringMoneyCompact: {
-    fontSize: 24,
-    lineHeight: 30,
-    letterSpacing: -0.4,
   },
   heroFooter: {
     flexDirection: 'row',

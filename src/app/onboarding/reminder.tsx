@@ -229,7 +229,6 @@ export default function OnboardingReminderScreen() {
         />
         <Button
           testID="onboarding-reminder-continue"
-          tint="#BE185D"
           title={t('common.continue')}
           loading={requesting}
           disabled={requesting}

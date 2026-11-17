@@ -80,7 +80,7 @@ export function Surface({
 }: SurfaceProps) {
   const { theme, reducedMotion } = useTheme();
   const glass = useGlass();
-  const g = glassFill(theme.scheme === 'light' ? 'light' : 'dark');
+  const g = glassFill(theme.colors);
 
   const backgroundColor =
     glass && (variant === 'card' || variant === 'raised')
@@ -112,9 +112,7 @@ export function Surface({
   const defaultBorderColor = showGlassChrome
     ? glass
       ? g.rim
-      : theme.scheme === 'light'
-      ? theme.colors.cardBorder
-      : 'rgba(255, 255, 255, 0.16)'
+      : theme.colors.cardEdge
     : undefined;
   const innerRadius = Math.max(0, resolvedRadius - borderWidth);
 

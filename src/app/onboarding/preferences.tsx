@@ -290,7 +290,6 @@ export default function OnboardingPreferencesScreen() {
         />
         <Button
           testID="onboarding-prefs-continue"
-          tint="#0369A1"
           title={t('common.continue')}
           onPress={() => router.push('/onboarding/budget')}
           style={styles.navBtnPrimary}

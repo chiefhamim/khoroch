@@ -429,7 +429,7 @@ export default function CategoriesScreen() {
                     <AppIcon
                       name="check"
                       size={16}
-                      color={theme.scheme === 'dark' ? '#0A0A0C' : '#FFFFFF'}
+                      color={theme.colors.onInk}
                     />
                   ) : null}
                 </PressableScale>

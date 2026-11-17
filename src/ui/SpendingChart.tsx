@@ -293,61 +293,77 @@ export function SpendingChart({
       ) : null}
 
       {stats.total > 0 ? (
-        <View style={styles.statRow}>
-          {[
-            { key: 'total', label: t('overview.chartTotal'), minor: stats.total, sub: null as string | null },
-            {
-              key: 'avg',
-              label: t(
-                granularity === 'daily'
-                  ? 'overview.chartAvgDay'
-                  : granularity === 'weekly'
-                    ? 'overview.chartAvgWeek'
-                    : 'overview.chartAvgMonth'
-              ),
-              minor: stats.avg,
-              sub: null as string | null,
-            },
-            {
-              key: 'peak',
-              label: t('overview.chartPeak'),
-              minor: stats.peak?.spentMinor ?? 0,
-              sub: stats.peak?.label ?? null,
-            },
-          ].map((tile, idx) => (
-            <View
-              key={tile.key}
-              style={[
-                styles.statTile,
-                { gap: theme.spacing.xs },
-                idx > 0
-                  ? {
-                      borderLeftWidth: StyleSheet.hairlineWidth,
-                      borderLeftColor: theme.colors.separator,
-                      paddingLeft: theme.spacing.md,
-                    }
-                  : null,
-              ]}
-            >
-              <AppText variant="label" color="textSecondary" numberOfLines={1} ellipsizeMode="clip">
-                {tile.label}
-              </AppText>
-              <Money
-                amountMinor={tile.minor}
-                currency={currency}
-                variant="headline"
-                allowCompact
-                numberOfLines={1}
-                hidden={hideAmounts}
-                animate={false}
-              />
-              {tile.sub ? (
-                <AppText variant="caption" color="textSecondary" numberOfLines={1} ellipsizeMode="clip">
-                  {localizeDisplayText(tile.sub, getLocale())}
+        <View style={{ gap: theme.spacing.md }}>
+          <View style={{ gap: theme.spacing.sm }}>
+            <AppText variant="label" color="textSecondary" numberOfLines={1} ellipsizeMode="clip">
+              {t('overview.chartTotal')}
+            </AppText>
+            <Money
+              amountMinor={stats.total}
+              currency={currency}
+              variant="title"
+              allowCompact
+              shrinkToFit
+              hidden={hideAmounts}
+              animate={false}
+            />
+          </View>
+          <View style={[styles.statDivider, { backgroundColor: theme.colors.separator }]} />
+          <View style={styles.statRow}>
+            {[
+              {
+                key: 'avg',
+                label: t(
+                  granularity === 'daily'
+                    ? 'overview.chartAvgDay'
+                    : granularity === 'weekly'
+                      ? 'overview.chartAvgWeek'
+                      : 'overview.chartAvgMonth'
+                ),
+                minor: stats.avg,
+                sub: null as string | null,
+              },
+              {
+                key: 'peak',
+                label: t('overview.chartPeak'),
+                minor: stats.peak?.spentMinor ?? 0,
+                sub: stats.peak?.label ?? null,
+              },
+            ].map((tile, idx) => (
+              <View
+                key={tile.key}
+                style={[
+                  styles.statTile,
+                  { gap: theme.spacing.sm },
+                  idx > 0
+                    ? {
+                        borderLeftWidth: StyleSheet.hairlineWidth,
+                        borderLeftColor: theme.colors.separator,
+                        paddingLeft: theme.spacing.md,
+                      }
+                    : { paddingRight: theme.spacing.md },
+                ]}
+              >
+                <AppText variant="label" color="textSecondary" numberOfLines={1} ellipsizeMode="clip">
+                  {tile.label}
                 </AppText>
-              ) : null}
-            </View>
-          ))}
+                <Money
+                  amountMinor={tile.minor}
+                  currency={currency}
+                  variant="headline"
+                  allowCompact
+                  shrinkToFit
+                  hidden={hideAmounts}
+                  animate={false}
+                />
+                {tile.sub ? (
+                  <AppText variant="caption" color="textSecondary" numberOfLines={1} ellipsizeMode="clip">
+                    {localizeDisplayText(tile.sub, getLocale())}
+                  </AppText>
+                ) : null}
+              </View>
+            ))}
+          </View>
         </View>
       ) : null}
 
@@ -625,6 +641,7 @@ const styles = StyleSheet.create({
   },
   statRow: { flexDirection: 'row' },
   statTile: { flex: 1 },
+  statDivider: { height: StyleSheet.hairlineWidth },
   svgContainer: {
     width: '100%',
     height: CHART_HEIGHT,
