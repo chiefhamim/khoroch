@@ -131,3 +131,18 @@ export function fitMoney<K extends string>(input: FitMoneyInput<K>): FitMoneyRes
   const smallest = allowed.reduce((a, b) => (b.fontSize < a.fontSize ? b : a));
   return { variant: smallest.key, fontSize: smallest.fontSize, compact: true };
 }
+
+/**
+ * Fits several amounts that sit side by side (a strip) and returns ONE variant for all of them:
+ * the smallest any single amount needed. Compact formatting stays per amount, so only an amount that
+ * does not fit even at that size goes compact.
+ */
+export function fitMoneyGroup<K extends string>(
+  items: readonly Omit<FitMoneyInput<K>, 'availableWidth' | 'variants' | 'bangla'>[],
+  shared: Pick<FitMoneyInput<K>, 'availableWidth' | 'variants' | 'bangla'>
+): { variant: K; fontSize: number; compact: boolean }[] {
+  const fits = items.map((item) => fitMoney({ ...item, ...shared }));
+  if (fits.length === 0) return [];
+  const smallest = fits.reduce((a, b) => (b.fontSize < a.fontSize ? b : a));
+  return fits.map((f) => ({ variant: smallest.variant, fontSize: smallest.fontSize, compact: f.compact }));
+}

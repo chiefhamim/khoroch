@@ -3,6 +3,7 @@ import {
   categoryBudgetStatus,
   compareFullPeriods,
   compareMonthToDate,
+  computeAfterBills,
   computeBudgetStatus,
   dailySeries,
   formatUtilizationPct,
@@ -11,9 +12,11 @@ import {
   summarizeBudgetAllocation,
   summarizeCategoryExpenses,
   summarizeDayActivity,
+  summarizeUnpaidBills,
 } from './calc';
-import { buildRecentPeriodWindows, getPeriod } from './period';
-import type { Budget, Transaction } from './types';
+import { computeUpcomingBillsCommitment } from './netWorth';
+import { buildRecentPeriodWindows, getPeriod, remainingDays } from './period';
+import type { Budget, RecurringBill, Transaction } from './types';
 
 function makeTx(overrides: Partial<Transaction> & { id: string; amountMinor: number; occurredOn: string }): Transaction {
   return {
@@ -385,5 +388,138 @@ describe('month comparisons (TEST-CASES §3)', () => {
     expect(daySummary.expenseMinor).toBe(50000);
     expect(daySummary.incomeMinor).toBe(100000);
     expect(daySummary.count).toBe(2);
+  });
+});
+
+describe('left after unpaid bills', () => {
+  const today = '2026-11-13';
+  const period = getPeriod(today, 1);
+  const daysLeft = remainingDays(period, today);
+
+  function makeBill(overrides: Partial<RecurringBill> & { id: string; amountMinor: number }): RecurringBill {
+    return {
+      name: overrides.id,
+      kind: 'bill',
+      categoryId: null,
+      accountId: null,
+      dayOfMonth: 5,
+      isActive: true,
+      totalInstallments: null,
+      paidInstallments: 0,
+      lastPaidPeriod: null,
+      createdAt: 1700000000000,
+      updatedAt: 1700000000000,
+      ...overrides,
+    };
+  }
+
+  function after(txs: Transaction[], bills: RecurringBill[], budgetMinor: number | null, day = today) {
+    const p = getPeriod(day, 1);
+    const summary = summarize({
+      transactions: txs,
+      period: p,
+      today: day,
+      overallBudgetMinor: budgetMinor,
+      currency: 'BDT',
+    });
+    const unpaid = summarizeUnpaidBills(bills, p);
+    return computeAfterBills({
+      remainingMinor: summary.remainingMinor,
+      unpaidBillsMinor: unpaid.unpaidMinor,
+      unpaidCount: unpaid.unpaidCount,
+      daysLeft: remainingDays(p, day),
+    });
+  }
+
+  it('budget 20,000, spent 0, unpaid bills 6,000 leaves 14,000', () => {
+    const r = after([], [makeBill({ id: 'rent', amountMinor: 600000 })], 2000000);
+    expect(r.unpaidCount).toBe(1);
+    expect(r.unpaidBillsMinor).toBe(600000);
+    expect(r.leftAfterBillsMinor).toBe(1400000);
+    expect(r.safePerDayAfterBillsMinor).toBe(Math.floor(1400000 / daysLeft));
+  });
+
+  it('a bill marked paid is not subtracted', () => {
+    const r = after(
+      [],
+      [makeBill({ id: 'rent', amountMinor: 600000, lastPaidPeriod: period.start })],
+      2000000
+    );
+    expect(r.unpaidCount).toBe(0);
+    expect(r.leftAfterBillsMinor).toBe(2000000);
+  });
+
+  it('a bill whose payment is recorded as a transaction is not subtracted twice', () => {
+    // Marking a bill paid stamps lastPaidPeriod and records the transaction together.
+    const r = after(
+      [makeTx({ id: 'bill_tx', amountMinor: 600000, occurredOn: '2026-11-10' })],
+      [makeBill({ id: 'rent', amountMinor: 600000, lastPaidPeriod: period.start })],
+      2000000
+    );
+    expect(r.unpaidBillsMinor).toBe(0);
+    expect(r.leftAfterBillsMinor).toBe(1400000);
+  });
+
+  it('inactive, salary and finished EMI bills are not unpaid bills', () => {
+    const unpaid = summarizeUnpaidBills(
+      [
+        makeBill({ id: 'off', amountMinor: 100, isActive: false }),
+        makeBill({ id: 'pay', amountMinor: 200, kind: 'salary' }),
+        makeBill({ id: 'emi', amountMinor: 300, kind: 'emi', totalInstallments: 3, paidInstallments: 3 }),
+        makeBill({ id: 'net', amountMinor: 400 }),
+      ],
+      period
+    );
+    expect(unpaid).toEqual({ unpaidCount: 1, unpaidMinor: 400 });
+  });
+
+  it('bills larger than what is left give a negative result and safe per day 0', () => {
+    const r = after(
+      [makeTx({ id: 's', amountMinor: 1500000, occurredOn: '2026-11-02' })],
+      [makeBill({ id: 'rent', amountMinor: 800000 })],
+      2000000
+    );
+    expect(r.leftAfterBillsMinor).toBe(-300000);
+    expect(r.safePerDayAfterBillsMinor).toBe(0);
+  });
+
+  it('no bills gives the same numbers as the plain summary', () => {
+    const summary = summarize({
+      transactions: SCENARIO_A_TXS,
+      period,
+      today,
+      overallBudgetMinor: 4000000,
+      currency: 'BDT',
+    });
+    const r = after(SCENARIO_A_TXS, [], 4000000);
+    expect(r.unpaidCount).toBe(0);
+    expect(r.leftAfterBillsMinor).toBe(summary.remainingMinor);
+    expect(r.safePerDayAfterBillsMinor).toBe(summary.safeToSpendPerDayMinor);
+    expect(r.safePerDayAfterBillsMinor).toBe(130833);
+  });
+
+  it('no budget gives null', () => {
+    const r = after([], [makeBill({ id: 'rent', amountMinor: 600000 })], null);
+    expect(r.leftAfterBillsMinor).toBeNull();
+    expect(r.safePerDayAfterBillsMinor).toBeNull();
+  });
+
+  it('rounds per day down with 7 days left', () => {
+    // 24 to 30 Nov is 7 days. 10,000 budget minus 1,000 unpaid = 900000 poisha.
+    const r = after([], [makeBill({ id: 'net', amountMinor: 100000 })], 1000000, '2026-11-24');
+    expect(remainingDays(getPeriod('2026-11-24', 1), '2026-11-24')).toBe(7);
+    expect(r.leftAfterBillsMinor).toBe(900000);
+    expect(r.safePerDayAfterBillsMinor).toBe(128571);
+  });
+
+  it('agrees with the existing commitment summary on the unpaid total', () => {
+    const bills = [
+      makeBill({ id: 'a', amountMinor: 600000 }),
+      makeBill({ id: 'b', amountMinor: 250000, lastPaidPeriod: period.start }),
+    ];
+    const commit = computeUpcomingBillsCommitment({ bills, period, today, budgetRemainingMinor: 2000000 });
+    const unpaid = summarizeUnpaidBills(bills, period);
+    expect(unpaid.unpaidMinor).toBe(commit.unpaidBillsTotalMinor);
+    expect(unpaid.unpaidCount).toBe(commit.unpaidCount);
   });
 });

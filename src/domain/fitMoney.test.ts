@@ -1,5 +1,11 @@
 import { typography } from '@/theme/tokens';
-import { estimateMoneyWidth, fitMoney, formatNumberPart, MIN_FIT_FONT_SIZE } from './fitMoney';
+import {
+  estimateMoneyWidth,
+  fitMoney,
+  fitMoneyGroup,
+  formatNumberPart,
+  MIN_FIT_FONT_SIZE,
+} from './fitMoney';
 
 const VARIANTS = [
   { key: 'display', fontSize: typography.display.fontSize },
@@ -94,6 +100,51 @@ describe('fitMoney', () => {
 
   it('keeps compact when the caller already asked for it', () => {
     expect(fitMoney({ ...base, compact: true, availableWidth: 200 }).compact).toBe(true);
+  });
+});
+
+describe('fitMoneyGroup', () => {
+  const variants = [
+    { key: 'bodyStrong', fontSize: 16 },
+    { key: 'label', fontSize: 13 },
+  ] as const;
+  const item = (amountMinor: number, hasSign = false) => ({
+    amountMinor,
+    compact: false,
+    showDecimals: false,
+    roundToWhole: false,
+    hasSign,
+    symbolChars: 1,
+  });
+
+  it('gives every column the smallest variant any one of them needed', () => {
+    const alone = fitMoney({ ...item(58_690_343), availableWidth: 100, variants, bangla: false });
+    expect(alone.variant).toBe('bodyStrong');
+    const group = fitMoneyGroup([item(58_690_343), item(49_779_490, true), item(120_000)], {
+      availableWidth: 100,
+      variants,
+      bangla: false,
+    });
+    expect(group.map((g) => g.variant)).toEqual(['label', 'label', 'label']);
+    expect(group.every((g) => g.fontSize === 13)).toBe(true);
+  });
+
+  it('keeps the large variant when all fit and goes compact only for the one that cannot fit', () => {
+    const roomy = fitMoneyGroup([item(1_000), item(2_000)], { availableWidth: 200, variants, bangla: false });
+    expect(roomy.map((g) => g.variant)).toEqual(['bodyStrong', 'bodyStrong']);
+    expect(roomy.some((g) => g.compact)).toBe(false);
+
+    const tight = fitMoneyGroup([item(1_000), item(99_999_999_999)], {
+      availableWidth: 60,
+      variants,
+      bangla: false,
+    });
+    expect(tight.map((g) => g.variant)).toEqual(['label', 'label']);
+    expect(tight.map((g) => g.compact)).toEqual([false, true]);
+  });
+
+  it('returns nothing for an empty strip', () => {
+    expect(fitMoneyGroup([], { availableWidth: 100, variants, bangla: false })).toEqual([]);
   });
 });
 

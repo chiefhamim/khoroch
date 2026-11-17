@@ -10,7 +10,8 @@ import {
   formatWeekdayShortDate,
   isDevice24HourClock,
 } from '@/domain/dates';
-import { formatMoney, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
+import { fitMoneyGroup } from '@/domain/fitMoney';
+import { formatMoney, getCurrencySymbol, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
 import { remainingDays } from '@/domain/period';
 import { formatHomeDuesSummaryLine } from '@/domain/dues';
 import type { LocalDate } from '@/domain/types';
@@ -22,6 +23,7 @@ import { useAccounts } from '@/state/useAccounts';
 import { useDashboard } from '@/state/useDashboard';
 import { usePeople } from '@/state/usePeople';
 import { getCategoryTileVisual } from '@/theme/categoryColors';
+import type { TypographyVariant } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
 import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
@@ -75,6 +77,8 @@ const HERO_FIT = ['hero', 'display', 'title'] as const;
 /** Candidate type sizes for wallet tile balances, largest first. */
 const WALLET_TILE_FIT = ['headline', 'bodyStrong', 'label'] as const;
 const STRIP_COLUMNS = 3;
+/** Placeholder the translated caption is split on so the amount renders as a Money inline. */
+const AMOUNT_SLOT = '\u0001';
 
 function buildGreeting(hour: number): string {
   if (hour < 12) return t('overview.goodMorning');
@@ -107,6 +111,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     recentTransactions,
     categoriesById,
     billsCommitment,
+    afterBills,
     periodFeesMinor,
     dailyBudgetLimitMinor,
     pendingDraftsCount,
@@ -140,7 +145,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     setWalletGridW((prev) => (prev === w ? prev : w));
   };
 
-  const { hideAmounts, toggleHideAmounts } = usePrivacyStore();
+  const { hideAmounts, toggleHideAmounts, showPoisha } = usePrivacyStore();
   const {
     overview: accountsOverview,
     accountsById,
@@ -244,6 +249,30 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
       1 -
       stripDividerPad
   );
+  // All amounts in one strip share one type size: the smallest any of them needs to fit its column.
+  // Compact formatting stays per amount (Money decides it again with the same inputs).
+  const stripVariantFor = (
+    items: readonly { amountMinor: number; signed?: boolean }[]
+  ): TypographyVariant => {
+    if (hideAmounts || items.length === 0) return STRIP_FIT[0];
+    const symbolChars = getCurrencySymbol(settings.currency).length;
+    const fitted = fitMoneyGroup(
+      items.map((item) => ({
+        amountMinor: item.amountMinor,
+        compact: false,
+        showDecimals: showPoisha,
+        roundToWhole: false,
+        hasSign: item.signed === true,
+        symbolChars,
+      })),
+      {
+        availableWidth: stripColW,
+        variants: STRIP_FIT.map((key) => ({ key, fontSize: theme.typography[key].fontSize })),
+        bangla: locale === 'bn',
+      }
+    );
+    return fitted[0].variant;
+  };
   // Wallet tiles: two columns separated by the card gap; inner width excludes the tile padding.
   const walletTileW =
     walletGridW !== null ? Math.floor((walletGridW - theme.geometry.cardGap) / 2) : null;
@@ -271,6 +300,26 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         (entry.account.kind === 'bank' || entry.account.kind === 'credit_card')
     )
     .reduce((acc, entry) => acc + entry.balanceMinor, 0);
+
+  const duesNetSigned = netWorth.netDuesMinor - netWorth.cardDebtMinor;
+  const safePerDayMinor = afterBills.safePerDayAfterBillsMinor;
+  const walletsStripVariant = stripVariantFor([
+    { amountMinor: Math.abs(liquidCashMfsMinor), signed: liquidCashMfsMinor < 0 },
+    { amountMinor: Math.abs(liquidBankCardMinor), signed: liquidBankCardMinor < 0 },
+    { amountMinor: netWorth.savingsAssetsMinor },
+  ]);
+  const budgetStripVariant = stripVariantFor([
+    { amountMinor: safePerDayMinor ?? 0 },
+    { amountMinor: summary.spentMinor },
+    hasWallets
+      ? { amountMinor: Math.abs(accountsOverview.totalMinor), signed: accountsOverview.totalMinor < 0 }
+      : { amountMinor: summary.incomeMinor },
+  ]);
+  const netWorthStripVariant = stripVariantFor([
+    { amountMinor: Math.abs(netWorth.liquidAssetsMinor), signed: netWorth.liquidAssetsMinor < 0 },
+    { amountMinor: Math.abs(netWorth.savingsAssetsMinor) },
+    { amountMinor: Math.abs(duesNetSigned), signed: duesNetSigned !== 0 },
+  ]);
 
   const walletsBody = (
           <>
@@ -315,7 +364,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 <Money
                   variant="bodyStrong"
                   fitWidth={stripColW}
-                  fitVariants={STRIP_FIT}
+                  fitVariants={[walletsStripVariant]}
                   amountMinor={Math.abs(liquidCashMfsMinor)}
                   prefix={liquidCashMfsMinor < 0 ? '−' : ''}
                   currency={settings.currency}
@@ -336,7 +385,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 <Money
                   variant="bodyStrong"
                   fitWidth={stripColW}
-                  fitVariants={STRIP_FIT}
+                  fitVariants={[walletsStripVariant]}
                   amountMinor={Math.abs(liquidBankCardMinor)}
                   prefix={liquidBankCardMinor < 0 ? '−' : ''}
                   currency={settings.currency}
@@ -357,7 +406,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 <Money
                   variant="bodyStrong"
                   fitWidth={stripColW}
-                  fitVariants={STRIP_FIT}
+                  fitVariants={[walletsStripVariant]}
                   amountMinor={netWorth.savingsAssetsMinor}
                   currency={settings.currency}
                   color="heroBar"
@@ -412,6 +461,34 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               </AppText>
             </View>
 
+            {afterBills.unpaidCount > 0 && afterBills.leftAfterBillsMinor !== null ? (
+              <AppText testID="hero-after-bills" variant="caption" color="heroTextSecondary">
+                {t(
+                  afterBills.leftAfterBillsMinor < 0
+                    ? 'overview.shortAfterUnpaidBills'
+                    : 'overview.afterUnpaidBills',
+                  { amount: AMOUNT_SLOT }
+                )
+                  .split(AMOUNT_SLOT)
+                  .flatMap((part, i) =>
+                    i === 0
+                      ? [part]
+                      : [
+                          <Money
+                            key="after-bills-amount"
+                            testID="hero-after-bills-amount"
+                            variant="caption"
+                            amountMinor={Math.abs(afterBills.leftAfterBillsMinor ?? 0)}
+                            currency={settings.currency}
+                            color="heroTextSecondary"
+                            hidden={hideAmounts}
+                          />,
+                          part,
+                        ]
+                  )}
+              </AppText>
+            ) : null}
+
             <HeroProgressBar pct={summary.utilizationPct} />
 
             <View
@@ -432,12 +509,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
                   {t('overview.safeToday')}
                 </AppText>
-                {summary.safeToSpendPerDayMinor !== null ? (
+                {safePerDayMinor !== null ? (
                   <Money
                     variant="bodyStrong"
                     fitWidth={stripColW}
-                    fitVariants={STRIP_FIT}
-                    amountMinor={summary.safeToSpendPerDayMinor}
+                    fitVariants={[budgetStripVariant]}
+                    amountMinor={safePerDayMinor}
                     currency={settings.currency}
                     color="heroBar"
                     hidden={hideAmounts}
@@ -461,9 +538,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                   {t('overview.spentShort')}
                 </AppText>
                 <Money
+                  testID="hero-spent-strip"
                   variant="bodyStrong"
                   fitWidth={stripColW}
-                  fitVariants={STRIP_FIT}
+                  fitVariants={[budgetStripVariant]}
                   amountMinor={summary.spentMinor}
                   currency={settings.currency}
                   color="heroText"
@@ -486,7 +564,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                       testID="hero-wallets-total"
                       variant="bodyStrong"
                       fitWidth={stripColW}
-                      fitVariants={STRIP_FIT}
+                      fitVariants={[budgetStripVariant]}
                       amountMinor={Math.abs(accountsOverview.totalMinor)}
                       prefix={accountsOverview.totalMinor < 0 ? '−' : ''}
                       currency={settings.currency}
@@ -502,7 +580,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     <Money
                       variant="bodyStrong"
                       fitWidth={stripColW}
-                      fitVariants={STRIP_FIT}
+                      fitVariants={[budgetStripVariant]}
                       amountMinor={summary.incomeMinor}
                       currency={settings.currency}
                       color="heroText"
@@ -559,7 +637,6 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           </>
   );
 
-  const duesNetSigned = netWorth.netDuesMinor - netWorth.cardDebtMinor;
   const netWorthBody = (
     <>
       <AppText variant="label" color="heroTextSecondary">
@@ -614,7 +691,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           <Money
             variant="bodyStrong"
             fitWidth={stripColW}
-            fitVariants={STRIP_FIT}
+            fitVariants={[netWorthStripVariant]}
             amountMinor={Math.abs(netWorth.liquidAssetsMinor)}
             prefix={netWorth.liquidAssetsMinor < 0 ? '−' : ''}
             currency={settings.currency}
@@ -635,7 +712,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           <Money
             variant="bodyStrong"
             fitWidth={stripColW}
-            fitVariants={STRIP_FIT}
+            fitVariants={[netWorthStripVariant]}
             amountMinor={Math.abs(netWorth.savingsAssetsMinor)}
             currency={settings.currency}
             color="heroBar"
@@ -655,7 +732,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           <Money
             variant="bodyStrong"
             fitWidth={stripColW}
-            fitVariants={STRIP_FIT}
+            fitVariants={[netWorthStripVariant]}
             amountMinor={Math.abs(duesNetSigned)}
             prefix={duesNetSigned > 0 ? '+' : duesNetSigned < 0 ? '−' : ''}
             currency={settings.currency}

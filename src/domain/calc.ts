@@ -6,6 +6,7 @@ import type {
   CurrencyCode,
   LocalDate,
   Period,
+  RecurringBill,
   Transaction,
 } from './types';
 
@@ -159,6 +160,75 @@ export function summarize(input: SummarizeInput): PeriodSummary {
     topCategoryId,
     ignoredOtherCurrencyCount,
   };
+}
+
+/**
+ * A bill that still has money going out: active, not a salary, and not a finished EMI.
+ * Shared by every bills figure so there is one rule.
+ */
+export function isExpenseBillOutstanding(bill: RecurringBill): boolean {
+  if (!bill.isActive || bill.kind === 'salary') return false;
+  if (
+    bill.kind === 'emi' &&
+    bill.totalInstallments != null &&
+    bill.paidInstallments >= bill.totalInstallments
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * The one paid rule: a bill is paid for a period when it is stamped `lastPaidPeriod === period.start`.
+ * Marking a bill paid stamps it and records its transaction together, so a paid bill is already inside
+ * "spent" and must never be subtracted again.
+ */
+export function isBillPaidInPeriod(bill: RecurringBill, period: Pick<Period, 'start'>): boolean {
+  return bill.lastPaidPeriod === period.start;
+}
+
+export interface UnpaidBillsSummary {
+  unpaidCount: number;
+  unpaidMinor: number;
+}
+
+export function summarizeUnpaidBills(
+  bills: readonly RecurringBill[],
+  period: Pick<Period, 'start'>
+): UnpaidBillsSummary {
+  let unpaidCount = 0;
+  let unpaidMinor = 0;
+  for (const bill of bills) {
+    if (!isExpenseBillOutstanding(bill) || isBillPaidInPeriod(bill, period)) continue;
+    unpaidCount += 1;
+    unpaidMinor += bill.amountMinor;
+  }
+  return { unpaidCount, unpaidMinor };
+}
+
+export interface AfterBillsSummary {
+  unpaidCount: number;
+  unpaidBillsMinor: number;
+  /** Budget left minus unpaid bills. Negative means short. Null when there is no budget. */
+  leftAfterBillsMinor: number | null;
+  /** Floor of left-after-bills per remaining day, never below zero. Null when there is no budget. */
+  safePerDayAfterBillsMinor: number | null;
+}
+
+export function computeAfterBills(input: {
+  remainingMinor: number | null;
+  unpaidBillsMinor: number;
+  unpaidCount: number;
+  daysLeft: number;
+}): AfterBillsSummary {
+  const { remainingMinor, unpaidBillsMinor, unpaidCount, daysLeft } = input;
+  if (remainingMinor === null) {
+    return { unpaidCount, unpaidBillsMinor, leftAfterBillsMinor: null, safePerDayAfterBillsMinor: null };
+  }
+  const leftAfterBillsMinor = remainingMinor - unpaidBillsMinor;
+  const safePerDayAfterBillsMinor =
+    leftAfterBillsMinor <= 0 || daysLeft <= 0 ? 0 : Math.floor(leftAfterBillsMinor / daysLeft);
+  return { unpaidCount, unpaidBillsMinor, leftAfterBillsMinor, safePerDayAfterBillsMinor };
 }
 
 export interface CategorySpend {

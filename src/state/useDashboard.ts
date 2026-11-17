@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   buildCategoryBreakdown,
   compareMonthToDate,
+  computeAfterBills,
+  summarizeUnpaidBills,
+  type AfterBillsSummary,
   dailySeries,
   monthlySeries,
   spendByCategory,
@@ -24,6 +27,7 @@ import {
   buildRecentPeriodWindows,
   getPeriod,
   previousPeriod,
+  remainingDays,
   shouldShowNewCycleHint,
 } from '@/domain/period';
 import type { Category, LocalDate, Period, RecurringBill, Transaction } from '@/domain/types';
@@ -47,6 +51,7 @@ export interface DashboardData {
   categoriesById: Map<string, Category>;
   recurringBills: RecurringBill[];
   billsCommitment: BillsCommitmentSummary;
+  afterBills: AfterBillsSummary;
   periodFeesMinor: number;
   dailyBudgetLimitMinor: number | null;
   pendingDraftsCount: number;
@@ -198,6 +203,16 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
     [recurringBills, period, today, summary.remainingMinor]
   );
 
+  const afterBills = useMemo(() => {
+    const unpaid = summarizeUnpaidBills(recurringBills, period);
+    return computeAfterBills({
+      remainingMinor: summary.remainingMinor,
+      unpaidBillsMinor: unpaid.unpaidMinor,
+      unpaidCount: unpaid.unpaidCount,
+      daysLeft: remainingDays(period, today),
+    });
+  }, [recurringBills, period, today, summary.remainingMinor]);
+
   const dailyBudgetLimitMinor = useMemo(() => {
     if (overallBudgetMinor === null || overallBudgetMinor <= 0) return null;
     const totalDays = Math.max(1, diffDays(period.endExcl, period.start));
@@ -225,6 +240,7 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
     categoriesById,
     recurringBills,
     billsCommitment,
+    afterBills,
     periodFeesMinor,
     dailyBudgetLimitMinor,
     pendingDraftsCount,

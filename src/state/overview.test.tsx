@@ -512,8 +512,86 @@ describe('Overview Scenario A integration', () => {
       expect(sizeOf('hero-wallets-total')).toBeLessThan(wideSize);
     });
     expect(view.getByTestId('hero-wallets-total').props.numberOfLines).toBe(1);
+    // Every amount in the strip shares one size, so a narrow wallets total does not leave
+    // "Spent" at a larger size beside it.
+    expect(sizeOf('hero-spent-strip')).toBe(sizeOf('hero-wallets-total'));
     // The exact amount stays available to screen readers.
     expect(view.getByTestId('hero-wallets-total').props.accessibilityLabel).toContain('497,794.90');
+  });
+
+  it('shows the after-unpaid-bills caption only when a bill is unpaid, and says short when negative', async () => {
+    const renderHome = async (repo: MemoryRepo) => {
+      const settings = await repo.getSettings();
+      return render(
+        <AppContext.Provider
+          value={{
+            repo,
+            backend: 'memory',
+            settings,
+            updateSetting: async (k, v) => {
+              await repo.setSetting(k, v);
+            },
+            refreshSettings: async () => {},
+          }}
+        >
+          <ThemeProvider preference="light">
+            <OverviewContent todayOverride="2026-11-13" hourOverride={14} />
+          </ThemeProvider>
+        </AppContext.Provider>
+      );
+    };
+
+    // No bills: the caption is absent and the hero still shows 16,450 left.
+    const plain = await renderHome(await seedScenarioARepo());
+    await waitFor(() => {
+      expect(plain.getByTestId('hero-remaining-amount')).toBeTruthy();
+    });
+    expect(plain.queryByTestId('hero-after-bills')).toBeNull();
+    plain.unmount();
+
+    // One unpaid 6,000 bill: 23,550 left - 6,000 = 17,550.
+    const repo = await seedScenarioARepo();
+    await repo.insertRecurringBill({
+      id: 'rb1',
+      name: 'Rent',
+      kind: 'bill',
+      amountMinor: 600_000,
+      dayOfMonth: 5,
+    });
+    const view = await renderHome(repo);
+    await waitFor(() => {
+      expect(view.getByTestId('hero-after-bills')).toBeTruthy();
+    });
+    expect(view.getByTestId('hero-after-bills-amount').props.accessibilityLabel).toBe('৳17,550');
+    expect(view.getByText(/After unpaid bills:/)).toBeTruthy();
+    // The hero amount itself is unchanged: 23,550 left of 40,000.
+    expect(view.getByTestId('hero-remaining-amount').props.accessibilityLabel).toBe('৳23,550');
+
+    // A paid bill is not subtracted, so the caption goes away again.
+    await repo.updateRecurringBill('rb1', { lastPaidPeriod: '2026-11-01' });
+    await act(async () => {
+      bumpDataVersion();
+    });
+    await waitFor(() => {
+      expect(view.queryByTestId('hero-after-bills')).toBeNull();
+    });
+    view.unmount();
+
+    // Bills bigger than what is left: 23,550 - 30,000 = short by 6,450.
+    const shortRepo = await seedScenarioARepo();
+    await shortRepo.insertRecurringBill({
+      id: 'rb2',
+      name: 'Tuition',
+      kind: 'bill',
+      amountMinor: 3_000_000,
+      dayOfMonth: 5,
+    });
+    const shortView = await renderHome(shortRepo);
+    await waitFor(() => {
+      expect(shortView.getByTestId('hero-after-bills')).toBeTruthy();
+    });
+    expect(shortView.getByTestId('hero-after-bills-amount').props.accessibilityLabel).toBe('৳6,450');
+    expect(shortView.getByText(/Short by/)).toBeTruthy();
   });
 
   it('has a text state (no dash) for the missing safe-today value in both languages', () => {

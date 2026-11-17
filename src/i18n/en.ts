@@ -974,6 +974,8 @@ export const en = {
   'overview.duesCardLabel': 'Dues & Card',
   'overview.mfsFeesLabel': 'MFS fees',
   'overview.afterBillsLabel': 'After bills',
+  'overview.afterUnpaidBills': 'After unpaid bills: {amount}',
+  'overview.shortAfterUnpaidBills': 'Short by {amount} after unpaid bills',
   'overview.pendingInboxBanner': '{count} captured transactions waiting for review',
   'overview.pendingInboxReview': 'Review',
   'overview.chartLimitLabel': 'Limit',

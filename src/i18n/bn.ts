@@ -987,6 +987,8 @@ export const bn: Record<TranslationKey, string> = {
   'overview.duesCardLabel': 'দেনা ও কার্ড',
   'overview.mfsFeesLabel': 'এমএফএস চার্জ',
   'overview.afterBillsLabel': 'বিল বাদে',
+  'overview.afterUnpaidBills': 'অপরিশোধিত বিল বাদে: {amount}',
+  'overview.shortAfterUnpaidBills': 'অপরিশোধিত বিল বাদে {amount} ঘাটতি',
   'overview.pendingInboxBanner': '{count}টি স্বয়ংক্রিয় হিসাব পর্যালোচনার অপেক্ষায়',
   'overview.pendingInboxReview': 'দেখুন',
   'overview.chartLimitLabel': 'সীমা',

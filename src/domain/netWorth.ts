@@ -1,6 +1,6 @@
 import { isSavingsAssetKind, type AccountBalanceEntry } from './accounts';
 import { computeDuesOverview } from './dues';
-import { isInPeriodRange } from './calc';
+import { isBillPaidInPeriod, isExpenseBillOutstanding, isInPeriodRange } from './calc';
 import { remainingDays } from './period';
 import type {
   CurrencyCode,
@@ -142,16 +142,9 @@ export function computeUpcomingBillsCommitment(input: {
   let unpaidBillsTotalMinor = 0;
 
   for (const bill of bills) {
-    if (!bill.isActive || bill.kind === 'salary') continue;
-    if (
-      bill.kind === 'emi' &&
-      bill.totalInstallments != null &&
-      bill.paidInstallments >= bill.totalInstallments
-    ) {
-      continue;
-    }
+    if (!isExpenseBillOutstanding(bill)) continue;
     activeExpenseBillsCount += 1;
-    if (bill.lastPaidPeriod === period.start) {
+    if (isBillPaidInPeriod(bill, period)) {
       paidCount += 1;
       paidBillsTotalMinor += bill.amountMinor;
     } else {
