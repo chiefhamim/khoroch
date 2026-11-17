@@ -23,6 +23,7 @@ import {
   normalizeIncomeColorKey,
   normalizeReminderSettings,
   normalizeWeekStartDay,
+  normalizeWeeklyBudgetMinor,
   type Account,
   type AccountPatch,
   type Budget,
@@ -110,8 +111,7 @@ function cloneSettings(s: Settings): Settings {
       Number.isInteger(s.weekStartDay) && s.weekStartDay >= 0 && s.weekStartDay <= 6
         ? s.weekStartDay
         : DEFAULT_SETTINGS.weekStartDay,
-    weeklyBudgetMinor:
-      typeof s.weeklyBudgetMinor === 'number' && s.weeklyBudgetMinor > 0 ? s.weeklyBudgetMinor : null,
+    weeklyBudgetMinor: normalizeWeeklyBudgetMinor(s.weeklyBudgetMinor),
     homeSections: normalizeHomeSections(s.homeSections),
     reminder: normalizeReminderSettings(s.reminder, DEFAULT_SETTINGS.reminder),
     pinnedAmounts: normalizePinnedAmounts(s.pinnedAmounts),

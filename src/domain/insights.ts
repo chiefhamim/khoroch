@@ -119,7 +119,7 @@ export function resolveInsightsWindow(
   today: LocalDate,
   monthStartDay: number,
   customRange?: CustomDateRange,
-  weekStartsOn: WeekStartDay = 'saturday'
+  weekStartsOn: WeekStartDay | number = 'saturday'
 ): InsightsWindow {
   const currentPeriod = getPeriod(today, monthStartDay);
   const tomorrow = addDays(today, 1);
@@ -433,7 +433,7 @@ export function buildInsightsReport(
   preset: InsightsPeriodPreset,
   categoriesById: ReadonlyMap<string, Pick<Category, 'name'>>,
   customRange?: CustomDateRange,
-  weekStartsOn: WeekStartDay = 'saturday'
+  weekStartsOn: WeekStartDay | number = 'saturday'
 ): InsightsReport {
   const window = resolveInsightsWindow(
     preset,

@@ -29,6 +29,7 @@ import {
   todayLocalDate,
 } from '@/domain/dates';
 import { resolveInsightsWindow } from '@/domain/insights';
+import { getEffectiveWeekStart } from '@/domain/period';
 import { formatMoney, parseMoneyInput } from '@/domain/money';
 import type {
   Account,
@@ -76,7 +77,7 @@ function resolveDateRange(
   customTo: string,
   today: LocalDate,
   monthStartDay: number,
-  weekStartsOn: WeekStartDay
+  weekStartsOn: WeekStartDay | number
 ): { fromIncl?: LocalDate; toExcl?: LocalDate } {
   switch (preset) {
     case 'all':
@@ -118,7 +119,7 @@ function buildTxQueryFromState(params: {
   maxAmountText: string;
   today: LocalDate;
   monthStartDay: number;
-  weekStartsOn: WeekStartDay;
+  weekStartsOn: WeekStartDay | number;
 }): TxQuery {
   const query: TxQuery = {};
   const s = params.search.trim();
@@ -331,6 +332,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
   }, [search]);
 
   const today = todayLocalDate();
+  const weekStart = getEffectiveWeekStart(settings);
 
   const txQuery = useMemo<TxQuery>(
     () =>
@@ -346,7 +348,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
         maxAmountText,
         today,
         monthStartDay: settings.monthStartDay,
-        weekStartsOn: settings.weekStartsOn,
+        weekStartsOn: weekStart,
       }),
     [
       debouncedSearch,
@@ -360,7 +362,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
       maxAmountText,
       today,
       settings.monthStartDay,
-      settings.weekStartsOn,
+      weekStart,
     ]
   );
 
@@ -395,7 +397,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
       maxAmountText: draftMax,
       today,
       monthStartDay: settings.monthStartDay,
-      weekStartsOn: settings.weekStartsOn,
+      weekStartsOn: weekStart,
     });
     const shouldLoadDraftTransfers =
       !draftType && draftCategoryIds.length === 0 && draftAccountId !== null;
@@ -441,7 +443,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
     repo,
     settings.currency,
     settings.monthStartDay,
-    settings.weekStartsOn,
+    weekStart,
     today,
     search,
     draftType,

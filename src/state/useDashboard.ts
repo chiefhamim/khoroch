@@ -29,6 +29,7 @@ import {
   buildRecentPeriodWindows,
   buildRecentSpendingWindows,
   getBillPeriod,
+  getEffectiveWeekStart,
   getSpendingPeriod,
   previousPeriod,
   previousSpendingPeriod,
@@ -37,7 +38,6 @@ import {
   type PeriodConfig,
 } from '@/domain/period';
 import {
-  normalizePeriodWeekStartDay,
   normalizeWeeklyBudgetMinor,
   type Category,
   type LocalDate,
@@ -88,7 +88,7 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
   const today = todayOverride ?? todayLocalDate();
   const monthStartDay = settings.monthStartDay;
   const periodKind: PeriodKind = settings.periodKind === 'week' ? 'week' : 'month';
-  const weekStartDay = normalizePeriodWeekStartDay(settings.weekStartDay);
+  const weekStartDay = getEffectiveWeekStart(settings);
   const weeklyBudgetMinor = normalizeWeeklyBudgetMinor(settings.weeklyBudgetMinor);
   const currency = settings.currency;
   const isWeekly = periodKind === 'week';
@@ -265,7 +265,7 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
 
   const afterBills = useMemo(() => {
     const unpaid = isWeekly
-      ? summarizeUnpaidBillsDueInPeriod(recurringBills, period, monthStartDay)
+      ? summarizeUnpaidBillsDueInPeriod(recurringBills, period, monthStartDay, billPeriod)
       : summarizeUnpaidBills(recurringBills, billPeriod);
     return computeAfterBills({
       remainingMinor: summary.remainingMinor,

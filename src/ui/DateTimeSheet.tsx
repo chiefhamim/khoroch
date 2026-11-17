@@ -39,7 +39,7 @@ export interface DateTimeSheetProps {
   onClose: () => void;
   maxDate?: LocalDate;
   minDate?: LocalDate;
-  weekStartsOn?: WeekStartDay;
+  weekStartsOn?: WeekStartDay | number;
   use24Hour?: boolean;
   title?: string;
 }
@@ -79,7 +79,7 @@ function Calendar({
   onSelect: (date: LocalDate) => void;
   maxDate?: LocalDate;
   minDate?: LocalDate;
-  weekStartsOn: WeekStartDay;
+  weekStartsOn: WeekStartDay | number;
 }) {
   const { theme } = useTheme();
   const locale = useLocale();
@@ -95,7 +95,8 @@ function Calendar({
     }
   }
 
-  const firstIndex = WEEK_START_INDEX[weekStartsOn];
+  const firstIndex =
+    typeof weekStartsOn === 'number' ? weekStartsOn : WEEK_START_INDEX[weekStartsOn];
   const weekdayHeaders = getCalendarWeekdayLabels(weekStartsOn, locale);
 
   const cells = useMemo(() => {

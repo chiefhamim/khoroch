@@ -675,7 +675,7 @@ export default function PlanScreen() {
           <Banner
             tone="accent"
             icon="calendar"
-            message={t('budget.afterBillsSafe', {
+            message={t(isWeekly ? 'budget.afterWeekBillsSafe' : 'budget.afterBillsSafe', {
               amount: formatMoney(billsCommitment.uncommittedSafePerDayMinor, settings.currency, {
                 hidden: hideAmounts,
                 showPoisha: false,
@@ -872,6 +872,17 @@ export default function PlanScreen() {
             color={theme.colors.textTertiary}
           />
         </PressableScale>
+
+        {isWeekly ? (
+          <AppText
+            testID="budget-past-weeks-caption"
+            variant="caption"
+            color="textSecondary"
+            style={{ paddingHorizontal: theme.spacing.lg, paddingBottom: theme.spacing.sm }}
+          >
+            {t('budget.pastWeeksCaption')}
+          </AppText>
+        ) : null}
 
         {pastExpanded ? (
           <View>

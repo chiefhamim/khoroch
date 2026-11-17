@@ -10,8 +10,8 @@ import {
   isValidLocalDate,
   todayLocalDate,
 } from '@/domain/dates';
-import { getSpendingPeriod } from '@/domain/period';
-import { normalizePeriodWeekStartDay, type Category, type Transaction } from '@/domain/types';
+import { getEffectiveWeekStart, getSpendingPeriod } from '@/domain/period';
+import type { Category, Transaction } from '@/domain/types';
 import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { useDataVersionStore } from '@/state/dataVersion';
@@ -52,10 +52,13 @@ export default function CategoryPeriodScreen() {
     () =>
       getSpendingPeriod(todayLocalDate(), {
         periodKind: settings.periodKind === 'week' ? 'week' : 'month',
-        weekStartDay: normalizePeriodWeekStartDay(settings.weekStartDay),
+        weekStartDay: getEffectiveWeekStart({
+          weekStartDay: settings.weekStartDay,
+          weekStartsOn: settings.weekStartsOn,
+        }),
         monthStartDay: settings.monthStartDay,
       }),
-    [settings.periodKind, settings.weekStartDay, settings.monthStartDay]
+    [settings.periodKind, settings.weekStartDay, settings.weekStartsOn, settings.monthStartDay]
   );
 
   const rangeStart =

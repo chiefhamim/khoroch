@@ -18,13 +18,13 @@ import {
 import {
   buildRecentSpendingWindows,
   getBillPeriod,
+  getEffectiveWeekStart,
   getSpendingPeriod,
   previousPeriod,
   remainingDays,
   type PeriodConfig,
 } from '@/domain/period';
 import {
-  normalizePeriodWeekStartDay,
   normalizeWeeklyBudgetMinor,
   type Account,
   type Budget,
@@ -90,7 +90,7 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
   const today = todayOverride ?? todayLocalDate();
   const monthStartDay = settings.monthStartDay;
   const periodKind: PeriodKind = settings.periodKind === 'week' ? 'week' : 'month';
-  const weekStartDay = normalizePeriodWeekStartDay(settings.weekStartDay);
+  const weekStartDay = getEffectiveWeekStart(settings);
   const weeklyBudgetMinor = normalizeWeeklyBudgetMinor(settings.weeklyBudgetMinor);
   const currency = settings.currency;
   const isWeekly = periodKind === 'week';

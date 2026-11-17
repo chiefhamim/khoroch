@@ -136,6 +136,26 @@ function assertWeekStartDay(weekStartDay: number): void {
   }
 }
 
+const LEGACY_WEEK_START_INDEX: Record<string, number> = { sunday: 0, monday: 1, saturday: 6 };
+
+/**
+ * The ONE effective first day of the week (0 = Sunday .. 6 = Saturday) for every consumer: the Home
+ * and Plan week, the Ledger "This week" preset, the calendar strip and Insights.
+ * A `weekStartDay` other than the default (6) was chosen by the user in Settings, so it wins.
+ * Otherwise the older `weekStartsOn` ('saturday' | 'sunday' | 'monday') applies, so people who never
+ * touched the row keep what they had. The Settings row writes both when the day is expressible.
+ */
+export function getEffectiveWeekStart(settings: {
+  weekStartDay?: unknown;
+  weekStartsOn?: unknown;
+}): number {
+  const raw = settings.weekStartDay;
+  const day = typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw <= 6 ? raw : 6;
+  if (day !== 6) return day;
+  const legacy = typeof settings.weekStartsOn === 'string' ? LEGACY_WEEK_START_INDEX[settings.weekStartsOn] : undefined;
+  return legacy ?? 6;
+}
+
 /**
  * The 7 local days [start, start + 7) that begin on `weekStartDay` (0 = Sunday) and contain `today`.
  * Pure civil-calendar arithmetic on the date string: no clock, no timezone, no UTC drift.

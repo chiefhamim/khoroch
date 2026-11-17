@@ -356,7 +356,8 @@ describe('weekly period: Settings rows', () => {
     });
     expect(view.getByText('Budget period')).toBeTruthy();
     expect(view.getByText('Monthly')).toBeTruthy();
-    expect(view.queryByTestId('settings-week-start-row')).toBeNull();
+    // The week start row governs the calendar week everywhere, so it shows in both modes.
+    expect(view.getByTestId('settings-week-start-row')).toBeTruthy();
     expect(view.getByText('Budget cycle starts')).toBeTruthy();
 
     await act(async () => {
@@ -387,17 +388,19 @@ describe('weekly period: Settings rows', () => {
     });
     expect((await repo.getSettings()).weekStartDay).toBe(1);
 
-    // Back to Monthly hides the week row again; the stored week day stays.
+    // Back to Monthly keeps the week row; the stored week day stays.
     await act(async () => {
       fireEvent.press(view.getByTestId('settings-period-kind-row'));
     });
     await act(async () => {
       fireEvent.press(view.getByTestId('settings-period-kind-month'));
     });
-    await waitFor(() => {
-      expect(view.queryByTestId('settings-week-start-row')).toBeNull();
+    await waitFor(async () => {
+      expect((await repo.getSettings()).periodKind).toBe('month');
     });
+    expect(view.getByTestId('settings-week-start-row')).toBeTruthy();
     expect((await repo.getSettings()).weekStartDay).toBe(1);
+    expect((await repo.getSettings()).weekStartsOn).toBe('monday');
   });
 
   it('reads in Bangla', async () => {
@@ -413,6 +416,99 @@ describe('weekly period: Settings rows', () => {
     expect(view.getByText('সাপ্তাহিক')).toBeTruthy();
     expect(view.getByText('সপ্তাহ শুরুর দিন')).toBeTruthy();
     expect(view.getByText('শনিবার')).toBeTruthy();
+  });
+});
+
+/** The text pieces of a caption whose amount is a nested element. */
+function captionText(children: unknown): string {
+  return (Array.isArray(children) ? children.flat(5) : [children])
+    .filter((c): c is string => typeof c === 'string')
+    .join('');
+}
+
+describe('weekly period: captions say what is counted', () => {
+  beforeEach(() => setLocale('en'));
+  afterEach(() => {
+    cleanup();
+    setLocale('en');
+  });
+
+  it('Home names this week\'s unpaid bills in the weekly caption', async () => {
+    const weeklyRepo = await seedRepo(async (r) => {
+      await r.setSetting('periodKind', 'week');
+      await r.setSetting('weeklyBudgetMinor', 700_000);
+      await r.insertRecurringBill({
+        id: 'b1',
+        name: 'Internet',
+        kind: 'bill',
+        amountMinor: 50_000,
+        dayOfMonth: 18,
+      });
+    });
+    const weeklyView = await renderIn(
+      weeklyRepo,
+      <OverviewContent todayOverride={TODAY} hourOverride={10} />
+    );
+    await waitFor(() => {
+      expect(weeklyView.getByTestId('hero-after-bills')).toBeTruthy();
+    });
+    expect(captionText(weeklyView.getByTestId('hero-after-bills').props.children)).toContain(
+      "After this week's unpaid bills: "
+    );
+  });
+
+  it('Home keeps the monthly caption in monthly mode', async () => {
+    const monthlyRepo = await seedRepo(async (r) => {
+      await r.setBudget('2026-11-01', '', 4_000_000);
+      await r.insertRecurringBill({
+        id: 'b1',
+        name: 'Internet',
+        kind: 'bill',
+        amountMinor: 50_000,
+        dayOfMonth: 18,
+      });
+    });
+    const monthlyView = await renderIn(
+      monthlyRepo,
+      <OverviewContent todayOverride={TODAY} hourOverride={10} />
+    );
+    await waitFor(() => {
+      expect(monthlyView.getByTestId('hero-after-bills')).toBeTruthy();
+    });
+    const caption = captionText(monthlyView.getByTestId('hero-after-bills').props.children);
+    expect(caption).toContain('After unpaid bills: ');
+    expect(caption).not.toContain("this week's");
+  });
+
+  it('Plan shows the Past weeks caption only in weekly mode', async () => {
+    const weekly = await renderIn(
+      (await (async () => {
+        const repo = new MemoryRepo();
+        await repo.setSetting('periodKind', 'week');
+        await repo.setSetting('weeklyBudgetMinor', 700_000);
+        return repo;
+      })()),
+      <PlanScreen />
+    );
+    await waitFor(() => {
+      expect(weekly.getByTestId('budget-past-weeks-caption')).toBeTruthy();
+    });
+    expect(weekly.getByText('Measured against your current weekly budget')).toBeTruthy();
+  });
+
+  it('has both languages for every new caption', () => {
+    setLocale('bn');
+    for (const key of [
+      'budget.pastWeeksCaption',
+      'budget.afterWeekBillsSafe',
+      'overview.afterWeekUnpaidBills',
+      'overview.shortAfterWeekUnpaidBills',
+      'overview.afterWeekBillsLabel',
+      'insights.monthlyCyclesNote',
+    ] as const) {
+      expect(t(key)).not.toBe(key);
+      expect(t(key)).toMatch(/[ঀ-৿]/);
+    }
   });
 });
 

@@ -6,7 +6,7 @@ import {
   type InsightsPeriodPreset,
   type InsightsReport,
 } from '@/domain/insights';
-import { getPeriod, previousPeriod } from '@/domain/period';
+import { getEffectiveWeekStart, getPeriod, previousPeriod } from '@/domain/period';
 import type { Category, LocalDate, Transaction } from '@/domain/types';
 import { useAppContext } from './AppContext';
 import { useDataVersionStore } from './dataVersion';
@@ -28,6 +28,7 @@ export function useInsights(
   const { repo, settings } = useAppContext();
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
   const today = todayOverride ?? todayLocalDate();
+  const weekStart = getEffectiveWeekStart(settings);
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -110,7 +111,7 @@ export function useInsights(
       preset,
       categoriesById,
       customRange,
-      settings.weekStartsOn
+      weekStart
     );
     return {
       ...built,
@@ -124,7 +125,7 @@ export function useInsights(
     preset,
     categoriesById,
     customRange,
-    settings.weekStartsOn,
+    weekStart,
     hasAnyHistoryDb,
   ]);
 

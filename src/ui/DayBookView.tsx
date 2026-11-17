@@ -9,6 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useRouter } from 'expo-router';
 import { buildDayBook, type DayBookEntry } from '@/domain/daybook';
+import { getEffectiveWeekStart } from '@/domain/period';
 import {
   addDays,
   formatFriendlyTime,
@@ -819,7 +820,7 @@ export function DayBookView({ header }: { header: React.ReactNode }) {
         mode="date"
         date={day}
         maxDate={today}
-        weekStartsOn={settings.weekStartsOn}
+        weekStartsOn={getEffectiveWeekStart(settings)}
         onDateChange={setDay}
         onClose={() => setPickerOpen(false)}
       />

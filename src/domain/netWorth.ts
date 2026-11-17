@@ -168,7 +168,8 @@ export function computeUpcomingBillsCommitment(input: {
     const inWindow = summarizeUnpaidBillsDueInPeriod(
       bills,
       spendingWindow.period,
-      spendingWindow.monthStartDay
+      spendingWindow.monthStartDay,
+      period
     );
     unpaidCount = inWindow.unpaidCount;
     unpaidBillsTotalMinor = inWindow.unpaidMinor;

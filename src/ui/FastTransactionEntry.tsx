@@ -72,7 +72,7 @@ export interface FastTransactionEntryProps {
   onPinnedAmountsChange?: (next: PinnedAmounts) => void;
   /** Given only while no daily wage is set: shows a "Set daily wage" chip on the Received side. */
   onSetDailyWage?: () => void;
-  weekStartsOn?: WeekStartDay;
+  weekStartsOn?: WeekStartDay | number;
   onClose: () => void;
   onSubmit: (values: FastEntryValues) => Promise<void>;
   onSubmitAndAddAnother?: (values: FastEntryValues) => Promise<void>;

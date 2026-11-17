@@ -669,8 +669,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               <AppText testID="hero-after-bills" variant="caption" color="heroTextSecondary">
                 {t(
                   afterBills.leftAfterBillsMinor < 0
-                    ? 'overview.shortAfterUnpaidBills'
-                    : 'overview.afterUnpaidBills',
+                    ? isWeekly
+                      ? 'overview.shortAfterWeekUnpaidBills'
+                      : 'overview.shortAfterUnpaidBills'
+                    : isWeekly
+                      ? 'overview.afterWeekUnpaidBills'
+                      : 'overview.afterUnpaidBills',
                   { amount: AMOUNT_SLOT }
                 )
                   .split(AMOUNT_SLOT)
@@ -870,7 +874,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           </AppText>
           {billsCommitment.unpaidCount > 0 && billsCommitment.uncommittedSafePerDayMinor !== null ? (
             <AppText variant="caption" color="heroTextSecondary" numberOfLines={1}>
-              {`${t('overview.afterBillsLabel')}: ${hideAmounts ? HIDDEN_AMOUNT_TEXT : t('overview.perDayAmount', { amount: formatMoney(billsCommitment.uncommittedSafePerDayMinor, settings.currency, { showPoisha: false }) })}`}
+              {`${t(isWeekly ? 'overview.afterWeekBillsLabel' : 'overview.afterBillsLabel')}: ${hideAmounts ? HIDDEN_AMOUNT_TEXT : t('overview.perDayAmount', { amount: formatMoney(billsCommitment.uncommittedSafePerDayMinor, settings.currency, { showPoisha: false }) })}`}
             </AppText>
           ) : null}
         </View>

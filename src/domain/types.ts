@@ -34,6 +34,9 @@ export type AccentTheme = 'forest' | 'ocean' | 'plum' | 'saffron' | 'graphite';
 
 export type WeekStartDay = 'saturday' | 'sunday' | 'monday';
 
+/** A first day of the week: the legacy name, or 0 (Sunday) to 6 (Saturday) from getEffectiveWeekStart. */
+export type WeekStartInput = WeekStartDay | number;
+
 export const WEEK_START_DAYS: readonly WeekStartDay[] = ['saturday', 'sunday', 'monday'];
 
 const WEEK_START_DAY_SET = new Set<string>(WEEK_START_DAYS);
@@ -73,7 +76,9 @@ export function normalizePeriodWeekStartDay(raw: unknown): number {
 
 /** The weekly total budget in minor units; null (unset) for anything that is not a positive safe integer. */
 export function normalizeWeeklyBudgetMinor(raw: unknown): number | null {
-  return typeof raw === 'number' && Number.isSafeInteger(raw) && raw > 0 ? raw : null;
+  return typeof raw === 'number' && Number.isSafeInteger(raw) && raw > 0 && raw <= MAX_AMOUNT_MINOR
+    ? raw
+    : null;
 }
 
 export const ACCENT_THEMES: readonly AccentTheme[] = [

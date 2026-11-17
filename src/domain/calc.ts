@@ -242,11 +242,14 @@ export function summarizeUnpaidBills(
  * `period` (the current week). A bill due outside the week is not counted. Whether an occurrence is
  * paid is decided against the MONTHLY bill period that contains its due date, exactly as
  * "Mark paid" stamps it, so the bill rules stay monthly.
+ * Pass `currentBillPeriod` (the bill period containing today) to count only occurrences due inside
+ * BOTH the week and that bill period. The Home and Plan weekly numbers always do.
  */
 export function summarizeUnpaidBillsDueInPeriod(
   bills: readonly RecurringBill[],
   period: Pick<Period, 'start' | 'endExcl'>,
-  monthStartDay: number
+  monthStartDay: number,
+  currentBillPeriod?: Pick<Period, 'start' | 'endExcl'>
 ): UnpaidBillsSummary {
   const first = parseLocalDate(period.start);
   const last = parseLocalDate(addDays(period.endExcl, -1));
@@ -268,7 +271,12 @@ export function summarizeUnpaidBillsDueInPeriod(
     for (const { year, month } of months) {
       const due = formatLocalDate(year, month, Math.min(bill.dayOfMonth, daysInMonth(year, month)));
       if (!isInPeriodRange(due, period.start, period.endExcl)) continue;
-      if (isBillPaidInPeriod(bill, getPeriod(due, monthStartDay))) continue;
+      // With the current bill period given, only occurrences inside it count: "Mark paid" stamps
+      // just that period, so the counted set is always something Mark paid can clear.
+      if (currentBillPeriod && !isInPeriodRange(due, currentBillPeriod.start, currentBillPeriod.endExcl)) {
+        continue;
+      }
+      if (isBillPaidInPeriod(bill, currentBillPeriod ?? getPeriod(due, monthStartDay))) continue;
       unpaidCount += 1;
       unpaidMinor += bill.amountMinor;
     }

@@ -24,7 +24,7 @@ import { formatShortDate, todayLocalDate } from '@/domain/dates';
 import { formatMoney, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { toBnDigits } from '@/i18n/displayText';
-import { formatCycleLabel, getPeriod } from '@/domain/period';
+import { formatCycleLabel, getEffectiveWeekStart, getPeriod } from '@/domain/period';
 import {
   ACCENT_THEMES,
   ALL_REMINDER_DAYS,
@@ -42,7 +42,6 @@ import {
   type BanglaFontKey,
   type BillReminderLeadDays,
   type CurrencyCode,
-  normalizePeriodWeekStartDay,
   type ExpenseColorKey,
   type IncomeColorKey,
   type PeriodKind,
@@ -126,6 +125,11 @@ const WEEKDAY_KEYS: readonly TranslationKey[] = [
 
 /** Weekly period start days in the order shown: Saturday first (the Bangladesh week), then Sunday to Friday. */
 const WEEK_START_CHOICES: readonly number[] = [6, 0, 1, 2, 3, 4, 5];
+const LEGACY_WEEK_START_BY_DAY: Record<number, 'saturday' | 'sunday' | 'monday' | undefined> = {
+  6: 'saturday',
+  0: 'sunday',
+  1: 'monday',
+};
 
 function formatOrdinal(day: number, locale: AppLanguage): string {
   if (locale === 'bn') return String(day);
@@ -743,18 +747,16 @@ export default function SettingsScreen() {
             setPeriodKindSheetOpen(true);
           }}
         />
-        {settings.periodKind === 'week' ? (
-          <SettingsRow
-            testID="settings-week-start-row"
-            label={t('settings.weekStartLabel')}
-            value={t(WEEKDAY_KEYS[normalizePeriodWeekStartDay(settings.weekStartDay)])}
-            showChevron
-            onPress={() => {
-              hapticLight();
-              setWeekStartSheetOpen(true);
-            }}
-          />
-        ) : null}
+        <SettingsRow
+          testID="settings-week-start-row"
+          label={t('settings.weekStartLabel')}
+          value={t(WEEKDAY_KEYS[getEffectiveWeekStart(settings)])}
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setWeekStartSheetOpen(true);
+          }}
+        />
         <SettingsRow
           testID="settings-cycle-row"
           label={
@@ -1504,13 +1506,17 @@ export default function SettingsScreen() {
               title={t(WEEKDAY_KEYS[day])}
               showDivider={idx < WEEK_START_CHOICES.length - 1}
               right={
-                normalizePeriodWeekStartDay(settings.weekStartDay) === day ? (
+                getEffectiveWeekStart(settings) === day ? (
                   <AppIcon name="check" size={18} color={theme.colors.accent} />
                 ) : null
               }
               onPress={() => {
                 hapticSelection();
                 void updateSetting('weekStartDay', day);
+                // Keep the older setting in step where it can say the same day, so the selector
+                // never reads a stale value when the user picks Saturday again.
+                const legacy = LEGACY_WEEK_START_BY_DAY[day];
+                if (legacy) void updateSetting('weekStartsOn', legacy);
                 setWeekStartSheetOpen(false);
               }}
             />

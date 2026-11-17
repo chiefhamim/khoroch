@@ -193,12 +193,22 @@ const WEEK_START_OFFSET_THU0: Record<WeekStartDay, number> = {
   monday: 4,
 };
 
+/** Offset from Thursday for a legacy name or a 0 (Sunday) to 6 (Saturday) weekday. */
+function weekStartOffsetThu0(weekStartsOn: WeekStartDay | number): number {
+  if (typeof weekStartsOn === 'number') {
+    return Number.isInteger(weekStartsOn) && weekStartsOn >= 0 && weekStartsOn <= 6
+      ? (weekStartsOn + 3) % 7
+      : WEEK_START_OFFSET_THU0.saturday;
+  }
+  return WEEK_START_OFFSET_THU0[weekStartsOn] ?? WEEK_START_OFFSET_THU0.saturday;
+}
+
 /** Ordered 7-column calendar weekday labels starting on `weekStartsOn`. */
 export function getCalendarWeekdayLabels(
-  weekStartsOn: WeekStartDay = 'saturday',
+  weekStartsOn: WeekStartDay | number = 'saturday',
   locale: DateLocale = 'en'
 ): string[] {
-  const start = WEEK_START_OFFSET_THU0[weekStartsOn] ?? WEEK_START_OFFSET_THU0.saturday;
+  const start = weekStartOffsetThu0(weekStartsOn);
   const source = CALENDAR_WEEKDAYS_THU0_BY_LOCALE[locale];
   return Array.from({ length: 7 }, (_, i) => source[(start + i) % 7]);
 }
@@ -209,12 +219,12 @@ export function getCalendarWeekdayLabels(
  */
 export function getStartOfWeek(
   date: LocalDate,
-  weekStartsOn: WeekStartDay = 'saturday'
+  weekStartsOn: WeekStartDay | number = 'saturday'
 ): LocalDate {
   // 1970-01-01 (epochDay 0) was Thursday -> Thu=0, Fri=1, Sat=2, Sun=3, Mon=4, Tue=5, Wed=6.
   const epochDay = toEpochDay(date);
   const dowThu0 = ((epochDay % 7) + 7) % 7;
-  const target = WEEK_START_OFFSET_THU0[weekStartsOn] ?? WEEK_START_OFFSET_THU0.saturday;
+  const target = weekStartOffsetThu0(weekStartsOn);
   const offsetDays = (((dowThu0 - target) % 7) + 7) % 7;
   return addDays(date, -offsetDays);
 }
@@ -224,7 +234,7 @@ export function getStartOfWeek(
  */
 export function getWeekRange(
   date: LocalDate,
-  weekStartsOn: WeekStartDay = 'saturday'
+  weekStartsOn: WeekStartDay | number = 'saturday'
 ): { start: LocalDate; endExcl: LocalDate } {
   const start = getStartOfWeek(date, weekStartsOn);
   return { start, endExcl: addDays(start, 7) };
