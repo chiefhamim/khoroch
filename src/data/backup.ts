@@ -1225,6 +1225,9 @@ export async function restoreBackupPayload(
       ...payload.data.settings,
       appLockEnabled: current.appLockEnabled,
       appLockTimeoutSec: current.appLockTimeoutSec,
+      // Privacy switches: a backup may turn one on but never off.
+      hideAmountsOnOpen:
+        current.hideAmountsOnOpen === true ? true : payload.data.settings.hideAmountsOnOpen,
       billReminders:
         current.billReminders.hideNames === true
           ? { ...payload.data.settings.billReminders, hideNames: true }

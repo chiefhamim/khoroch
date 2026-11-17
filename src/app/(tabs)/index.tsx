@@ -90,6 +90,13 @@ function tr(key: string, params?: Record<string, string | number>): string {
 const STRIP_FIT = ['bodyStrong', 'label'] as const;
 /** Candidate type sizes for the large hero amount, largest first. */
 const HERO_FIT = ['hero', 'display', 'title'] as const;
+
+/**
+ * Recording a wage and Undo run one after another through this one queue for the whole app session.
+ * It lives at module level so an Undo from a toast that outlives a Home remount still waits for, and
+ * is waited for by, a new record made by the next mount.
+ */
+export const dailyWageQueue = createSerialQueue();
 /** Candidate type sizes for wallet tile balances, largest first. */
 const WALLET_TILE_FIT = ['headline', 'bodyStrong', 'label'] as const;
 const STRIP_COLUMNS = 3;
@@ -228,8 +235,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     },
     [repo]
   );
-  // Recording and Undo run one after another through this queue, so each reads the latest pointer.
-  const wageQueueRef = useRef(createSerialQueue());
+  // Recording and Undo run one after another through the module-level dailyWageQueue.
   const wageAmountMinor = dailyWage?.amountMinor ?? null;
   const wageCategoryId = dailyWage?.categoryId ?? null;
   /**
@@ -340,7 +346,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         actionLabel: t('common.undo'),
         onAction: () => {
           // Queued with recording: only this entry's id leaves the freshly read list.
-          void wageQueueRef.current
+          void dailyWageQueue
             .run(() => undoWageEntry(repo, id))
             .catch(() => {})
             .finally(() => bumpDataVersion());
@@ -372,7 +378,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   };
 
   /** What the buttons call: recording goes through the same queue as Undo. */
-  const queueRecordWage = (again: boolean) => wageQueueRef.current.run(() => recordWage(again));
+  const queueRecordWage = (again: boolean) => dailyWageQueue.run(() => recordWage(again));
 
   const hour = hourOverride ?? new Date().getHours();
   const greeting = buildGreeting(hour);
@@ -866,14 +872,22 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
       />
 
       {periodFeesMinor > 0 || billsCommitment.unpaidCount > 0 ? (
-        <View style={[styles.heroSubRow, { gap: theme.spacing.sm }]}>
-          <AppText variant="caption" color="heroTextSecondary" numberOfLines={1}>
-            {periodFeesMinor > 0
-              ? `${t('overview.mfsFeesLabel')}: ${hideAmounts ? HIDDEN_AMOUNT_TEXT : formatMoney(periodFeesMinor, settings.currency, { showPoisha: false })}`
-              : ''}
-          </AppText>
+        <View
+          testID="hero-subrow"
+          style={[styles.heroSubRowWrap, { gap: theme.spacing.sm }]}
+        >
+          {periodFeesMinor > 0 ? (
+            <AppText testID="hero-fees-caption" variant="caption" color="heroTextSecondary">
+              {`${t('overview.mfsFeesLabel')}: ${hideAmounts ? HIDDEN_AMOUNT_TEXT : formatMoney(periodFeesMinor, settings.currency, { showPoisha: false })}`}
+            </AppText>
+          ) : null}
           {billsCommitment.unpaidCount > 0 && billsCommitment.uncommittedSafePerDayMinor !== null ? (
-            <AppText variant="caption" color="heroTextSecondary" numberOfLines={1}>
+            <AppText
+              testID="hero-afterbills-caption"
+              variant="caption"
+              color="heroTextSecondary"
+              style={periodFeesMinor > 0 ? undefined : styles.autoLeftMargin}
+            >
               {`${t(isWeekly ? 'overview.afterWeekBillsLabel' : 'overview.afterBillsLabel')}: ${hideAmounts ? HIDDEN_AMOUNT_TEXT : t('overview.perDayAmount', { amount: formatMoney(billsCommitment.uncommittedSafePerDayMinor, settings.currency, { showPoisha: false }) })}`}
             </AppText>
           ) : null}
@@ -1903,6 +1917,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  // The fees caption and the after-bills caption: side by side when both fit, else one per line.
+  heroSubRowWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  // Alone in the row, the after-bills caption stays on the right as it did beside the fees caption.
+  autoLeftMargin: {
+    marginLeft: 'auto',
   },
   rightAlignedText: {
     textAlign: 'right',

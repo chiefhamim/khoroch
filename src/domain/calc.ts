@@ -218,6 +218,26 @@ export function isBillPaidInPeriod(
   return isPaidInPeriod(bill.lastPaidPeriod, period.start, period.endExcl);
 }
 
+/**
+ * What "Mark paid" must do. 'already_recorded' when the stamp lies on or after the end of the current
+ * bill period (the clock was ahead, or restored data): the bill is already paid in a later period, so
+ * the action only re-stamps it to the current period and adds no transaction and no instalment.
+ */
+export function decideMarkBillPaid(
+  lastPaidPeriod: string | null | undefined,
+  period: Pick<Period, 'endExcl'>
+): 'record' | 'already_recorded' {
+  if (
+    lastPaidPeriod != null &&
+    isValidLocalDate(lastPaidPeriod) &&
+    isValidLocalDate(period.endExcl) &&
+    lastPaidPeriod >= period.endExcl
+  ) {
+    return 'already_recorded';
+  }
+  return 'record';
+}
+
 export interface UnpaidBillsSummary {
   unpaidCount: number;
   unpaidMinor: number;

@@ -69,6 +69,11 @@ export interface SyncBillRemindersResult {
   unchanged?: boolean;
   /** True when reminders were wanted but the OS has not granted permission. */
   permissionMissing?: boolean;
+  /**
+   * With permissionMissing: 'denied' only when the OS refused and cannot ask again; 'undetermined'
+   * when the person was simply never asked (for example after a restore onto a new phone).
+   */
+  permission?: 'denied' | 'undetermined';
 }
 
 let syncQueue: Promise<unknown> = Promise.resolve();
@@ -142,7 +147,11 @@ async function runSyncBillReminders(input: SyncBillRemindersInput): Promise<Sync
     const perm = await Notifications.getPermissionsAsync();
     if (!perm.granted) {
       await cancelOwn(Notifications);
-      return { scheduled: 0, permissionMissing: true };
+      return {
+        scheduled: 0,
+        permissionMissing: true,
+        permission: perm.canAskAgain === false ? 'denied' : 'undetermined',
+      };
     }
 
     const reminders = buildBillReminders(input);

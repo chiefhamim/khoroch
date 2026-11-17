@@ -94,8 +94,11 @@ export function useBillReminderSync(): void {
             ...billSettingsRef.current,
             enabled: false,
           });
-          // Also record the denied state so the settings screen shows the blocked row and its button.
-          await updateSettingRef.current('notificationPermissionDenied', true);
+          // Record the blocked state only when the OS really refused. A phone that was never asked
+          // (undetermined) just gets the switch turned off, so settings shows no blocked row.
+          if (result.permission === 'denied') {
+            await updateSettingRef.current('notificationPermissionDenied', true);
+          }
         }
       })().catch(() => {});
     };

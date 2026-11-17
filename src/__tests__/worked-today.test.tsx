@@ -1,7 +1,7 @@
 import React from 'react';
 import { AppState, StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
-import { OverviewContent } from '@/app/(tabs)/index';
+import { dailyWageQueue, OverviewContent } from '@/app/(tabs)/index';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { buildDefaultCategories } from '@/domain/categories';
 import { formatShortDate } from '@/domain/dates';
@@ -318,6 +318,41 @@ describe('Worked today on Home', () => {
     const rows = await repo.listTransactionsInRange(TODAY, TOMORROW);
     expect(rows.map((r) => r.id)).toEqual(['other']);
     expect((await repo.getSettings()).dailyWageLast).toBeNull();
+  });
+
+  it('one session queue spans Home remounts, so a record from the next mount waits for an earlier one', async () => {
+    const repo = await seedRepo(true);
+    const first = await renderHome(repo);
+    const firstBtn = await waitFor(() => first.getByTestId('overview-worked-today-btn'));
+
+    // A task queued outside either mount stands in for work left over from an older mount's toast.
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const held = dailyWageQueue.run(() => gate);
+    try {
+      await fireEvent.press(firstBtn);
+      await first.unmount();
+
+      const second = await renderHome(repo);
+      const secondBtn = await waitFor(() => second.getByTestId('overview-worked-today-btn'));
+      await fireEvent.press(secondBtn);
+      await act(async () => {
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      // Nothing runs while the shared queue is held, from either mount.
+      expect(await wageRows(repo)).toHaveLength(0);
+
+      release();
+      await held;
+      await waitFor(() => expect(second.getByTestId('overview-wage-recorded')).toBeTruthy());
+      // Run one after another, the second record finds the first and adds nothing.
+      expect(await wageRows(repo)).toHaveLength(1);
+    } finally {
+      release();
+      await held;
+    }
   });
 
   it('does not show the button when the wage category is no longer an active income category', async () => {

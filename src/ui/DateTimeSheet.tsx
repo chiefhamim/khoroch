@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useContext, useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
   addDays,
@@ -15,8 +15,10 @@ import {
   parseLocalDate,
   todayLocalDate,
 } from '@/domain/dates';
+import { getEffectiveWeekStart } from '@/domain/period';
 import type { LocalDate, LocalTime, WeekStartDay } from '@/domain/types';
 import { t, useLocale } from '@/i18n';
+import { AppContext } from '@/state/AppContext';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
 import { AppText, estimateSingleLineMinWidth } from './AppText';
@@ -383,12 +385,17 @@ export function DateTimeSheet({
   onClose,
   maxDate,
   minDate,
-  weekStartsOn = 'saturday',
+  weekStartsOn: weekStartsOnProp,
   use24Hour,
   title,
 }: DateTimeSheetProps) {
   const { theme } = useTheme();
   const locale = useLocale();
+  // Every picker follows the person's week start (the effective one, which also honours the older
+  // setting) unless a caller passes its own. Outside the app context, Saturday as before.
+  const appContext = useContext(AppContext);
+  const weekStartsOn: WeekStartDay | number =
+    weekStartsOnProp ?? (appContext ? getEffectiveWeekStart(appContext.settings) : 'saturday');
   const today = todayLocalDate();
   const resolved24 = use24Hour ?? isDevice24HourClock();
 

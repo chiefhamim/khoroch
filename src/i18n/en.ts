@@ -332,6 +332,8 @@ export const en = {
   'settings.periodMonthly': 'Monthly',
   'settings.periodWeekly': 'Weekly',
   'settings.weekStartLabel': 'Week starts on',
+  'settings.weekStartSubtitle': 'Used for This week and calendars',
+  'settings.weekStartSubtitleWeekly': 'Used for This week, calendars and the budget week',
   'settings.weekday0': 'Sunday',
   'settings.weekday1': 'Monday',
   'settings.weekday2': 'Tuesday',
@@ -1099,6 +1101,7 @@ export const en = {
   'budget.afterBillsSafe': '{amount} / day after unpaid bills',
   'budget.billSavedToast': 'Bill added',
   'budget.billPaidToast': 'Marked paid & logged',
+  'budget.billAlreadyPaidToast': 'Already recorded as paid',
 
   // Smart Inbox & Offline Capture
   'inbox.title': 'Smart Inbox',

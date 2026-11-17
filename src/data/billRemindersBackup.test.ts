@@ -54,6 +54,26 @@ describe('bill reminders in backups', () => {
     expect((await off.getSettings()).billReminders.hideNames).toBeUndefined();
   });
 
+  it('a backup may turn Hide amounts on open on but never off', async () => {
+    const hidden = new MemoryRepo();
+    await hidden.setSetting('hideAmountsOnOpen', true);
+    const plainJson = await backupWith(undefined);
+    expect(JSON.parse(plainJson).data.settings.hideAmountsOnOpen).toBe(false);
+    await restoreBackupPayload(hidden, parseAndValidateBackup(plainJson));
+    expect((await hidden.getSettings()).hideAmountsOnOpen).toBe(true);
+
+    const srcOn = new MemoryRepo();
+    await srcOn.setSetting('hideAmountsOnOpen', true);
+    const onJson = await exportBackupJson(srcOn, '2026-11-17T10:00:00.000Z');
+    const plain = new MemoryRepo();
+    await restoreBackupPayload(plain, parseAndValidateBackup(onJson));
+    expect((await plain.getSettings()).hideAmountsOnOpen).toBe(true);
+
+    const off = new MemoryRepo();
+    await restoreBackupPayload(off, parseAndValidateBackup(plainJson));
+    expect((await off.getSettings()).hideAmountsOnOpen).toBe(false);
+  });
+
   it('defaults to off in a fresh store', async () => {
     expect((await new MemoryRepo().getSettings()).billReminders).toEqual({
       enabled: false,

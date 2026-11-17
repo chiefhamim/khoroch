@@ -771,10 +771,13 @@ export default function PlanScreen() {
                             size="sm"
                             variant="secondary"
                             onPress={() => {
-                              void markRecurringBillPaid(bill).then(() => {
+                              void markRecurringBillPaid(bill).then((outcome) => {
                                 hapticSuccess();
                                 showToast({
-                                  message: t('budget.billPaidToast'),
+                                  message:
+                                    outcome === 'already_recorded'
+                                      ? t('budget.billAlreadyPaidToast')
+                                      : t('budget.billPaidToast'),
                                   icon: 'circle-check',
                                   tone: 'accent',
                                 });

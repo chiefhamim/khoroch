@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { StyleSheet } from 'react-native';
 import { act, cleanup, fireEvent, render, renderHook, waitFor } from '@testing-library/react-native';
 import { OverviewContent } from '@/app/(tabs)/index';
 import PlanScreen from '@/app/(tabs)/plan';
@@ -403,6 +404,28 @@ describe('weekly period: Settings rows', () => {
     expect((await repo.getSettings()).weekStartsOn).toBe('monday');
   });
 
+  it('says what Week starts on affects, and adds the budget week in weekly mode', async () => {
+    const repo = new MemoryRepo();
+    await repo.setSetting('onboardingDone', true);
+    const view = await renderIn(repo, <SettingsScreen />);
+    await waitFor(() => expect(view.getByTestId('settings-week-start-row')).toBeTruthy());
+    expect(view.getByText('Used for This week and calendars')).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(view.getByTestId('settings-period-kind-row'));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByTestId('settings-period-kind-week'));
+    });
+    await waitFor(() =>
+      expect(view.getByText('Used for This week, calendars and the budget week')).toBeTruthy()
+    );
+    expect(t('settings.weekStartSubtitle')).not.toBe('settings.weekStartSubtitle');
+    setLocale('bn');
+    expect(t('settings.weekStartSubtitle')).toMatch(/[ঀ-৿]/);
+    expect(t('settings.weekStartSubtitleWeekly')).toMatch(/[ঀ-৿]/);
+    expect(t('budget.billAlreadyPaidToast')).toMatch(/[ঀ-৿]/);
+  });
+
   it('reads in Bangla', async () => {
     setLocale('bn');
     const repo = new MemoryRepo();
@@ -508,6 +531,50 @@ describe('weekly period: captions say what is counted', () => {
     ] as const) {
       expect(t(key)).not.toBe(key);
       expect(t(key)).toMatch(/[ঀ-৿]/);
+    }
+  });
+});
+
+describe('Home hero caption row wraps instead of clipping', () => {
+  beforeEach(() => setLocale('en'));
+  afterEach(() => {
+    cleanup();
+    setLocale('en');
+  });
+
+  it('lets the fees and after-bills captions wrap, with no line limit on either', async () => {
+    const repo = await seedRepo(async (r) => {
+      await r.setSetting('periodKind', 'week');
+      await r.setSetting('weeklyBudgetMinor', 700_000);
+      await r.insertTransaction({
+        id: 'fee1',
+        type: 'expense',
+        amountMinor: 1_500,
+        currency: 'BDT',
+        categoryId: 'fees',
+        description: 'Fee',
+        occurredOn: '2026-11-16',
+      });
+      await r.insertRecurringBill({
+        id: 'b1',
+        name: 'Internet',
+        kind: 'bill',
+        amountMinor: 50_000,
+        dayOfMonth: 18,
+      });
+    });
+    const view = await renderIn(repo, <OverviewContent todayOverride={TODAY} hourOverride={10} />);
+    await waitFor(() => expect(view.getByTestId('overview-hero-tab-networth')).toBeTruthy());
+    await act(async () => {
+      fireEvent.press(view.getByTestId('overview-hero-tab-networth'));
+    });
+    await waitFor(() => expect(view.getByTestId('hero-subrow')).toBeTruthy());
+    const row = StyleSheet.flatten(view.getByTestId('hero-subrow').props.style);
+    expect(row.flexDirection).toBe('row');
+    expect(row.flexWrap).toBe('wrap');
+    for (const id of ['hero-fees-caption', 'hero-afterbills-caption']) {
+      const caption = view.getByTestId(id);
+      expect(caption.props.numberOfLines).toBeUndefined();
     }
   });
 });

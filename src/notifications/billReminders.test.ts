@@ -20,6 +20,7 @@ interface Stored {
 const mockState = {
   store: [] as Stored[],
   granted: true,
+  canAskAgain: true,
   cancelled: [] as string[],
   listener: null as null | ((r: unknown) => void),
   lastResponse: null as unknown,
@@ -30,7 +31,7 @@ jest.mock('expo-notifications', () => ({
   AndroidImportance: { DEFAULT: 3 },
   AndroidNotificationVisibility: { PRIVATE: 2 },
   SchedulableTriggerInputTypes: { DATE: 'date', WEEKLY: 'weekly', DAILY: 'daily' },
-  getPermissionsAsync: jest.fn(async () => ({ granted: mockState.granted, canAskAgain: true })),
+  getPermissionsAsync: jest.fn(async () => ({ granted: mockState.granted, canAskAgain: mockState.canAskAgain })),
   getAllScheduledNotificationsAsync: jest.fn(async () => mockState.store.map((s) => ({ ...s }))),
   cancelScheduledNotificationAsync: jest.fn(async (id: string) => {
     mockState.cancelled.push(id);
@@ -105,6 +106,7 @@ const own = () => mockState.store.filter((s) => s.identifier.startsWith('bill-du
 beforeEach(async () => {
   setLocale('en');
   mockState.granted = true;
+  mockState.canAskAgain = true;
   // Resets the module's remembered signature, then starts each test from an empty schedule.
   await syncBillReminders(input({ enabled: false }));
   mockState.store = [{ ...FOREIGN }];
@@ -162,12 +164,19 @@ describe('syncBillReminders', () => {
   it('does nothing when permission is missing, and never asks for it', async () => {
     mockState.granted = false;
     const res = await syncBillReminders(input());
-    expect(res).toEqual({ scheduled: 0, permissionMissing: true });
+    expect(res).toEqual({ scheduled: 0, permissionMissing: true, permission: 'undetermined' });
     expect(NotificationsMock.scheduleNotificationAsync).not.toHaveBeenCalled();
     expect(own()).toHaveLength(0);
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('expo-notifications') as Record<string, unknown>;
     expect(mod.requestPermissionsAsync).toBeUndefined();
+  });
+
+  it('reports denied only when the OS cannot ask again', async () => {
+    mockState.granted = false;
+    mockState.canAskAgain = false;
+    const res = await syncBillReminders(input());
+    expect(res).toEqual({ scheduled: 0, permissionMissing: true, permission: 'denied' });
   });
 
   it('drops reminders already scheduled when permission is later revoked', async () => {

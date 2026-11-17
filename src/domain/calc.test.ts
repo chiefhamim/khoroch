@@ -6,6 +6,7 @@ import {
   computeAfterBills,
   computeBudgetStatus,
   dailySeries,
+  decideMarkBillPaid,
   formatUtilizationPct,
   isBillPaidInPeriod,
   isPaidInPeriod,
@@ -390,6 +391,22 @@ describe('month comparisons (TEST-CASES §3)', () => {
     expect(daySummary.expenseMinor).toBe(50000);
     expect(daySummary.incomeMinor).toBe(100000);
     expect(daySummary.count).toBe(2);
+  });
+});
+
+describe('decideMarkBillPaid', () => {
+  const period = { endExcl: '2026-12-01' };
+  it('records when unstamped, stamped earlier, or stamped inside the period', () => {
+    expect(decideMarkBillPaid(null, period)).toBe('record');
+    expect(decideMarkBillPaid('2026-10-01', period)).toBe('record');
+    expect(decideMarkBillPaid('2026-11-30', period)).toBe('record');
+  });
+  it('is already recorded when the stamp is on or after the period end', () => {
+    expect(decideMarkBillPaid('2026-12-01', period)).toBe('already_recorded');
+    expect(decideMarkBillPaid('2027-03-01', period)).toBe('already_recorded');
+  });
+  it('treats a damaged stamp as not paid', () => {
+    expect(decideMarkBillPaid('garbage', period)).toBe('record');
   });
 });
 

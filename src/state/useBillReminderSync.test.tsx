@@ -8,7 +8,10 @@ import { AppContext } from './AppContext';
 import { bumpDataVersion } from './dataVersion';
 import { BILL_REMINDER_SYNC_DEBOUNCE_MS, useBillReminderSync } from './useBillReminderSync';
 
-const mockSync = jest.fn<Promise<{ scheduled: number; permissionMissing?: boolean }>, [unknown]>(
+const mockSync = jest.fn<
+  Promise<{ scheduled: number; permissionMissing?: boolean; permission?: 'denied' | 'undetermined' }>,
+  [unknown]
+>(
   async () => ({ scheduled: 0 })
 );
 
@@ -122,8 +125,26 @@ describe('useBillReminderSync', () => {
     expect(mockSync).toHaveBeenCalledTimes(1);
   });
 
-  it('turns the setting off when the feature is on but notification permission is missing', async () => {
-    mockSync.mockResolvedValue({ scheduled: 0, permissionMissing: true });
+  it('leaves settings alone when permission is granted', async () => {
+    mockSync.mockResolvedValue({ scheduled: 1 });
+    const { wrapper, updateSetting } = setup(makeSettings());
+    await renderHook(() => useBillReminderSync(), { wrapper });
+    await flush();
+    expect(updateSetting).not.toHaveBeenCalled();
+  });
+
+  it('turns the switch off but does not mark denied when the phone was never asked', async () => {
+    mockSync.mockResolvedValue({ scheduled: 0, permissionMissing: true, permission: 'undetermined' });
+    const { wrapper, updateSetting } = setup(makeSettings());
+    await renderHook(() => useBillReminderSync(), { wrapper });
+    await flush();
+    expect(updateSetting).toHaveBeenCalledTimes(1);
+    expect(updateSetting).toHaveBeenCalledWith('billReminders', { enabled: false, leadDays: 1 });
+    expect(updateSetting).not.toHaveBeenCalledWith('notificationPermissionDenied', true);
+  });
+
+  it('turns the setting off and marks denied when notification permission is really denied', async () => {
+    mockSync.mockResolvedValue({ scheduled: 0, permissionMissing: true, permission: 'denied' });
     const { wrapper, updateSetting } = setup(
       makeSettings({ billReminders: { enabled: true, leadDays: 3, hideNames: true } })
     );

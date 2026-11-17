@@ -349,7 +349,9 @@ export const bn: Record<TranslationKey, string> = {
   'settings.periodMonthly': 'মাসিক',
   'settings.periodWeekly': 'সাপ্তাহিক',
   'settings.weekStartLabel': 'সপ্তাহ শুরুর দিন',
-  'settings.weekday0': 'রবিবার',
+  'settings.weekStartSubtitle': 'এই সপ্তাহ ও ক্যালেন্ডারে ব্যবহৃত হয়',
+  'settings.weekStartSubtitleWeekly': 'এই সপ্তাহ, ক্যালেন্ডার ও বাজেট সপ্তাহে ব্যবহৃত হয়',
+  'settings.weekday0':'রবিবার',
   'settings.weekday1': 'সোমবার',
   'settings.weekday2': 'মঙ্গলবার',
   'settings.weekday3': 'বুধবার',
@@ -1111,7 +1113,8 @@ export const bn: Record<TranslationKey, string> = {
   'budget.emiPayoffA11y': '{name}: {total}টির মধ্যে {paid}টি কিস্তি পরিশোধিত। {detail}',
   'budget.afterBillsSafe': 'বাকি বিল বাদে দৈনিক {amount}',
   'budget.billSavedToast': 'বিল যুক্ত হয়েছে',
-  'budget.billPaidToast': 'পরিশোধিত ও খাতায় যুক্ত হয়েছে',
+  'budget.billAlreadyPaidToast': 'পরিশোধিত হিসেবে ইতোমধ্যে লেখা আছে',
+  'budget.billPaidToast':'পরিশোধিত ও খাতায় যুক্ত হয়েছে',
 
   // Smart Inbox & Offline Capture
   'inbox.title': 'স্মার্ট ইনবক্স',

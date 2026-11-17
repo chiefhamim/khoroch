@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   categoryBudgetStatus,
+  decideMarkBillPaid,
   spendByCategory,
   summarize,
   summarizeBudgetAllocation,
@@ -79,7 +80,11 @@ export interface UseBudgetsResult {
   setCategoryBudget: (categoryId: string, amountMinor: number) => Promise<void>;
   removeCategoryBudget: (categoryId: string) => Promise<void>;
   addRecurringBill: (bill: NewRecurringBill) => Promise<void>;
-  markRecurringBillPaid: (bill: RecurringBill, opts?: { recordTransaction?: boolean }) => Promise<void>;
+  /** Resolves 'already_recorded' when the bill was already stamped paid in a later period: nothing new is logged. */
+  markRecurringBillPaid: (
+    bill: RecurringBill,
+    opts?: { recordTransaction?: boolean }
+  ) => Promise<'recorded' | 'already_recorded'>;
   deleteRecurringBill: (id: string) => Promise<void>;
 }
 
@@ -351,7 +356,17 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
   );
 
   const markRecurringBillPaid = useCallback(
-    async (bill: RecurringBill, opts?: { recordTransaction?: boolean }) => {
+    async (
+      bill: RecurringBill,
+      opts?: { recordTransaction?: boolean }
+    ): Promise<'recorded' | 'already_recorded'> => {
+      if (decideMarkBillPaid(bill.lastPaidPeriod, billPeriod) === 'already_recorded') {
+        // Paid already in a later period (clock was ahead, or restored data): only move the stamp
+        // back to this period. No second expense and no extra instalment.
+        await repo.updateRecurringBill(bill.id, { lastPaidPeriod: billPeriod.start });
+        bumpDataVersion();
+        return 'already_recorded';
+      }
       const nextPaid = bill.paidInstallments + 1;
       const doneEmi =
         bill.kind === 'emi' &&
@@ -376,8 +391,9 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
         });
       }
       bumpDataVersion();
+      return 'recorded';
     },
-    [repo, billPeriod.start, currency, accounts, today]
+    [repo, billPeriod, currency, accounts, today]
   );
 
   const deleteRecurringBill = useCallback(

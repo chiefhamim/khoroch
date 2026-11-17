@@ -750,6 +750,11 @@ export default function SettingsScreen() {
         <SettingsRow
           testID="settings-week-start-row"
           label={t('settings.weekStartLabel')}
+          subtitle={
+            settings.periodKind === 'week'
+              ? t('settings.weekStartSubtitleWeekly')
+              : t('settings.weekStartSubtitle')
+          }
           value={t(WEEKDAY_KEYS[getEffectiveWeekStart(settings)])}
           showChevron
           onPress={() => {

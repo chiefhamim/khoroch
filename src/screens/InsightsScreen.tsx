@@ -369,15 +369,15 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
         </PressableScale>
       </View>
 
+      <AppText variant="caption" color="textSecondary" style={{ marginTop: -theme.spacing.sm }}>
+        {formatPeriodRange(report.window.fromIncl, report.window.toExcl, locale)}
+      </AppText>
+
       {settings.periodKind === 'week' ? (
         <AppText testID="insights-monthly-note" variant="caption" color="textSecondary">
           {t('insights.monthlyCyclesNote')}
         </AppText>
       ) : null}
-
-      <AppText variant="caption" color="textSecondary" style={{ marginTop: -theme.spacing.sm }}>
-        {formatPeriodRange(report.window.fromIncl, report.window.toExcl, locale)}
-      </AppText>
 
       {/* Headline comparison card */}
       <Surface testID="insight-mtd-summary" style={{ gap: theme.spacing.md }}>
