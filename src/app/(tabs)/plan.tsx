@@ -10,6 +10,8 @@ import {
   groupThousands,
   parseMoneyInput,
 } from '@/domain/money';
+import { formatMonthYear } from '@/domain/dates';
+import { computeEmiPayoff } from '@/domain/emiPayoff';
 import { formatCycleLabel } from '@/domain/period';
 import type { RecurringBill, RecurringBillKind } from '@/domain/types';
 import { isValidBudgetAmount } from '@/domain/validation';
@@ -671,14 +673,31 @@ export default function PlanScreen() {
                     : t('budget.billKindBill'),
                 t('budget.unpaidDueDay', { day: bill.dayOfMonth }),
               ];
-              if (bill.kind === 'emi' && bill.totalInstallments) {
-                subParts.push(
-                  t('budget.emiProgress', {
-                    paid: bill.paidInstallments,
-                    total: bill.totalInstallments,
+              const payoff = computeEmiPayoff(bill, period);
+              const payoffPaidText = payoff
+                ? t('budget.emiPaidOf', {
+                    paid: payoff.paidInstallments,
+                    total: payoff.totalInstallments,
                   })
-                );
-              }
+                : '';
+              const payoffDetailText = payoff
+                ? payoff.state === 'finished'
+                  ? t('budget.emiFinished', { total: payoff.totalInstallments })
+                  : payoff.endYear !== null && payoff.endMonth !== null
+                    ? t('budget.emiLeftEnds', {
+                        amount: formatMoney(payoff.leftMinor, settings.currency, {
+                          hidden: hideAmounts,
+                          showPoisha,
+                        }),
+                        month: formatMonthYear(payoff.endYear, payoff.endMonth, locale),
+                      })
+                    : t('budget.emiLeftPaused', {
+                        amount: formatMoney(payoff.leftMinor, settings.currency, {
+                          hidden: hideAmounts,
+                          showPoisha,
+                        }),
+                      })
+                : '';
               return (
                 <View key={bill.id}>
                   <ListRow
@@ -733,8 +752,52 @@ export default function PlanScreen() {
                         />
                       </View>
                     }
-                    showDivider={idx < recurringBills.length - 1}
+                    showDivider={!payoff && idx < recurringBills.length - 1}
                   />
+                  {payoff ? (
+                    <>
+                      <View
+                        testID={`plan-bill-payoff-${bill.id}`}
+                        accessible
+                        accessibilityLabel={t('budget.emiPayoffA11y', {
+                          name: bill.name,
+                          paid: payoff.paidInstallments,
+                          total: payoff.totalInstallments,
+                          detail: payoffDetailText,
+                        })}
+                        style={{
+                          paddingLeft: theme.geometry.dividerInset,
+                          paddingRight: theme.spacing.lg,
+                          paddingBottom: theme.spacing.md,
+                          gap: theme.spacing.xs,
+                        }}
+                      >
+                        <ProgressBar pct={payoff.pct} height={4} />
+                        <AppText variant="caption" color="textSecondary" tabularNums>
+                          {payoffPaidText}
+                        </AppText>
+                        <AppText
+                          variant="caption"
+                          color={payoff.state === 'finished' ? 'income' : 'textSecondary'}
+                          tabularNums
+                        >
+                          {payoffDetailText}
+                        </AppText>
+                      </View>
+                      {idx < recurringBills.length - 1 ? (
+                        <View
+                          style={[
+                            styles.divider,
+                            {
+                              backgroundColor: theme.colors.separator,
+                              marginLeft: theme.geometry.dividerInset,
+                              marginRight: theme.spacing.lg,
+                            },
+                          ]}
+                        />
+                      ) : null}
+                    </>
+                  ) : null}
                 </View>
               );
             })}

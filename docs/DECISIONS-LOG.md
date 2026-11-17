@@ -180,3 +180,11 @@ Format:
 - The legacy form's new-mode save button reads "Transfer {amount} + {fee} fee" when the fee is above zero. Quick entry has no amount on its save button, so the fee is shown in its fee field and the source caption.
 - `parseFeeRateInput` strips trailing zeros of the decimal part before the two-decimals check ("1.850" and "1.8500" are 1.85, "1.851" is still rejected).
 - `runMigrations(db, targetVersion = LATEST_SCHEMA_VERSION)`: the optional second argument lets tests stop the real chain at an older version. The app calls it with no argument, so production behaviour is unchanged. The v6 to v7 migration test now builds its v6 database with `runMigrations(db, 6)`.
+
+## EMI payoff view (SYNTHESIS section 5, task 9)
+- No schema change. `totalInstallments`, `paidInstallments`, `amountMinor`, `dayOfMonth`, `lastPaidPeriod` and `isActive` are enough. The model has no separate last instalment, so every instalment equals `amountMinor`.
+- `computeEmiPayoff(bill, period)` in `src/domain/emiPayoff.ts` is the only place the figures are computed. Paid is clamped to 0..total. Finished means paid reached total, regardless of `isActive` (marking the last instalment paid sets the bill inactive).
+- End month: one instalment per budget period. If this period is already stamped paid the next one is next period, else this one. If the due day is before the cycle's start day the due date lands in the following calendar month. Year and month come from the period start, formatted with `formatMonthYear`.
+- A paused EMI (inactive, not finished) shows "{amount} left, paused" and no end month, since no date can be promised.
+- Bills have no detail view, so the payoff sits as a block directly under the EMI row in Plan (bar, "N of M paid", "left/ends" or finished line). The old "{paid}/{total} paid" part of the row subtitle was removed to avoid saying it twice; the `budget.emiProgress` key is left in place unused.
+- Amounts in the sentence use `formatMoney` with the hide-amounts and show-poisha settings, as the neighbouring budget rows do, because the figure sits inside a translated sentence.
