@@ -1,7 +1,12 @@
 import * as Crypto from 'expo-crypto';
 import React, { useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { currentLocalTime, isValidLocalDate, todayLocalDate } from '@/domain/dates';
+import {
+  currentLocalTime,
+  formatFriendlyDate,
+  isValidLocalDate,
+  todayLocalDate,
+} from '@/domain/dates';
 import {
   checkDueOverpayment,
   pickPersonColorKey,
@@ -25,6 +30,7 @@ import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { Banner } from './Banner';
 import { Button } from './Button';
 import { DateField } from './DateField';
+import { DateTimeSheet } from './DateTimeSheet';
 import { Field } from './Field';
 import { PersonAvatar } from './PersonAvatar';
 import { Sheet } from './Sheet';
@@ -115,6 +121,8 @@ function DueEntryBody({
     () => editingEntry?.occurredTime ?? currentLocalTime()
   );
   const [note, setNote] = useState<string>(() => editingEntry?.note ?? '');
+  const [dueOn, setDueOn] = useState<LocalDate | null>(() => editingEntry?.dueOn ?? null);
+  const [dueOnPickerOpen, setDueOnPickerOpen] = useState(false);
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -213,6 +221,9 @@ function DueEntryBody({
       return;
     }
 
+    // A due date only belongs to money that is expected back (lent or borrowed).
+    const savedDueOn = kind === 'lent' || kind === 'borrowed' ? dueOn : null;
+
     setSaving(true);
     try {
       if (!resolvedPersonId) {
@@ -233,6 +244,7 @@ function DueEntryBody({
           accountId,
           occurredOn,
           occurredTime: cleanTime || null,
+          dueOn: savedDueOn,
           note: note.trim(),
         });
       } else {
@@ -244,6 +256,7 @@ function DueEntryBody({
           accountId,
           occurredOn,
           occurredTime: cleanTime || null,
+          dueOn: savedDueOn,
           note: note.trim(),
         });
       }
@@ -507,7 +520,63 @@ function DueEntryBody({
             />
           </View>
         </View>
+
+        {kind === 'lent' || kind === 'borrowed' ? (
+          <>
+            <View style={[styles.rowDivider, { backgroundColor: theme.colors.separator }]} />
+            <View style={styles.flatRow}>
+              <AppIcon name="calendar-days" size={18} color={theme.colors.textTertiary} />
+              <AppText variant="label" color="textSecondary" style={styles.dueLabel}>
+                {t('due.dueDateLabel')}
+              </AppText>
+              <PressableScale
+                pressScale={0.98}
+                testID="due-duedate-btn"
+                accessibilityRole="button"
+                accessibilityLabel={
+                  dueOn
+                    ? `${t('due.dueDateLabel')}: ${formatFriendlyDate(dueOn, todayLocalDate(), locale)}`
+                    : t('due.dueDateAdd')
+                }
+                onPress={() => {
+                  hapticSelection();
+                  setDueOnPickerOpen(true);
+                }}
+                style={styles.dueValueBtn}
+              >
+                <AppText variant="bodyStrong" color={dueOn ? 'text' : 'accent'} style={styles.rowValue}>
+                  {dueOn ? formatFriendlyDate(dueOn, todayLocalDate(), locale) : t('due.dueDateAdd')}
+                </AppText>
+              </PressableScale>
+              {dueOn ? (
+                <PressableScale
+                  pressScale={0.92}
+                  testID="due-duedate-remove-btn"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('due.dueDateRemove')}
+                  onPress={() => {
+                    hapticSelection();
+                    setDueOn(null);
+                  }}
+                  style={styles.dueRemoveBtn}
+                >
+                  <AppIcon name="x" size={18} color={theme.colors.textSecondary} />
+                </PressableScale>
+              ) : null}
+            </View>
+          </>
+        ) : null}
       </Surface>
+
+      <DateTimeSheet
+        visible={dueOnPickerOpen}
+        mode="date"
+        date={dueOn ?? undefined}
+        title={t('due.dueDateSheetTitle')}
+        minDate={occurredOn}
+        onDateChange={setDueOn}
+        onClose={() => setDueOnPickerOpen(false)}
+      />
 
       {/* Optional Note */}
       <Field
@@ -669,6 +738,20 @@ const styles = StyleSheet.create({
   rowValue: {
     flex: 1,
     textAlign: 'right',
+  },
+  dueLabel: {
+    flexShrink: 1,
+  },
+  dueValueBtn: {
+    flex: 1,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  dueRemoveBtn: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rowDivider: {
     height: StyleSheet.hairlineWidth,

@@ -131,6 +131,7 @@ interface DueEntryRow {
   account_id: string | null;
   occurred_on: string;
   occurred_time: string | null;
+  due_on: string | null;
   note: string;
   created_at: number;
   updated_at: number;
@@ -301,6 +302,7 @@ function mapDueEntryRow(row: DueEntryRow): DueEntry {
     accountId: row.account_id ?? null,
     occurredOn: row.occurred_on,
     occurredTime: row.occurred_time,
+    dueOn: row.due_on ?? null,
     note: row.note,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -1158,8 +1160,8 @@ export class SqliteRepo implements Repo {
     const now = Date.now();
     await this.db.runAsync(
       `INSERT INTO due_entries
-       (id, person_id, kind, amount_minor, account_id, occurred_on, occurred_time, note, created_at, updated_at, deleted_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+       (id, person_id, kind, amount_minor, account_id, occurred_on, occurred_time, due_on, note, created_at, updated_at, deleted_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       [
         d.id,
         d.personId,
@@ -1168,6 +1170,7 @@ export class SqliteRepo implements Repo {
         d.accountId ?? null,
         d.occurredOn,
         d.occurredTime ?? null,
+        d.dueOn ?? null,
         d.note ?? '',
         d.createdAt ?? now,
         d.updatedAt ?? now,
@@ -1186,13 +1189,14 @@ export class SqliteRepo implements Repo {
       accountId: patch.accountId !== undefined ? patch.accountId : existing.accountId,
       occurredOn: patch.occurredOn !== undefined ? patch.occurredOn : existing.occurredOn,
       occurredTime: patch.occurredTime !== undefined ? patch.occurredTime : existing.occurredTime,
+      dueOn: patch.dueOn !== undefined ? patch.dueOn : existing.dueOn,
       note: patch.note !== undefined ? patch.note : existing.note,
       updatedAt: Date.now(),
     };
     assertValidNewDueEntry(merged);
     await this.db.runAsync(
       `UPDATE due_entries
-       SET person_id = ?, kind = ?, amount_minor = ?, account_id = ?, occurred_on = ?, occurred_time = ?, note = ?, updated_at = ?
+       SET person_id = ?, kind = ?, amount_minor = ?, account_id = ?, occurred_on = ?, occurred_time = ?, due_on = ?, note = ?, updated_at = ?
        WHERE id = ? AND deleted_at IS NULL`,
       [
         merged.personId,
@@ -1201,6 +1205,7 @@ export class SqliteRepo implements Repo {
         merged.accountId,
         merged.occurredOn,
         merged.occurredTime,
+        merged.dueOn,
         merged.note,
         merged.updatedAt,
         id,
@@ -1779,8 +1784,8 @@ export class SqliteRepo implements Repo {
         assertValidNewDueEntry(due);
         await this.db.runAsync(
           `INSERT INTO due_entries
-           (id, person_id, kind, amount_minor, account_id, occurred_on, occurred_time, note, created_at, updated_at, deleted_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, person_id, kind, amount_minor, account_id, occurred_on, occurred_time, due_on, note, created_at, updated_at, deleted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             due.id,
             due.personId,
@@ -1789,6 +1794,7 @@ export class SqliteRepo implements Repo {
             due.accountId ?? null,
             due.occurredOn,
             due.occurredTime ?? null,
+            due.dueOn ?? null,
             due.note,
             due.createdAt,
             due.updatedAt,

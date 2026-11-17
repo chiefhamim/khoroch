@@ -5,7 +5,7 @@ import {
   DEFAULT_CATEGORY_BY_ID,
 } from '@/domain/categories';
 
-export const LATEST_SCHEMA_VERSION = 5;
+export const LATEST_SCHEMA_VERSION = 6;
 
 export const SCHEMA_V1_SQL = `
 CREATE TABLE IF NOT EXISTS categories (
@@ -349,5 +349,17 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       await db.execAsync('PRAGMA foreign_keys = ON;');
     }
     version = 5;
+  }
+
+  if (version < 6) {
+    // Additive only: one nullable column, no table rebuild.
+    await db.withTransactionAsync(async () => {
+      const dueCols = await db.getAllAsync<{ name: string }>('PRAGMA table_info(due_entries)');
+      if (!dueCols.some((c) => c.name === 'due_on')) {
+        await db.execAsync('ALTER TABLE due_entries ADD COLUMN due_on TEXT;');
+      }
+      await db.execAsync('PRAGMA user_version = 6;');
+    });
+    version = 6;
   }
 }

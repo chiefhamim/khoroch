@@ -1,4 +1,4 @@
-import { parseLocalDate } from './dates';
+import { diffDays, parseLocalDate } from './dates';
 import {
   compactMoney,
   CURRENCIES,
@@ -282,6 +282,83 @@ export function computeDuesOverview(
     openPeople,
     settledPeople,
     allActivePeople,
+  };
+}
+
+export interface OpenDueEntry {
+  entry: DueEntry;
+  /** Part of this entry's amount still unpaid, integer minor units, always above 0. */
+  openMinor: number;
+}
+
+export interface PersonDueSchedule {
+  /** Open entries that carry a due date, earliest due date first. */
+  openDatedEntries: OpenDueEntry[];
+  /** Open amount whose due date is strictly before `asOf`. */
+  overdueMinor: number;
+  /** Earliest due date among open dated entries, or null. */
+  nextDueOn: LocalDate | null;
+  /** nextDueOn minus asOf in days: positive = days until, 0 = today, negative = days since. */
+  daysUntilNext: number | null;
+}
+
+function compareObligationOrder(a: DueEntry, b: DueEntry): number {
+  const aDated = a.dueOn != null;
+  const bDated = b.dueOn != null;
+  if (aDated !== bDated) return aDated ? -1 : 1;
+  if (aDated && bDated && a.dueOn !== b.dueOn) {
+    return (a.dueOn as string).localeCompare(b.dueOn as string);
+  }
+  return compareDueAsc(a, b);
+}
+
+/**
+ * Open (not yet repaid) obligation entries of one person, in repayment order.
+ *
+ * Obligations are the entries that started the current balance: `lent` when the person
+ * owes you (net above 0), `borrowed` when you owe them (net below 0). The open total
+ * is always |net|. Whatever part of the obligations is already repaid (sum of obligations
+ * minus |net|, never below 0) is applied to the oldest due dates first; undated
+ * entries are repaid last, oldest first. An entry repaid in full is not returned.
+ */
+export function computeOpenDueEntries(entries: readonly DueEntry[]): OpenDueEntry[] {
+  const active = entries.filter((e) => e.deletedAt == null);
+  const net = computePersonNetMinor(active);
+  if (net === 0) return [];
+
+  const obligationKind: DueKind = net > 0 ? 'lent' : 'borrowed';
+  const obligations = active.filter((e) => e.kind === obligationKind).sort(compareObligationOrder);
+
+  let obligationTotal = 0;
+  for (const e of obligations) obligationTotal += e.amountMinor;
+  let repaid = Math.max(0, obligationTotal - Math.abs(net));
+
+  const open: OpenDueEntry[] = [];
+  for (const entry of obligations) {
+    const take = Math.min(repaid, entry.amountMinor);
+    repaid -= take;
+    const openMinor = entry.amountMinor - take;
+    if (openMinor > 0) open.push({ entry, openMinor });
+  }
+  return open;
+}
+
+/** Overdue amount, next due date and days until or since it, as of a local date. */
+export function computePersonDueSchedule(
+  entries: readonly DueEntry[],
+  asOf: LocalDate
+): PersonDueSchedule {
+  const openDatedEntries = computeOpenDueEntries(entries).filter((o) => o.entry.dueOn != null);
+  let overdueMinor = 0;
+  for (const o of openDatedEntries) {
+    if ((o.entry.dueOn as string) < asOf) overdueMinor += o.openMinor;
+  }
+  const nextDueOn = openDatedEntries.length > 0 ? (openDatedEntries[0].entry.dueOn as LocalDate) : null;
+  return {
+    openDatedEntries,
+    overdueMinor,
+    nextDueOn,
+    daysUntilNext: nextDueOn ? diffDays(nextDueOn, asOf) : null,
   };
 }
 

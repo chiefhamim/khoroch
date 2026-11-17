@@ -2,6 +2,8 @@ import {
   buildReminderMessage,
   checkDueOverpayment,
   computeDuesOverview,
+  computeOpenDueEntries,
+  computePersonDueSchedule,
   dueKindForAction,
   computePersonNetMinor,
   findOpenCycleStartDate,
@@ -44,6 +46,7 @@ function makeDue(
     accountId: null,
     occurredOn: '2026-11-09',
     occurredTime: null,
+    dueOn: null,
     note: '',
     createdAt: 1000,
     updatedAt: 1000,
@@ -284,5 +287,157 @@ describe('dues domain helpers (TEST-CASES-v1.2 §B)', () => {
     expect(bnApu).toBe(
       'সুমি আপু, সালাম। ১০ নভেম্বরের ৳৫০০ টাকার কথা মনে করিয়ে দিলাম। তাড়া নেই, সুবিধামতো দিও।'
     );
+  });
+});
+
+describe('due dates: overdue, next due, days until or since', () => {
+  const lent = (id: string, amountMinor: number, dueOn: string | null, createdAt = 1000) =>
+    makeDue({ id, personId: 'p', kind: 'lent', amountMinor, dueOn, createdAt });
+  const back = (id: string, amountMinor: number, createdAt = 2000) =>
+    makeDue({ id, personId: 'p', kind: 'received_back', amountMinor, createdAt });
+
+  it('one dated entry: due in the future, today and in the past', () => {
+    const entries = [lent('a', 100_000, '2026-11-20')];
+
+    expect(computePersonDueSchedule(entries, '2026-11-17')).toMatchObject({
+      overdueMinor: 0,
+      nextDueOn: '2026-11-20',
+      daysUntilNext: 3,
+    });
+    expect(computePersonDueSchedule(entries, '2026-11-20')).toMatchObject({
+      overdueMinor: 0,
+      nextDueOn: '2026-11-20',
+      daysUntilNext: 0,
+    });
+    expect(computePersonDueSchedule(entries, '2026-11-21')).toMatchObject({
+      overdueMinor: 100_000,
+      nextDueOn: '2026-11-20',
+      daysUntilNext: -1,
+    });
+  });
+
+  it('yesterday counts as overdue by 1 day', () => {
+    const s = computePersonDueSchedule([lent('a', 50_050, '2026-11-16')], '2026-11-17');
+    expect(s.overdueMinor).toBe(50_050);
+    expect(s.daysUntilNext).toBe(-1);
+  });
+
+  it('days are calendar days across a month and year boundary', () => {
+    expect(
+      computePersonDueSchedule([lent('a', 100, '2027-01-02')], '2026-12-30').daysUntilNext
+    ).toBe(3);
+    expect(
+      computePersonDueSchedule([lent('a', 100, '2026-02-27')], '2026-03-02').daysUntilNext
+    ).toBe(-3);
+  });
+
+  it('an entry settled in full is never overdue, and no due date is reported', () => {
+    const entries = [lent('a', 100_000, '2026-10-01'), back('r', 100_000)];
+    expect(computeOpenDueEntries(entries)).toEqual([]);
+    expect(computePersonDueSchedule(entries, '2026-11-17')).toEqual({
+      openDatedEntries: [],
+      overdueMinor: 0,
+      nextDueOn: null,
+      daysUntilNext: null,
+    });
+  });
+
+  it('entries without a due date are never overdue and give no next due date', () => {
+    const s = computePersonDueSchedule([lent('a', 100_000, null)], '2026-11-17');
+    expect(s).toEqual({
+      openDatedEntries: [],
+      overdueMinor: 0,
+      nextDueOn: null,
+      daysUntilNext: null,
+    });
+  });
+
+  it('repayments reduce the oldest due dates first (partial repayment)', () => {
+    const entries = [
+      lent('late', 60_000, '2026-11-01'),
+      lent('soon', 40_000, '2026-11-25'),
+      back('r', 70_000),
+    ];
+    // 70,000 repaid: clears 'late' (60,000) and 10,000 of 'soon'.
+    const open = computeOpenDueEntries(entries);
+    expect(open.map((o) => [o.entry.id, o.openMinor])).toEqual([['soon', 30_000]]);
+
+    const s = computePersonDueSchedule(entries, '2026-11-17');
+    expect(s.overdueMinor).toBe(0);
+    expect(s.nextDueOn).toBe('2026-11-25');
+    expect(s.daysUntilNext).toBe(8);
+  });
+
+  it('a partial repayment shrinks the overdue amount instead of removing it', () => {
+    const entries = [lent('late', 100_000, '2026-11-01'), back('r', 30_000)];
+    const s = computePersonDueSchedule(entries, '2026-11-17');
+    expect(s.overdueMinor).toBe(70_000);
+    expect(s.openDatedEntries.map((o) => o.openMinor)).toEqual([70_000]);
+    expect(s.daysUntilNext).toBe(-16);
+  });
+
+  it('order is by due date, not by the day the money was lent', () => {
+    const entries = [
+      lent('lent-first-due-later', 50_000, '2026-12-10', 1000),
+      lent('lent-later-due-first', 50_000, '2026-11-10', 2000),
+      back('r', 50_000, 3000),
+    ];
+    const open = computeOpenDueEntries(entries);
+    expect(open.map((o) => o.entry.id)).toEqual(['lent-first-due-later']);
+    expect(computePersonDueSchedule(entries, '2026-11-17').overdueMinor).toBe(0);
+  });
+
+  it('undated entries are repaid after dated ones, and stay open', () => {
+    const entries = [
+      lent('undated', 40_000, null, 500),
+      lent('dated', 60_000, '2026-11-01', 1000),
+      back('r', 60_000),
+    ];
+    const open = computeOpenDueEntries(entries);
+    expect(open.map((o) => [o.entry.id, o.openMinor])).toEqual([['undated', 40_000]]);
+    expect(computePersonDueSchedule(entries, '2026-11-17').overdueMinor).toBe(0);
+  });
+
+  it('deleted entries are ignored', () => {
+    const entries = [
+      lent('a', 100_000, '2026-11-01'),
+      makeDue({
+        id: 'gone',
+        personId: 'p',
+        kind: 'received_back',
+        amountMinor: 100_000,
+        deletedAt: 5,
+      }),
+    ];
+    expect(computePersonDueSchedule(entries, '2026-11-17').overdueMinor).toBe(100_000);
+  });
+
+  it('works for money you borrowed (you owe) with paid_back as the repayment', () => {
+    const entries = [
+      makeDue({ id: 'b', personId: 'p', kind: 'borrowed', amountMinor: 80_000, dueOn: '2026-11-10' }),
+      makeDue({ id: 'pb', personId: 'p', kind: 'paid_back', amountMinor: 30_000, createdAt: 2000 }),
+    ];
+    const s = computePersonDueSchedule(entries, '2026-11-17');
+    expect(s.overdueMinor).toBe(50_000);
+    expect(s.daysUntilNext).toBe(-7);
+  });
+
+  it('after an overpayment flips the balance, the old lent entries are not open', () => {
+    const entries = [lent('a', 100_000, '2026-11-01'), back('r', 150_000)];
+    // net is -50,000 and there is no dated borrowed entry to be overdue.
+    expect(computePersonDueSchedule(entries, '2026-11-17').overdueMinor).toBe(0);
+    expect(computeOpenDueEntries(entries)).toEqual([]);
+  });
+
+  it('sums several overdue entries exactly in integer minor units', () => {
+    const entries = [
+      lent('a', 10_001, '2026-11-01'),
+      lent('b', 20_002, '2026-11-05'),
+      lent('c', 30_003, '2026-11-30'),
+    ];
+    const s = computePersonDueSchedule(entries, '2026-11-17');
+    expect(s.overdueMinor).toBe(30_003);
+    expect(s.nextDueOn).toBe('2026-11-01');
+    expect(s.daysUntilNext).toBe(-16);
   });
 });

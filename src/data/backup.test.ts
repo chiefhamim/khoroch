@@ -250,6 +250,7 @@ async function seedComplexState(repo: MemoryRepo | SqliteRepo) {
     amountMinor: 200_000,
     accountId: 'bkash',
     occurredOn: '2026-11-09',
+    dueOn: '2026-12-05',
     note: 'Book fair',
     createdAt: 1731500570000,
     updatedAt: 1731500570000,
@@ -459,7 +460,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       delete tx.transferId;
     }
     const migratedV2 = parseAndValidateBackup(JSON.stringify(v2Raw));
-    expect(migratedV2.schema).toBe(5);
+    expect(migratedV2.schema).toBe(6);
     expect(migratedV2.data.accounts).toEqual([]);
     expect(migratedV2.data.transfers).toEqual([]);
     expect(migratedV2.data.people).toEqual([]);
@@ -500,7 +501,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       });
 
     const migratedV1 = parseAndValidateBackup(JSON.stringify(v1Raw));
-    expect(migratedV1.schema).toBe(5);
+    expect(migratedV1.schema).toBe(6);
     expect(migratedV1.data.day_reviews).toEqual([]);
     expect(migratedV1.data.accounts).toEqual([]);
     expect(migratedV1.data.transfers).toEqual([]);
@@ -522,6 +523,43 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     const foodCat = migratedV1.data.categories.find((c) => c.id === 'food_dining');
     expect(foodCat?.icon).toBe('utensils');
     expect(foodCat?.colorKey).toBe(DEFAULT_CATEGORIES.find((c) => c.id === 'food_dining')?.colorKey);
+  });
+
+  it('exports the due date, imports older backups without it as null, and rejects a bad one', async () => {
+    const src = createSqliteHarness();
+    const dst = createSqliteHarness();
+    try {
+      await runMigrations(src.db);
+      await runMigrations(dst.db);
+      await seedComplexState(src.repo);
+
+      const json = await exportBackupJson(src.repo, '2026-11-13T10:00:00.000Z');
+      const parsed = parseAndValidateBackup(json);
+      expect(parsed.data.due_entries.find((d) => d.id === 'd-rafi-1')?.dueOn).toBe('2026-12-05');
+      expect(parsed.data.due_entries.find((d) => d.id === 'd-rafi-del')?.dueOn).toBeNull();
+
+      // An older backup (schema 5) has no dueOn key at all.
+      const old = JSON.parse(json) as {
+        schema: number;
+        data: { due_entries: Record<string, unknown>[] };
+      };
+      old.schema = 5;
+      for (const row of old.data.due_entries) delete row.dueOn;
+      const oldParsed = parseAndValidateBackup(JSON.stringify(old));
+      expect(oldParsed.data.due_entries.every((d) => d.dueOn === null)).toBe(true);
+      await restoreBackupPayload(dst.repo, oldParsed);
+      const restored = await dst.repo.listAllDueEntriesForBackup();
+      expect(restored).toHaveLength(2);
+      expect(restored.find((d) => d.id === 'd-rafi-1')?.amountMinor).toBe(200_000);
+      expect(restored.every((d) => d.dueOn === null)).toBe(true);
+
+      const bad = JSON.parse(json) as { data: { due_entries: Record<string, unknown>[] } };
+      bad.data.due_entries[0].dueOn = '2026-13-40';
+      expect(() => parseAndValidateBackup(JSON.stringify(bad))).toThrow(/invalid_due_on/);
+    } finally {
+      src.close();
+      dst.close();
+    }
   });
 
   it('rejects malformed account, transfer, and broken accountId FKs cleanly', async () => {

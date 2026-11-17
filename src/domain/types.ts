@@ -639,6 +639,8 @@ export interface DueEntry {
   accountId: string | null;
   occurredOn: LocalDate;
   occurredTime: LocalTime | null;
+  /** Optional date the money is expected back (local date, same format as occurredOn). */
+  dueOn: LocalDate | null;
   note: string;
   createdAt: number;
   updatedAt: number;
@@ -653,6 +655,7 @@ export interface NewDueEntry {
   accountId?: string | null;
   occurredOn: LocalDate;
   occurredTime?: LocalTime | null;
+  dueOn?: LocalDate | null;
   note?: string;
   createdAt?: number;
   updatedAt?: number;
@@ -665,6 +668,7 @@ export interface DueEntryPatch {
   accountId?: string | null;
   occurredOn?: LocalDate;
   occurredTime?: LocalTime | null;
+  dueOn?: LocalDate | null;
   note?: string;
 }
 

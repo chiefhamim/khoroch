@@ -142,3 +142,13 @@ Format:
 - Capture shortcuts are one constant-height row above the keypad (repeat chips, pinned amounts, a "Quick amounts" chip that opens a sheet for pinning and removing). Nothing above the keypad may change height while typing. Long-press removal was dropped.
 - Money amounts never shrink with adjustsFontSizeToFit; they pick a type size from a width estimate (src/domain/fitMoney.ts) and fall back to compact.
 - App lock needs expo-secure-store (installed at ~58.0.3, plugins added in app.config.ts); the dev app was rebuilt for it. The PIN hash, salt and attempt counter live in secure storage only, never in SQLite or backups.
+
+## Due date on dues (schema 6)
+
+- Column `due_entries.due_on TEXT NULL` (local date `YYYY-MM-DD`, same format as `occurred_on`). Additive `ALTER TABLE ... ADD COLUMN`, guarded by a `PRAGMA table_info` check so it is idempotent. `LATEST_SCHEMA_VERSION` and `BACKUP_SCHEMA_VERSION` are now 6; backups from schema 1 to 5 (no `dueOn` key) import with `dueOn` null; an invalid `dueOn` is rejected as `invalid_due_on`.
+- A due date is only offered and saved for `lent` and `borrowed` entries. Saving an entry after switching it to a repayment kind clears the date.
+- Which entries are "open": the entries that started the current balance (`lent` when the person owes you, `borrowed` when you owe them). Open total is |net|. The repaid part (sum of those entries minus |net|, never below 0) is applied to the oldest due dates first. Undated entries are repaid after dated ones, oldest first. An entry repaid in full is never open and never overdue.
+- Overdue means due date strictly before today (due today is "Due today", not overdue). Next due date is the earliest due date among open dated entries, even if already past; days = nextDueOn minus today (negative means days since).
+- If an overpayment flips the balance, the old entries are not open and nothing is overdue.
+- People list caption: overdue amount wins; otherwise "Due today" or "Due in N days" when the next due date is 0 to 7 days away. No dots, badges or new colours: overdue uses the existing `danger` token, the rest `textSecondary`.
+- No notifications in this task.

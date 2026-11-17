@@ -52,7 +52,7 @@ import type { BackupDataSnapshot, Repo } from './repo';
 
 export const BACKUP_APP_ID = 'khoroch';
 const ACCEPTED_BACKUP_APP_IDS: ReadonlySet<string> = new Set([BACKUP_APP_ID, 'budget-app', 'lenden']);
-export const BACKUP_SCHEMA_VERSION = 5;
+export const BACKUP_SCHEMA_VERSION = 6;
 export const MAX_BACKUP_BYTES = 20 * 1024 * 1024; // 20 MB
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
@@ -245,6 +245,7 @@ export async function exportBackupPayload(
         accountId: d.accountId,
         occurredOn: d.occurredOn,
         occurredTime: d.occurredTime,
+        dueOn: d.dueOn,
         note: d.note,
         createdAt: d.createdAt,
         updatedAt: d.updatedAt,
@@ -527,6 +528,7 @@ function validateDueEntryRow(
     accountId: obj.accountId,
     occurredOn: obj.occurredOn,
     occurredTime: obj.occurredTime,
+    dueOn: obj.dueOn,
     note,
   });
   if (!check.valid) {
@@ -561,6 +563,7 @@ function validateDueEntryRow(
     accountId: (obj.accountId ?? null) as string | null,
     occurredOn: obj.occurredOn as LocalDate,
     occurredTime: (obj.occurredTime ?? null) as string | null,
+    dueOn: (obj.dueOn ?? null) as LocalDate | null,
     note: note as string,
     createdAt,
     updatedAt,

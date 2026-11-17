@@ -207,7 +207,7 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
 
       const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
       expect(ver?.user_version).toBe(LATEST_SCHEMA_VERSION);
-      expect(LATEST_SCHEMA_VERSION).toBe(5);
+      expect(LATEST_SCHEMA_VERSION).toBe(6);
 
       const colsAfter = await db.getAllAsync<{ name: string }>('PRAGMA table_info(categories)');
       expect(colsAfter.some((c) => c.name === 'color_key')).toBe(true);
@@ -504,6 +504,91 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
       ]);
       expect(inserted).toBe(1);
       expect(await repo.listPendingDrafts({ status: 'pending' })).toHaveLength(1);
+    } finally {
+      close();
+    }
+  });
+
+  it('migrates a populated v5 database to v6 (nullable due_on column) with every due row unchanged', async () => {
+    const { db, close } = createNodeSqliteAdapter();
+    try {
+      await runMigrations(db);
+      // Put the due_entries table back into its exact v5 shape (no due_on) while it is still empty.
+      await db.execAsync(`
+        DROP TABLE due_entries;
+        CREATE TABLE due_entries (
+          id TEXT PRIMARY KEY,
+          person_id TEXT NOT NULL REFERENCES people(id),
+          kind TEXT NOT NULL CHECK (kind IN ('lent','borrowed','received_back','paid_back')),
+          amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+          account_id TEXT REFERENCES accounts(id),
+          occurred_on TEXT NOT NULL,
+          occurred_time TEXT,
+          note TEXT NOT NULL DEFAULT '',
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL,
+          deleted_at INTEGER
+        );
+        CREATE INDEX IF NOT EXISTS idx_due_person ON due_entries (person_id, deleted_at, occurred_on);
+        PRAGMA user_version = 5;
+      `);
+      const before = await db.getAllAsync<{ name: string }>('PRAGMA table_info(due_entries)');
+      expect(before.some((c) => c.name === 'due_on')).toBe(false);
+
+      await db.runAsync(
+        `INSERT INTO people (id, name, color_key, honorific, archived_at, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        ['p-1', 'Rafi', 'blue', 'bhai', null, 1700000000000, 1700000000000]
+      );
+      const rows: (string | number | null)[][] = [
+        ['d-1', 'p-1', 'lent', 200_000, null, '2026-11-01', '10:30', 'Book fair', 1700000001000, 1700000001000, null],
+        ['d-2', 'p-1', 'received_back', 50_000, null, '2026-11-05', null, '', 1700000002000, 1700000003000, null],
+        ['d-3', 'p-1', 'borrowed', 75_050, null, '2026-11-06', null, 'Deleted one', 1700000004000, 1700000005000, 1700000005000],
+      ];
+      for (const r of rows) {
+        await db.runAsync(
+          `INSERT INTO due_entries
+           (id, person_id, kind, amount_minor, account_id, occurred_on, occurred_time, note, created_at, updated_at, deleted_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          r
+        );
+      }
+      const snapshotBefore = await db.getAllAsync<Record<string, unknown>>(
+        'SELECT * FROM due_entries ORDER BY id'
+      );
+
+      await runMigrations(db);
+      await runMigrations(db); // idempotent
+
+      const ver = await db.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
+      expect(ver?.user_version).toBe(6);
+
+      const cols = await db.getAllAsync<{ name: string; type: string; notnull: number }>(
+        'PRAGMA table_info(due_entries)'
+      );
+      const dueOn = cols.find((c) => c.name === 'due_on');
+      expect(dueOn).toBeDefined();
+      expect(dueOn?.notnull).toBe(0);
+
+      const snapshotAfter = await db.getAllAsync<Record<string, unknown>>(
+        'SELECT * FROM due_entries ORDER BY id'
+      );
+      expect(snapshotAfter).toHaveLength(3);
+      for (let i = 0; i < snapshotBefore.length; i += 1) {
+        const { due_on: newCol, ...rest } = snapshotAfter[i];
+        expect(newCol).toBeNull();
+        expect(rest).toEqual(snapshotBefore[i]);
+      }
+
+      // The repo reads the old rows with dueOn null and can write and clear a due date.
+      const repo = new SqliteRepo(db);
+      const all = await repo.listAllDueEntriesForBackup();
+      expect(all.map((d) => d.dueOn)).toEqual([null, null, null]);
+      await repo.updateDueEntry('d-1', { dueOn: '2026-12-01' });
+      expect((await repo.getDueEntry('d-1'))?.dueOn).toBe('2026-12-01');
+      expect((await repo.getDueEntry('d-1'))?.amountMinor).toBe(200_000);
+      await repo.updateDueEntry('d-1', { dueOn: null });
+      expect((await repo.getDueEntry('d-1'))?.dueOn).toBeNull();
     } finally {
       close();
     }

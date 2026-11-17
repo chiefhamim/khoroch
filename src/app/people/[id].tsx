@@ -2,12 +2,14 @@ import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Linking, Share, StyleSheet, TextInput, View } from 'react-native';
-import { formatFriendlyDate, formatFriendlyTime, todayLocalDate } from '@/domain/dates';
+import { diffDays, formatFriendlyDate, formatFriendlyTime, todayLocalDate } from '@/domain/dates';
 import {
   buildReminderMessage,
+  computeOpenDueEntries,
   computePersonNetMinor,
   dueKindForAction,
   findOpenCycleStartDate,
+  formatInlineMoney,
   suggestSettleKindAndAmount,
   type ReminderLanguage,
 } from '@/domain/dues';
@@ -19,6 +21,8 @@ import { useAccounts } from '@/state/useAccounts';
 import { usePeople } from '@/state/usePeople';
 import { containsBengali, mapFontToBangla } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
+import { usePrivacyStore } from '@/state/privacyStore';
+import { dueStatusText } from '@/ui/dueStatus';
 import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
 import { DueEntrySheet } from '@/ui/DueEntrySheet';
@@ -89,6 +93,13 @@ export default function PersonDetailScreen() {
     () => findOpenCycleStartDate(personEntries, netMinor),
     [personEntries, netMinor]
   );
+
+  const openById = useMemo(
+    () => new Map(computeOpenDueEntries(personEntries).map((o) => [o.entry.id, o.openMinor])),
+    [personEntries]
+  );
+  const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
 
   const [remindLang, setRemindLang] = useState<ReminderLanguage>('bn');
   const [editedMsgState, setEditedMsgState] = useState<{ base: string; value: string } | null>(
@@ -535,12 +546,38 @@ export default function PersonDetailScreen() {
               if (wallet) subParts.push(wallet.name);
               if (entry.note.trim()) subParts.push(entry.note.trim());
 
+              // Open dated entries show their due date and, in words, how far off or late it is.
+              const openMinor = openById.get(entry.id) ?? 0;
+              let dueCaption: string | undefined;
+              let dueTone: 'danger' | 'textSecondary' = 'textSecondary';
+              if (entry.dueOn && openMinor > 0) {
+                const days = diffDays(entry.dueOn, today);
+                const parts = [
+                  t('due.dueOn', { date: formatFriendlyDate(entry.dueOn, today, locale) }),
+                  dueStatusText(days),
+                ];
+                if (openMinor < entry.amountMinor) {
+                  parts.push(
+                    t('due.stillOpen', {
+                      amount: formatInlineMoney(openMinor, currency, {
+                        hidden: hideAmounts,
+                        showPoisha,
+                      }),
+                    })
+                  );
+                }
+                dueCaption = parts.join(' · ');
+                if (days < 0) dueTone = 'danger';
+              }
+
               return (
                 <ListRow
                   key={entry.id}
                   testID={`person-entry-${entry.id}`}
                   title={getDueKindLabel(entry.kind)}
                   subtitle={subParts.join(' · ')}
+                  caption={dueCaption}
+                  captionTone={dueTone}
                   left={
                     <IconTile
                       icon={incoming ? 'arrow-down-left' : 'arrow-up-right'}

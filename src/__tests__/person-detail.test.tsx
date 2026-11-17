@@ -176,6 +176,48 @@ describe('PersonDetailScreen and PersonEditorSheet', () => {
     });
   });
 
+  it('says in words when an open entry is overdue, and shows nothing once repaid', async () => {
+    const repo = await setupPersonDetailRepo();
+    await repo.updateDueEntry('due_1', { dueOn: addDays(todayLocalDate(), -3) });
+    const view = await renderPersonDetail(repo);
+
+    await waitFor(() => {
+      expect(view.getByTestId('person-detail-hero')).toBeTruthy();
+    });
+    expect(view.getByText(/Overdue by 3 days/)).toBeTruthy();
+    view.unmount();
+
+    await repo.updateDueEntry('due_1', { dueOn: addDays(todayLocalDate(), -1) });
+    const oneDay = await renderPersonDetail(repo);
+    await waitFor(() => {
+      expect(oneDay.getByText(/Overdue by 1 day$/)).toBeTruthy();
+    });
+    oneDay.unmount();
+
+    await repo.insertDueEntry({
+      id: 'due_back',
+      personId: 'p_tanvir',
+      kind: 'received_back',
+      amountMinor: 150_000,
+      occurredOn: todayLocalDate(),
+    });
+    const settled = await renderPersonDetail(repo);
+    await waitFor(() => {
+      expect(settled.getByTestId('person-detail-hero')).toBeTruthy();
+    });
+    expect(settled.queryByText(/Overdue by/)).toBeNull();
+  });
+
+  it('writes the overdue wording in Bangla', async () => {
+    setLocale('bn');
+    const repo = await setupPersonDetailRepo();
+    await repo.updateDueEntry('due_1', { dueOn: addDays(todayLocalDate(), -1) });
+    const view = await renderPersonDetail(repo);
+    await waitFor(() => {
+      expect(view.getByText(/পরিশোধের তারিখ পেরিয়েছে ১ দিন/)).toBeTruthy();
+    });
+  });
+
   it('localizes receivable/payable status, dates, Bangla input font, and CTA minWidth', async () => {
     setLocale('bn');
     const repo = await setupPersonDetailRepo();

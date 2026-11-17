@@ -145,6 +145,36 @@ describe('PeopleTabScreen and DueEntrySheet', () => {
     expect(view.getByText('This is ৳500 more than Tanvir owes')).toBeTruthy();
   });
 
+  it('shows one caption line: overdue amount first, else due within 7 days, else nothing', async () => {
+    const repo = await setupPeopleRepo();
+    const today = todayLocalDate();
+    // Tanvir: overdue (lent 1,500 due 2 days ago). Rakib: borrowed, due in 1 day.
+    await repo.updateDueEntry('due_1', { dueOn: addDays(today, -2) });
+    await repo.updateDueEntry('due_2', { dueOn: addDays(today, 1) });
+    const view = await renderPeopleScreen(repo);
+
+    await waitFor(() => {
+      expect(view.getByText('Tanvir')).toBeTruthy();
+    });
+    expect(view.getByText('৳1,500 overdue')).toBeTruthy();
+    expect(view.getByText('Due in 1 day')).toBeTruthy();
+    view.unmount();
+
+    await repo.updateDueEntry('due_2', { dueOn: addDays(today, 8) });
+    const later = await renderPeopleScreen(repo);
+    await waitFor(() => {
+      expect(later.getByText('Rakib')).toBeTruthy();
+    });
+    expect(later.queryByText(/Due in/)).toBeNull();
+    later.unmount();
+
+    await repo.updateDueEntry('due_2', { dueOn: today });
+    const dueToday = await renderPeopleScreen(repo);
+    await waitFor(() => {
+      expect(dueToday.getByText('Due today')).toBeTruthy();
+    });
+  });
+
   it('localizes People list and DueEntrySheet into Bangla with Fabric minWidth', async () => {
     setLocale('bn');
     const repo = await setupPeopleRepo();

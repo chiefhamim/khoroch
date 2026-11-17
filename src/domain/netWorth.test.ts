@@ -33,8 +33,8 @@ describe('netWorth, fee intelligence & upcoming bills', () => {
       { id: 'p2', name: 'Rakib', colorKey: 'teal', honorific: 'none', archivedAt: null, createdAt: 1, updatedAt: 1 },
     ];
     const dues: DueEntry[] = [
-      { id: 'd1', personId: 'p1', kind: 'lent', amountMinor: 50_000, accountId: null, occurredOn: '2026-11-05', occurredTime: null, note: '', createdAt: 1, updatedAt: 1, deletedAt: null },
-      { id: 'd2', personId: 'p2', kind: 'borrowed', amountMinor: 20_000, accountId: null, occurredOn: '2026-11-06', occurredTime: null, note: '', createdAt: 1, updatedAt: 1, deletedAt: null },
+      { id: 'd1', personId: 'p1', kind: 'lent', amountMinor: 50_000, accountId: null, occurredOn: '2026-11-05', occurredTime: null, dueOn: null, note: '', createdAt: 1, updatedAt: 1, deletedAt: null },
+      { id: 'd2', personId: 'p2', kind: 'borrowed', amountMinor: 20_000, accountId: null, occurredOn: '2026-11-06', occurredTime: null, dueOn: null, note: '', createdAt: 1, updatedAt: 1, deletedAt: null },
     ];
     const bills: RecurringBill[] = [
       {

@@ -10,6 +10,9 @@ import { listLayoutTransition } from './motion';
 export interface ListRowProps {
   title: string;
   subtitle?: string;
+  /** Optional extra caption line under the subtitle; wraps, never truncates. */
+  caption?: string;
+  captionTone?: 'danger' | 'textSecondary';
   titleNumberOfLines?: number;
   left?: React.ReactNode;
   right?: React.ReactNode;
@@ -26,6 +29,8 @@ export interface ListRowProps {
 export function ListRow({
   title,
   subtitle,
+  caption,
+  captionTone = 'textSecondary',
   titleNumberOfLines = 2,
   left,
   right,
@@ -66,6 +71,11 @@ export function ListRow({
           {subtitle ? (
             <AppText variant="caption" color="textSecondary" numberOfLines={2}>
               {subtitle}
+            </AppText>
+          ) : null}
+          {caption ? (
+            <AppText variant="caption" color={captionTone}>
+              {caption}
             </AppText>
           ) : null}
         </View>

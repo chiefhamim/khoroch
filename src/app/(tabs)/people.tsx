@@ -2,10 +2,11 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { formatFriendlyDate, todayLocalDate } from '@/domain/dates';
-import { type PersonSummary } from '@/domain/dues';
+import { computePersonDueSchedule, formatInlineMoney, type PersonSummary } from '@/domain/dues';
 import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { usePeople } from '@/state/usePeople';
+import { usePrivacyStore } from '@/state/privacyStore';
 import { useTheme } from '@/theme/useTheme';
 import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
 import { Button } from '@/ui/Button';
@@ -19,6 +20,7 @@ import { PersonAvatar } from '@/ui/PersonAvatar';
 import { PersonEditorSheet } from '@/ui/PersonEditorSheet';
 import { Screen } from '@/ui/Screen';
 import { Surface } from '@/ui/Surface';
+import { DUE_SOON_DAYS, dueStatusText } from '@/ui/dueStatus';
 import { hapticSelection } from '@/ui/haptics';
 
 export default function PeopleTabScreen() {
@@ -35,6 +37,8 @@ export default function PeopleTabScreen() {
 
   const today = todayLocalDate();
   const currency = settings.currency;
+  const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
+  const showPoisha = usePrivacyStore((s) => s.showPoisha);
 
   const visibleList = overview.openPeople;
   const owesYouLabel = t('people.owesYou');
@@ -64,12 +68,34 @@ export default function PeopleTabScreen() {
 
     const absNet = Math.abs(summary.netMinor);
 
+    // One caption line: overdue amount wins; otherwise a due date within DUE_SOON_DAYS.
+    const schedule = computePersonDueSchedule(summary.entries, today);
+    let caption: string | undefined;
+    let captionTone: 'danger' | 'textSecondary' = 'textSecondary';
+    if (schedule.overdueMinor > 0) {
+      caption = t('people.overdueAmount', {
+        amount: formatInlineMoney(schedule.overdueMinor, currency, {
+          hidden: hideAmounts,
+          showPoisha,
+        }),
+      });
+      captionTone = 'danger';
+    } else if (
+      schedule.daysUntilNext !== null &&
+      schedule.daysUntilNext >= 0 &&
+      schedule.daysUntilNext <= DUE_SOON_DAYS
+    ) {
+      caption = dueStatusText(schedule.daysUntilNext);
+    }
+
     return (
       <ListRow
         key={summary.person.id}
         testID={`people-row-${summary.person.id}`}
         title={summary.person.name}
         subtitle={subtitle}
+        caption={caption}
+        captionTone={captionTone}
         left={
           <PersonAvatar
             name={summary.person.name}

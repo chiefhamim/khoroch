@@ -358,10 +358,16 @@ export function validateNewDueEntry(d: {
   accountId?: unknown;
   occurredOn: unknown;
   occurredTime?: unknown;
+  dueOn?: unknown;
   note?: unknown;
 }): ValidationResult {
   const errors: string[] = [];
 
+  if (d.dueOn !== undefined && d.dueOn !== null) {
+    if (typeof d.dueOn !== 'string' || !isValidLocalDate(d.dueOn)) {
+      errors.push('invalid_due_on');
+    }
+  }
   if (typeof d.id !== 'string' || d.id.trim().length === 0) {
     errors.push('invalid_due_id');
   }

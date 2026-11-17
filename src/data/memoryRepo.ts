@@ -742,6 +742,7 @@ export class MemoryRepo implements Repo {
       accountId: d.accountId ?? null,
       occurredOn: d.occurredOn,
       occurredTime: d.occurredTime ?? null,
+      dueOn: d.dueOn ?? null,
       note: d.note ?? '',
       createdAt: d.createdAt ?? now,
       updatedAt: d.updatedAt ?? now,
@@ -760,6 +761,7 @@ export class MemoryRepo implements Repo {
       accountId: patch.accountId !== undefined ? patch.accountId : existing.accountId,
       occurredOn: patch.occurredOn !== undefined ? patch.occurredOn : existing.occurredOn,
       occurredTime: patch.occurredTime !== undefined ? patch.occurredTime : existing.occurredTime,
+      dueOn: patch.dueOn !== undefined ? patch.dueOn : existing.dueOn,
       note: patch.note !== undefined ? patch.note : existing.note,
       updatedAt: Date.now(),
     };
