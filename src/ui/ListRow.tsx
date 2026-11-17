@@ -102,7 +102,10 @@ export function ListRow({
       pressScale={0.985}
       testID={testID}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityLabel={
+        accessibilityLabel ??
+        [title, subtitle, caption].filter((p): p is string => typeof p === 'string' && p.length > 0).join('. ')
+      }
       onPress={onPress}
       style={({ pressed }) => ({
         opacity: pressed && !reducedMotion ? 0.78 : 1,

@@ -1,11 +1,12 @@
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { formatFriendlyDate, todayLocalDate } from '@/domain/dates';
+import { formatFriendlyDate } from '@/domain/dates';
 import { computePersonDueSchedule, formatInlineMoney, type PersonSummary } from '@/domain/dues';
 import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { usePeople } from '@/state/usePeople';
+import { useToday } from '@/state/useToday';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useTheme } from '@/theme/useTheme';
 import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
@@ -35,10 +36,19 @@ export default function PeopleTabScreen() {
   const [dueSheetOpen, setDueSheetOpen] = useState(false);
   const [personSheetOpen, setPersonSheetOpen] = useState(false);
 
-  const today = todayLocalDate();
+  const today = useToday();
   const currency = settings.currency;
   const hideAmounts = usePrivacyStore((s) => s.hideAmounts);
   const showPoisha = usePrivacyStore((s) => s.showPoisha);
+
+  // Due schedule per person, computed once per data or day change, not per row render.
+  const scheduleByPerson = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof computePersonDueSchedule>>();
+    for (const summary of overview.allActivePeople) {
+      map.set(summary.person.id, computePersonDueSchedule(summary.entries, today));
+    }
+    return map;
+  }, [overview.allActivePeople, today]);
 
   const visibleList = overview.openPeople;
   const owesYouLabel = t('people.owesYou');
@@ -69,7 +79,8 @@ export default function PeopleTabScreen() {
     const absNet = Math.abs(summary.netMinor);
 
     // One caption line: overdue amount wins; otherwise a due date within DUE_SOON_DAYS.
-    const schedule = computePersonDueSchedule(summary.entries, today);
+    const schedule =
+      scheduleByPerson.get(summary.person.id) ?? computePersonDueSchedule(summary.entries, today);
     let caption: string | undefined;
     let captionTone: 'danger' | 'textSecondary' = 'textSecondary';
     if (schedule.overdueMinor > 0) {

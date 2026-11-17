@@ -968,6 +968,7 @@ export const bn: Record<TranslationKey, string> = {
   'due.dueDateNone': 'তারিখ নেই',
   'due.dueDateAdd': 'তারিখ নির্ধারণ করুন',
   'due.dueDateRemove': 'তারিখ সরিয়ে দিন',
+  'due.dueDateCleared': 'নতুন এন্ট্রির তারিখের আগে হওয়ায় পরিশোধের তারিখ মুছে ফেলা হয়েছে',
   'due.dueDateSheetTitle': 'পরিশোধের তারিখ',
   'due.dueOn': 'পরিশোধের তারিখ {date}',
   'due.overdueByOne': 'পরিশোধের তারিখ পেরিয়েছে ১ দিন',

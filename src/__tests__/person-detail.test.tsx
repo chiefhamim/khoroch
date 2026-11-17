@@ -17,6 +17,9 @@ const mockReplace = jest.fn();
 const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
+  useFocusEffect: (cb: () => void) => {
+    jest.requireActual<typeof import('react')>('react').useEffect(cb, [cb]);
+  },
   router: {
     push: (...args: unknown[]) => mockPush(...args),
     back: (...args: unknown[]) => mockBack(...args),
@@ -178,7 +181,10 @@ describe('PersonDetailScreen and PersonEditorSheet', () => {
 
   it('says in words when an open entry is overdue, and shows nothing once repaid', async () => {
     const repo = await setupPersonDetailRepo();
-    await repo.updateDueEntry('due_1', { dueOn: addDays(todayLocalDate(), -3) });
+    await repo.updateDueEntry('due_1', {
+      occurredOn: addDays(todayLocalDate(), -10),
+      dueOn: addDays(todayLocalDate(), -3),
+    });
     const view = await renderPersonDetail(repo);
 
     await waitFor(() => {

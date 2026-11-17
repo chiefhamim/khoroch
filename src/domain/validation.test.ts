@@ -6,8 +6,32 @@ import {
   isValidCategoryKind,
   isValidQuickEntryText,
   validateCategoryInput,
+  validateNewDueEntry,
   validateNewTransaction,
 } from './validation';
+
+describe('due entry due date', () => {
+  const base = {
+    id: 'd1',
+    personId: 'p1',
+    kind: 'lent',
+    amountMinor: 1000,
+    occurredOn: '2026-11-10',
+  };
+
+  it('rejects a due date before the entry date', () => {
+    const res = validateNewDueEntry({ ...base, dueOn: '2026-11-09' });
+    expect(res.valid).toBe(false);
+    expect(res.errors).toContain('due_before_entry_date');
+  });
+
+  it('accepts a due date on or after the entry date, or none', () => {
+    expect(validateNewDueEntry({ ...base, dueOn: '2026-11-10' }).valid).toBe(true);
+    expect(validateNewDueEntry({ ...base, dueOn: '2027-01-01' }).valid).toBe(true);
+    expect(validateNewDueEntry({ ...base, dueOn: null }).valid).toBe(true);
+    expect(validateNewDueEntry(base).valid).toBe(true);
+  });
+});
 
 describe('validation', () => {
   it('accepts valid expense and income transactions', () => {

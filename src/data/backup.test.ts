@@ -556,6 +556,15 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       const bad = JSON.parse(json) as { data: { due_entries: Record<string, unknown>[] } };
       bad.data.due_entries[0].dueOn = '2026-13-40';
       expect(() => parseAndValidateBackup(JSON.stringify(bad))).toThrow(/invalid_due_on/);
+
+      // A due date earlier than the entry date is rejected on import too.
+      const early = JSON.parse(json) as { data: { due_entries: Record<string, unknown>[] } };
+      const earlyRow = early.data.due_entries.find((d) => d.id === 'd-rafi-1');
+      expect(earlyRow).toBeDefined();
+      (earlyRow as Record<string, unknown>).dueOn = '2026-11-08';
+      expect(() => parseAndValidateBackup(JSON.stringify(early))).toThrow(
+        /due_before_entry_date/
+      );
     } finally {
       src.close();
       dst.close();

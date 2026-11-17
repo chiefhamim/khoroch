@@ -2,7 +2,8 @@ import * as Clipboard from 'expo-clipboard';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Linking, Share, StyleSheet, TextInput, View } from 'react-native';
-import { diffDays, formatFriendlyDate, formatFriendlyTime, todayLocalDate } from '@/domain/dates';
+import { diffDays, formatFriendlyDate, formatFriendlyTime } from '@/domain/dates';
+import { useToday } from '@/state/useToday';
 import {
   buildReminderMessage,
   computeOpenDueEntries,
@@ -70,7 +71,7 @@ export default function PersonDetailScreen() {
   const { peopleById, allPeople, dueEntries, loading } = usePeople();
   const { accountsById } = useAccounts();
 
-  const today = todayLocalDate();
+  const today = useToday();
   const referenceYear = Number.parseInt(today.slice(0, 4), 10);
   const currency = settings.currency;
   const use24Hour = true;
@@ -550,7 +551,11 @@ export default function PersonDetailScreen() {
               const openMinor = openById.get(entry.id) ?? 0;
               let dueCaption: string | undefined;
               let dueTone: 'danger' | 'textSecondary' = 'textSecondary';
-              if (entry.dueOn && openMinor > 0) {
+              if (
+                entry.dueOn &&
+                (entry.kind === 'lent' || entry.kind === 'borrowed') &&
+                openMinor > 0
+              ) {
                 const days = diffDays(entry.dueOn, today);
                 const parts = [
                   t('due.dueOn', { date: formatFriendlyDate(entry.dueOn, today, locale) }),

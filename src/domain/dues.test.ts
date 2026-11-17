@@ -2,14 +2,15 @@ import {
   buildReminderMessage,
   checkDueOverpayment,
   computeDuesOverview,
-  computeOpenDueEntries,
-  computePersonDueSchedule,
+  computeOpenDueEntries as rawComputeOpenDueEntries,
+  computePersonDueSchedule as rawComputePersonDueSchedule,
   dueKindForAction,
   computePersonNetMinor,
   findOpenCycleStartDate,
   formatHomeDuesSummaryLine,
   formatInlineMoney,
   getPersonInitials,
+  signedDeltaForDueKind,
   suggestSettleKindAndAmount,
   toBanglaDigits,
 } from './dues';
@@ -291,7 +292,23 @@ describe('dues domain helpers (TEST-CASES-v1.2 §B)', () => {
 });
 
 describe('due dates: overdue, next due, days until or since', () => {
-  const lent = (id: string, amountMinor: number, dueOn: string | null, createdAt = 1000) =>
+  // Every case also asserts that the open amounts sum exactly to |net| and that only
+  // the direction of the net balance is open.
+  const computeOpenDueEntries = (entries: DueEntry[]) => {
+    const open = rawComputeOpenDueEntries(entries);
+    const net = computePersonNetMinor(entries);
+    expect(open.reduce((sum, o) => sum + o.openMinor, 0)).toBe(Math.abs(net));
+    for (const o of open) {
+      expect(o.openMinor).toBeGreaterThan(0);
+      expect(signedDeltaForDueKind(o.entry.kind, 1) > 0).toBe(net > 0);
+    }
+    return open;
+  };
+  const computePersonDueSchedule = (entries: DueEntry[], asOf: string) => {
+    computeOpenDueEntries(entries);
+    return rawComputePersonDueSchedule(entries, asOf);
+  };
+  const lent =(id: string, amountMinor: number, dueOn: string | null, createdAt = 1000) =>
     makeDue({ id, personId: 'p', kind: 'lent', amountMinor, dueOn, createdAt });
   const back = (id: string, amountMinor: number, createdAt = 2000) =>
     makeDue({ id, personId: 'p', kind: 'received_back', amountMinor, createdAt });
@@ -424,9 +441,105 @@ describe('due dates: overdue, next due, days until or since', () => {
 
   it('after an overpayment flips the balance, the old lent entries are not open', () => {
     const entries = [lent('a', 100_000, '2026-11-01'), back('r', 150_000)];
-    // net is -50,000 and there is no dated borrowed entry to be overdue.
-    expect(computePersonDueSchedule(entries, '2026-11-17').overdueMinor).toBe(0);
-    expect(computeOpenDueEntries(entries)).toEqual([]);
+    // net is -50,000: the excess is open on the repayment entry itself, which has no
+    // due date, so nothing is overdue and no due date is reported.
+    const s = computePersonDueSchedule(entries, '2026-11-17');
+    expect(s.overdueMinor).toBe(0);
+    expect(s.nextDueOn).toBeNull();
+    expect(computeOpenDueEntries(entries).map((o) => [o.entry.id, o.openMinor])).toEqual([
+      ['r', 50_000],
+    ]);
+  });
+
+  it('a repayment from a settled earlier cycle does not hide a new overdue loan', () => {
+    const entries = [
+      makeDue({
+        id: 'old',
+        personId: 'p',
+        kind: 'lent',
+        amountMinor: 100_000,
+        occurredOn: '2026-09-01',
+        dueOn: '2026-12-31',
+      }),
+      makeDue({
+        id: 'repaid',
+        personId: 'p',
+        kind: 'received_back',
+        amountMinor: 100_000,
+        occurredOn: '2026-10-01',
+      }),
+      makeDue({
+        id: 'new',
+        personId: 'p',
+        kind: 'lent',
+        amountMinor: 50_000,
+        occurredOn: '2026-11-01',
+        dueOn: '2026-11-10',
+      }),
+    ];
+    const open = computeOpenDueEntries(entries);
+    expect(open.map((o) => [o.entry.id, o.openMinor])).toEqual([['new', 50_000]]);
+    const s = computePersonDueSchedule(entries, '2026-11-17');
+    expect(s.overdueMinor).toBe(50_000);
+    expect(s.nextDueOn).toBe('2026-11-10');
+    expect(s.daysUntilNext).toBe(-7);
+  });
+
+  it('settled borrowed cycle, then lent, then an overpayment: excess is open as I owe', () => {
+    const entries = [
+      makeDue({
+        id: 'b',
+        personId: 'p',
+        kind: 'borrowed',
+        amountMinor: 30_000,
+        occurredOn: '2026-09-01',
+        dueOn: '2026-10-01',
+      }),
+      makeDue({
+        id: 'pb',
+        personId: 'p',
+        kind: 'paid_back',
+        amountMinor: 30_000,
+        occurredOn: '2026-09-15',
+      }),
+      makeDue({
+        id: 'l',
+        personId: 'p',
+        kind: 'lent',
+        amountMinor: 100_000,
+        occurredOn: '2026-10-05',
+      }),
+      makeDue({
+        id: 'rb',
+        personId: 'p',
+        kind: 'received_back',
+        amountMinor: 150_000,
+        occurredOn: '2026-11-10',
+      }),
+    ];
+    expect(computePersonNetMinor(entries)).toBe(-50_000);
+    const open = computeOpenDueEntries(entries);
+    // The old borrowed entry is settled; only the excess on the repayment entry is open.
+    expect(open.map((o) => [o.entry.id, o.openMinor])).toEqual([['rb', 50_000]]);
+    const s = computePersonDueSchedule(entries, '2026-11-17');
+    expect(s.overdueMinor).toBe(0);
+    expect(s.nextDueOn).toBeNull();
+  });
+
+  it('a later entry in the flipped direction reduces the excess like any open amount', () => {
+    const entries = [
+      lent('a', 100_000, null),
+      back('r', 150_000, 2000),
+      makeDue({
+        id: 'l2',
+        personId: 'p',
+        kind: 'lent',
+        amountMinor: 20_000,
+        occurredOn: '2026-11-12',
+      }),
+    ];
+    const open = computeOpenDueEntries(entries);
+    expect(open.map((o) => [o.entry.id, o.openMinor])).toEqual([['r', 30_000]]);
   });
 
   it('sums several overdue entries exactly in integer minor units', () => {

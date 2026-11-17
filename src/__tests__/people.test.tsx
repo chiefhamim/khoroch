@@ -12,6 +12,9 @@ import { ToastProvider } from '@/ui/Toast';
 const mockPush = jest.fn();
 
 jest.mock('expo-router', () => ({
+  useFocusEffect: (cb: () => void) => {
+    jest.requireActual<typeof import('react')>('react').useEffect(cb, [cb]);
+  },
   router: {
     push: (...args: unknown[]) => mockPush(...args),
     back: jest.fn(),
@@ -149,7 +152,10 @@ describe('PeopleTabScreen and DueEntrySheet', () => {
     const repo = await setupPeopleRepo();
     const today = todayLocalDate();
     // Tanvir: overdue (lent 1,500 due 2 days ago). Rakib: borrowed, due in 1 day.
-    await repo.updateDueEntry('due_1', { dueOn: addDays(today, -2) });
+    await repo.updateDueEntry('due_1', {
+      occurredOn: addDays(today, -10),
+      dueOn: addDays(today, -2),
+    });
     await repo.updateDueEntry('due_2', { dueOn: addDays(today, 1) });
     const view = await renderPeopleScreen(repo);
 
@@ -173,6 +179,26 @@ describe('PeopleTabScreen and DueEntrySheet', () => {
     await waitFor(() => {
       expect(dueToday.getByText('Due today')).toBeTruthy();
     });
+  });
+
+  it('row accessibility label reads title, subtitle and the overdue caption', async () => {
+    const repo = await setupPeopleRepo();
+    await repo.updateDueEntry('due_1', {
+      occurredOn: addDays(todayLocalDate(), -10),
+      dueOn: addDays(todayLocalDate(), -2),
+    });
+    const view = await renderPeopleScreen(repo);
+
+    await waitFor(() => {
+      expect(view.getByText('Tanvir')).toBeTruthy();
+    });
+    const label = view.getByTestId('people-row-p_tanvir').props.accessibilityLabel as string;
+    expect(label).toContain('Tanvir');
+    expect(label).toContain('· 1 entry');
+    expect(label).toContain('৳1,500 overdue');
+    // A row without a caption still reads title and subtitle.
+    const rakib = view.getByTestId('people-row-p_rakib').props.accessibilityLabel as string;
+    expect(rakib).toBe('Rakib. Since Yesterday · 1 entry');
   });
 
   it('localizes People list and DueEntrySheet into Bangla with Fabric minWidth', async () => {

@@ -375,6 +375,13 @@ export function validateNewDueEntry(d: {
   if (d.dueOn !== undefined && d.dueOn !== null) {
     if (typeof d.dueOn !== 'string' || !isValidLocalDate(d.dueOn)) {
       errors.push('invalid_due_on');
+    } else if (
+      typeof d.occurredOn === 'string' &&
+      isValidLocalDate(d.occurredOn) &&
+      d.dueOn < d.occurredOn
+    ) {
+      // LocalDate is zero-padded YYYY-MM-DD, so string order is date order.
+      errors.push('due_before_entry_date');
     }
   }
   if (typeof d.id !== 'string' || d.id.trim().length === 0) {

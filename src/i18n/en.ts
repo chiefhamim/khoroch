@@ -954,6 +954,7 @@ export const en = {
   'due.dueDateNone': 'No due date',
   'due.dueDateAdd': 'Set due date',
   'due.dueDateRemove': 'Remove due date',
+  'due.dueDateCleared': 'Due date cleared because it was before the new entry date',
   'due.dueDateSheetTitle': 'Due date',
   'due.dueOn': 'Due {date}',
   'due.overdueByOne': 'Overdue by 1 day',

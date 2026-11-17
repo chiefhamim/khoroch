@@ -122,7 +122,17 @@ function DueEntryBody({
   );
   const [note, setNote] = useState<string>(() => editingEntry?.note ?? '');
   const [dueOn, setDueOn] = useState<LocalDate | null>(() => editingEntry?.dueOn ?? null);
+  const [dueCleared, setDueCleared] = useState(false);
   const [dueOnPickerOpen, setDueOnPickerOpen] = useState(false);
+
+  // A due date cannot be earlier than the entry date: clear it and say so.
+  const handleOccurredOnChange = (next: LocalDate) => {
+    setOccurredOn(next);
+    if (dueOn && dueOn < next) {
+      setDueOn(null);
+      setDueCleared(true);
+    }
+  };
   const [walletPickerOpen, setWalletPickerOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -510,7 +520,7 @@ function DueEntryBody({
             <DateField
               testID="due-date-field"
               value={occurredOn}
-              onChange={setOccurredOn}
+              onChange={handleOccurredOnChange}
               maximumDate={new Date()}
             />
             <TimeField
@@ -542,7 +552,7 @@ function DueEntryBody({
                   hapticSelection();
                   setDueOnPickerOpen(true);
                 }}
-                style={styles.dueValueBtn}
+                style={[styles.dueValueBtn, { minHeight: theme.touch.min }]}
               >
                 <AppText variant="bodyStrong" color={dueOn ? 'text' : 'accent'} style={styles.rowValue}>
                   {dueOn ? formatFriendlyDate(dueOn, todayLocalDate(), locale) : t('due.dueDateAdd')}
@@ -557,8 +567,12 @@ function DueEntryBody({
                   onPress={() => {
                     hapticSelection();
                     setDueOn(null);
+                    setDueCleared(false);
                   }}
-                  style={styles.dueRemoveBtn}
+                  style={[
+                    styles.dueRemoveBtn,
+                    { width: theme.touch.min, height: theme.touch.min },
+                  ]}
                 >
                   <AppIcon name="x" size={18} color={theme.colors.textSecondary} />
                 </PressableScale>
@@ -568,13 +582,22 @@ function DueEntryBody({
         ) : null}
       </Surface>
 
+      {dueCleared && !dueOn && (kind === 'lent' || kind === 'borrowed') ? (
+        <AppText testID="due-duedate-cleared-note" variant="caption" color="textSecondary">
+          {t('due.dueDateCleared')}
+        </AppText>
+      ) : null}
+
       <DateTimeSheet
         visible={dueOnPickerOpen}
         mode="date"
         date={dueOn ?? undefined}
         title={t('due.dueDateSheetTitle')}
         minDate={occurredOn}
-        onDateChange={setDueOn}
+        onDateChange={(next) => {
+          setDueOn(next);
+          setDueCleared(false);
+        }}
         onClose={() => setDueOnPickerOpen(false)}
       />
 
@@ -744,12 +767,9 @@ const styles = StyleSheet.create({
   },
   dueValueBtn: {
     flex: 1,
-    minHeight: 48,
     justifyContent: 'center',
   },
   dueRemoveBtn: {
-    width: 48,
-    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },

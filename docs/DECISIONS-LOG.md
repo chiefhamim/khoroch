@@ -162,3 +162,10 @@ Format:
 - The field shows on every wallet kind in the editor (it only has an effect on transfers out of that wallet). Empty clears it to null; 0 is stored as 0 and treated as no default.
 - Transfer form: the fee field is derived, not copied. While the user has not typed a fee and the source wallet has a rate above 0, the field shows the computed fee and follows the amount and the source wallet. Typing a non-empty fee sets "edited" and it stops following; clearing the field returns to the pre-fill. Opening a saved transfer starts as edited, so its stored fee is shown as is. The caption "{rate}% default for {wallet}" shows only while the pre-fill is active and above 0. The saved fee is the parsed text shown in the field.
 - Fee text is shown without a trailing zero, as before (`18.5`, `185`).
+
+## Due dates review fixes (open amounts and overpayments)
+
+- `computeOpenDueEntries` replays a person's entries chronologically (occurredOn, createdAt, id). Each entry first reduces what is open in the opposite direction at that moment (earliest due date first, undated last); the rest becomes open in its own direction. A repayment therefore never touches loans made after it, and a settled earlier cycle cannot hide a new overdue loan.
+- An overpayment with no originating loan entry has no loan to point at. The excess is represented as an open amount on the repayment entry itself (for example the `received_back` entry that exceeded what was owed, open in the "I owe" direction). Such an entry has no due date that counts (a due date only counts on `lent` and `borrowed`), so it is never overdue and never gives a next due date. Later entries in the other direction reduce it the same way as any open amount.
+- At the end only the direction of the net balance is open and the open amounts sum exactly to |net|.
+- A due date earlier than the entry date is invalid: the entry sheet clears it when the entry date moves past it (with a one-line caption), and `validateNewDueEntry` rejects it (`due_before_entry_date`), so backup import rejects it too.
