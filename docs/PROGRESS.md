@@ -587,3 +587,9 @@ Re-read: AGENTS §6 · PLAN §6
   - Seen on the phone (dev app, light mode): Home, Ledger Day book, Plan, People. Migrations 6 and 7 ran on the dev app and it opens normally. NOT VERIFIED on a screen: due-date captions, fee pre-fill in quick entry, payoff block, worked-today strip (none have data on the phone), all sheets, Settings, onboarding, lock screens, Bangla, 360dp width.
   - Backups from the dev app are now schema 7; the owner's main app refuses them until it is updated.
   - Metro hangs after every Android build; restart it. Builders sometimes leave a file invalid for a few seconds mid-edit (two transient red-screen errors logged by Metro).
+- End of the orchestrated session (2026-11-17), HEAD b946a91 on dev, not pushed. Checks at b946a91: typecheck exit 0; `npm test` 70 suites, 704 tests, none skipped; lint clean.
+  - Backlog in docs/SYNTHESIS.md section 5 is complete in code: 5 bill reminders (235dde6, fixes e78351b, 813ab78), 8 weekly period (40a34b5, fixes b946a91), 10 worked today (94f9f17, fixes d8947be, 1eb066f, 813ab78). Each was reviewed; 813ab78 and b946a91 have NOT had a follow-up review yet.
+  - One "paid this period" rule for bills, bounded to the period, in src/domain/calc.ts. Spending period (week or month) and bill period (always monthly) are separate functions in src/domain/period.ts.
+  - Schema is 7; backup schema 7. No table changes after the wallet fee column.
+  - NOT VERIFIED on a device: every notification path, the worked-today strip, weekly mode, due-date captions, fee pre-fill, payoff block, all app lock screens, Bangla, dark mode for anything after Home, 360dp width. Last phone screenshots (Home, Ledger, Plan, People in light mode) predate the weekly commits; the dev app was not in front afterwards, so nothing was sent to the phone.
+  - Not done from docs/PLAN.md: phases 3 to 5 specs (capture incl. SMS parsing, insights, security and sync).
