@@ -593,3 +593,4 @@ Re-read: AGENTS §6 · PLAN §6
   - Schema is 7; backup schema 7. No table changes after the wallet fee column.
   - NOT VERIFIED on a device: every notification path, the worked-today strip, weekly mode, due-date captions, fee pre-fill, payoff block, all app lock screens, Bangla, dark mode for anything after Home, 360dp width. Last phone screenshots (Home, Ledger, Plan, People in light mode) predate the weekly commits; the dev app was not in front afterwards, so nothing was sent to the phone.
   - Not done from docs/PLAN.md: phases 3 to 5 specs (capture incl. SMS parsing, insights, security and sync).
+  - f554996: closing review fixes after 813ab78 and b946a91 both passed review. Checks at f554996: typecheck exit 0; 72 suites, 719 tests, none skipped; lint clean. f554996 itself has not been reviewed.
