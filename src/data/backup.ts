@@ -12,6 +12,7 @@ import {
   normalizeBanglaFontKey,
   normalizeExpenseColorKey,
   normalizeHomeSections,
+  normalizePinnedAmounts,
   normalizeIncomeColorKey,
   normalizeReminderDays,
   normalizeWeekStartDay,
@@ -150,6 +151,7 @@ function sanitizeSettingsForExport(s: Settings): Settings {
       typeof s.lastUsedAccountId === 'string' && s.lastUsedAccountId.trim().length > 0
         ? s.lastUsedAccountId
         : null,
+    pinnedAmounts: normalizePinnedAmounts(s.pinnedAmounts),
   };
 }
 
@@ -810,6 +812,7 @@ function validateSettingsObject(raw: unknown): Settings {
       typeof obj.lastUsedAccountId === 'string' && obj.lastUsedAccountId.trim().length > 0
         ? obj.lastUsedAccountId
         : null,
+    pinnedAmounts: normalizePinnedAmounts(obj.pinnedAmounts),
   };
 }
 

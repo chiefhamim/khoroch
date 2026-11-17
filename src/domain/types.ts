@@ -494,6 +494,37 @@ export function normalizeHomeSections(raw: unknown): HomeSectionConfig[] {
   return result;
 }
 
+/** Most amounts a person can pin per transaction type. */
+export const MAX_PINNED_AMOUNTS = 4;
+
+/** Pinned quick amounts in integer minor units, per transaction type. */
+export interface PinnedAmounts {
+  expense: number[];
+  income: number[];
+}
+
+export function emptyPinnedAmounts(): PinnedAmounts {
+  return { expense: [], income: [] };
+}
+
+function normalizePinnedList(raw: unknown): number[] {
+  if (!Array.isArray(raw)) return [];
+  const out: number[] = [];
+  for (const item of raw) {
+    if (typeof item !== 'number' || !Number.isSafeInteger(item) || item <= 0) continue;
+    if (out.includes(item)) continue;
+    out.push(item);
+    if (out.length === MAX_PINNED_AMOUNTS) break;
+  }
+  return out;
+}
+
+export function normalizePinnedAmounts(raw: unknown): PinnedAmounts {
+  if (!raw || typeof raw !== 'object') return emptyPinnedAmounts();
+  const rec = raw as { expense?: unknown; income?: unknown };
+  return { expense: normalizePinnedList(rec.expense), income: normalizePinnedList(rec.income) };
+}
+
 export interface Settings {
   onboardingDone: boolean;
   name: string;
@@ -521,6 +552,7 @@ export interface Settings {
   lastBackupAt: number | null;
   speechDisclosureAccepted: boolean;
   lastUsedAccountId: string | null;
+  pinnedAmounts: PinnedAmounts;
 }
 
 export interface Period {

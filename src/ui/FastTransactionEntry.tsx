@@ -16,23 +16,29 @@ import {
   isDevice24HourClock,
   todayLocalDate,
 } from '@/domain/dates';
+import { canPinAmount, pinAmount, recentDistinctEntries, unpinAmount } from '@/domain/captureShortcuts';
 import { formatMinorToDraft, parseMoneyInput } from '@/domain/money';
-import type {
-  Account,
-  Category,
-  CurrencyCode,
-  LocalDate,
-  LocalTime,
-  Transaction,
-  TransactionType,
-  WeekStartDay,
+import {
+  emptyPinnedAmounts,
+  type Account,
+  type Category,
+  type CurrencyCode,
+  type LocalDate,
+  type LocalTime,
+  type PinnedAmounts,
+  type Transaction,
+  type TransactionType,
+  type WeekStartDay,
 } from '@/domain/types';
 import { t, useLocale } from '@/i18n';
+import { bn } from '@/i18n/bn';
+import { en } from '@/i18n/en';
 import { containsBengali, mapFontToBangla } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon, type AppIconName } from './AppIcon';
 import { AppText, estimateSingleLineMinWidth } from './AppText';
 import { Button } from './Button';
+import { PresetAmounts, RepeatChips } from './CaptureShortcuts';
 import { DateTimeSheet } from './DateTimeSheet';
 import { hapticSelection } from './haptics';
 import { IconTile } from './IconTile';
@@ -60,6 +66,9 @@ export interface FastTransactionEntryProps {
   accounts: Account[];
   defaultAccountId?: string | null;
   recentTransactions?: Transaction[];
+  /** Pinned quick amounts. Presets and the Pin amount action show only when a change handler is given. */
+  pinnedAmounts?: PinnedAmounts;
+  onPinnedAmountsChange?: (next: PinnedAmounts) => void;
   weekStartsOn?: WeekStartDay;
   onClose: () => void;
   onSubmit: (values: FastEntryValues) => Promise<void>;
@@ -183,6 +192,8 @@ export function FastTransactionEntry({
   accounts,
   defaultAccountId,
   recentTransactions = [],
+  pinnedAmounts,
+  onPinnedAmountsChange,
   weekStartsOn,
   onClose,
   onSubmit,
@@ -301,6 +312,39 @@ export function FastTransactionEntry({
     if (s.categoryId && typeCategories.some((c) => c.id === s.categoryId)) setCategory(s.categoryId);
     Keyboard.dismiss();
   };
+
+  const categoriesById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+  // Up to three recent distinct entries whose category is still active. Fills the form only.
+  const repeatEntries = useMemo(() => {
+    if (isEdit) return [];
+    const usable = recentTransactions.filter((tx) => {
+      const category = tx.categoryId ? categoriesById.get(tx.categoryId) : undefined;
+      return category !== undefined && category.archivedAt === null && category.kind === tx.type;
+    });
+    return recentDistinctEntries(usable, {
+      adjustmentDescriptions: [en['wallets.adjustmentDescription'], bn['wallets.adjustmentDescription']],
+    });
+  }, [isEdit, recentTransactions, categoriesById]);
+
+  const applyRepeat = (entry: Transaction) => {
+    setType(entry.type);
+    setCategoryByType((prev) => ({ ...prev, [entry.type]: entry.categoryId }));
+    if (entry.accountId === null || accounts.some((account) => account.id === entry.accountId)) {
+      setAccountId(entry.accountId);
+    }
+    setAmountText(formatMinorToDraft(entry.amountMinor));
+    setDescription(entry.description);
+    setNote(entry.note);
+    setNoteOpen(Boolean(entry.note));
+    setOccurredOn(today);
+    setOccurredTime(currentLocalTime());
+    setTimeTouched(false);
+  };
+
+  const pinned = pinnedAmounts ?? emptyPinnedAmounts();
+  const presetsEnabled = !isEdit && onPinnedAmountsChange !== undefined;
+  const presetAmounts = presetsEnabled ? pinned[type] : [];
+  const canPin = presetsEnabled && canPinAmount(pinned, type, parsedAmount);
 
   const whenLabel = (() => {
     const day =
@@ -638,6 +682,25 @@ export function FastTransactionEntry({
                 </PressableScale>
               ) : null}
             </View>
+            <RepeatChips
+              entries={repeatEntries}
+              categoriesById={categoriesById}
+              currency={currency}
+              onSelect={applyRepeat}
+            />
+            {presetsEnabled ? (
+              <PresetAmounts
+                amounts={presetAmounts}
+                typedAmountMinor={parsedAmount}
+                canPin={canPin}
+                currency={currency}
+                onSelect={(minor) => setAmountText(formatMinorToDraft(minor))}
+                onPin={() => {
+                  if (parsedAmount !== null) onPinnedAmountsChange?.(pinAmount(pinned, type, parsedAmount));
+                }}
+                onRemove={(minor) => onPinnedAmountsChange?.(unpinAmount(pinned, type, minor))}
+              />
+            ) : null}
             <Keypad value={amountText} onChange={setAmountText} keyHeight={48} variant="tonal" testID="fast-keypad" />
           </View>
         ) : null}

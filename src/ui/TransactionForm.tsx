@@ -27,6 +27,7 @@ import type {
   CategoryColorKey,
   CurrencyCode,
   LocalDate,
+  PinnedAmounts,
   Transaction,
   TransactionType,
 } from '@/domain/types';
@@ -109,6 +110,8 @@ export interface TransactionFormProps {
   }) => void;
   recentDescriptions?: string[];
   recentTransactions?: Transaction[];
+  pinnedAmounts?: PinnedAmounts;
+  onPinnedAmountsChange?: (next: PinnedAmounts) => void;
   initialMode?: TransactionEntryMode;
   initialValues?: {
     type?: TransactionType;
@@ -510,6 +513,8 @@ export function TransactionForm(props: TransactionFormProps) {
         accounts={(props.accounts ?? []).filter((account) => account.archivedAt == null)}
         defaultAccountId={props.defaultAccountId}
         recentTransactions={props.recentTransactions}
+        pinnedAmounts={props.pinnedAmounts}
+        onPinnedAmountsChange={props.onPinnedAmountsChange}
         onClose={props.onClose ?? (() => undefined)}
         onSubmit={props.onSubmit}
         onSubmitAndAddAnother={props.onSubmitAndAddAnother}

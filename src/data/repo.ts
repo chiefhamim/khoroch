@@ -171,4 +171,5 @@ export const DEFAULT_SETTINGS: Settings = {
   lastBackupAt: null,
   speechDisclosureAccepted: false,
   lastUsedAccountId: null,
+  pinnedAmounts: { expense: [], income: [] },
 };

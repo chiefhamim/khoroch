@@ -239,6 +239,8 @@ export default function NewTransactionScreen() {
           onPressSetupWallets={() => router.push('/wallets?setup=1' as never)}
           onPressLendBorrow={(prefill) => setDuePrefill(prefill)}
           recentTransactions={recentTransactions}
+          pinnedAmounts={settings.pinnedAmounts}
+          onPinnedAmountsChange={(next) => void updateSetting('pinnedAmounts', next)}
           onClose={handleClose}
           onCreateCategory={handleCreateCategory}
           onSubmit={handleSubmit}

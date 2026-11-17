@@ -16,6 +16,7 @@ import {
   normalizeBanglaFontKey,
   normalizeExpenseColorKey,
   normalizeHomeSections,
+  normalizePinnedAmounts,
   normalizeIncomeColorKey,
   normalizeReminderSettings,
   normalizeWeekStartDay,
@@ -103,6 +104,7 @@ function cloneSettings(s: Settings): Settings {
     weekStartsOn: normalizeWeekStartDay(s.weekStartsOn, DEFAULT_SETTINGS.weekStartsOn),
     homeSections: normalizeHomeSections(s.homeSections),
     reminder: normalizeReminderSettings(s.reminder, DEFAULT_SETTINGS.reminder),
+    pinnedAmounts: normalizePinnedAmounts(s.pinnedAmounts),
   };
 }
 

@@ -17,6 +17,7 @@ import {
   normalizeBanglaFontKey,
   normalizeExpenseColorKey,
   normalizeHomeSections,
+  normalizePinnedAmounts,
   normalizeIncomeColorKey,
   normalizeReminderSettings,
   normalizeWeekStartDay,
@@ -219,6 +220,7 @@ const SETTING_DB_KEYS: Record<keyof Settings, string> = {
   lastBackupAt: 'last_backup_at',
   speechDisclosureAccepted: 'speech_disclosure_accepted',
   lastUsedAccountId: 'last_used_account_id',
+  pinnedAmounts: 'pinned_amounts',
 };
 
 const BUDGET_SEEDED_KEY = '_budget_periods_seeded';
@@ -1452,6 +1454,9 @@ export class SqliteRepo implements Repo {
       lastUsedAccountId: parseJson(
         SETTING_DB_KEYS.lastUsedAccountId,
         DEFAULT_SETTINGS.lastUsedAccountId
+      ),
+      pinnedAmounts: normalizePinnedAmounts(
+        parseJson<unknown>(SETTING_DB_KEYS.pinnedAmounts, DEFAULT_SETTINGS.pinnedAmounts)
       ),
     };
   }

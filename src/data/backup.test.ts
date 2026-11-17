@@ -300,6 +300,7 @@ async function seedComplexState(repo: MemoryRepo | SqliteRepo) {
   await repo.setSetting('lastBackupAt', 1731500999000);
   await repo.setSetting('speechDisclosureAccepted', true);
   await repo.setSetting('lastUsedAccountId', 'bkash');
+  await repo.setSetting('pinnedAmounts', { expense: [20_000, 50_000], income: [1_000_000] });
 }
 
 describe('backup export, validation, and restore (TEST-CASES §C)', () => {
@@ -352,6 +353,10 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
         await srcSqlite.repo.listAllDayReviews()
       );
       expect(await dstSqlite.repo.getSettings()).toEqual(await srcSqlite.repo.getSettings());
+      expect((await dstSqlite.repo.getSettings()).pinnedAmounts).toEqual({
+        expense: [20_000, 50_000],
+        income: [1_000_000],
+      });
 
       // Also verify MemoryRepo export -> deleteAllData() -> restore parity (TEST-CASES §C)
       const memSrc = new MemoryRepo();
@@ -466,6 +471,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     delete v1Raw.data.settings.language;
     delete v1Raw.data.settings.speechDisclosureAccepted;
     delete v1Raw.data.settings.lastUsedAccountId;
+    delete (v1Raw.data.settings as { pinnedAmounts?: unknown }).pinnedAmounts;
     delete v1Raw.data.settings.avatarColorKey;
     delete v1Raw.data.settings.hideAmountsOnOpen;
     delete v1Raw.data.settings.showPoisha;
@@ -495,6 +501,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     expect(migratedV1.data.settings.language).toBe('en');
     expect(migratedV1.data.settings.speechDisclosureAccepted).toBe(false);
     expect(migratedV1.data.settings.lastUsedAccountId).toBeNull();
+    expect(migratedV1.data.settings.pinnedAmounts).toEqual({ expense: [], income: [] });
     expect(migratedV1.data.settings.avatarColorKey).toBe('accent');
     expect(migratedV1.data.settings.hideAmountsOnOpen).toBe(false);
     expect(migratedV1.data.settings.showPoisha).toBe(false);
