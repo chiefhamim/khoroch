@@ -15,19 +15,32 @@ import {
   computeUpcomingBillsCommitment,
   type BillsCommitmentSummary,
 } from '@/domain/netWorth';
-import { getPeriod, previousPeriod, remainingDays } from '@/domain/period';
-import type {
-  Account,
-  Budget,
-  Category,
-  LocalDate,
-  NewRecurringBill,
-  Period,
-  RecurringBill,
-  Transaction,
+import {
+  buildRecentSpendingWindows,
+  getBillPeriod,
+  getSpendingPeriod,
+  previousPeriod,
+  remainingDays,
+  type PeriodConfig,
+} from '@/domain/period';
+import {
+  normalizePeriodWeekStartDay,
+  normalizeWeeklyBudgetMinor,
+  type Account,
+  type Budget,
+  type Category,
+  type LocalDate,
+  type NewRecurringBill,
+  type Period,
+  type PeriodKind,
+  type RecurringBill,
+  type Transaction,
 } from '@/domain/types';
 import { useAppContext } from './AppContext';
 import { bumpDataVersion, useDataVersionStore } from './dataVersion';
+
+/** How many finished weeks the weekly "Past weeks" list looks back over. */
+const PAST_WEEKS_LOOKBACK = 6;
 
 export interface HistoricalPeriodBudget {
   period: Period;
@@ -38,10 +51,17 @@ export interface HistoricalPeriodBudget {
 }
 
 export interface UseBudgetsResult {
+  /** 'month' (default) or 'week'. */
+  periodKind: PeriodKind;
+  /** The SPENDING period: the week in weekly mode, otherwise the monthly cycle. */
   period: Period;
+  /** The monthly BILL period. Equal to `period` in monthly mode. */
+  billPeriod: Period;
   remainingDaysCount: number;
+  /** The budget for the spending period: the weekly amount in weekly mode, otherwise the monthly total. */
   overallBudgetMinor: number | null;
   overallSummary: PeriodSummary;
+  /** Monthly mode only. Always empty in weekly mode: category budgets are monthly amounts. */
   categoryBudgets: CategoryBudgetItem[];
   spendRanking: CategorySpend[];
   allocation: BudgetAllocationSummary;
@@ -64,16 +84,37 @@ export interface UseBudgetsResult {
 }
 
 export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
-  const { repo, settings } = useAppContext();
+  const { repo, settings, updateSetting } = useAppContext();
   const dataVersion = useDataVersionStore((s) => s.dataVersion);
 
   const today = todayOverride ?? todayLocalDate();
   const monthStartDay = settings.monthStartDay;
+  const periodKind: PeriodKind = settings.periodKind === 'week' ? 'week' : 'month';
+  const weekStartDay = normalizePeriodWeekStartDay(settings.weekStartDay);
+  const weeklyBudgetMinor = normalizeWeeklyBudgetMinor(settings.weeklyBudgetMinor);
   const currency = settings.currency;
+  const isWeekly = periodKind === 'week';
 
-  const period = useMemo(() => getPeriod(today, monthStartDay), [today, monthStartDay]);
-  const prevPeriod = useMemo(() => previousPeriod(period, monthStartDay), [period, monthStartDay]);
+  const periodConfig = useMemo<PeriodConfig>(
+    () => ({ periodKind, weekStartDay, monthStartDay }),
+    [periodKind, weekStartDay, monthStartDay]
+  );
+  const period = useMemo(() => getSpendingPeriod(today, periodConfig), [today, periodConfig]);
+  // The monthly cycle: bills, the paid badge and the stored monthly budgets always use it.
+  const billPeriod = useMemo(() => getBillPeriod(today, monthStartDay), [today, monthStartDay]);
+  const prevBillPeriod = useMemo(
+    () => previousPeriod(billPeriod, monthStartDay),
+    [billPeriod, monthStartDay]
+  );
   const remainingDaysCount = useMemo(() => remainingDays(period, today), [period, today]);
+  const earliestWeekStart = useMemo(
+    () =>
+      isWeekly
+        ? buildRecentSpendingWindows(today, periodConfig, PAST_WEEKS_LOOKBACK + 1)[0].start
+        : null,
+    [isWeekly, today, periodConfig]
+  );
+  const rangeEndExcl = period.endExcl > billPeriod.endExcl ? period.endExcl : billPeriod.endExcl;
 
   const [currentBudgets, setCurrentBudgets] = useState<Budget[]>([]);
   const [allBudgets, setAllBudgets] = useState<Budget[]>([]);
@@ -89,22 +130,25 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
     let active = true;
     (async () => {
       try {
-        await repo.ensureBudgetsForPeriod(period.start, prevPeriod.start);
+        await repo.ensureBudgetsForPeriod(billPeriod.start, prevBillPeriod.start);
         const [curBudgets, everyBudget, cats, accs, bills] = await Promise.all([
-          repo.getBudgets(period.start),
+          repo.getBudgets(billPeriod.start),
           repo.getAllBudgets(),
           repo.listCategories({ includeArchived: true }),
           repo.listAccounts(),
           repo.listRecurringBills({ includeInactive: true }),
         ]);
 
-        let minStart = prevPeriod.start;
+        let minStart = prevBillPeriod.start;
         for (const b of everyBudget) {
           if (b.periodStart < minStart) {
             minStart = b.periodStart;
           }
         }
-        const txs = await repo.listTransactionsInRange(minStart, period.endExcl);
+        if (earliestWeekStart !== null && earliestWeekStart < minStart) {
+          minStart = earliestWeekStart;
+        }
+        const txs = await repo.listTransactionsInRange(minStart, rangeEndExcl);
         if (!active) return;
 
         setCurrentBudgets(curBudgets);
@@ -125,7 +169,15 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
     return () => {
       active = false;
     };
-  }, [repo, period.start, period.endExcl, prevPeriod.start, dataVersion, reloadTick]);
+  }, [
+    repo,
+    billPeriod.start,
+    prevBillPeriod.start,
+    earliestWeekStart,
+    rangeEndExcl,
+    dataVersion,
+    reloadTick,
+  ]);
 
   const categoriesById = useMemo(() => {
     const map = new Map<string, Category>();
@@ -133,10 +185,12 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
     return map;
   }, [categories]);
 
+  // Weekly mode has its own stored amount; the monthly amounts are never converted or touched.
   const overallBudgetMinor = useMemo(() => {
+    if (isWeekly) return weeklyBudgetMinor;
     const row = currentBudgets.find((b) => b.categoryId === '');
     return row && row.amountMinor > 0 ? row.amountMinor : null;
-  }, [currentBudgets]);
+  }, [isWeekly, weeklyBudgetMinor, currentBudgets]);
 
   const overallSummary = useMemo(
     () =>
@@ -151,6 +205,7 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
   );
 
   const categoryBudgets = useMemo(() => {
+    if (isWeekly) return [];
     const list = categoryBudgetStatus(transactions, currentBudgets, period, currency);
     return list.sort((a, b) => {
       const aPct = a.utilizationPct ?? -1;
@@ -158,7 +213,7 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
       if (bPct !== aPct) return bPct - aPct;
       return b.spentMinor - a.spentMinor;
     });
-  }, [transactions, currentBudgets, period, currency]);
+  }, [isWeekly, transactions, currentBudgets, period, currency]);
 
   const spendRanking = useMemo(
     () =>
@@ -174,6 +229,30 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
   );
 
   const history = useMemo<HistoricalPeriodBudget[]>(() => {
+    if (isWeekly) {
+      // Finished weeks with spending, newest first. Each is measured against the one weekly amount.
+      const weeks = buildRecentSpendingWindows(today, periodConfig, PAST_WEEKS_LOOKBACK + 1);
+      weeks.pop();
+      const rows: HistoricalPeriodBudget[] = [];
+      for (const p of weeks.reverse()) {
+        const sum = summarize({
+          transactions,
+          period: p,
+          today: p.endExcl,
+          overallBudgetMinor: weeklyBudgetMinor,
+          currency,
+        });
+        if (sum.spentMinor <= 0) continue;
+        rows.push({
+          period: p,
+          overallBudgetMinor: weeklyBudgetMinor,
+          spentMinor: sum.spentMinor,
+          utilizationPct: sum.utilizationPct,
+          status: sum.status,
+        });
+      }
+      return rows;
+    }
     const pastStarts = new Set<LocalDate>();
     for (const b of allBudgets) {
       if (b.periodStart < period.start) {
@@ -182,7 +261,7 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
     }
     const sorted = Array.from(pastStarts).sort((a, b) => (a > b ? -1 : a < b ? 1 : 0));
     return sorted.map((ps) => {
-      const p = getPeriod(ps, monthStartDay);
+      const p = getBillPeriod(ps, monthStartDay);
       const overall = allBudgets.find((b) => b.periodStart === ps && b.categoryId === '');
       const budgetMinor = overall && overall.amountMinor > 0 ? overall.amountMinor : null;
       const sum = summarize({
@@ -200,48 +279,67 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
         status: sum.status,
       };
     });
-  }, [allBudgets, period.start, monthStartDay, transactions, currency]);
+  }, [
+    isWeekly,
+    today,
+    periodConfig,
+    weeklyBudgetMinor,
+    allBudgets,
+    period.start,
+    monthStartDay,
+    transactions,
+    currency,
+  ]);
 
   const reload = useCallback(() => setReloadTick((n) => n + 1), []);
 
   const setOverallBudget = useCallback(
     async (amountMinor: number) => {
-      await repo.setBudget(period.start, '', amountMinor);
+      if (isWeekly) {
+        await updateSetting('weeklyBudgetMinor', amountMinor > 0 ? amountMinor : null);
+      } else {
+        await repo.setBudget(billPeriod.start, '', amountMinor);
+      }
       bumpDataVersion();
     },
-    [repo, period.start]
+    [repo, billPeriod.start, isWeekly, updateSetting]
   );
 
   const removeOverallBudget = useCallback(async () => {
-    await repo.deleteBudget(period.start, '');
+    if (isWeekly) {
+      await updateSetting('weeklyBudgetMinor', null);
+    } else {
+      await repo.deleteBudget(billPeriod.start, '');
+    }
     bumpDataVersion();
-  }, [repo, period.start]);
+  }, [repo, billPeriod.start, isWeekly, updateSetting]);
 
   const setCategoryBudget = useCallback(
     async (categoryId: string, amountMinor: number) => {
-      await repo.setBudget(period.start, categoryId, amountMinor);
+      await repo.setBudget(billPeriod.start, categoryId, amountMinor);
       bumpDataVersion();
     },
-    [repo, period.start]
+    [repo, billPeriod.start]
   );
 
   const removeCategoryBudget = useCallback(
     async (categoryId: string) => {
-      await repo.deleteBudget(period.start, categoryId);
+      await repo.deleteBudget(billPeriod.start, categoryId);
       bumpDataVersion();
     },
-    [repo, period.start]
+    [repo, billPeriod.start]
   );
 
   const billsCommitment = useMemo(
     () =>
       computeUpcomingBillsCommitment({
         bills: recurringBills,
-        period,
+        period: billPeriod,
         today,
         budgetRemainingMinor: overallSummary.remainingMinor,
+        spendingWindow: isWeekly ? { period, monthStartDay } : undefined,
       }),
-    [recurringBills, period, today, overallSummary.remainingMinor]
+    [recurringBills, billPeriod, today, overallSummary.remainingMinor, isWeekly, period, monthStartDay]
   );
 
   const addRecurringBill = useCallback(
@@ -260,7 +358,7 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
         bill.totalInstallments !== null &&
         nextPaid >= bill.totalInstallments;
       await repo.updateRecurringBill(bill.id, {
-        lastPaidPeriod: period.start,
+        lastPaidPeriod: billPeriod.start,
         paidInstallments: nextPaid,
         isActive: doneEmi ? false : bill.isActive,
       });
@@ -279,7 +377,7 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
       }
       bumpDataVersion();
     },
-    [repo, period.start, currency, accounts, today]
+    [repo, billPeriod.start, currency, accounts, today]
   );
 
   const deleteRecurringBill = useCallback(
@@ -291,7 +389,9 @@ export function useBudgets(todayOverride?: LocalDate): UseBudgetsResult {
   );
 
   return {
+    periodKind,
     period,
+    billPeriod,
     remainingDaysCount,
     overallBudgetMinor,
     overallSummary,

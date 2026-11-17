@@ -22,7 +22,10 @@ import {
   normalizeDailyWageLast,
   normalizePinnedAmounts,
   normalizeIncomeColorKey,
+  normalizePeriodKind,
+  normalizePeriodWeekStartDay,
   normalizeReminderSettings,
+  normalizeWeeklyBudgetMinor,
   normalizeWeekStartDay,
   type Account,
   type AccountKind,
@@ -207,6 +210,9 @@ const SETTING_DB_KEYS: Record<keyof Settings, string> = {
   language: 'language',
   banglaFont: 'bangla_font',
   monthStartDay: 'month_start_day',
+  periodKind: 'period_kind',
+  weekStartDay: 'period_week_start_day',
+  weeklyBudgetMinor: 'weekly_budget_minor',
   theme: 'theme',
   accent: 'theme_accent',
   incomeColor: 'income_color',
@@ -1410,6 +1416,15 @@ export class SqliteRepo implements Repo {
         DEFAULT_SETTINGS.banglaFont
       ),
       monthStartDay: parseJson(SETTING_DB_KEYS.monthStartDay, DEFAULT_SETTINGS.monthStartDay),
+      periodKind: normalizePeriodKind(
+        parseJson<unknown>(SETTING_DB_KEYS.periodKind, DEFAULT_SETTINGS.periodKind)
+      ),
+      weekStartDay: normalizePeriodWeekStartDay(
+        parseJson<unknown>(SETTING_DB_KEYS.weekStartDay, DEFAULT_SETTINGS.weekStartDay)
+      ),
+      weeklyBudgetMinor: normalizeWeeklyBudgetMinor(
+        parseJson<unknown>(SETTING_DB_KEYS.weeklyBudgetMinor, DEFAULT_SETTINGS.weeklyBudgetMinor)
+      ),
       theme: parseJson(SETTING_DB_KEYS.theme, DEFAULT_SETTINGS.theme),
       accent: normalizeAccentTheme(
         parseJson<unknown>(SETTING_DB_KEYS.accent, DEFAULT_SETTINGS.accent),

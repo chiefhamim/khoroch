@@ -42,8 +42,10 @@ import {
   type BanglaFontKey,
   type BillReminderLeadDays,
   type CurrencyCode,
+  normalizePeriodWeekStartDay,
   type ExpenseColorKey,
   type IncomeColorKey,
+  type PeriodKind,
   type ReminderSettings,
   type ThemePreference,
 } from '@/domain/types';
@@ -112,6 +114,19 @@ const BILL_LEAD_KEYS: Record<BillReminderLeadDays, TranslationKey> = {
   3: 'settings.billRemindersLead3',
 };
 
+const WEEKDAY_KEYS: readonly TranslationKey[] = [
+  'settings.weekday0',
+  'settings.weekday1',
+  'settings.weekday2',
+  'settings.weekday3',
+  'settings.weekday4',
+  'settings.weekday5',
+  'settings.weekday6',
+];
+
+/** Weekly period start days in the order shown: Saturday first (the Bangladesh week), then Sunday to Friday. */
+const WEEK_START_CHOICES: readonly number[] = [6, 0, 1, 2, 3, 4, 5];
+
 function formatOrdinal(day: number, locale: AppLanguage): string {
   if (locale === 'bn') return String(day);
   const mod100 = day % 100;
@@ -173,6 +188,8 @@ export default function SettingsScreen() {
 
   const [cycleSheetOpen, setCycleSheetOpen] = useState(false);
   const [cycleDayDraft, setCycleDayDraft] = useState(settings.monthStartDay);
+  const [periodKindSheetOpen, setPeriodKindSheetOpen] = useState(false);
+  const [weekStartSheetOpen, setWeekStartSheetOpen] = useState(false);
 
   const [appearanceSheetOpen, setAppearanceSheetOpen] = useState(false);
   const [dailyWageSheetOpen, setDailyWageSheetOpen] = useState(false);
@@ -713,8 +730,38 @@ export default function SettingsScreen() {
           }
         />
         <SettingsRow
+          testID="settings-period-kind-row"
+          label={t('settings.periodKindLabel')}
+          value={
+            settings.periodKind === 'week'
+              ? t('settings.periodWeekly')
+              : t('settings.periodMonthly')
+          }
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setPeriodKindSheetOpen(true);
+          }}
+        />
+        {settings.periodKind === 'week' ? (
+          <SettingsRow
+            testID="settings-week-start-row"
+            label={t('settings.weekStartLabel')}
+            value={t(WEEKDAY_KEYS[normalizePeriodWeekStartDay(settings.weekStartDay)])}
+            showChevron
+            onPress={() => {
+              hapticLight();
+              setWeekStartSheetOpen(true);
+            }}
+          />
+        ) : null}
+        <SettingsRow
           testID="settings-cycle-row"
-          label={t('settings.monthStartLabel')}
+          label={
+            settings.periodKind === 'week'
+              ? t('settings.monthStartLabelBills')
+              : t('settings.monthStartLabel')
+          }
           value={t('settings.cycleStartOption', {
             ordinal: formatOrdinal(settings.monthStartDay, locale),
           })}
@@ -1412,6 +1459,64 @@ export default function SettingsScreen() {
       </Sheet>
 
       <DailyWageSheet visible={dailyWageSheetOpen} onClose={() => setDailyWageSheetOpen(false)} />
+
+      {/* Budget period Sheet: monthly (default) or weekly */}
+      <Sheet
+        testID="settings-period-kind-sheet"
+        visible={periodKindSheetOpen}
+        onClose={() => setPeriodKindSheetOpen(false)}
+        title={t('settings.periodKindLabel')}
+      >
+        <Surface padded={false}>
+          {(['month', 'week'] as const).map((kind: PeriodKind, idx) => (
+            <ListRow
+              key={kind}
+              testID={`settings-period-kind-${kind}`}
+              title={kind === 'week' ? t('settings.periodWeekly') : t('settings.periodMonthly')}
+              showDivider={idx < 1}
+              right={
+                settings.periodKind === kind ? (
+                  <AppIcon name="check" size={18} color={theme.colors.accent} />
+                ) : null
+              }
+              onPress={() => {
+                hapticSelection();
+                void updateSetting('periodKind', kind);
+                setPeriodKindSheetOpen(false);
+              }}
+            />
+          ))}
+        </Surface>
+      </Sheet>
+
+      {/* Week start Sheet: seven days, shown only while the period is weekly */}
+      <Sheet
+        testID="settings-week-start-sheet"
+        visible={weekStartSheetOpen}
+        onClose={() => setWeekStartSheetOpen(false)}
+        title={t('settings.weekStartLabel')}
+      >
+        <Surface padded={false}>
+          {WEEK_START_CHOICES.map((day, idx) => (
+            <ListRow
+              key={day}
+              testID={`settings-week-start-${day}`}
+              title={t(WEEKDAY_KEYS[day])}
+              showDivider={idx < WEEK_START_CHOICES.length - 1}
+              right={
+                normalizePeriodWeekStartDay(settings.weekStartDay) === day ? (
+                  <AppIcon name="check" size={18} color={theme.colors.accent} />
+                ) : null
+              }
+              onPress={() => {
+                hapticSelection();
+                void updateSetting('weekStartDay', day);
+                setWeekStartSheetOpen(false);
+              }}
+            />
+          ))}
+        </Surface>
+      </Sheet>
 
       {/* Cycle Start Sheet */}
       <Sheet

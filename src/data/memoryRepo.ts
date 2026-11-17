@@ -105,6 +105,13 @@ function cloneSettings(s: Settings): Settings {
     incomeColor: normalizeIncomeColorKey(s.incomeColor, DEFAULT_SETTINGS.incomeColor),
     expenseColor: normalizeExpenseColorKey(s.expenseColor, DEFAULT_SETTINGS.expenseColor),
     weekStartsOn: normalizeWeekStartDay(s.weekStartsOn, DEFAULT_SETTINGS.weekStartsOn),
+    periodKind: s.periodKind === 'week' ? 'week' : 'month',
+    weekStartDay:
+      Number.isInteger(s.weekStartDay) && s.weekStartDay >= 0 && s.weekStartDay <= 6
+        ? s.weekStartDay
+        : DEFAULT_SETTINGS.weekStartDay,
+    weeklyBudgetMinor:
+      typeof s.weeklyBudgetMinor === 'number' && s.weeklyBudgetMinor > 0 ? s.weeklyBudgetMinor : null,
     homeSections: normalizeHomeSections(s.homeSections),
     reminder: normalizeReminderSettings(s.reminder, DEFAULT_SETTINGS.reminder),
     pinnedAmounts: normalizePinnedAmounts(s.pinnedAmounts),

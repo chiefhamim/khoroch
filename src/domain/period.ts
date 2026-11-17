@@ -3,11 +3,13 @@ import {
   diffDays,
   formatLocalDate,
   formatPeriodRange,
+  formatShortDate,
   FULL_MONTHS_BY_LOCALE,
   parseLocalDate,
+  toEpochDay,
   type DateLocale,
 } from './dates';
-import type { LocalDate, Period } from './types';
+import type { LocalDate, Period, PeriodKind } from './types';
 
 function assertMonthStartDay(monthStartDay: number): void {
   if (!Number.isInteger(monthStartDay) || monthStartDay < 1 || monthStartDay > 28) {
@@ -117,6 +119,91 @@ export function formatCycleLabel(
   }
   const endYear = parseLocalDate(addDays(period.endExcl, -1)).year;
   return year === endYear ? `${range} ${year}` : `${range} (${year}/${endYear})`;
+}
+
+/** The settings that decide the spending period. */
+export interface PeriodConfig {
+  periodKind: PeriodKind;
+  /** 0 = Sunday up to 6 = Saturday. Used only when periodKind is 'week'. */
+  weekStartDay: number;
+  /** 1 to 28. Always the start of the monthly (bill) period. */
+  monthStartDay: number;
+}
+
+function assertWeekStartDay(weekStartDay: number): void {
+  if (!Number.isInteger(weekStartDay) || weekStartDay < 0 || weekStartDay > 6) {
+    throw new Error(`weekStartDay must be an integer between 0 and 6, got ${weekStartDay}`);
+  }
+}
+
+/**
+ * The 7 local days [start, start + 7) that begin on `weekStartDay` (0 = Sunday) and contain `today`.
+ * Pure civil-calendar arithmetic on the date string: no clock, no timezone, no UTC drift.
+ */
+export function getWeekPeriod(today: LocalDate, weekStartDay: number): Period {
+  assertWeekStartDay(weekStartDay);
+  // 1970-01-01 (epoch day 0) was a Thursday, which is weekday 4 when Sunday is 0.
+  const weekday = (((toEpochDay(today) + 4) % 7) + 7) % 7;
+  const back = (((weekday - weekStartDay) % 7) + 7) % 7;
+  const start = addDays(today, -back);
+  return { start, endExcl: addDays(start, 7), lengthDays: 7 };
+}
+
+/**
+ * The BILL period: always the monthly cycle from monthStartDay, whatever the spending period is.
+ * Bills, the paid badge, Mark paid, EMI payoff, bill reminders and monthly budgets all use it.
+ */
+export function getBillPeriod(today: LocalDate, monthStartDay: number): Period {
+  return getPeriod(today, monthStartDay);
+}
+
+/**
+ * The SPENDING period containing `today`: the 7-day week in weekly mode, otherwise exactly the
+ * monthly cycle. Totals, safe per day, days left, percent used, the Home hero and the Plan ring use it.
+ */
+export function getSpendingPeriod(today: LocalDate, config: PeriodConfig): Period {
+  if (config.periodKind === 'week') return getWeekPeriod(today, config.weekStartDay);
+  return getPeriod(today, config.monthStartDay);
+}
+
+/** The spending period immediately before `period`. */
+export function previousSpendingPeriod(period: Period, config: PeriodConfig): Period {
+  if (config.periodKind === 'week') return getWeekPeriod(addDays(period.start, -1), config.weekStartDay);
+  return previousPeriod(period, config.monthStartDay);
+}
+
+/** `count` consecutive spending periods ending at the one containing `today`, oldest first. */
+export function buildRecentSpendingWindows(
+  today: LocalDate,
+  config: PeriodConfig,
+  count: number
+): Period[] {
+  if (config.periodKind !== 'week') return buildRecentPeriodWindows(today, config.monthStartDay, count);
+  const n = Math.max(1, Math.floor(count));
+  const out: Period[] = [];
+  let cursor = getWeekPeriod(today, config.weekStartDay);
+  out.push(cursor);
+  for (let i = 1; i < n; i++) {
+    cursor = previousSpendingPeriod(cursor, config);
+    out.push(cursor);
+  }
+  return out.reverse();
+}
+
+/**
+ * The two ends of a week's date range, ready for a "{from} to {to}" template:
+ * "14" and "20 Nov" inside one month, "28 Nov" and "4 Dec" across a month boundary.
+ */
+export function formatWeekRangeParts(
+  period: Period,
+  locale: DateLocale = 'en'
+): { from: string; to: string } {
+  const endIncl = addDays(period.endExcl, -1);
+  const a = parseLocalDate(period.start);
+  const b = parseLocalDate(endIncl);
+  const to = formatShortDate(endIncl, locale);
+  if (a.year === b.year && a.month === b.month) return { from: String(a.day), to };
+  return { from: formatShortDate(period.start, locale), to };
 }
 
 /**

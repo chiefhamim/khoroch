@@ -45,6 +45,37 @@ export function normalizeWeekStartDay(
   return typeof raw === 'string' && WEEK_START_DAY_SET.has(raw) ? (raw as WeekStartDay) : fallback;
 }
 
+/** How the spending period is counted: the monthly cycle (default) or a 7-day week. */
+export type PeriodKind = 'month' | 'week';
+
+export const PERIOD_KINDS: readonly PeriodKind[] = ['month', 'week'];
+
+/** Weekday index for the weekly period: 0 = Sunday up to 6 = Saturday. */
+export const DEFAULT_PERIOD_WEEK_START_DAY = 6;
+
+export function isValidPeriodKind(raw: unknown): raw is PeriodKind {
+  return raw === 'month' || raw === 'week';
+}
+
+export function isValidPeriodWeekStartDay(raw: unknown): raw is number {
+  return typeof raw === 'number' && Number.isInteger(raw) && raw >= 0 && raw <= 6;
+}
+
+/** Anything missing or invalid reads as monthly. */
+export function normalizePeriodKind(raw: unknown): PeriodKind {
+  return raw === 'week' ? 'week' : 'month';
+}
+
+/** Anything missing or invalid reads as Saturday (6). */
+export function normalizePeriodWeekStartDay(raw: unknown): number {
+  return isValidPeriodWeekStartDay(raw) ? raw : DEFAULT_PERIOD_WEEK_START_DAY;
+}
+
+/** The weekly total budget in minor units; null (unset) for anything that is not a positive safe integer. */
+export function normalizeWeeklyBudgetMinor(raw: unknown): number | null {
+  return typeof raw === 'number' && Number.isSafeInteger(raw) && raw > 0 ? raw : null;
+}
+
 export const ACCENT_THEMES: readonly AccentTheme[] = [
   'forest',
   'ocean',
@@ -627,6 +658,12 @@ export interface Settings {
   language: AppLanguage;
   banglaFont: BanglaFontKey;
   monthStartDay: number;
+  /** Spending period: 'month' (default) or 'week'. Bills and monthly budgets always stay monthly. */
+  periodKind: PeriodKind;
+  /** First day of the weekly period, 0 = Sunday up to 6 = Saturday (default 6). */
+  weekStartDay: number;
+  /** Total budget for one week in minor units; null until the person sets it. Never converted from monthly. */
+  weeklyBudgetMinor: number | null;
   theme: ThemePreference;
   accent: AccentTheme;
   incomeColor: IncomeColorKey;

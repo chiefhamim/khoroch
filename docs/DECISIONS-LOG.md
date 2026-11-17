@@ -238,3 +238,18 @@ Format:
 - Bill names on the lock screen: the setting `billReminders.hideNames` (optional, absent means off) hides them; app lock being on forces it on, shown as on and disabled with a caption. The bill channel is created with private lock-screen visibility. Android lets the user override a channel's visibility, and an existing channel keeps the visibility it was first created with, so the generic text is the real protection.
 - The reminder body no longer says "still unpaid" (the bill may have been paid early as a plain entry); it asks the person to open Plan and mark it paid if they already paid.
 - One paid-this-period rule for bills: `isPaidInPeriod` in `src/domain/calc.ts` (payment stamp on or after the period start, by date), used by `isBillPaidInPeriod`, the Plan badge and button, bills totals, reminders and the EMI payoff.
+
+## Weekly period option (2026-11-17)
+Decisions A to E were made by the owner's coordinator; recorded here as built.
+- A. New settings `periodKind` ('month' default | 'week'), `weekStartDay` (0 = Sunday to 6 = Saturday, default 6) and `weeklyBudgetMinor` (null until set), in the settings key-value store (keys `period_kind`, `period_week_start_day`, `weekly_budget_minor`). No table change, no schema version bump: backups carry the three keys when present, validate them when present, and an old backup imports as monthly, Saturday, no weekly budget. The existing `weekStartsOn` (saturday/sunday/monday, used by the calendar and Insights) is a separate setting and is left alone.
+- B. `getSpendingPeriod` (week or month) and `getBillPeriod` (always the monthly cycle) in `src/domain/period.ts`. In monthly mode both equal `getPeriod`. The week is pure civil-date arithmetic from the date string (no clock, no UTC).
+- C. Budgets do not convert. The monthly total and category budgets stay in the `budgets` table keyed by the monthly period start; weekly mode reads `weeklyBudgetMinor`. Switching modes writes nothing. In weekly mode the budget rows for the monthly cycle are still seeded forward (`ensureBudgetsForPeriod` with the bill periods) so switching back finds this month's amounts.
+- D. Bills, the paid badge, Mark paid, EMI payoff and bill reminders use the monthly bill period. In weekly mode "Left after unpaid bills", Safe today and the Plan "after bills" line subtract only unpaid bills whose due date (due day clamped to the month length) is inside the week. An occurrence counts as paid by the monthly bill period that contains its due date, so a November payment does not pay the December bill.
+- E. Settings: "Budget period" row (Monthly, Weekly), "Week starts on" row only while Weekly (Saturday listed first), the cycle-day row stays and is relabelled "Month starts, for bills and monthly budgets" while Weekly.
+Beyond A to E:
+- Past weeks (Plan): the last six finished weeks that have spending, each measured against the one current weekly amount (there is no per-week budget history).
+- Home chart in weekly mode: Day = the 7 days of the week, Week = the last six weeks (numbered 1 to 6, oldest first), Month = the usual six monthly cycles. Monthly mode is unchanged.
+- The "New cycle started" notice is monthly only; it is off in weekly mode.
+- In weekly mode the "Where it went" rows are plain rows (no "Set budget" tap), because category budgets are edited only in monthly mode.
+- Insights, the Activity date presets, the category-budget screens of onboarding and the bill reminders stay monthly. The category detail screen opened from Home follows the spending period.
+- A weekly amount of 0 is stored as unset (null).

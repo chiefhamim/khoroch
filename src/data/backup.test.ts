@@ -728,6 +728,77 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     }
   });
 
+  it('round-trips the weekly period settings, imports an old backup as monthly, and rejects bad values', async () => {
+    const srcSqlite = createSqliteHarness();
+    const dstSqlite = createSqliteHarness();
+    try {
+      await runMigrations(srcSqlite.db);
+      await runMigrations(dstSqlite.db);
+
+      // A fresh database reads as monthly, Saturday, no weekly budget.
+      const fresh = await srcSqlite.repo.getSettings();
+      expect(fresh.periodKind).toBe('month');
+      expect(fresh.weekStartDay).toBe(6);
+      expect(fresh.weeklyBudgetMinor).toBeNull();
+
+      await seedComplexState(srcSqlite.repo);
+      await srcSqlite.repo.setSetting('periodKind', 'week');
+      await srcSqlite.repo.setSetting('weekStartDay', 0);
+      await srcSqlite.repo.setSetting('weeklyBudgetMinor', 350_000);
+      const stored = await srcSqlite.repo.getSettings();
+      expect(stored.periodKind).toBe('week');
+      expect(stored.weekStartDay).toBe(0);
+      expect(stored.weeklyBudgetMinor).toBe(350_000);
+
+      const json = await exportBackupJson(srcSqlite.repo, '2026-11-13T10:00:00.000Z');
+      await restoreBackupPayload(dstSqlite.repo, parseAndValidateBackup(json));
+      const restored = await dstSqlite.repo.getSettings();
+      expect(restored.periodKind).toBe('week');
+      expect(restored.weekStartDay).toBe(0);
+      expect(restored.weeklyBudgetMinor).toBe(350_000);
+      // The monthly budgets and the month start day are untouched by the weekly settings.
+      expect(await dstSqlite.repo.getAllBudgets()).toEqual(await srcSqlite.repo.getAllBudgets());
+      expect(restored.monthStartDay).toBe(stored.monthStartDay);
+    } finally {
+      srcSqlite.close();
+      dstSqlite.close();
+    }
+
+    const src = new MemoryRepo();
+    await seedComplexState(src);
+    await src.setSetting('periodKind', 'week');
+    await src.setSetting('weeklyBudgetMinor', 120_000);
+    const raw = JSON.parse(await exportBackupJson(src, '2026-11-13T10:00:00.000Z'));
+    expect(raw.data.settings.periodKind).toBe('week');
+    expect(raw.data.settings.weekStartDay).toBe(6);
+    expect(raw.data.settings.weeklyBudgetMinor).toBe(120_000);
+
+    // An old backup has none of the three keys: it imports as monthly, Saturday, no weekly budget.
+    const old = JSON.parse(JSON.stringify(raw));
+    delete old.data.settings.periodKind;
+    delete old.data.settings.weekStartDay;
+    delete old.data.settings.weeklyBudgetMinor;
+    const device = new MemoryRepo();
+    await device.setSetting('periodKind', 'week');
+    await restoreBackupPayload(device, parseAndValidateBackup(JSON.stringify(old)));
+    const after = await device.getSettings();
+    expect(after.periodKind).toBe('month');
+    expect(after.weekStartDay).toBe(6);
+    expect(after.weeklyBudgetMinor).toBeNull();
+
+    for (const [key, value] of [
+      ['periodKind', 'daily'],
+      ['weekStartDay', 7],
+      ['weekStartDay', 1.5],
+      ['weeklyBudgetMinor', -5],
+      ['weeklyBudgetMinor', 12.5],
+    ] as const) {
+      const bad = JSON.parse(JSON.stringify(raw));
+      bad.data.settings[key] = value;
+      expect(() => parseAndValidateBackup(JSON.stringify(bad))).toThrow(/Settings/);
+    }
+  });
+
   it('never changes the app lock settings on import, even from an old backup saying lock off', async () => {
     const src = new MemoryRepo();
     await seedComplexState(src);

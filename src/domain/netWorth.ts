@@ -1,6 +1,11 @@
 import { isSavingsAssetKind, type AccountBalanceEntry } from './accounts';
 import { computeDuesOverview } from './dues';
-import { isBillPaidInPeriod, isExpenseBillOutstanding, isInPeriodRange } from './calc';
+import {
+  isBillPaidInPeriod,
+  isExpenseBillOutstanding,
+  isInPeriodRange,
+  summarizeUnpaidBillsDueInPeriod,
+} from './calc';
 import { remainingDays } from './period';
 import type {
   CurrencyCode,
@@ -129,11 +134,17 @@ export interface BillsCommitmentSummary {
  */
 export function computeUpcomingBillsCommitment(input: {
   bills: readonly RecurringBill[];
+  /** The monthly BILL period: the paid and unpaid counts always use it. */
   period: Period;
   today: LocalDate;
   budgetRemainingMinor: number | null;
+  /**
+   * Weekly mode only: the current week and the month start day. The amount held back from the safe
+   * per day then counts only unpaid bills due inside the week, over the days left in the week.
+   */
+  spendingWindow?: { period: Period; monthStartDay: number };
 }): BillsCommitmentSummary {
-  const { bills, period, today, budgetRemainingMinor } = input;
+  const { bills, period, today, budgetRemainingMinor, spendingWindow } = input;
 
   let activeExpenseBillsCount = 0;
   let paidCount = 0;
@@ -153,11 +164,21 @@ export function computeUpcomingBillsCommitment(input: {
     }
   }
 
+  if (spendingWindow) {
+    const inWindow = summarizeUnpaidBillsDueInPeriod(
+      bills,
+      spendingWindow.period,
+      spendingWindow.monthStartDay
+    );
+    unpaidCount = inWindow.unpaidCount;
+    unpaidBillsTotalMinor = inWindow.unpaidMinor;
+  }
+
   let uncommittedRemainingMinor: number | null = null;
   let uncommittedSafePerDayMinor: number | null = null;
   if (budgetRemainingMinor !== null) {
     uncommittedRemainingMinor = Math.max(0, budgetRemainingMinor - unpaidBillsTotalMinor);
-    const daysLeft = remainingDays(period, today);
+    const daysLeft = remainingDays(spendingWindow ? spendingWindow.period : period, today);
     uncommittedSafePerDayMinor =
       daysLeft > 0 ? Math.floor(uncommittedRemainingMinor / daysLeft) : 0;
   }

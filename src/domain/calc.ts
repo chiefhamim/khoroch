@@ -1,4 +1,11 @@
-import { addDays, diffDays, isValidLocalDate } from './dates';
+import {
+  addDays,
+  daysInMonth,
+  diffDays,
+  formatLocalDate,
+  isValidLocalDate,
+  parseLocalDate,
+} from './dates';
 import { elapsedDays, getPeriod, previousPeriod, remainingDays } from './period';
 import type {
   Budget,
@@ -220,6 +227,45 @@ export function summarizeUnpaidBills(
   return { unpaidCount, unpaidMinor };
 }
 
+/**
+ * Weekly mode: unpaid bills whose due date (the due day clamped to the month length) falls inside
+ * `period` (the current week). A bill due outside the week is not counted. Whether an occurrence is
+ * paid is decided against the MONTHLY bill period that contains its due date, exactly as
+ * "Mark paid" stamps it, so the bill rules stay monthly.
+ */
+export function summarizeUnpaidBillsDueInPeriod(
+  bills: readonly RecurringBill[],
+  period: Pick<Period, 'start' | 'endExcl'>,
+  monthStartDay: number
+): UnpaidBillsSummary {
+  const first = parseLocalDate(period.start);
+  const last = parseLocalDate(addDays(period.endExcl, -1));
+  const months: { year: number; month: number }[] = [];
+  for (let y = first.year, m = first.month; y < last.year || (y === last.year && m <= last.month); ) {
+    months.push({ year: y, month: m });
+    if (m === 12) {
+      y += 1;
+      m = 1;
+    } else {
+      m += 1;
+    }
+  }
+
+  let unpaidCount = 0;
+  let unpaidMinor = 0;
+  for (const bill of bills) {
+    if (!isExpenseBillOutstanding(bill)) continue;
+    for (const { year, month } of months) {
+      const due = formatLocalDate(year, month, Math.min(bill.dayOfMonth, daysInMonth(year, month)));
+      if (!isInPeriodRange(due, period.start, period.endExcl)) continue;
+      if (isPaidInPeriod(bill.lastPaidPeriod, getPeriod(due, monthStartDay).start)) continue;
+      unpaidCount += 1;
+      unpaidMinor += bill.amountMinor;
+    }
+  }
+  return { unpaidCount, unpaidMinor };
+}
+
 export interface AfterBillsSummary {
   unpaidCount: number;
   unpaidBillsMinor: number;
@@ -396,6 +442,23 @@ export function monthlySeries(
     }
     return { period, spentMinor, incomeMinor };
   });
+}
+
+/**
+ * One total per spending period (oldest first), numbered 1 to n, shaped like the Home weekly chart.
+ * Weekly mode uses it for the last few weeks.
+ */
+export function recentPeriodsSeries(
+  transactions: readonly Transaction[],
+  periods: readonly Period[],
+  currency: CurrencyCode
+): WeeklySeriesPoint[] {
+  return monthlySeries(transactions, periods, currency).map((point, index) => ({
+    weekIndex: index + 1,
+    start: point.period.start,
+    endExcl: point.period.endExcl,
+    spentMinor: point.spentMinor,
+  }));
 }
 
 function sumExpenseInRange(

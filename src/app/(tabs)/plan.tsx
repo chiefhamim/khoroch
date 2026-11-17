@@ -12,7 +12,7 @@ import {
 } from '@/domain/money';
 import { formatMonthYear } from '@/domain/dates';
 import { computeEmiPayoff } from '@/domain/emiPayoff';
-import { formatCycleLabel } from '@/domain/period';
+import { formatSpendingPeriodLabel } from '@/state/periodLabel';
 import type { RecurringBill, RecurringBillKind } from '@/domain/types';
 import { isValidBudgetAmount } from '@/domain/validation';
 import { t, useLocale } from '@/i18n';
@@ -64,7 +64,9 @@ export default function PlanScreen() {
   const { theme, reducedMotion } = useTheme();
   const { showToast } = useToast();
   const {
+    periodKind,
     period,
+    billPeriod,
     remainingDaysCount,
     overallBudgetMinor,
     overallSummary,
@@ -148,7 +150,8 @@ export default function PlanScreen() {
     );
   }
 
-  const cycleLabel = formatCycleLabel(period, settings.monthStartDay, { locale });
+  const isWeekly = periodKind === 'week';
+  const cycleLabel = formatSpendingPeriodLabel(period, { ...settings, periodKind }, locale);
   const currencySymbol = getCurrencySymbol(settings.currency);
   const displayAmountDraft = amountDraft ? groupThousands(amountDraft) : '0';
 
@@ -239,6 +242,11 @@ export default function PlanScreen() {
 
   const sheetTitle = (() => {
     if (sheetMode?.kind === 'overall') {
+      if (isWeekly) {
+        return overallBudgetMinor !== null
+          ? t('budget.editWeeklyTitle')
+          : t('budget.setWeeklyTitle');
+      }
       return overallBudgetMinor !== null
         ? t('budget.editOverallTitle')
         : t('budget.setOverallTitle');
@@ -352,7 +360,7 @@ export default function PlanScreen() {
               <PressableScale pressScale={0.98}
                 testID="budget-edit-overall-btn"
                 accessibilityRole="button"
-                accessibilityLabel={t('budget.editOverallTitle')}
+                accessibilityLabel={isWeekly ? t('budget.editWeeklyTitle') : t('budget.editOverallTitle')}
                 hitSlop={8}
                 onPress={openEditOverall}
                 style={({ pressed }) => [
@@ -380,36 +388,45 @@ export default function PlanScreen() {
             <View style={{ gap: theme.spacing.xs }}>
               <AppText variant="headline">{t('empty.budgetTitle')}</AppText>
               <AppText variant="body" color="textSecondary">
-                {t('empty.budgetBody')}
+                {isWeekly ? t('empty.budgetBodyWeek') : t('empty.budgetBody')}
               </AppText>
             </View>
-            <Button title={t('budget.setMonthlyCta')} onPress={openEditOverall} />
+            <Button
+              title={isWeekly ? t('budget.setWeeklyCta') : t('budget.setMonthlyCta')}
+              onPress={openEditOverall}
+            />
           </View>
         )}
       </Surface>
 
       {/* Category budgets section */}
       <View style={{ gap: theme.spacing.md }}>
-        <View style={[styles.catSectionHeader, { gap: theme.spacing.sm }]}>
-          <AppText
-            variant="headline"
-            numberOfLines={1}
-            style={bnMinWidth(t('budget.categorySection'), 17, 220)}
-          >
-            {t('budget.categorySection')}
+        {isWeekly ? (
+          <AppText testID="plan-category-weekly-note" variant="caption" color="textSecondary">
+            {t('budget.categoryWeeklyNote')}
           </AppText>
-          {allocationSummaryText ? (
+        ) : (
+          <View style={[styles.catSectionHeader, { gap: theme.spacing.sm }]}>
             <AppText
-              variant="label"
-              color={allocationSummaryText.tone}
-              tabularNums
+              variant="headline"
               numberOfLines={1}
-              style={[styles.rightText, bnMinWidth(allocationSummaryText.text, 13, 210)]}
+              style={bnMinWidth(t('budget.categorySection'), 17, 220)}
             >
-              {allocationSummaryText.text}
+              {t('budget.categorySection')}
             </AppText>
-          ) : null}
-        </View>
+            {allocationSummaryText ? (
+              <AppText
+                variant="label"
+                color={allocationSummaryText.tone}
+                tabularNums
+                numberOfLines={1}
+                style={[styles.rightText, bnMinWidth(allocationSummaryText.text, 13, 210)]}
+              >
+                {allocationSummaryText.text}
+              </AppText>
+            ) : null}
+          </View>
+        )}
 
         {categoryBudgets.length > 0 ? (
           <Surface padded={false}>
@@ -508,7 +525,7 @@ export default function PlanScreen() {
           </Surface>
         ) : null}
 
-        {availableCategoriesForAdd.length > 0 ? (
+        {!isWeekly && availableCategoriesForAdd.length > 0 ? (
           <PressableScale pressScale={0.98}
             testID="budget-add-category-row"
             accessibilityRole="button"
@@ -559,8 +576,9 @@ export default function PlanScreen() {
                     <PressableScale
                       pressScale={0.98}
                       testID={`plan-spend-row-${row.categoryId}`}
-                      accessibilityRole="button"
-                      accessibilityLabel={t('plan.wentA11y', { name })}
+                      accessibilityRole={isWeekly ? 'text' : 'button'}
+                      accessibilityLabel={isWeekly ? name : t('plan.wentA11y', { name })}
+                      disabled={isWeekly}
                       onPress={() =>
                         openEditCategory(
                           row.categoryId,
@@ -598,11 +616,15 @@ export default function PlanScreen() {
                         </View>
                         <View style={[styles.catRowTop, { gap: theme.spacing.sm }]}>
                           <AppText variant="caption" color="textSecondary" style={styles.flexOne}>
-                            {t('plan.wentShare', { pct: formatUtilizationPct(share) })}
+                            {t(isWeekly ? 'plan.wentShareWeek' : 'plan.wentShare', {
+                              pct: formatUtilizationPct(share),
+                            })}
                           </AppText>
-                          <AppText variant="caption" color="accent">
-                            {t('plan.wentSetBudget')}
-                          </AppText>
+                          {isWeekly ? null : (
+                            <AppText variant="caption" color="accent">
+                              {t('plan.wentSetBudget')}
+                            </AppText>
+                          )}
                         </View>
                         <ProgressBar
                           pct={share}
@@ -673,7 +695,8 @@ export default function PlanScreen() {
         ) : (
           <Surface padded={false}>
             {recurringBills.map((bill: RecurringBill, idx: number) => {
-              const isPaid = isBillPaidInPeriod(bill, period);
+              // Bills stay monthly: the paid badge always follows the monthly bill period.
+              const isPaid = isBillPaidInPeriod(bill, billPeriod);
               const subParts = [
                 bill.kind === 'emi'
                   ? t('budget.billKindEmi')
@@ -682,7 +705,7 @@ export default function PlanScreen() {
                     : t('budget.billKindBill'),
                 t('budget.unpaidDueDay', { day: bill.dayOfMonth }),
               ];
-              const payoff = computeEmiPayoff(bill, period);
+              const payoff = computeEmiPayoff(bill, billPeriod);
               const payoffPaidText = payoff
                 ? t('budget.emiPaidOf', {
                     paid: payoff.paidInstallments,
@@ -814,7 +837,7 @@ export default function PlanScreen() {
         <PressableScale pressScale={0.98}
           testID="budget-past-cycles-toggle"
           accessibilityRole="button"
-          accessibilityLabel={t('budget.pastCyclesTitle')}
+          accessibilityLabel={isWeekly ? t('budget.pastWeeksTitle') : t('budget.pastCyclesTitle')}
           accessibilityState={{ expanded: pastExpanded }}
           onPress={() => {
             hapticLight();
@@ -833,9 +856,9 @@ export default function PlanScreen() {
             <AppText
               variant="headline"
               numberOfLines={1}
-              style={bnMinWidth(t('budget.pastCyclesTitle'), 17, 240)}
+              style={bnMinWidth(isWeekly ? t('budget.pastWeeksTitle') : t('budget.pastCyclesTitle'), 17, 240)}
             >
-              {t('budget.pastCyclesTitle')}
+              {isWeekly ? t('budget.pastWeeksTitle') : t('budget.pastCyclesTitle')}
             </AppText>
             {history.length > 0 ? (
               <AppText variant="label" color="textSecondary" tabularNums>
@@ -856,7 +879,7 @@ export default function PlanScreen() {
             {history.length === 0 ? (
               <View style={{ padding: theme.spacing.lg }}>
                 <AppText variant="body" color="textSecondary">
-                  {t('budget.emptyHistory')}
+                  {isWeekly ? t('budget.emptyHistoryWeek') : t('budget.emptyHistory')}
                 </AppText>
               </View>
             ) : (
@@ -864,7 +887,7 @@ export default function PlanScreen() {
                 <ListRow
                   key={item.period.start}
                   compact
-                  title={formatCycleLabel(item.period, settings.monthStartDay, { locale })}
+                  title={formatSpendingPeriodLabel(item.period, { ...settings, periodKind }, locale)}
                   subtitle={
                     item.overallBudgetMinor !== null
                       ? t('budget.ofLimitLabel', {

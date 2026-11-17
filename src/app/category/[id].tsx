@@ -10,8 +10,8 @@ import {
   isValidLocalDate,
   todayLocalDate,
 } from '@/domain/dates';
-import { getPeriod } from '@/domain/period';
-import type { Category, Transaction } from '@/domain/types';
+import { getSpendingPeriod } from '@/domain/period';
+import { normalizePeriodWeekStartDay, type Category, type Transaction } from '@/domain/types';
 import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { useDataVersionStore } from '@/state/dataVersion';
@@ -47,9 +47,15 @@ export default function CategoryPeriodScreen() {
     }
   };
 
+  // The spending period: the current week in weekly mode, otherwise the monthly cycle.
   const fallbackPeriod = useMemo(
-    () => getPeriod(todayLocalDate(), settings.monthStartDay),
-    [settings.monthStartDay]
+    () =>
+      getSpendingPeriod(todayLocalDate(), {
+        periodKind: settings.periodKind === 'week' ? 'week' : 'month',
+        weekStartDay: normalizePeriodWeekStartDay(settings.weekStartDay),
+        monthStartDay: settings.monthStartDay,
+      }),
+    [settings.periodKind, settings.weekStartDay, settings.monthStartDay]
   );
 
   const rangeStart =

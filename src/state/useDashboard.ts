@@ -3,7 +3,9 @@ import {
   buildCategoryBreakdown,
   compareMonthToDate,
   computeAfterBills,
+  recentPeriodsSeries,
   summarizeUnpaidBills,
+  summarizeUnpaidBillsDueInPeriod,
   type AfterBillsSummary,
   dailySeries,
   monthlySeries,
@@ -25,19 +27,38 @@ import {
 } from '@/domain/netWorth';
 import {
   buildRecentPeriodWindows,
-  getPeriod,
+  buildRecentSpendingWindows,
+  getBillPeriod,
+  getSpendingPeriod,
   previousPeriod,
+  previousSpendingPeriod,
   remainingDays,
   shouldShowNewCycleHint,
+  type PeriodConfig,
 } from '@/domain/period';
-import type { Category, LocalDate, Period, RecurringBill, Transaction } from '@/domain/types';
+import {
+  normalizePeriodWeekStartDay,
+  normalizeWeeklyBudgetMinor,
+  type Category,
+  type LocalDate,
+  type Period,
+  type PeriodKind,
+  type RecurringBill,
+  type Transaction,
+} from '@/domain/types';
 import { useAppContext } from './AppContext';
 import { useDataVersionStore } from './dataVersion';
 
 export interface DashboardData {
   today: LocalDate;
+  /** 'month' (default) or 'week'. */
+  periodKind: PeriodKind;
+  /** The SPENDING period: the week in weekly mode, otherwise the monthly cycle. */
   period: Period;
+  /** The monthly BILL period. Equal to `period` in monthly mode. */
+  billPeriod: Period;
   prevPeriod: Period;
+  /** The budget for the spending period: the weekly amount in weekly mode, otherwise the monthly total. */
   overallBudgetMinor: number | null;
   summary: PeriodSummary;
   previousCycleSpentMinor: number;
@@ -66,18 +87,39 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
 
   const today = todayOverride ?? todayLocalDate();
   const monthStartDay = settings.monthStartDay;
+  const periodKind: PeriodKind = settings.periodKind === 'week' ? 'week' : 'month';
+  const weekStartDay = normalizePeriodWeekStartDay(settings.weekStartDay);
+  const weeklyBudgetMinor = normalizeWeeklyBudgetMinor(settings.weeklyBudgetMinor);
   const currency = settings.currency;
+  const isWeekly = periodKind === 'week';
 
-  const period = useMemo(() => getPeriod(today, monthStartDay), [today, monthStartDay]);
-  const prevPeriod = useMemo(() => previousPeriod(period, monthStartDay), [period, monthStartDay]);
+  const periodConfig = useMemo<PeriodConfig>(
+    () => ({ periodKind, weekStartDay, monthStartDay }),
+    [periodKind, weekStartDay, monthStartDay]
+  );
+  const period = useMemo(() => getSpendingPeriod(today, periodConfig), [today, periodConfig]);
+  const prevPeriod = useMemo(
+    () => previousSpendingPeriod(period, periodConfig),
+    [period, periodConfig]
+  );
+  // The monthly cycle: bills, the paid badge and the stored monthly budgets always use it.
+  const billPeriod = useMemo(() => getBillPeriod(today, monthStartDay), [today, monthStartDay]);
+  const prevBillPeriod = useMemo(
+    () => previousPeriod(billPeriod, monthStartDay),
+    [billPeriod, monthStartDay]
+  );
   const recentPeriods = useMemo(
     () => buildRecentPeriodWindows(today, monthStartDay, 6),
     [today, monthStartDay]
   );
+  const recentWeeks = useMemo(
+    () => (isWeekly ? buildRecentSpendingWindows(today, periodConfig, 6) : []),
+    [isWeekly, today, periodConfig]
+  );
 
   const [rangeTxs, setRangeTxs] = useState<Transaction[]>([]);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
-  const [overallBudgetMinor, setOverallBudgetMinor] = useState<number | null>(null);
+  const [monthlyBudgetMinor, setMonthlyBudgetMinor] = useState<number | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [recurringBills, setRecurringBills] = useState<RecurringBill[]>([]);
   const [pendingDraftsCount, setPendingDraftsCount] = useState(0);
@@ -85,17 +127,19 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
   const [error, setError] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
+  // The six monthly windows reach back further than six weeks, so one range covers both.
   const earliestStart = recentPeriods[0].start;
+  const rangeEndExcl = period.endExcl > billPeriod.endExcl ? period.endExcl : billPeriod.endExcl;
 
   useEffect(() => {
     let active = true;
     (async () => {
       try {
-        await repo.ensureBudgetsForPeriod(period.start, prevPeriod.start);
+        await repo.ensureBudgetsForPeriod(billPeriod.start, prevBillPeriod.start);
         const [txs, recentPage, budgets, cats, bills, pendingDrafts] = await Promise.all([
-          repo.listTransactionsInRange(earliestStart, period.endExcl),
+          repo.listTransactionsInRange(earliestStart, rangeEndExcl),
           repo.searchTransactions({}, { limit: 5 }),
-          repo.getBudgets(period.start),
+          repo.getBudgets(billPeriod.start),
           repo.listCategories({ includeArchived: true }),
           repo.listRecurringBills(),
           repo.listPendingDrafts({ status: 'pending' }),
@@ -107,7 +151,7 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
 
         setRangeTxs(txs);
         setRecentTransactions(recentPage.rows);
-        setOverallBudgetMinor(overallVal);
+        setMonthlyBudgetMinor(overallVal);
         setCategories(cats);
         setRecurringBills(bills);
         setPendingDraftsCount(pendingDrafts.length);
@@ -123,7 +167,18 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
     return () => {
       active = false;
     };
-  }, [repo, earliestStart, period.start, period.endExcl, prevPeriod.start, dataVersion, reloadTick]);
+  }, [
+    repo,
+    earliestStart,
+    rangeEndExcl,
+    billPeriod.start,
+    prevBillPeriod.start,
+    dataVersion,
+    reloadTick,
+  ]);
+
+  // Weekly mode has its own stored amount; the monthly amount is never converted or touched.
+  const overallBudgetMinor = isWeekly ? weeklyBudgetMinor : monthlyBudgetMinor;
 
   const categoriesById = useMemo(() => {
     const map = new Map<string, Category>();
@@ -157,9 +212,10 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
     [rangeTxs, prevPeriod, today, currency]
   );
 
+  // "New cycle started" is a monthly notice; a week turns over too often to announce.
   const showNewCycleHint = useMemo(
-    () => shouldShowNewCycleHint(period, today, previousCycleSpentMinor),
-    [period, today, previousCycleSpentMinor]
+    () => !isWeekly && shouldShowNewCycleHint(period, today, previousCycleSpentMinor),
+    [isWeekly, period, today, previousCycleSpentMinor]
   );
 
   const categoryBreakdown = useMemo(() => {
@@ -173,8 +229,11 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
   );
 
   const weekly = useMemo(
-    () => weeklySeries(rangeTxs, period, currency),
-    [rangeTxs, period, currency]
+    () =>
+      isWeekly
+        ? recentPeriodsSeries(rangeTxs, recentWeeks, currency)
+        : weeklySeries(rangeTxs, period, currency),
+    [isWeekly, rangeTxs, recentWeeks, period, currency]
   );
 
   const monthly = useMemo(
@@ -196,22 +255,25 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
     () =>
       computeUpcomingBillsCommitment({
         bills: recurringBills,
-        period,
+        period: billPeriod,
         today,
         budgetRemainingMinor: summary.remainingMinor,
+        spendingWindow: isWeekly ? { period, monthStartDay } : undefined,
       }),
-    [recurringBills, period, today, summary.remainingMinor]
+    [recurringBills, billPeriod, today, summary.remainingMinor, isWeekly, period, monthStartDay]
   );
 
   const afterBills = useMemo(() => {
-    const unpaid = summarizeUnpaidBills(recurringBills, period);
+    const unpaid = isWeekly
+      ? summarizeUnpaidBillsDueInPeriod(recurringBills, period, monthStartDay)
+      : summarizeUnpaidBills(recurringBills, billPeriod);
     return computeAfterBills({
       remainingMinor: summary.remainingMinor,
       unpaidBillsMinor: unpaid.unpaidMinor,
       unpaidCount: unpaid.unpaidCount,
       daysLeft: remainingDays(period, today),
     });
-  }, [recurringBills, period, today, summary.remainingMinor]);
+  }, [recurringBills, billPeriod, period, today, summary.remainingMinor, isWeekly, monthStartDay]);
 
   const dailyBudgetLimitMinor = useMemo(() => {
     if (overallBudgetMinor === null || overallBudgetMinor <= 0) return null;
@@ -225,7 +287,9 @@ export function useDashboard(todayOverride?: LocalDate): DashboardData {
 
   return {
     today,
+    periodKind,
     period,
+    billPeriod,
     prevPeriod,
     overallBudgetMinor,
     summary,

@@ -19,6 +19,11 @@ import {
   normalizePinnedAmounts,
   normalizeIncomeColorKey,
   normalizeReminderDays,
+  normalizePeriodKind,
+  normalizePeriodWeekStartDay,
+  normalizeWeeklyBudgetMinor,
+  isValidPeriodKind,
+  isValidPeriodWeekStartDay,
   normalizeWeekStartDay,
   WEEK_START_DAYS,
   type AccentTheme,
@@ -43,6 +48,7 @@ import {
 import {
   isValidCurrency,
   isValidLocalTime,
+  isValidBudgetAmount,
   isValidMonthStartDay,
   MAX_PROFILE_NAME_LENGTH,
   validateAccountInput,
@@ -125,6 +131,9 @@ function sanitizeSettingsForExport(s: Settings): Settings {
     language: normalizeAppLanguage(s.language),
     banglaFont: normalizeBanglaFontKey(s.banglaFont),
     monthStartDay: s.monthStartDay,
+    periodKind: normalizePeriodKind(s.periodKind),
+    weekStartDay: normalizePeriodWeekStartDay(s.weekStartDay),
+    weeklyBudgetMinor: normalizeWeeklyBudgetMinor(s.weeklyBudgetMinor),
     theme: s.theme,
     accent: normalizeAccentTheme(s.accent),
     incomeColor: normalizeIncomeColorKey(s.incomeColor),
@@ -731,6 +740,20 @@ function validateSettingsObject(raw: unknown): Settings {
   if (typeof obj.theme !== 'string' || !VALID_THEMES.has(obj.theme)) {
     throw new Error('Settings: invalid theme.');
   }
+  // The three weekly-period keys are optional: an old backup has none and imports as monthly.
+  if (obj.periodKind !== undefined && !isValidPeriodKind(obj.periodKind)) {
+    throw new Error('Settings: invalid periodKind (must be month or week).');
+  }
+  if (obj.weekStartDay !== undefined && !isValidPeriodWeekStartDay(obj.weekStartDay)) {
+    throw new Error('Settings: invalid weekStartDay (must be integer 0..6).');
+  }
+  if (
+    obj.weeklyBudgetMinor !== undefined &&
+    obj.weeklyBudgetMinor !== null &&
+    !isValidBudgetAmount(obj.weeklyBudgetMinor)
+  ) {
+    throw new Error('Settings: invalid weeklyBudgetMinor.');
+  }
 
   const reminderObj = asPlainObject(obj.reminder, 'Settings.reminder');
   if (typeof reminderObj.enabled !== 'boolean') {
@@ -810,6 +833,10 @@ function validateSettingsObject(raw: unknown): Settings {
     language: normalizeAppLanguage(obj.language, 'en'),
     banglaFont: normalizeBanglaFontKey(obj.banglaFont, 'noto_sans_bengali'),
     monthStartDay: obj.monthStartDay,
+    // Old backups have none of these: they import as monthly with no weekly budget.
+    periodKind: normalizePeriodKind(obj.periodKind),
+    weekStartDay: normalizePeriodWeekStartDay(obj.weekStartDay),
+    weeklyBudgetMinor: normalizeWeeklyBudgetMinor(obj.weeklyBudgetMinor),
     theme: obj.theme as ThemePreference,
     accent: (obj.accent ?? 'forest') as AccentTheme,
     incomeColor: normalizeIncomeColorKey(obj.incomeColor, 'emerald'),

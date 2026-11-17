@@ -27,6 +27,7 @@ import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
 import { useDashboard } from '@/state/useDashboard';
 import { useTodayWithRefresh } from '@/state/useToday';
+import { formatSpendingPeriodLabel } from '@/state/periodLabel';
 import { usePeople } from '@/state/usePeople';
 import { getCategoryTileVisual } from '@/theme/categoryColors';
 import type { TypographyVariant } from '@/theme/tokens';
@@ -109,6 +110,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
 
   const {
     today,
+    periodKind,
     period,
     overallBudgetMinor,
     summary,
@@ -364,6 +366,11 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const topSlices = categoryBreakdown.slice(0, 4);
   const maxCategorySpent = topSlices[0]?.spentMinor ?? 0;
   const remainingDaysCount = remainingDays(period, today);
+  const isWeekly = periodKind === 'week';
+  // Weekly mode only: the week's date range ("14 to 20 Nov") for the hero captions.
+  const weekRangeLabel = isWeekly
+    ? formatSpendingPeriodLabel(period, { ...settings, periodKind }, locale)
+    : '';
   const isNegativeRemaining =
     summary.remainingMinor !== null && summary.remainingMinor < 0;
   const usedPctText =
@@ -584,7 +591,9 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             <AppText variant="label" color="heroTextSecondary">
               {isNegativeRemaining
                 ? t('overview.overByHero')
-                : t('overview.leftToSpend')}
+                : isWeekly
+                  ? t('overview.leftToSpendWeek', { range: weekRangeLabel })
+                  : t('overview.leftToSpend')}
             </AppText>
 
             <Money
@@ -757,7 +766,9 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const noBudgetBody = (
           <>
             <AppText variant="label" color="heroTextSecondary">
-              {t('overview.spentThisCycle')}
+              {isWeekly
+                ? t('overview.spentThisWeek', { range: weekRangeLabel })
+                : t('overview.spentThisCycle')}
             </AppText>
 
             <Money
@@ -789,7 +800,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               ]}
             >
               <AppText variant="label" color="heroTextSecondary" style={styles.flexOne}>
-                {t('overview.noBudgetInline')}
+                {isWeekly ? t('overview.noBudgetInlineWeek') : t('overview.noBudgetInline')}
               </AppText>
               <AppText variant="label" color="heroText" style={styles.semiBold}>
                 {t('overview.setBudgetCta')}
