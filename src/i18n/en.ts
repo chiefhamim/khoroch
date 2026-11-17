@@ -439,6 +439,8 @@ export const en = {
   'dailyWage.savedToast': 'Wage recorded',
   'dailyWage.setToast': 'Daily wage set',
   'dailyWage.failedToast': 'Could not record the wage. Try again.',
+  'dailyWage.checkEntriesToast': "Recorded, but check today's entries",
+  'dailyWage.loadFailed': 'Could not load categories and wallets. Close this and open it again.',
   'dailyWage.savedNoWalletToast': 'Wage recorded with no wallet, because the saved wallet is gone or archived',
   'dailyWage.fallbackNote': 'The saved category or wallet is no longer available, so the defaults are shown. Save to keep them.',
   'overview.wageAddAgain': 'Add again',

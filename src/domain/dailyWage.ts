@@ -44,22 +44,48 @@ export function dailyWageProblem(wage: {
 }
 
 /**
- * True when today's wage is recorded: the stored pointer is for today and the entry it names still
- * exists, is not deleted and is still dated today. Moving or deleting the entry reads as not recorded.
+ * The pointer cut down to what is still true: only for `today`, and only the ids whose entry (from
+ * `found`, the entries looked up for those ids) exists, is not deleted and is still dated today.
+ * Null when nothing is left.
+ */
+export function pruneWageLast(
+  last: DailyWageLast | null,
+  found: readonly (Transaction | null)[],
+  today: LocalDate
+): DailyWageLast | null {
+  if (last === null || last.day !== today) return null;
+  const live = new Set(
+    found
+      .filter((tx): tx is Transaction => tx !== null && tx.deletedAt == null && tx.occurredOn === today)
+      .map((tx) => tx.id)
+  );
+  const ids = last.ids.filter((id) => live.has(id));
+  return ids.length === 0 ? null : { day: today, ids };
+}
+
+/**
+ * True when today's wage is recorded: ANY id in the pointer is a live entry still dated today.
+ * Deleting or moving some of them does not matter while one is left.
  */
 export function isWageRecordedToday(
   last: DailyWageLast | null,
-  tx: Transaction | null,
+  found: readonly (Transaction | null)[],
   today: LocalDate
 ): boolean {
-  return (
-    last !== null &&
-    last.day === today &&
-    tx !== null &&
-    tx.id === last.id &&
-    tx.deletedAt == null &&
-    tx.occurredOn === today
-  );
+  return pruneWageLast(last, found, today) !== null;
+}
+
+/** The pointer with a new entry appended. A pointer for another day starts over for `day`. */
+export function addWageId(last: DailyWageLast | null, id: string, day: LocalDate): DailyWageLast {
+  const ids = last !== null && last.day === day ? last.ids.filter((x) => x !== id) : [];
+  return { day, ids: [...ids, id] };
+}
+
+/** The pointer without exactly this id, or null when none is left. */
+export function removeWageId(last: DailyWageLast | null, id: string): DailyWageLast | null {
+  if (last === null) return null;
+  const ids = last.ids.filter((x) => x !== id);
+  return ids.length === 0 ? null : { day: last.day, ids };
 }
 
 export function buildWageEntry(input: {

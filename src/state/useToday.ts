@@ -10,6 +10,11 @@ import type { LocalDate } from '@/domain/types';
  * Setting the same date again does not re-render.
  */
 export function useToday(): LocalDate {
+  return useTodayWithRefresh().today;
+}
+
+/** Same as `useToday`, and also hands back `refresh` so a screen can move on to a new day at once. */
+export function useTodayWithRefresh(): { today: LocalDate; refresh: () => void } {
   const [today, setToday] = useState<LocalDate>(() => todayLocalDate());
 
   const refresh = useCallback(() => {
@@ -29,5 +34,5 @@ export function useToday(): LocalDate {
     return () => sub.remove();
   }, [refresh]);
 
-  return today;
+  return { today, refresh };
 }

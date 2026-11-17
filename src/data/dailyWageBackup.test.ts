@@ -32,19 +32,72 @@ describe('daily wage in backups', () => {
     expect((await dst.getSettings()).dailyWage).toBeNull();
   });
 
-  it('never exports the last-wage pointer, and an import resets it to none', async () => {
+  it('never exports the last-wage pointer, and an import cannot set it from the file', async () => {
     const src = new MemoryRepo();
-    await src.setSetting('dailyWageLast', { id: 'w1', day: '2026-11-17' });
+    await src.setSetting('dailyWageLast', { ids: ['w1'], day: '2026-11-17' });
     const json = await exportBackupJson(src, '2026-11-17T10:00:00.000Z');
     expect(JSON.parse(json).data.settings.dailyWageLast).toBeNull();
 
-    // Even a hand-edited backup that carries a pointer cannot set it.
+    // Even a hand-edited backup that carries a pointer cannot set it: nothing here is live today.
     const edited = JSON.parse(json);
-    edited.data.settings.dailyWageLast = { id: 'w1', day: '2026-11-17' };
+    edited.data.settings.dailyWageLast = { ids: ['w1'], day: '2026-11-17' };
     const dst = new MemoryRepo();
-    await dst.setSetting('dailyWageLast', { id: 'old', day: '2026-11-17' });
-    await restoreBackupPayload(dst, parseAndValidateBackup(JSON.stringify(edited)));
+    await dst.setSetting('dailyWageLast', { ids: ['old'], day: '2026-11-17' });
+    await restoreBackupPayload(dst, parseAndValidateBackup(JSON.stringify(edited)), '2026-11-17');
     expect((await dst.getSettings()).dailyWageLast).toBeNull();
+  });
+
+  describe('the local worked-today pointer across a restore', () => {
+    const TODAY = '2026-11-17';
+    const wageEntry = (id: string, day = TODAY) => ({
+      id,
+      type: 'income' as const,
+      amountMinor: 80_000,
+      currency: 'BDT' as const,
+      categoryId: 'business',
+      description: 'Business / Freelance',
+      occurredOn: day,
+      source: 'quick' as const,
+    });
+
+    it('keeps the ids that exist as live entries dated today in the restored data', async () => {
+      const src = new MemoryRepo();
+      await src.insertTransaction(wageEntry('w1'));
+      const json = await exportBackupJson(src, '2026-11-17T10:00:00.000Z');
+
+      const dst = new MemoryRepo();
+      await dst.insertTransaction(wageEntry('w1'));
+      await dst.insertTransaction(wageEntry('w2'));
+      await dst.setSetting('dailyWageLast', { ids: ['w1', 'w2'], day: TODAY });
+      await restoreBackupPayload(dst, parseAndValidateBackup(json), TODAY);
+
+      // w2 is not in the backup, so it is gone; w1 is restored and still counts.
+      expect((await dst.getSettings()).dailyWageLast).toEqual({ ids: ['w1'], day: TODAY });
+    });
+
+    it('resets the pointer to none when the restored data has none of the entries', async () => {
+      const src = new MemoryRepo();
+      const json = await exportBackupJson(src, '2026-11-17T10:00:00.000Z');
+
+      const dst = new MemoryRepo();
+      await dst.insertTransaction(wageEntry('w1'));
+      await dst.setSetting('dailyWageLast', { ids: ['w1'], day: TODAY });
+      await restoreBackupPayload(dst, parseAndValidateBackup(json), TODAY);
+
+      expect((await dst.getSettings()).dailyWageLast).toBeNull();
+    });
+
+    it('drops an id the backup restored with another date, or for another day', async () => {
+      const src = new MemoryRepo();
+      await src.insertTransaction(wageEntry('w1', '2026-11-10'));
+      const json = await exportBackupJson(src, '2026-11-17T10:00:00.000Z');
+
+      const dst = new MemoryRepo();
+      await dst.insertTransaction(wageEntry('w1'));
+      await dst.setSetting('dailyWageLast', { ids: ['w1'], day: TODAY });
+      await restoreBackupPayload(dst, parseAndValidateBackup(json), TODAY);
+      expect((await dst.getSettings()).dailyWageLast).toBeNull();
+    });
   });
 
   it('accepts an explicit null wage', async () => {

@@ -455,6 +455,8 @@ export const bn: Record<TranslationKey, string> = {
   'dailyWage.savedToast': 'মজুরি লেখা হয়েছে',
   'dailyWage.setToast': 'দৈনিক মজুরি নির্ধারণ করা হয়েছে',
   'dailyWage.failedToast': 'মজুরি লেখা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
+  'dailyWage.checkEntriesToast': 'লেখা হয়েছে, তবে আজকের এন্ট্রিগুলো যাচাই করুন',
+  'dailyWage.loadFailed': 'ক্যাটাগরি ও ওয়ালেট লোড করা যায়নি। এটি বন্ধ করে আবার খুলুন।',
   'dailyWage.savedNoWalletToast': 'মজুরি লেখা হয়েছে, তবে কোনো ওয়ালেট ছাড়া, কারণ নির্ধারিত ওয়ালেটটি আর নেই বা আর্কাইভ করা হয়েছে',
   'dailyWage.fallbackNote': 'নির্ধারিত ক্যাটাগরি বা ওয়ালেটটি আর পাওয়া যাচ্ছে না, তাই ডিফল্ট দেখানো হচ্ছে। রাখতে চাইলে সংরক্ষণ করুন।',
   'overview.wageAddAgain': 'আবার যোগ করুন',

@@ -221,3 +221,12 @@ Format:
 - Tap opens the Plan tab through in-app routing (`router.push('/(tabs)/plan')`), the way the check-in tap works; no URL scheme is involved, so dev (`khoroch-dev`) and main (`khoroch`) behave the same.
 - Text carries the bill name and timing only ("Rent is due today", "is due tomorrow", "is due in 3 days"), never an amount; a test checks every `billReminder.*` string in both languages for amount placeholders.
 - Delivery uses a DATE trigger with the default best-effort delivery, so Android may delay it by a few minutes under battery saving. No exact-alarm permission was added.
+
+## Worked today, fixes round 2
+- The pointer is now `{ day, ids[] }`; the old `{ id, day }` reads as a one-element list (no migration, same settings key). The day counts as recorded when any listed id is a live entry dated that day (`pruneWageLast`, read through the repo). A new entry appends its id and Undo removes only its own id.
+- "Record again" confirm: a ref set on the first press and reset only when the sheet is opened again, plus the button disabled while saving. Tests keep the sheet mounted with a stand-in Sheet because the real one unmounts in jest.
+- Backup restore keeps the local pointer ids that are live entries dated today in the restored data (`restoreBackupPayload` takes an optional `today`), otherwise sets none. A failure writing the pointer there is swallowed, since the restore itself succeeded and the button just offers the wage again.
+- Half-failed save (entry inserted, pointer write and rollback both failed): toast `dailyWage.checkEntriesToast`, and the day counts as recorded for the session through a ref.
+- Midnight with Home open: `useTodayWithRefresh` exposes `refresh`; Home calls it after a successful record whose day differs from the screen's today.
+- Bangla strip: the recorded label wraps to two lines (`flexShrink: 1`, clip) and "Add again" is `flexShrink: 0`. Two label lines are 36 against a 66 strip (button height 50 + 2 x 8), so no string was shortened.
+- DailyWageSheet: when the lists fail to load the existing error line shows `dailyWage.loadFailed` and Save stays disabled.

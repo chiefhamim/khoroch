@@ -1,5 +1,6 @@
 import { DEFAULT_CATEGORIES, DEFAULT_CATEGORY_BY_ID } from '@/domain/categories';
-import { formatLocalDate, isValidLocalDate } from '@/domain/dates';
+import { pruneWageLast } from '@/domain/dailyWage';
+import { formatLocalDate, isValidLocalDate, todayLocalDate } from '@/domain/dates';
 import { MAX_AMOUNT_MINOR } from '@/domain/money';
 import { normalizeCategoryColorKey } from '@/theme/categoryColors';
 import {
@@ -1184,7 +1185,11 @@ export function buildBackupPreview(payload: BackupFilePayload): BackupPreview {
  * another phone) cannot switch it off or change its timeout. Those two settings keep their
  * current values on this device. Exporting them is harmless and unchanged.
  */
-export async function restoreBackupPayload(repo: Repo, payload: BackupFilePayload): Promise<void> {
+export async function restoreBackupPayload(
+  repo: Repo,
+  payload: BackupFilePayload,
+  today: LocalDate = todayLocalDate()
+): Promise<void> {
   const current = await repo.getSettings();
   await repo.replaceAllDataFromBackup({
     ...payload.data,
@@ -1194,6 +1199,17 @@ export async function restoreBackupPayload(repo: Repo, payload: BackupFilePayloa
       appLockTimeoutSec: current.appLockTimeoutSec,
     },
   });
+  // The worked-today pointer is device-local and never in a backup. Keep the local ids that exist
+  // as live entries dated today in the restored data, and drop the rest.
+  const local = current.dailyWageLast;
+  if (local === null) return;
+  try {
+    const found = await Promise.all(local.ids.map((id) => repo.getTransaction(id)));
+    const kept = pruneWageLast(local, found, today);
+    await repo.setSetting('dailyWageLast', kept);
+  } catch {
+    // The restore itself succeeded. Without the pointer the button simply offers the wage again.
+  }
 }
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;

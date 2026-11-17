@@ -4,7 +4,7 @@ import { StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } f
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { isSavingsAssetKind, resolveWalletColorHex } from '@/domain/accounts';
 import { formatUtilizationPct } from '@/domain/calc';
-import { buildWageEntry, isWageRecordedToday } from '@/domain/dailyWage';
+import { addWageId, buildWageEntry, pruneWageLast, removeWageId } from '@/domain/dailyWage';
 import {
   addDays,
   currentLocalTime,
@@ -26,7 +26,7 @@ import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
 import { useDashboard } from '@/state/useDashboard';
-import { useToday } from '@/state/useToday';
+import { useTodayWithRefresh } from '@/state/useToday';
 import { usePeople } from '@/state/usePeople';
 import { getCategoryTileVisual } from '@/theme/categoryColors';
 import type { TypographyVariant } from '@/theme/tokens';
@@ -105,7 +105,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const { theme, reducedMotion } = useTheme();
   const router = useRouter();
   // Today's date refreshes on focus and when the app returns to the foreground.
-  const liveToday = useToday();
+  const { today: liveToday, refresh: refreshToday } = useTodayWithRefresh();
 
   const {
     today,
@@ -202,15 +202,27 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const [wageStatus, setWageStatus] = useState<{ day: LocalDate; recorded: boolean } | null>(null);
   const wageRecorded = wageStatus !== null && wageStatus.day === today ? wageStatus.recorded : null;
   const wageBusyRef = useRef(false);
+  // Set when an entry went in but neither its pointer nor the rollback could be written: that day
+  // counts as recorded for this session, so the button is not offered again.
+  const wageForcedDayRef = useRef<LocalDate | null>(null);
+  // One confirmation per opening of the "Record again" sheet. Reset only when the sheet opens.
+  const wageConfirmedRef = useRef(false);
+  const [wageSaving, setWageSaving] = useState(false);
   const [anotherWageOpen, setAnotherWageOpen] = useState(false);
-  /** Reads through the repo: the saved pointer is for this day and its entry is still live that day. */
-  const readWageRecorded = useCallback(
-    async (day: LocalDate): Promise<boolean> => {
+  /** Reads through the repo: the saved pointer cut down to the entries still live and dated that day. */
+  const readWageLast = useCallback(
+    async (day: LocalDate) => {
       const last = (await repo.getSettings()).dailyWageLast;
-      if (last === null || last.day !== day) return false;
-      return isWageRecordedToday(last, await repo.getTransaction(last.id), day);
+      if (last === null || last.day !== day) return null;
+      const found = await Promise.all(last.ids.map((id) => repo.getTransaction(id)));
+      return pruneWageLast(last, found, day);
     },
     [repo]
+  );
+  const readWageRecorded = useCallback(
+    async (day: LocalDate): Promise<boolean> =>
+      wageForcedDayRef.current === day || (await readWageLast(day)) !== null,
+    [readWageLast]
   );
   useEffect(() => {
     if (!wageUsable) return;
@@ -243,12 +255,15 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     if (!dailyWage || !wageCategory || wageBusyRef.current) return;
     if (!again && wageRecorded !== false) return;
     wageBusyRef.current = true;
+    setWageSaving(true);
     let insertedId: string | null = null;
+    let recordDay: LocalDate | null = null;
     try {
       const now = new Date();
       const day = todayLocalDate(now);
-      const previousLast = (await repo.getSettings()).dailyWageLast;
-      if (!again && (await readWageRecorded(day))) {
+      recordDay = day;
+      const previous = await readWageLast(day);
+      if (!again && (previous !== null || wageForcedDayRef.current === day)) {
         setWageStatus({ day, recorded: true });
         return;
       }
@@ -275,9 +290,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         })
       );
       insertedId = id;
-      await repo.setSetting('dailyWageLast', { id, day });
+      await repo.setSetting('dailyWageLast', addWageId(previous, id, day));
       insertedId = null;
       setWageStatus({ day, recorded: true });
+      // The clock passed midnight since this screen last read it: move the strip and the day book
+      // header to the new day together.
+      if (day !== today) refreshToday();
       hapticLight();
       bumpDataVersion();
       showToast({
@@ -288,25 +306,36 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         onAction: () => {
           void (async () => {
             await repo.softDeleteTransaction(id);
+            // Only this entry's id leaves the list; the other entries of the day stay recorded.
             const current = (await repo.getSettings()).dailyWageLast;
-            // Only the newest entry's pointer is touched; a second shift's undo goes back to the first.
-            if (current !== null && current.id === id) {
-              await repo.setSetting('dailyWageLast', again ? previousLast : null);
-            }
+            if (current !== null) await repo.setSetting('dailyWageLast', removeWageId(current, id));
           })()
             .catch(() => {})
             .finally(() => bumpDataVersion());
         },
       });
     } catch {
+      let halfFailed = false;
       if (insertedId !== null) {
         // The entry went in but its pointer did not: take the entry back so nothing is half done.
-        await repo.softDeleteTransaction(insertedId).catch(() => {});
+        try {
+          await repo.softDeleteTransaction(insertedId);
+        } catch {
+          halfFailed = true;
+        }
       }
-      showToast({ message: t('dailyWage.failedToast'), icon: 'circle-alert', tone: 'danger' });
+      if (halfFailed && recordDay !== null) {
+        // The entry is still there and could not be taken back: say so, and treat the day as recorded.
+        wageForcedDayRef.current = recordDay;
+        setWageStatus({ day: recordDay, recorded: true });
+        showToast({ message: t('dailyWage.checkEntriesToast'), icon: 'circle-alert', tone: 'danger' });
+      } else {
+        showToast({ message: t('dailyWage.failedToast'), icon: 'circle-alert', tone: 'danger' });
+      }
       bumpDataVersion();
     } finally {
       wageBusyRef.current = false;
+      setWageSaving(false);
     }
   };
 
@@ -1067,7 +1096,13 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                   style={[styles.wageRecorded, { gap: theme.spacing.sm }]}
                 >
                   <AppIcon name="circle-check" size={16} color={theme.colors.income} />
-                  <AppText variant="label" color="textSecondary">
+                  <AppText
+                    variant="label"
+                    color="textSecondary"
+                    numberOfLines={2}
+                    ellipsizeMode="clip"
+                    style={styles.wageRecordedLabel}
+                  >
                     {t('overview.wageRecorded')}
                   </AppText>
                 </View>
@@ -1076,7 +1111,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                   testID="overview-wage-add-again"
                   accessibilityRole="button"
                   accessibilityLabel={t('overview.wageAddAgainA11y')}
-                  onPress={() => setAnotherWageOpen(true)}
+                  onPress={() => {
+                    wageConfirmedRef.current = false;
+                    setAnotherWageOpen(true);
+                  }}
                   style={[
                     styles.wageAddAgain,
                     { minHeight: theme.touch.min, paddingHorizontal: theme.spacing.md },
@@ -1665,7 +1703,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           <Button
             testID="overview-wage-another-confirm"
             title={t('overview.wageAnotherConfirm')}
+            disabled={wageSaving}
             onPress={() => {
+              if (wageConfirmedRef.current) return;
+              wageConfirmedRef.current = true;
               setAnotherWageOpen(false);
               void recordWage(true);
             }}
@@ -1860,11 +1901,17 @@ const styles = StyleSheet.create({
   },
   wageRecorded: {
     flex: 1,
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
+  // Wraps to a second line (2 x label line height 18 = 36 fits the 66 strip) instead of clipping.
+  wageRecordedLabel: {
+    flexShrink: 1,
+  },
   wageAddAgain: {
+    flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },

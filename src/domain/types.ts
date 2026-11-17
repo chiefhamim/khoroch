@@ -558,19 +558,28 @@ export function normalizeDailyWage(raw: unknown): DailyWage | null {
   return { amountMinor: rec.amountMinor, categoryId: rec.categoryId, accountId };
 }
 
-/** The wage entry most recently recorded by the one-tap button, and the local day it was recorded for. */
+/** Every wage entry recorded by the one-tap button on one local day (ids in the order they were added). */
 export interface DailyWageLast {
-  id: string;
   day: string;
+  ids: string[];
 }
 
-/** Reads a stored value; anything that is not an id plus a YYYY-MM-DD day reads as none. */
+/**
+ * Reads a stored value. The old shape `{ id, day }` reads as a one-element list. Anything that is not
+ * a YYYY-MM-DD day plus at least one non-empty id reads as none.
+ */
 export function normalizeDailyWageLast(raw: unknown): DailyWageLast | null {
   if (!raw || typeof raw !== 'object') return null;
-  const rec = raw as { id?: unknown; day?: unknown };
-  if (typeof rec.id !== 'string' || rec.id.trim().length === 0) return null;
+  const rec = raw as { id?: unknown; ids?: unknown; day?: unknown };
   if (typeof rec.day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(rec.day)) return null;
-  return { id: rec.id, day: rec.day };
+  const candidates: unknown[] = Array.isArray(rec.ids) ? rec.ids : [rec.id];
+  const ids: string[] = [];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0 && !ids.includes(candidate)) {
+      ids.push(candidate);
+    }
+  }
+  return ids.length === 0 ? null : { day: rec.day, ids };
 }
 
 /** Days before a bill's due date to send the early reminder. 0 means the due day only. */

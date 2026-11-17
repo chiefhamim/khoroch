@@ -110,6 +110,7 @@ function DailyWageBody({ currency, wage, onClose, onSave }: BodyProps) {
   const selectedAccount = accounts.find((a) => a.id === accountId) ?? null;
 
   const handleSave = async () => {
+    if (!listsReady) return;
     const parsed = parseMoneyInput(amountText);
     const amountMinor = parsed.ok ? parsed.minor : null;
     const problem = dailyWageProblem({ amountMinor, categoryId });
@@ -193,9 +194,9 @@ function DailyWageBody({ currency, wage, onClose, onSave }: BodyProps) {
         </AppText>
       ) : null}
 
-      {error ? (
+      {error || loadFailed ? (
         <AppText testID="daily-wage-error" variant="label" color="danger">
-          {error}
+          {error ?? t('dailyWage.loadFailed')}
         </AppText>
       ) : null}
 
@@ -203,6 +204,7 @@ function DailyWageBody({ currency, wage, onClose, onSave }: BodyProps) {
         testID="daily-wage-save"
         title={t('common.save')}
         loading={saving}
+        disabled={!listsReady}
         onPress={() => void handleSave()}
       />
       {wage ? (

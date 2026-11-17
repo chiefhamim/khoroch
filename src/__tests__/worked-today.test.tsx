@@ -4,6 +4,7 @@ import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { OverviewContent } from '@/app/(tabs)/index';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { buildDefaultCategories } from '@/domain/categories';
+import { formatShortDate } from '@/domain/dates';
 import { formatMoney } from '@/domain/money';
 import type { Transaction } from '@/domain/types';
 import { t } from '@/i18n';
@@ -19,6 +20,35 @@ let mockUuidSeq = 0;
 jest.mock('expo-crypto', () => ({
   randomUUID: () => `wage-uuid-${++mockUuidSeq}-1234-5678-90abcdef`,
 }));
+
+// A plain stand-in for the sheet. When mockKeepSheetsMounted is set it keeps its children on screen
+// after it closes, as the real sheet does while its closing animation plays.
+let mockKeepSheetsMounted = false;
+jest.mock('@/ui/Sheet', () => {
+  const reactMod = jest.requireActual<typeof import('react')>('react');
+  const rnMod = jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    Sheet: ({
+      visible,
+      title,
+      testID,
+      children,
+    }: {
+      visible: boolean;
+      title?: string;
+      testID?: string;
+      children: React.ReactNode;
+    }) =>
+      visible || mockKeepSheetsMounted
+        ? reactMod.createElement(
+            rnMod.View,
+            { testID },
+            title ? reactMod.createElement(rnMod.Text, null, title) : null,
+            children
+          )
+        : null,
+  };
+});
 
 jest.mock('@/ui/haptics', () => ({
   ...jest.requireActual<typeof import('@/ui/haptics')>('@/ui/haptics'),
@@ -105,7 +135,7 @@ async function seedRecordedWage(repo: MemoryRepo, id = 'prev-wage', day = TODAY)
     occurredOn: day,
     source: 'quick',
   });
-  await repo.setSetting('dailyWageLast', { id, day });
+  await repo.setSetting('dailyWageLast', { ids: [id], day });
 }
 
 interface RenderOptions {
@@ -160,6 +190,7 @@ describe('Worked today on Home', () => {
     usePrivacyStore.setState({ hideAmounts: false });
   });
   afterEach(() => {
+    mockKeepSheetsMounted = false;
     jest.restoreAllMocks();
     jest.useRealTimers();
   });
@@ -209,7 +240,7 @@ describe('Worked today on Home', () => {
       note: '',
       description: 'Business / Freelance',
     });
-    expect((await repo.getSettings()).dailyWageLast).toEqual({ id: rows[0].id, day: TODAY });
+    expect((await repo.getSettings()).dailyWageLast).toEqual({ ids: [rows[0].id], day: TODAY });
     expect(hapticLight).toHaveBeenCalledTimes(1);
     expect(view.getByText(t('dailyWage.savedToast'))).toBeTruthy();
   });
@@ -353,7 +384,7 @@ describe('Worked today on Home', () => {
   });
 
   describe('the day comes from the clock at the tap', () => {
-    it('files the entry on the new day when the clock passes midnight between render and tap, then refreshes when the app returns', async () => {
+    it('files the entry on the new day when the clock passes midnight between render and tap, then settles on the new day', async () => {
       const handlers: ((state: string) => void)[] = [];
       jest.spyOn(AppState, 'addEventListener').mockImplementation(((
         _type: string,
@@ -375,13 +406,13 @@ describe('Worked today on Home', () => {
       const rows = await repo.listTransactionsInRange(TODAY, '2026-11-19');
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({ occurredOn: TOMORROW, occurredTime: '00:01' });
-      expect((await repo.getSettings()).dailyWageLast).toEqual({ id: rows[0].id, day: TOMORROW });
+      expect((await repo.getSettings()).dailyWageLast).toEqual({ ids: [rows[0].id], day: TOMORROW });
 
-      // Home still shows the old day until it refreshes; returning to the app moves it on.
-      await act(async () => {
-        handlers.forEach((handler) => handler('active'));
-      });
+      // Home moves to the new day by itself (no app resume needed): the strip shows recorded and the
+      // day book header carries the new date, together.
       await waitFor(() => expect(view.getByTestId('overview-wage-recorded')).toBeTruthy());
+      expect(view.queryByTestId('overview-worked-today-btn')).toBeNull();
+      expect(view.getByText(t('overview.todayDaybookHeader', { date: formatShortDate(TOMORROW) }))).toBeTruthy();
     });
 
     it('brings the button back for a new day when the app returns to the foreground', async () => {
@@ -438,6 +469,20 @@ describe('Worked today on Home', () => {
       await waitFor(() => expect(view.getByTestId('overview-worked-today-btn')).toBeTruthy());
     });
 
+    it('says to check the entries, and treats the day as recorded, when the pointer write and the rollback both fail', async () => {
+      const repo = await seedRepo(true);
+      jest.spyOn(repo, 'setSetting').mockRejectedValueOnce(new Error('settings write failed'));
+      jest.spyOn(repo, 'softDeleteTransaction').mockRejectedValueOnce(new Error('rollback failed'));
+      const view = await renderHome(repo);
+      await fireEvent.press(await waitFor(() => view.getByTestId('overview-worked-today-btn')));
+
+      await waitFor(() => expect(view.getByText(t('dailyWage.checkEntriesToast'))).toBeTruthy());
+      expect(view.queryByText(t('dailyWage.failedToast'))).toBeNull();
+      expect(await wageRows(repo)).toHaveLength(1);
+      await waitFor(() => expect(view.getByTestId('overview-wage-recorded')).toBeTruthy());
+      expect(view.queryByTestId('overview-worked-today-btn')).toBeNull();
+    });
+
     it('saves with no wallet and says so when the saved wallet is archived', async () => {
       const repo = await seedRepo(true);
       await repo.archiveAccount('acc_cash');
@@ -491,7 +536,7 @@ describe('Worked today on Home', () => {
 
       await waitFor(async () => expect(await wageRows(repo)).toHaveLength(2));
       const newest = (await wageRows(repo)).find((r) => r.id !== 'prev-wage') as Transaction;
-      expect((await repo.getSettings()).dailyWageLast).toEqual({ id: newest.id, day: TODAY });
+      expect((await repo.getSettings()).dailyWageLast).toEqual({ ids: ['prev-wage', newest.id], day: TODAY });
       expect(view.getByTestId('overview-wage-recorded')).toBeTruthy();
     });
 
@@ -507,9 +552,63 @@ describe('Worked today on Home', () => {
 
       await waitFor(async () => expect(await wageRows(repo)).toHaveLength(1));
       expect((await wageRows(repo))[0].id).toBe('prev-wage');
-      expect((await repo.getSettings()).dailyWageLast).toEqual({ id: 'prev-wage', day: TODAY });
+      expect((await repo.getSettings()).dailyWageLast).toEqual({ ids: ['prev-wage'], day: TODAY });
       await waitFor(() => expect(view.getByTestId('overview-wage-recorded')).toBeTruthy());
       expect(view.queryByTestId('overview-worked-today-btn')).toBeNull();
+    });
+
+    it('Undo or delete of the second entry leaves the day recorded; deleting all brings the button back', async () => {
+      const repo = await seedRepo(true);
+      await seedRecordedWage(repo);
+      const view = await renderHome(repo);
+      await fireEvent.press(await waitFor(() => view.getByTestId('overview-wage-add-again')));
+      await fireEvent.press(await waitFor(() => view.getByTestId('overview-wage-another-confirm')));
+      await waitFor(async () => expect(await wageRows(repo)).toHaveLength(2));
+      const second = (await wageRows(repo)).find((r) => r.id !== 'prev-wage') as Transaction;
+
+      // Deleted from elsewhere (not Undo): the first is still live, so the day stays recorded.
+      await act(async () => {
+        await repo.softDeleteTransaction(second.id);
+        const { bumpDataVersion } = jest.requireActual<typeof import('@/state/dataVersion')>(
+          '@/state/dataVersion'
+        );
+        bumpDataVersion();
+      });
+      await waitFor(async () => expect(await wageRows(repo)).toHaveLength(1));
+      expect(view.getByTestId('overview-wage-recorded')).toBeTruthy();
+      expect(view.queryByTestId('overview-worked-today-btn')).toBeNull();
+
+      await act(async () => {
+        await repo.softDeleteTransaction('prev-wage');
+        const { bumpDataVersion } = jest.requireActual<typeof import('@/state/dataVersion')>(
+          '@/state/dataVersion'
+        );
+        bumpDataVersion();
+      });
+      await waitFor(() => expect(view.getByTestId('overview-worked-today-btn')).toBeTruthy());
+    });
+
+    it('two confirm presses in a row, and one more after it resolves, insert exactly one entry', async () => {
+      mockKeepSheetsMounted = true;
+      const repo = await seedRepo(true);
+      await seedRecordedWage(repo);
+      const view = await renderHome(repo);
+      await fireEvent.press(await waitFor(() => view.getByTestId('overview-wage-add-again')));
+      const confirm = await waitFor(() => view.getByTestId('overview-wage-another-confirm'));
+
+      await act(async () => {
+        fireEvent.press(confirm);
+        fireEvent.press(confirm);
+      });
+      await waitFor(async () => expect(await wageRows(repo)).toHaveLength(2));
+      await waitFor(() => expect(hapticLight).toHaveBeenCalledTimes(1));
+      // After the first resolved, with the sheet possibly still mounted.
+      // The sheet is still mounted (closing animation): a press now must still do nothing.
+      expect(view.queryByTestId('overview-wage-another-confirm')).not.toBeNull();
+      await act(async () => {
+        fireEvent.press(confirm);
+      });
+      expect(await wageRows(repo)).toHaveLength(2);
     });
 
     it('keeps the strip the same height in every state', async () => {
@@ -669,6 +768,10 @@ describe('Old invisible note marks clean themselves up', () => {
 });
 
 describe('Daily wage sheet', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   async function renderSheet(repo: MemoryRepo) {
     const settings = await repo.getSettings();
     const onClose = jest.fn();
@@ -708,6 +811,7 @@ describe('Daily wage sheet', () => {
     });
     const { view, onClose } = await renderSheet(repo);
 
+    await waitFor(() => expect(view.getByTestId('daily-wage-category-business')).toBeTruthy());
     await fireEvent.press(await waitFor(() => view.getByTestId('daily-wage-save')));
     expect(await view.findByText(t('dailyWage.invalidAmount'))).toBeTruthy();
     expect((await repo.getSettings()).dailyWage).toBeNull();
@@ -722,6 +826,18 @@ describe('Daily wage sheet', () => {
       categoryId: 'business',
       accountId: 'acc_cash',
     });
+  });
+
+  it('shows the error line and keeps Save disabled when the lists fail to load', async () => {
+    const repo = await seedRepo(true);
+    jest.spyOn(repo, 'listCategories').mockRejectedValue(new Error('read failed'));
+    const { view, onClose } = await renderSheet(repo);
+
+    expect(await view.findByText(t('dailyWage.loadFailed'))).toBeTruthy();
+    expect(view.getByTestId('daily-wage-save').props.accessibilityState.disabled).toBe(true);
+    await fireEvent.press(view.getByTestId('daily-wage-save'));
+    expect(onClose).not.toHaveBeenCalled();
+    expect((await repo.getSettings()).dailyWage).toEqual(WAGE);
   });
 
   it('falls back visibly to the defaults when the saved wallet has been archived', async () => {
