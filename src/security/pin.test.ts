@@ -4,11 +4,11 @@ import {
   constantTimeEqual,
   hashPin,
   isValidPinFormat,
-  lockoutRemainingMs,
   lockoutSecondsFor,
   remainingLockoutSec,
   shouldLockAfterBackground,
   verifyPin,
+  waitRemainingFromElapsed,
 } from './pin';
 
 // Stand-in for expo-crypto's SHA-256 so the pure logic runs in Node.
@@ -118,20 +118,24 @@ describe('shouldLockAfterBackground', () => {
   });
 });
 
-describe('lockoutRemainingMs (wall-clock rules, used only after an app restart)', () => {
-  const state = { lastAttemptAtMs: 1_000_000, waitSec: 30 };
-  it('counts the wait down from the last attempt', () => {
-    expect(lockoutRemainingMs(state, 1_000_000)).toEqual({ remainingMs: 30_000, restarted: false });
-    expect(lockoutRemainingMs(state, 1_010_000)).toEqual({ remainingMs: 20_000, restarted: false });
-    expect(lockoutRemainingMs(state, 1_030_000)).toEqual({ remainingMs: 0, restarted: false });
+describe('waitRemainingFromElapsed', () => {
+  const ref = { lastElapsedMs: 100_000, bootMarkerMs: 900_000 };
+  // wall = marker + elapsed
+  it('counts the wait down on the since-boot clock', () => {
+    expect(waitRemainingFromElapsed(ref, 30, 1_000_000, 100_000)).toBe(30_000);
+    expect(waitRemainingFromElapsed(ref, 30, 1_010_000, 110_000)).toBe(20_000);
+    expect(waitRemainingFromElapsed(ref, 30, 1_030_000, 130_000)).toBe(0);
+    expect(waitRemainingFromElapsed(ref, 30, 1_900_000, 1_000_000)).toBe(0);
   });
-  it('restarts the full wait when wall time is earlier than the last attempt', () => {
-    expect(lockoutRemainingMs(state, 500_000)).toEqual({ remainingMs: 30_000, restarted: true });
+  it('asks for a full restart after a reboot or a moved clock', () => {
+    expect(waitRemainingFromElapsed(ref, 30, 1_010_000, 5_000)).toBeNull(); // since-boot went back
+    expect(waitRemainingFromElapsed(ref, 30, 5_000_000, 110_000)).toBeNull(); // clock forward
+    expect(waitRemainingFromElapsed(ref, 30, 100_000, 110_000)).toBeNull(); // clock back
+    expect(waitRemainingFromElapsed(ref, 30, 3_000_000, 2_100_000)).toBe(0); // same marker, long sleep
   });
-  it('has no wait when none was set', () => {
-    expect(lockoutRemainingMs({ lastAttemptAtMs: 5, waitSec: 0 }, 10)).toEqual({
-      remainingMs: 0,
-      restarted: false,
-    });
+  it('asks for a full restart when no reference was stored', () => {
+    expect(
+      waitRemainingFromElapsed({ lastElapsedMs: null, bootMarkerMs: null }, 30, 1, 1),
+    ).toBeNull();
   });
 });

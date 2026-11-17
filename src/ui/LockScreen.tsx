@@ -2,13 +2,10 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
-import { LockedScope } from '@/state/LockContext';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
-import { Button } from './Button';
-import { Field } from './Field';
+import { EraseAllSheet } from './EraseAllSheet';
 import { PinEntryPanel } from './PinEntryPanel';
-import { Sheet } from './Sheet';
 
 export interface LockScreenProps {
   biometric: boolean;
@@ -22,26 +19,6 @@ export function LockScreen({ biometric, onUnlocked, onEraseAll }: LockScreenProp
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const [forgotOpen, setForgotOpen] = useState(false);
-  const [confirmText, setConfirmText] = useState('');
-  const [erasing, setErasing] = useState(false);
-  const [eraseFailed, setEraseFailed] = useState(false);
-
-  const canErase = confirmText.trim().toUpperCase() === 'DELETE' && !erasing;
-
-  const erase = async () => {
-    if (!onEraseAll || !canErase) return;
-    setErasing(true);
-    setEraseFailed(false);
-    try {
-      await onEraseAll();
-      setForgotOpen(false);
-      setConfirmText('');
-    } catch {
-      setEraseFailed(true);
-    } finally {
-      setErasing(false);
-    }
-  };
 
   return (
     <View
@@ -77,37 +54,13 @@ export function LockScreen({ biometric, onUnlocked, onEraseAll }: LockScreenProp
       </ScrollView>
 
       {onEraseAll ? (
-        <LockedScope>
-        <Sheet
-          testID="lock-forgot-sheet"
+        <EraseAllSheet
           visible={forgotOpen}
-          onClose={() => {
-            if (!erasing) setForgotOpen(false);
-          }}
+          onClose={() => setForgotOpen(false)}
+          onEraseAll={onEraseAll}
           title={t('lock.forgotTitle')}
-        >
-          <AppText variant="body" color="textSecondary">
-            {t('lock.forgotBody')}
-          </AppText>
-          <Field
-            testID="lock-forgot-input"
-            label={t('settings.deleteAllTypePrompt')}
-            value={confirmText}
-            onChangeText={setConfirmText}
-            placeholder={t('settings.deleteAllTypePlaceholder')}
-            autoCapitalize="characters"
-            error={eraseFailed ? t('settings.actionError') : null}
-          />
-          <Button
-            testID="lock-forgot-confirm"
-            title={t('lock.eraseConfirm')}
-            variant="danger"
-            loading={erasing}
-            disabled={!canErase}
-            onPress={() => void erase()}
-          />
-        </Sheet>
-        </LockedScope>
+          body={t('lock.forgotBody')}
+        />
       ) : null}
     </View>
   );

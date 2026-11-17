@@ -139,9 +139,16 @@ export function Sheet({
   }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.get() }));
 
-  // Hide while the app lock is up: a Modal opened here would sit above the lock screen.
-  // Mounted state is kept, so the sheet comes back as it was after unlock.
-  if (!mounted || locked) return null;
+  // While the app lock is up the sheet must not be visible or reachable. React Native's Modal
+  // drops its children (and so their typed state) when it is hidden, so a sheet that is already
+  // open keeps its Modal window, with the content hidden (display none), untouchable and hidden
+  // from TalkBack. That window was created before the lock's own Modal, so the lock covers it.
+  // A sheet that opens while the lock is up gets no window at all until the lock is gone: a new
+  // Modal would sit above the lock screen.
+  const [windowLive, setWindowLive] = useState(false);
+  if (!mounted && windowLive) setWindowLive(false);
+  if (mounted && !locked && !windowLive) setWindowLive(true);
+  if (!mounted || (locked && !windowLive)) return null;
 
   const bottomPad = footer
     ? theme.spacing.md
@@ -180,7 +187,12 @@ export function Sheet({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <GestureHandlerRootView style={styles.flex}>
+      <GestureHandlerRootView
+        style={locked ? styles.hidden : styles.flex}
+        pointerEvents={locked ? "none" : "auto"}
+        importantForAccessibility={locked ? "no-hide-descendants" : "auto"}
+        accessibilityElementsHidden={locked}
+      >
         <KeyboardAvoidingView style={styles.root} behavior="padding">
           <Animated.View style={[styles.backdrop, backdropStyle]}>
             <Pressable
@@ -307,6 +319,9 @@ const OPEN_SPRING = {
 const styles = StyleSheet.create({
   flex: {
     flex: 1,
+  },
+  hidden: {
+    display: "none",
   },
   root: {
     flex: 1,

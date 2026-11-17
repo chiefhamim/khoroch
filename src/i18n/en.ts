@@ -1106,6 +1106,12 @@ export const en = {
   'lock.storageError': 'Secure storage did not respond, so the app lock could not be checked. Try again.',
   'lock.biometricChanged': 'Fingerprints or face on this phone changed, so fingerprint or face unlock was turned off. Use your PIN. You can turn it on again in Settings.',
   'lock.toastOnNoBiometric': 'App lock is on. Fingerprint or face unlock was not set up.',
+  'lock.lostTitle': 'App lock was turned off',
+  'lock.lostBody': 'App lock was turned off because its stored PIN is no longer available on this phone. You can set it again in Settings.',
+  'lock.storageErase': 'Erase all data',
+  'lock.storageEraseTitle': 'The PIN cannot be read',
+  'lock.storageEraseBody': 'The stored PIN could not be read on this phone, even after trying again. The only way to open the app now is to erase all data in this app on this device, including every entry, budget and setting. This cannot be undone. If you saved a backup file, you can restore it afterwards.',
+  'lock.biometricEnableFailed': 'Fingerprint or face unlock was not turned on.',
 } as const;
 
 export type TranslationKey = keyof typeof en;

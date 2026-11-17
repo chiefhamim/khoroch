@@ -11,7 +11,9 @@ import { useAppContext } from '@/state/AppContext';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
 import { Button } from './Button';
+import { EraseAllSheet } from './EraseAllSheet';
 import { LockScreen } from './LockScreen';
+import { Sheet } from './Sheet';
 
 type Phase = 'checking' | 'error' | 'locked' | 'open';
 
@@ -25,8 +27,11 @@ type Phase = 'checking' | 'error' | 'locked' | 'open';
  * - After the background timeout the app stays mounted underneath and a full-screen Modal shows
  *   the PIN screen. Sheets hide themselves while locked (see useIsLocked).
  * - Whenever the app leaves the foreground a plain cover Modal hides the content.
- * - A failed secure-store read keeps the app locked and shows Retry. The lock is switched off
- *   automatically only when a read succeeded and found no credential.
+ * - A failed secure-store read keeps the app locked and shows Retry. After a Retry that fails
+ *   again, the same typed-confirmation erase path as "forgot PIN" is offered, so a PIN that can
+ *   never be read does not lock the owner out for good.
+ * - The lock is switched off automatically only when a read succeeded and found no credential.
+ *   If the setting said on, a one-time notice tells the owner it was turned off and why.
  */
 export function LockGate({ children }: { children: React.ReactNode }) {
   const { repo, settings, updateSetting, refreshSettings } = useAppContext();
@@ -37,6 +42,9 @@ export function LockGate({ children }: { children: React.ReactNode }) {
   const [enabled, setEnabled] = useState(false);
   const [covered, setCovered] = useState(false);
   const [biometric, setBiometric] = useState(false);
+  const [retryFailed, setRetryFailed] = useState(false);
+  const [eraseOpen, setEraseOpen] = useState(false);
+  const [lostNotice, setLostNotice] = useState(false);
 
   const phaseRef = useRef(phase);
   const settingsRef = useRef(settings);
@@ -63,18 +71,23 @@ export function LockGate({ children }: { children: React.ReactNode }) {
   }, []);
 
   const openApp = useCallback(() => {
+    setRetryFailed(false);
+    setEraseOpen(false);
     setEverOpen(true);
     setPhase('open');
   }, []);
 
   const syncSettingOff = useCallback(() => {
     if (settingsRef.current.appLockEnabled) {
+      // The setting said on but the stored PIN is gone (its Keystore key no longer exists):
+      // say so once. The setting is switched off below, so the next open does not repeat it.
+      setLostNotice(true);
       void updateSettingRef.current('appLockEnabled', false);
     }
   }, []);
 
   /** Cold start and Retry. */
-  const runCheck = useCallback(async () => {
+  const runCheck = useCallback(async (fromRetry = false) => {
     const supported = await isAppLockSupported();
     if (!aliveRef.current) return;
     if (!supported) {
@@ -85,6 +98,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
     const state = await appLock.credentialState();
     if (!aliveRef.current) return;
     if (state === 'error') {
+      if (fromRetry) setRetryFailed(true); // offer the erase path after a failed Retry
       setPhase('error'); // stay locked: a failed read is never "no lock"
       return;
     }
@@ -104,7 +118,7 @@ export function LockGate({ children }: { children: React.ReactNode }) {
   }, [openApp, refreshBiometric, syncSettingOff]);
 
   useEffect(() => {
-    void Promise.resolve().then(runCheck);
+    void Promise.resolve().then(() => runCheck());
   }, [runCheck]);
 
   /** Lock again (background timeout). Closed first, then verified. */
@@ -214,8 +228,25 @@ export function LockGate({ children }: { children: React.ReactNode }) {
         </AppText>
         <Button testID="lock-retry" title={t('common.retry')} onPress={() => {
             setPhase('checking');
-            void runCheck();
+            void runCheck(true);
           }} />
+        {retryFailed ? (
+          <Button
+            testID="lock-storage-erase"
+            title={t('lock.storageErase')}
+            variant="ghost"
+            onPress={() => setEraseOpen(true)}
+          />
+        ) : null}
+        {retryFailed ? (
+          <EraseAllSheet
+            visible={eraseOpen}
+            onClose={() => setEraseOpen(false)}
+            onEraseAll={handleEraseAll}
+            title={t('lock.storageEraseTitle')}
+            body={t('lock.storageEraseBody')}
+          />
+        ) : null}
       </View>
     );
   } else {
@@ -231,6 +262,23 @@ export function LockGate({ children }: { children: React.ReactNode }) {
       {everOpen ? children : null}
       {!everOpen && phase === 'checking' ? (
         <View testID="lock-checking" style={[StyleSheet.absoluteFill, coverStyle]} />
+      ) : null}
+      {everOpen && lostNotice ? (
+        <Sheet
+          testID="lock-lost-notice"
+          visible
+          onClose={() => setLostNotice(false)}
+          title={t('lock.lostTitle')}
+        >
+          <AppText variant="body" color="textSecondary">
+            {t('lock.lostBody')}
+          </AppText>
+          <Button
+            testID="lock-lost-done"
+            title={t('common.done')}
+            onPress={() => setLostNotice(false)}
+          />
+        </Sheet>
       ) : null}
       {showModal ? (
         <Modal visible animationType="none" statusBarTranslucent onRequestClose={() => {}}>

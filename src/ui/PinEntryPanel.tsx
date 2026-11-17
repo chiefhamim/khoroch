@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, StyleSheet, View } from 'react-native';
+import { AccessibilityInfo, AppState, StyleSheet, View } from 'react-native';
 import { t } from '@/i18n';
 import { appLock as defaultLock } from '@/security/appLock';
 import { PIN_MAX_LENGTH, PIN_MIN_LENGTH, monotonicMs } from '@/security/pin';
@@ -75,6 +75,24 @@ export function PinEntryPanel({
     });
     return () => {
       alive = false;
+    };
+  }, [lock, startWait]);
+
+  // The on-screen countdown stops while the phone sleeps. When the app comes back, ask the lock
+  // for the real remaining time (it counts sleep) and show that.
+  useEffect(() => {
+    let alive = true;
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      void lock.getLockoutRemainingSec().then((sec) => {
+        if (!alive) return;
+        if (sec > 0) startWait(sec);
+        else setWaitEndsAt(0);
+      });
+    });
+    return () => {
+      alive = false;
+      sub.remove();
     };
   }, [lock, startWait]);
 

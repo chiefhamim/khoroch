@@ -1,6 +1,7 @@
 import React from 'react';
-import { AppState, Text } from 'react-native';
+import { AppState, Text, TextInput } from 'react-native';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
+import { runDeleteAllData } from '@/data/deleteAll';
 import { DEFAULT_SETTINGS, type Repo } from '@/data/repo';
 import type { Settings } from '@/domain/types';
 import { appLock, isAppLockSupported } from '@/security/appLock';
@@ -250,7 +251,88 @@ describe('LockGate', () => {
     await unlock();
     expect(screen.getByTestId('child-sheet')).toBeTruthy();
   });
+
+  it('shows a one-time notice when the setting said on but the stored PIN is gone', async () => {
+    credentialState.mockResolvedValue('absent');
+    await renderApp({ appLockEnabled: true });
+    expect(screen.getByTestId('app-child')).toBeTruthy();
+    expect(updateSetting).toHaveBeenCalledWith('appLockEnabled', false);
+    expect(screen.getByTestId('lock-lost-notice')).toBeTruthy();
+    expect(screen.getByText(/stored PIN is no longer available on this phone/)).toBeTruthy();
+    expect(screen.getByText(/set it again in Settings/)).toBeTruthy();
+    await fireEvent.press(screen.getByTestId('lock-lost-done'));
+    await act(async () => {});
+    expect(screen.queryByTestId('lock-lost-notice')).toBeNull();
+  });
+
+  it('shows no notice when the lock was already off', async () => {
+    credentialState.mockResolvedValue('absent');
+    await renderApp({ appLockEnabled: false });
+    expect(screen.getByTestId('app-child')).toBeTruthy();
+    expect(screen.queryByTestId('lock-lost-notice')).toBeNull();
+  });
+
+  it('shows no notice when the read failed (the app stays locked)', async () => {
+    credentialState.mockResolvedValue('error');
+    await renderApp({ appLockEnabled: true });
+    expect(screen.queryByTestId('lock-lost-notice')).toBeNull();
+  });
+
+  describe('a storage error that never clears', () => {
+    it('offers only Retry at first, and the erase path after a failed Retry', async () => {
+      credentialState.mockResolvedValue('error');
+      await renderApp();
+      expect(screen.getByTestId('lock-retry')).toBeTruthy();
+      expect(screen.queryByTestId('lock-storage-erase')).toBeNull();
+
+      await fireEvent.press(screen.getByTestId('lock-retry'));
+      await act(async () => {});
+      expect(screen.getByTestId('lock-error')).toBeTruthy();
+      expect(screen.getByTestId('lock-storage-erase')).toBeTruthy();
+      expect(screen.queryByTestId('app-child')).toBeNull();
+    });
+
+    it('erases only after typing DELETE, then clears the lock and opens the app', async () => {
+      credentialState.mockResolvedValue('error');
+      await renderApp({ appLockEnabled: true });
+      await fireEvent.press(screen.getByTestId('lock-retry'));
+      await act(async () => {});
+      await fireEvent.press(screen.getByTestId('lock-storage-erase'));
+      await act(async () => {});
+
+      expect(screen.getByText(/could not be read on this phone, even after trying again/)).toBeTruthy();
+      expect(screen.getByTestId('lock-forgot-confirm').props.accessibilityState?.disabled).toBe(true);
+      await fireEvent.press(screen.getByTestId('lock-forgot-confirm'));
+      expect(runDeleteAllData).not.toHaveBeenCalled();
+
+      await fireEvent.changeText(screen.getByTestId('lock-forgot-input'), 'DELETE');
+      await fireEvent.press(screen.getByTestId('lock-forgot-confirm'));
+      await act(async () => {});
+
+      expect(runDeleteAllData).toHaveBeenCalledTimes(1);
+      expect(appLock.clearAll).toHaveBeenCalled();
+      expect(updateSetting).toHaveBeenCalledWith('appLockEnabled', false);
+      expect(screen.getByTestId('app-child')).toBeTruthy();
+      expect(screen.queryByTestId('lock-error')).toBeNull();
+    });
+
+    it('stays locked and says so when the erase itself fails', async () => {
+      credentialState.mockResolvedValue('error');
+      (appLock.clearAll as jest.Mock).mockRejectedValueOnce(new Error('remove failed'));
+      await renderApp();
+      await fireEvent.press(screen.getByTestId('lock-retry'));
+      await act(async () => {});
+      await fireEvent.press(screen.getByTestId('lock-storage-erase'));
+      await act(async () => {});
+      await fireEvent.changeText(screen.getByTestId('lock-forgot-input'), 'DELETE');
+      await fireEvent.press(screen.getByTestId('lock-forgot-confirm'));
+      await act(async () => {});
+      expect(screen.queryByTestId('app-child')).toBeNull();
+      expect(screen.getByTestId('lock-error')).toBeTruthy();
+    });
+  });
 });
+
 
 describe('Sheet and the lock', () => {
   it('renders nothing while locked and its content when unlocked', async () => {
@@ -267,6 +349,8 @@ describe('Sheet and the lock', () => {
     );
     expect(screen.queryByTestId('solo-sheet')).toBeNull();
     expect(screen.queryByText('sheet body')).toBeNull();
+    // A sheet that opens while locked gets no window at all, hidden or not.
+    expect(screen.queryByTestId('solo-sheet', { includeHiddenElements: true })).toBeNull();
 
     await rerender(
       <ThemeProvider preference="light">
@@ -276,4 +360,36 @@ describe('Sheet and the lock', () => {
     expect(screen.getByTestId('solo-sheet')).toBeTruthy();
     expect(screen.getByText('sheet body')).toBeTruthy();
   });
+
+  it('keeps typed text through a lock and an unlock and never shows the sheet while locked', async () => {
+    function Form() {
+      const [v, setV] = React.useState('');
+      return <TextInput testID="typed-field" value={v} onChangeText={setV} />;
+    }
+    const tree = (locked: boolean) => (
+      <ThemeProvider preference="light">
+        <LockContext.Provider value={{ locked, enabled: true, refresh: async () => {} }}>
+          <Sheet visible onClose={() => {}} title="Inside" testID="typed-sheet">
+            <Form />
+          </Sheet>
+        </LockContext.Provider>
+      </ThemeProvider>
+    );
+    const { rerender } = await render(tree(false));
+    await fireEvent.changeText(screen.getByTestId('typed-field'), 'half typed note');
+    expect(screen.getByDisplayValue('half typed note')).toBeTruthy();
+
+    await rerender(tree(true));
+    // Not visible and not reachable while locked ...
+    expect(screen.queryByTestId('typed-sheet')).toBeNull();
+    expect(screen.queryByTestId('typed-field')).toBeNull();
+    expect(screen.queryByDisplayValue('half typed note')).toBeNull();
+    // ... but still mounted, so its state is alive.
+    expect(screen.getByTestId('typed-field', { includeHiddenElements: true })).toBeTruthy();
+
+    await rerender(tree(false));
+    expect(screen.getByTestId('typed-sheet')).toBeTruthy();
+    expect(screen.getByDisplayValue('half typed note')).toBeTruthy();
+  });
 });
+

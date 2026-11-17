@@ -16,8 +16,10 @@ function load(): ScreenCaptureModule | null {
 
 /**
  * Blocks screenshots, screen recording and the recent-apps snapshot (Android secure window flag)
- * while the app lock is on. Never throws. The flag covers the activity window; separate dialog
- * windows (sheets, the lock screen) are not guaranteed to be covered by it.
+ * while the app lock is on. Never throws. On React Native 0.88 the secure window flag is copied
+ * onto Modal windows when they are created, so dialogs (sheets, the lock screen) opened after the
+ * flag is set are covered too. Only a sheet that was already open at the moment the lock is first
+ * turned on is not.
  */
 export async function setScreenCaptureBlocked(blocked: boolean): Promise<void> {
   const mod = load();

@@ -19,7 +19,7 @@ import { SettingsRow } from './SettingsRow';
 import { Sheet } from './Sheet';
 import { useToast } from './Toast';
 
-type Flow = 'enable' | 'change' | 'disable' | 'timeout';
+type Flow = 'enable' | 'change' | 'disable' | 'timeout' | 'biometric';
 type Step = 'verify' | 'new' | 'confirm' | 'options';
 
 const TIMEOUT_KEYS: Record<number, TranslationKey> = {
@@ -81,13 +81,23 @@ export function AppLockSettings() {
 
   if (!supported) return null;
 
-  const openFlow = (next: Flow) => {
+  /**
+   * Every flow that changes the lock starts with the current PIN. The only exception is turning
+   * the lock on when nothing is stored: if a credential exists, or cannot be read, the stored PIN
+   * must be verified first, so a lock that looks off can never be overwritten without it.
+   */
+  const openFlow = async (next: Flow) => {
     hapticLight();
     setPin('');
     setFirstPin('');
     setError(null);
     setBioChoice(false);
-    setStep(next === 'enable' ? 'new' : 'verify');
+    let first: Step = 'verify';
+    if (next === 'enable') {
+      const stored = await appLock.credentialState();
+      if (stored === 'absent') first = 'new';
+    }
+    setStep(first);
     setFlow(next);
   };
 
@@ -98,46 +108,86 @@ export function AppLockSettings() {
     setFirstPin('');
   };
 
+  /** Re-reads what is really stored, whatever the steps before did. Never throws. */
+  const syncState = async () => {
+    try {
+      await lockState.refresh();
+      await refreshBio();
+    } catch {
+      // both readers already swallow storage errors; nothing more to do
+    }
+  };
+
   const save = async (chosenBio: boolean) => {
     if (!flow || saving) return;
+    const pinToSave = firstPin;
+    const startedFlow = flow;
     setSaving(true);
     setError(null);
+    let bioSetUp = true;
+    let done = false;
     try {
-      await appLock.setPin(firstPin);
-      let bioSetUp = true;
-      if (flow === 'enable') {
+      await appLock.setPin(pinToSave);
+      if (startedFlow === 'enable') {
         if (chosenBio) bioSetUp = await appLock.enableBiometric(t('lock.biometricPrompt'));
         else await appLock.disableBiometric().catch(() => {});
         await updateSetting('appLockEnabled', true);
       }
-      await lockState.refresh();
-      await refreshBio();
+      done = true;
+    } catch {
+      setError(t('lock.saveError'));
+      setStep('new');
+    } finally {
+      // The credential may already be written even when a later step failed: always show and
+      // enforce what is really stored, and never keep the typed PIN around.
+      setPin('');
+      setFirstPin('');
+      await syncState();
+      setSaving(false);
+    }
+    if (done) {
       setFlow(null);
       showToast({
         message: t(
-          flow !== 'enable' ? 'lock.toastChanged' : bioSetUp ? 'lock.toastOn' : 'lock.toastOnNoBiometric',
+          startedFlow !== 'enable'
+            ? 'lock.toastChanged'
+            : bioSetUp
+              ? 'lock.toastOn'
+              : 'lock.toastOnNoBiometric',
         ),
         icon: 'circle-check',
         tone: 'accent',
       });
-    } catch {
-      setError(t('lock.saveError'));
-    } finally {
-      setSaving(false);
     }
   };
 
   const disable = async () => {
+    let done = false;
     try {
       await appLock.clearAll(); // rejects when the credential could not be removed
       await updateSetting('appLockEnabled', false);
-      await lockState.refresh();
-      setBioOn(false);
-      setFlow(null);
-      showToast({ message: t('lock.toastOff'), icon: 'circle-check', tone: 'accent' });
+      done = true;
     } catch {
       setError(t('lock.saveError'));
+    } finally {
+      await syncState();
     }
+    if (done) {
+      setFlow(null);
+      showToast({ message: t('lock.toastOff'), icon: 'circle-check', tone: 'accent' });
+    }
+  };
+
+  /** After the PIN was verified: store a fresh secret behind a strong fingerprint or face check. */
+  const enableBiometricVerified = async () => {
+    let ok = false;
+    try {
+      ok = await appLock.enableBiometric(t('lock.biometricPrompt'));
+    } finally {
+      await syncState();
+    }
+    if (ok) setFlow(null);
+    else setError(t('lock.biometricEnableFailed'));
   };
 
   const onNewContinue = () => {
@@ -165,14 +215,11 @@ export function AppLockSettings() {
 
   const toggleBioSetting = async (next: boolean) => {
     if (next) {
-      // Stores a fresh secret behind a strong fingerprint or face check (prompts once).
-      const ok = await appLock.enableBiometric(t('lock.biometricPrompt'));
-      if (!ok) return;
-      setBioOn(true);
+      void openFlow('biometric'); // turning it on needs the PIN first, like the timeout change
       return;
     }
     await appLock.disableBiometric().catch(() => {});
-    setBioOn(false);
+    await refreshBio(); // read back what is stored instead of assuming it is off
   };
 
   const sheetTitle =
@@ -182,7 +229,9 @@ export function AppLockSettings() {
         ? t('lock.changeTitle')
         : flow === 'timeout'
           ? t('lock.timeoutLabel')
-          : t('lock.disableTitle');
+          : flow === 'biometric'
+            ? t('lock.biometricToggle')
+            : t('lock.disableTitle');
 
   return (
     <>
@@ -200,7 +249,7 @@ export function AppLockSettings() {
               testID="settings-app-lock-switch"
               accessibilityLabel={t('lock.rowLabel')}
               value={enabled}
-              onValueChange={(next) => openFlow(next ? 'enable' : 'disable')}
+              onValueChange={(next) => void openFlow(next ? 'enable' : 'disable')}
             />
           }
         />
@@ -210,7 +259,7 @@ export function AppLockSettings() {
             label={t('lock.timeoutLabel')}
             value={timeoutLabel(settings.appLockTimeoutSec)}
             showChevron
-            onPress={() => openFlow('timeout')}
+            onPress={() => void openFlow('timeout')}
           />
         ) : null}
         {enabled ? (
@@ -218,7 +267,7 @@ export function AppLockSettings() {
             testID="settings-app-lock-change-row"
             label={t('lock.changeTitle')}
             showChevron
-            onPress={() => openFlow('change')}
+            onPress={() => void openFlow('change')}
           />
         ) : null}
         {enabled && bioAvailable ? (
@@ -292,6 +341,8 @@ export function AppLockSettings() {
               onSuccess={() => {
                 if (flow === 'disable') {
                   void disable();
+                } else if (flow === 'biometric') {
+                  void enableBiometricVerified();
                 } else if (flow === 'timeout') {
                   // Verified: swap the verify sheet for the timeout choices.
                   setFlow(null);

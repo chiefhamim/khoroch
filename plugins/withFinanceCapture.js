@@ -276,6 +276,19 @@ class FinanceCaptureModule(private val reactCtx: ReactApplicationContext) :
   @ReactMethod
   fun removeListeners(count: Int) {}
 
+  /**
+   * Milliseconds since boot including deep sleep (SystemClock.elapsedRealtime). The user cannot
+   * change it; it restarts only on reboot. The app lock counts its wrong-PIN wait with it.
+   */
+  @ReactMethod
+  fun getElapsedRealtime(promise: Promise) {
+    try {
+      promise.resolve(android.os.SystemClock.elapsedRealtime().toDouble())
+    } catch (e: Exception) {
+      promise.reject("E_ELAPSED", e)
+    }
+  }
+
   @ReactMethod
   fun isNotificationListenerEnabled(promise: Promise) {
     try {

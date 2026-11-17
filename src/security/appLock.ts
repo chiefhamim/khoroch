@@ -3,15 +3,18 @@ import { Platform } from 'react-native';
 import {
   DEFAULT_PIN_ITERATIONS,
   LOCKOUT_FREE_ATTEMPTS,
+  LOCKOUT_MAX_SEC,
+  bootMarkerOf,
   hashPin,
   isValidPinFormat,
-  lockoutRemainingMs,
   lockoutSecondsFor,
   monotonicMs,
   remainingLockoutSec,
   verifyPin,
+  waitRemainingFromElapsed,
   type DigestFn,
 } from './pin';
+import { readElapsedRealtimeMs } from './elapsedRealtime';
 
 /**
  * PIN credential and failed-attempt state. Everything lives in the platform secure store
@@ -62,17 +65,32 @@ export interface AppLockDeps {
   store: KeyValueStore;
   digest: DigestFn;
   randomHex: (bytes: number) => string;
-  /** Wall clock. Only used across an app restart, and to detect a clock moved backwards. */
+  /**
+   * Wall clock. Never ends a wait on its own: it only feeds the boot marker (wall time minus time
+   * since boot), which detects a reboot or a moved clock so the full wait restarts.
+   */
   now: () => number;
-  /** Monotonic clock. Counts every wait inside a running session. */
+  /** Monotonic clock. Fallback for counting a wait inside a session when `elapsed` is unavailable. */
   mono?: () => number;
+  /**
+   * Milliseconds since boot including sleep (Android elapsedRealtime), or null when unavailable.
+   * This is the real time source of the wrong-PIN wait.
+   */
+  elapsed?: () => Promise<number | null>;
   iterations?: number;
 }
 
 interface AttemptState {
   failed: number;
+  /** Wall time of the last attempt. Only an identity for the wait, never a way to end it. */
   lastAttemptAtMs: number;
   waitSec: number;
+  /** Time since boot at the last attempt (null: none was available). */
+  lastElapsedMs: number | null;
+  /** Wall time minus time since boot at the last attempt (null: none was available). */
+  bootMarkerMs: number | null;
+  /** The wait ran out and was seen to. A finished wait is never restarted. */
+  waitDone: boolean;
 }
 
 function parseJson<T>(raw: string | null): T | null {
@@ -91,13 +109,13 @@ function isFiniteNumber(v: unknown): v is number {
 export function createAppLock(deps: AppLockDeps) {
   const { store, digest, randomHex, now } = deps;
   const mono = deps.mono ?? monotonicMs;
+  const elapsed = deps.elapsed ?? readElapsedRealtimeMs;
   const iterations = deps.iterations ?? DEFAULT_PIN_ITERATIONS;
 
   /**
-   * Monotonic reference for the wait in this session. While it matches the stored attempt, the
-   * wait is counted from it and the device clock is ignored (so moving the clock forward does
-   * nothing). Across an app restart there is no monotonic reference, only wall time: a clock
-   * moved forward before a restart can still shorten a wait. That gap cannot be closed in JS.
+   * Fallback reference, used only while the since-boot clock is unavailable: the wait is counted
+   * on the monotonic clock from the moment this session first saw it. Nothing survives an app
+   * restart, so without the since-boot clock every restart starts the full wait again.
    */
   let anchor: {
     lastAttemptAtMs: number;
@@ -105,6 +123,15 @@ export function createAppLock(deps: AppLockDeps) {
     monoAtMs: number;
     remainingMs: number;
   } | null = null;
+
+  async function readElapsed(): Promise<number | null> {
+    try {
+      const v = await elapsed();
+      return typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null;
+    } catch {
+      return null;
+    }
+  }
 
   async function readCredential(): Promise<
     { kind: 'present'; rec: CredentialRecord } | { kind: 'absent' } | { kind: 'corrupt' }
@@ -131,58 +158,108 @@ export function createAppLock(deps: AppLockDeps) {
       lastAttemptAtMs?: unknown;
       waitSec?: unknown;
       lockedUntilMs?: unknown;
+      lastElapsedMs?: unknown;
+      bootMarkerMs?: unknown;
+      waitDone?: unknown;
     }>(await store.get(ATTEMPTS_KEY));
     const failed =
       raw && typeof raw.failed === 'number' && Number.isInteger(raw.failed) && raw.failed > 0
         ? raw.failed
         : 0;
     if (raw && isFiniteNumber(raw.lastAttemptAtMs) && isFiniteNumber(raw.waitSec)) {
-      return { failed, lastAttemptAtMs: raw.lastAttemptAtMs, waitSec: Math.max(0, raw.waitSec) };
+      return {
+        failed,
+        lastAttemptAtMs: raw.lastAttemptAtMs,
+        waitSec: Math.max(0, raw.waitSec),
+        lastElapsedMs: isFiniteNumber(raw.lastElapsedMs) ? raw.lastElapsedMs : null,
+        bootMarkerMs: isFiniteNumber(raw.bootMarkerMs) ? raw.bootMarkerMs : null,
+        waitDone: raw.waitDone === true,
+      };
     }
     if (raw && isFiniteNumber(raw.lockedUntilMs) && raw.lockedUntilMs > 0) {
       // Older format (a wall-clock deadline): treat what is left as a wait starting now.
       const at = now();
-      return { failed, lastAttemptAtMs: at, waitSec: remainingLockoutSec(raw.lockedUntilMs, at) };
+      return {
+        failed,
+        lastAttemptAtMs: at,
+        waitSec: remainingLockoutSec(raw.lockedUntilMs, at),
+        lastElapsedMs: null,
+        bootMarkerMs: null,
+        waitDone: false,
+      };
     }
-    return { failed, lastAttemptAtMs: 0, waitSec: 0 };
+    return { failed, lastAttemptAtMs: 0, waitSec: 0, lastElapsedMs: null, bootMarkerMs: null, waitDone: true };
   }
 
   async function writeAttempts(state: AttemptState): Promise<void> {
     await store.set(ATTEMPTS_KEY, JSON.stringify(state));
   }
 
-  /** Remaining wait in ms, counted monotonically inside the session. */
+  async function writeQuietly(state: AttemptState): Promise<void> {
+    try {
+      await writeAttempts(state);
+    } catch {
+      // the in-memory reference still enforces what it can
+    }
+  }
+
+  /**
+   * Remaining wait in ms. Counted on the since-boot clock (sleep counts, the user cannot move it),
+   * the same way inside a session and after an app restart. The full wait restarts when the stored
+   * reference cannot be trusted (reboot, moved clock, record without a reference) or when the
+   * since-boot clock is unavailable and this session has not seen the wait yet. A wait that was
+   * seen to finish is stored as finished and never restarts. Wall time alone never ends a wait.
+   */
   async function remainingWaitMs(state: AttemptState): Promise<number> {
-    if (state.waitSec <= 0) {
+    if (state.waitSec <= 0 || state.waitDone) {
       anchor = null;
       return 0;
     }
+    const fullMs = Math.min(state.waitSec, LOCKOUT_MAX_SEC) * 1000;
+    const wall = now();
+    const elapsedNow = await readElapsed();
+
+    if (elapsedNow !== null) {
+      anchor = null;
+      const left = waitRemainingFromElapsed(state, state.waitSec, wall, elapsedNow);
+      if (left === null) {
+        await writeQuietly({
+          ...state,
+          lastAttemptAtMs: wall,
+          lastElapsedMs: elapsedNow,
+          bootMarkerMs: bootMarkerOf(wall, elapsedNow),
+          waitDone: false,
+        });
+        return fullMs;
+      }
+      if (left <= 0) {
+        await writeQuietly({ ...state, waitDone: true });
+        return 0;
+      }
+      return left;
+    }
+
     const monoNow = mono();
     if (
       anchor &&
       anchor.lastAttemptAtMs === state.lastAttemptAtMs &&
       anchor.waitSec === state.waitSec
     ) {
-      return Math.max(0, anchor.remainingMs - (monoNow - anchor.monoAtMs));
-    }
-    // First look at this wait in this session: only wall time exists.
-    const wall = lockoutRemainingMs(state, now());
-    let last = state.lastAttemptAtMs;
-    if (wall.restarted) {
-      last = now();
-      try {
-        await writeAttempts({ ...state, lastAttemptAtMs: last });
-      } catch {
-        // the in-memory reference below still enforces the restarted wait
+      const left = anchor.remainingMs - (monoNow - anchor.monoAtMs);
+      if (left <= 0) {
+        anchor = null;
+        await writeQuietly({ ...state, waitDone: true });
+        return 0;
       }
+      return left;
     }
     anchor = {
-      lastAttemptAtMs: last,
+      lastAttemptAtMs: state.lastAttemptAtMs,
       waitSec: state.waitSec,
       monoAtMs: monoNow,
-      remainingMs: wall.remainingMs,
+      remainingMs: fullMs,
     };
-    return wall.remainingMs;
+    return fullMs;
   }
 
   async function removeQuietly(key: string): Promise<void> {
@@ -268,8 +345,16 @@ export function createAppLock(deps: AppLockDeps) {
       const failedNow = attempts.failed + 1;
       const lockSec = lockoutSecondsFor(failedNow);
       const at = now();
+      const elapsedAt = await readElapsed();
       try {
-        await writeAttempts({ failed: failedNow, lastAttemptAtMs: at, waitSec: lockSec });
+        await writeAttempts({
+          failed: failedNow,
+          lastAttemptAtMs: at,
+          waitSec: lockSec,
+          lastElapsedMs: elapsedAt,
+          bootMarkerMs: elapsedAt === null ? null : bootMarkerOf(at, elapsedAt),
+          waitDone: lockSec === 0,
+        });
       } catch {
         return { status: 'error' }; // cannot count the attempt, so do not check the PIN
       }

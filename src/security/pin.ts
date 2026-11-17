@@ -88,35 +88,53 @@ export function remainingLockoutSec(lockedUntilMs: number, nowMs: number): numbe
   return Math.min(left, LOCKOUT_MAX_SEC);
 }
 
-/** Monotonic milliseconds (never moved by the device clock). Falls back to wall time without it. */
+/**
+ * Monotonic milliseconds (never moved by the device clock, but it stops in deep sleep). Only the
+ * fallback for counting a wait when the since-boot clock is unavailable.
+ */
 export function monotonicMs(): number {
   const perf = (globalThis as { performance?: { now?: () => number } }).performance;
   return perf && typeof perf.now === 'function' ? perf.now() : Date.now();
 }
 
-export interface LockoutWallState {
-  /** Wall-clock time (ms) of the last wrong attempt that set the wait. */
-  lastAttemptAtMs: number;
-  /** Length of the wait in seconds (0 means no wait). */
-  waitSec: number;
+/** How far the boot marker may drift (clock sync, call jitter) before it counts as a changed clock or a reboot. */
+export const BOOT_MARKER_TOLERANCE_MS = 5000;
+
+/**
+ * Wall time minus the time since boot. It stays the same while the phone runs, and changes when
+ * the phone reboots or the user moves the clock.
+ */
+export function bootMarkerOf(wallNowMs: number, elapsedMs: number): number {
+  return Math.round(wallNowMs - elapsedMs);
+}
+
+/** The stored attempt record's time reference. Null fields mean the record has none. */
+export interface WaitReference {
+  /** Time since boot at the last attempt. */
+  lastElapsedMs: number | null;
+  /** Boot marker at the last attempt. */
+  bootMarkerMs: number | null;
 }
 
 /**
- * Remaining wait in ms from wall time. Only for the first look at a wait after an app restart,
- * when no monotonic reference exists. Inside a running session the caller counts with a
- * monotonic timer instead and never calls this again.
- * Wall time earlier than the last attempt means the clock was moved back: the full wait restarts
- * from now (`restarted` true, so the caller can store the new start).
+ * Remaining wait from the since-boot clock, or null when the reference cannot be trusted and the
+ * full wait must restart (a reboot, a moved clock, or no reference stored). Wall time alone never
+ * ends a wait: it only takes part through the boot marker, and a changed marker lengthens the wait.
  */
-export function lockoutRemainingMs(
-  state: LockoutWallState,
+export function waitRemainingFromElapsed(
+  ref: WaitReference,
+  waitSec: number,
   wallNowMs: number,
-): { remainingMs: number; restarted: boolean } {
-  const fullMs = Math.min(Math.max(state.waitSec, 0), LOCKOUT_MAX_SEC) * 1000;
-  if (fullMs <= 0) return { remainingMs: 0, restarted: false };
-  if (wallNowMs < state.lastAttemptAtMs) return { remainingMs: fullMs, restarted: true };
-  const left = fullMs - (wallNowMs - state.lastAttemptAtMs);
-  return { remainingMs: Math.min(Math.max(left, 0), fullMs), restarted: false };
+  elapsedNowMs: number,
+): number | null {
+  const fullMs = Math.min(Math.max(waitSec, 0), LOCKOUT_MAX_SEC) * 1000;
+  if (ref.lastElapsedMs === null || ref.bootMarkerMs === null) return null;
+  if (elapsedNowMs < ref.lastElapsedMs) return null; // rebooted
+  if (Math.abs(bootMarkerOf(wallNowMs, elapsedNowMs) - ref.bootMarkerMs) > BOOT_MARKER_TOLERANCE_MS) {
+    return null; // rebooted, or the clock was moved
+  }
+  const left = fullMs - (elapsedNowMs - ref.lastElapsedMs);
+  return Math.min(Math.max(left, 0), fullMs);
 }
 
 /** True when returning to the app must show the lock. */

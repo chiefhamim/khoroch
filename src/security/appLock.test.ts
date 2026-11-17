@@ -42,25 +42,40 @@ function memoryStore(): TestStore {
   return store;
 }
 
-/** Wall clock and monotonic clock are separate so a test can move one without the other. */
+interface Clocks {
+  now: number;
+  mono: number;
+  /** Since-boot clock including sleep; null means the native source is missing. */
+  elapsed: number | null;
+}
+
+/** Wall, monotonic and since-boot clocks are separate so a test can move one without the others. */
 function clocks(wall = 1_000_000) {
-  const c = { now: wall, mono: 50_000 };
+  const c: Clocks = { now: wall, mono: 50_000, elapsed: 400_000 };
   return {
     c,
+    /** Awake time passes on every clock. */
     advance(ms: number) {
       c.now += ms;
       c.mono += ms;
+      if (c.elapsed !== null) c.elapsed += ms;
+    },
+    /** Deep sleep: the monotonic clock stops, the others run. */
+    sleep(ms: number) {
+      c.now += ms;
+      if (c.elapsed !== null) c.elapsed += ms;
     },
   };
 }
 
-function make(store: KeyValueStore, c: { now: number; mono: number }, iterations = 3) {
+function make(store: KeyValueStore, c: Clocks, iterations = 3) {
   return createAppLock({
     store,
     digest,
     randomHex: () => 'cd'.repeat(16),
     now: () => c.now,
     mono: () => c.mono,
+    elapsed: async () => c.elapsed,
     iterations,
   });
 }
@@ -139,7 +154,7 @@ describe('appLock credential and attempts', () => {
   });
 });
 
-describe('lockout and the device clock', () => {
+describe('lockout time source', () => {
   async function lockedOut() {
     const store = memoryStore();
     const k = clocks();
@@ -149,56 +164,176 @@ describe('lockout and the device clock', () => {
     return { store, ...k, lock };
   }
 
-  it('moving the clock forward inside a session does not shorten the wait', async () => {
-    const { c, lock, advance } = await lockedOut();
-    advance(10_000);
-    c.now += 60 * 60 * 1000; // user sets the clock one hour ahead; monotonic time is unmoved
-    expect(await lock.getLockoutRemainingSec()).toBe(20);
-    expect(await lock.checkPin('1234')).toEqual({ status: 'locked', remainingSec: 20 });
-    advance(20_000);
-    expect(await lock.checkPin('1234')).toEqual({ status: 'ok' });
-  });
-
-  it('moving the clock backward inside a session does not lengthen the wait', async () => {
-    const { c, lock, advance } = await lockedOut();
-    c.now -= 60 * 60 * 1000;
-    advance(30_000);
-    expect(await lock.getLockoutRemainingSec()).toBe(0);
-  });
-
-  it('stores the time of the last attempt and the wait length', async () => {
+  it('stores the attempt time, the since-boot time, the boot marker and the wait', async () => {
     const { store } = await lockedOut();
     expect(JSON.parse(store.data.get(ATTEMPTS_KEY) ?? '{}')).toEqual({
       failed: 5,
       lastAttemptAtMs: 1_000_000,
       waitSec: 30,
+      lastElapsedMs: 400_000,
+      bootMarkerMs: 600_000,
+      waitDone: false,
     });
   });
 
-  it('after a restart the wait is rebuilt from wall time and keeps running', async () => {
+  it('normal expiry: refuses during the wait and accepts the right PIN after it', async () => {
+    const { lock, advance } = await lockedOut();
+    advance(10_000);
+    expect(await lock.checkPin('1234')).toEqual({ status: 'locked', remainingSec: 20 });
+    advance(20_000);
+    expect(await lock.checkPin('1234')).toEqual({ status: 'ok' });
+  });
+
+  it('sleep counts: a wait that ran out while the screen was off is over', async () => {
+    const { c, lock, sleep } = await lockedOut();
+    sleep(40_000); // the monotonic clock did not move
+    expect(c.mono).toBe(50_000);
+    expect(await lock.getLockoutRemainingSec()).toBe(0);
+    expect(await lock.checkPin('1234')).toEqual({ status: 'ok' });
+  });
+
+  it('a clock moved forward inside a session does not end the wait (it restarts in full)', async () => {
+    const { c, lock, advance } = await lockedOut();
+    advance(10_000);
+    c.now += 60 * 60 * 1000;
+    expect(await lock.checkPin('1234')).toEqual({ status: 'locked', remainingSec: 30 });
+    advance(30_000);
+    expect(await lock.checkPin('1234')).toEqual({ status: 'ok' });
+  });
+
+  it('a clock moved back inside a session restarts the full wait', async () => {
+    const { c, lock, advance } = await lockedOut();
+    advance(10_000);
+    c.now -= 60 * 60 * 1000;
+    expect(await lock.getLockoutRemainingSec()).toBe(30);
+  });
+
+  it('force-stop and reopen: the wait keeps running from the stored reference', async () => {
     const { store, c, advance } = await lockedOut();
     advance(5_000);
-    const restarted = make(store, { now: c.now, mono: 7 }); // new process: new monotonic origin
-    expect(await restarted.getLockoutRemainingSec()).toBe(25);
-    expect(await restarted.checkPin('1234')).toMatchObject({ status: 'locked' });
+    c.mono = 7; // new process: new monotonic origin
+    const reopened = make(store, c);
+    expect(await reopened.getLockoutRemainingSec()).toBe(25);
+    expect(await reopened.checkPin('1234')).toMatchObject({ status: 'locked' });
   });
 
-  it('after a restart, wall time earlier than the last attempt restarts the full wait', async () => {
-    const { store } = await lockedOut();
-    const mono = { now: 500_000, mono: 7 }; // clock moved back before the restart
-    const restarted = make(store, mono);
-    expect(await restarted.getLockoutRemainingSec()).toBe(30);
-    // The new start is stored, so a later restart counts from it.
-    expect(JSON.parse(store.data.get(ATTEMPTS_KEY) ?? '{}').lastAttemptAtMs).toBe(500_000);
-    mono.mono += 10_000;
-    mono.now += 10_000;
-    expect(await restarted.getLockoutRemainingSec()).toBe(20);
+  it('force-stop with the clock moved forward does not shorten or end the wait', async () => {
+    const { store, c, advance } = await lockedOut();
+    advance(5_000);
+    c.now += 3600_000;
+    c.mono = 7;
+    const reopened = make(store, c);
+    expect(await reopened.getLockoutRemainingSec()).toBe(30);
+    expect(await reopened.checkPin('1234')).toMatchObject({ status: 'locked' });
   });
 
-  it('known limit: a clock moved forward before an app restart still shortens the wait', async () => {
+  it('force-stop with the clock moved back restarts the full wait', async () => {
+    const { store, c, advance } = await lockedOut();
+    advance(5_000);
+    c.now -= 600_000;
+    c.mono = 7;
+    expect(await make(store, c).getLockoutRemainingSec()).toBe(30);
+  });
+
+  it('reboot: the full wait restarts from now and then counts down', async () => {
+    const { store, c, advance } = await lockedOut();
+    advance(5_000);
+    c.elapsed = 2_000; // since-boot clock restarted
+    c.now += 60_000;
+    c.mono = 7;
+    const rebooted = make(store, c);
+    expect(await rebooted.getLockoutRemainingSec()).toBe(30);
+    c.now += 12_000;
+    c.elapsed += 12_000;
+    expect(await rebooted.getLockoutRemainingSec()).toBe(18);
+  });
+
+  it('reboot is also caught when the new since-boot time is already past the old one', async () => {
     const { store, c } = await lockedOut();
-    const restarted = make(store, { now: c.now + 3600_000, mono: 7 });
-    expect(await restarted.getLockoutRemainingSec()).toBe(0);
+    c.now += 3_000_000;
+    c.elapsed = 900_000; // larger than 400,000, but the boot marker changed
+    c.mono = 7;
+    expect(await make(store, c).getLockoutRemainingSec()).toBe(30);
+  });
+
+  it('a finished wait is stored as finished and is not restarted by a later reboot', async () => {
+    const { store, c, sleep } = await lockedOut();
+    sleep(60_000);
+    expect(await make(store, c).getLockoutRemainingSec()).toBe(0);
+    expect(JSON.parse(store.data.get(ATTEMPTS_KEY) ?? '{}').waitDone).toBe(true);
+    c.elapsed = 1_000;
+    c.now += 9_000_000;
+    expect(await make(store, c).getLockoutRemainingSec()).toBe(0);
+  });
+
+  it('a new wrong attempt after a finished wait starts a new wait and clears the flag', async () => {
+    const { store, lock, sleep } = await lockedOut();
+    sleep(60_000);
+    expect(await lock.checkPin('0000')).toMatchObject({ status: 'wrong', failed: 6, lockedSec: 60 });
+    expect(JSON.parse(store.data.get(ATTEMPTS_KEY) ?? '{}').waitDone).toBe(false);
+  });
+
+  describe('since-boot source missing', () => {
+    it('counts the wait on the monotonic clock inside the session, wall time cannot end it', async () => {
+      const { c, lock, advance } = await lockedOut();
+      c.elapsed = null;
+      advance(10_000);
+      expect(await lock.getLockoutRemainingSec()).toBe(20); // the session's own reference
+      advance(10_000);
+      c.now += 3600_000; // moved clock is ignored
+      expect(await lock.getLockoutRemainingSec()).toBe(10);
+      advance(10_000);
+      expect(await lock.getLockoutRemainingSec()).toBe(0);
+    });
+
+    it('restarts the full wait after any restart', async () => {
+      const store = memoryStore();
+      const k = clocks();
+      k.c.elapsed = null;
+      const lock = make(store, k.c);
+      await lock.setPin('1234');
+      for (let i = 0; i < 5; i += 1) await lock.checkPin('0000');
+      k.advance(25_000);
+      expect(await lock.getLockoutRemainingSec()).toBe(5);
+      k.c.mono = 7;
+      const reopened = make(store, k.c);
+      expect(await reopened.getLockoutRemainingSec()).toBe(30);
+      expect(await reopened.checkPin('1234')).toMatchObject({ status: 'locked' });
+      const stored = JSON.parse(store.data.get(ATTEMPTS_KEY) ?? '{}');
+      expect(stored.lastElapsedMs).toBeNull();
+      expect(stored.bootMarkerMs).toBeNull();
+    });
+
+    it('treats a throwing native source like a missing one', async () => {
+      const store = memoryStore();
+      const k = clocks();
+      const lock = createAppLock({
+        store,
+        digest,
+        randomHex: () => 'cd'.repeat(16),
+        now: () => k.c.now,
+        mono: () => k.c.mono,
+        elapsed: async () => {
+          throw new Error('native failed');
+        },
+        iterations: 3,
+      });
+      await lock.setPin('1234');
+      for (let i = 0; i < 5; i += 1) await lock.checkPin('0000');
+      expect(await lock.getLockoutRemainingSec()).toBe(30);
+    });
+  });
+
+  it('a record from before the time reference existed restarts the wait in full', async () => {
+    const store = memoryStore();
+    const k = clocks();
+    const lock = make(store, k.c);
+    await lock.setPin('1234');
+    store.data.set(
+      ATTEMPTS_KEY,
+      JSON.stringify({ failed: 5, lastAttemptAtMs: k.c.now - 5_000, waitSec: 30 }),
+    );
+    expect(await lock.getLockoutRemainingSec()).toBe(30);
   });
 
   it('reads the older deadline format without ending the wait', async () => {
