@@ -12,8 +12,14 @@ import {
   openNotificationListenerSettings,
   recognizeImageText,
 } from '@/capture/nativeCapture';
-import { canApproveDraft, findLikelyDuplicateDraftIds, isBulkApprovable } from '@/capture/draftChecks';
-import { parseCaptureDocument } from '@/capture/parser';
+import {
+  canApproveDraft,
+  draftBlockers,
+  findLikelyDuplicateDraftIds,
+  isBulkApprovable,
+  stripForeignEstimateMarker,
+} from '@/capture/draftChecks';
+import { parseCaptureDocumentDetailed } from '@/capture/parser';
 import { syncDeviceCaptures } from '@/capture/syncCapture';
 import type { Repo } from '@/data/repo';
 import {
@@ -23,6 +29,7 @@ import {
   isDevice24HourClock,
   todayLocalDate,
 } from '@/domain/dates';
+import { formatMinorToDraft, parseMoneyInput } from '@/domain/money';
 import type { Account, CaptureSource, Category, PendingDraft } from '@/domain/types';
 import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
@@ -69,6 +76,7 @@ async function readTextUri(uri: string): Promise<string> {
   }
 }
 
+/** Saved entries and transfers from a day before the earliest draft to a day after the latest one. */
 async function loadDuplicateIds(repo: Repo, pending: readonly PendingDraft[]): Promise<Set<string>> {
   if (pending.length === 0) return new Set();
   let first = pending[0].occurredOn;
@@ -77,8 +85,13 @@ async function loadDuplicateIds(repo: Repo, pending: readonly PendingDraft[]): P
     if (d.occurredOn < first) first = d.occurredOn;
     if (d.occurredOn > last) last = d.occurredOn;
   }
-  const saved = await repo.listTransactionsInRange(first, addDays(last, 1));
-  return findLikelyDuplicateDraftIds(pending, saved);
+  const fromIncl = addDays(first, -1);
+  const toExcl = addDays(last, 2);
+  const [saved, transfers] = await Promise.all([
+    repo.listTransactionsInRange(fromIncl, toExcl),
+    repo.listTransfers({ fromIncl, toExcl }),
+  ]);
+  return findLikelyDuplicateDraftIds(pending, saved, transfers);
 }
 
 export default function SmartInboxScreen() {
@@ -96,65 +109,83 @@ export default function SmartInboxScreen() {
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState('');
   const [editingDraft, setEditingDraft] = useState<PendingDraft | null>(null);
+  const [amountDraft, setAmountDraft] = useState('');
+  const [amountError, setAmountError] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(40);
   const [expandedRawId, setExpandedRawId] = useState<string | null>(null);
   const [duplicateIds, setDuplicateIds] = useState<ReadonlySet<string>>(new Set());
   const [approveAllOpen, setApproveAllOpen] = useState(false);
   const use24Hour = isDevice24HourClock();
 
-  const loadInbox = useCallback(async () => {
+  const fetchInbox = useCallback(async () => {
     const [pending, accs, cats, listenerOn] = await Promise.all([
       repo.listPendingDrafts({ status: 'pending' }),
       repo.listAccounts(),
       repo.listCategories({ includeArchived: false }),
       isNotificationListenerEnabled(),
     ]);
-    setDuplicateIds(await loadDuplicateIds(repo, pending));
-    setDrafts(pending);
-    setAccounts(accs);
-    setCategories(cats);
-    setListenerEnabled(listenerOn);
+    const dupes = await loadDuplicateIds(repo, pending);
+    return { pending, accs, cats, listenerOn, dupes };
   }, [repo]);
+
+  const loadInbox = useCallback(async () => {
+    const data = await fetchInbox();
+    setDuplicateIds(data.dupes);
+    setDrafts(data.pending);
+    setAccounts(data.accs);
+    setCategories(data.cats);
+    setListenerEnabled(data.listenerOn);
+  }, [fetchInbox]);
 
   useEffect(() => {
     let active = true;
     (async () => {
-      const [pending, accs, cats, listenerOn] = await Promise.all([
-        repo.listPendingDrafts({ status: 'pending' }),
-        repo.listAccounts(),
-        repo.listCategories({ includeArchived: false }),
-        isNotificationListenerEnabled(),
-      ]);
-      const dupes = await loadDuplicateIds(repo, pending);
+      const data = await fetchInbox();
       if (!active) return;
-      setDuplicateIds(dupes);
-      setDrafts(pending);
-      setAccounts(accs);
-      setCategories(cats);
-      setListenerEnabled(listenerOn);
+      setDuplicateIds(data.dupes);
+      setDrafts(data.pending);
+      setAccounts(data.accs);
+      setCategories(data.cats);
+      setListenerEnabled(data.listenerOn);
     })();
     return () => {
       active = false;
     };
-  }, [repo, dataVersion]);
+  }, [fetchInbox, dataVersion]);
+
+  const showForeignSkippedToast = useCallback(
+    (count: number) => {
+      showToast({
+        message:
+          count === 1
+            ? t('inbox.foreignSkippedSingleToast')
+            : t('inbox.foreignSkippedToast', { count }),
+        icon: 'info',
+      });
+    },
+    [showToast]
+  );
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         void (async () => {
-          await syncDeviceCaptures(repo);
+          const res = await syncDeviceCaptures(repo);
           await loadInbox();
+          if (res.skippedForeignCount > 0) showForeignSkippedToast(res.skippedForeignCount);
         })();
       }
     });
     return () => sub.remove();
-  }, [repo, loadInbox]);
+  }, [repo, loadInbox, showForeignSkippedToast]);
 
   const accountsById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
   const categoriesById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+  const liveWalletIds = useMemo(() => new Set(accounts.map((a) => a.id)), [accounts]);
+  const liveCategoryIds = useMemo(() => new Set(categories.map((c) => c.id)), [categories]);
   const bulkTargets = useMemo(
-    () => drafts.filter((d) => isBulkApprovable(d, duplicateIds)),
-    [drafts, duplicateIds]
+    () => drafts.filter((d) => isBulkApprovable(d, duplicateIds, liveWalletIds, liveCategoryIds)),
+    [drafts, duplicateIds, liveWalletIds, liveCategoryIds]
   );
 
   const handleBack = () => {
@@ -165,17 +196,33 @@ export default function SmartInboxScreen() {
     }
   };
 
+  const openEditor = (draft: PendingDraft) => {
+    setAmountDraft(formatMinorToDraft(draft.amountMinor));
+    setAmountError(null);
+    setEditingDraft(draft);
+  };
+
   const ingestRawText = async (raw: string, source: CaptureSource) => {
-    const parsed = parseCaptureDocument(raw, source, {
+    const { drafts: parsed, skippedForeign } = parseCaptureDocumentDetailed(raw, source, {
       accounts,
       defaultDate: todayLocalDate(),
     });
     if (parsed.length === 0) {
-      showToast({ message: t('inbox.noNewToast'), icon: 'info' });
+      if (skippedForeign > 0) {
+        showForeignSkippedToast(skippedForeign);
+      } else {
+        showToast({ message: t('inbox.noNewToast'), icon: 'info' });
+      }
       return;
     }
     const inserted = await repo.upsertPendingDrafts(parsed);
-    if (inserted > 0) {
+    if (skippedForeign > 0) {
+      if (inserted > 0) {
+        bumpDataVersion();
+        hapticSuccess();
+      }
+      showForeignSkippedToast(skippedForeign);
+    } else if (inserted > 0) {
       bumpDataVersion();
       hapticSuccess();
       showToast({
@@ -198,7 +245,10 @@ export default function SmartInboxScreen() {
     try {
       const res = await syncDeviceCaptures(repo);
       await loadInbox();
-      if (res.addedCount > 0) {
+      if (res.skippedForeignCount > 0) {
+        if (res.addedCount > 0) hapticSuccess();
+        showForeignSkippedToast(res.skippedForeignCount);
+      } else if (res.addedCount > 0) {
         hapticSuccess();
         showToast({
           message: t('inbox.addedToast', { count: res.addedCount }),
@@ -260,25 +310,30 @@ export default function SmartInboxScreen() {
   };
 
   const handleApproveDraft = async (draft: PendingDraft) => {
-    const fallbackCat =
-      categories.find((c) => c.kind === draft.type)?.id ??
-      (draft.type === 'income' ? 'other_income' : 'other');
-    const resolvedCategoryId = draft.categoryId ?? fallbackCat;
-    if (!canApproveDraft(draft)) {
-      // No wallet matched: the user must pick one. Never default to the first wallet.
-      showToast({ message: t('inbox.walletNeededNote'), icon: 'info' });
-      setEditingDraft(draft);
+    const accountId = draft.accountId;
+    const categoryId = draft.categoryId;
+    if (!canApproveDraft(draft, liveWalletIds, liveCategoryIds) || accountId == null || categoryId == null) {
+      // A missing wallet, category or unchecked amount: the user must fix it. Never default silently.
+      const b = draftBlockers(draft, liveWalletIds, liveCategoryIds);
+      showToast({
+        message: b.wallet
+          ? t('inbox.walletNeededNote')
+          : b.category
+            ? t('inbox.categoryNeededNote')
+            : t('inbox.amountCheckNote'),
+        icon: 'info',
+      });
+      openEditor(draft);
       return;
     }
-    const resolvedAccountId = draft.accountId;
 
     await repo.insertTransaction({
       id: `tx_cap_${Crypto.randomUUID()}`,
       type: draft.type,
       amountMinor: draft.amountMinor,
       currency: settings.currency,
-      categoryId: resolvedCategoryId,
-      accountId: resolvedAccountId,
+      categoryId,
+      accountId,
       description: draft.description || sourceLabelKey(draft.source),
       note: draft.trxId ? `TrxID: ${draft.trxId}` : '',
       occurredOn: draft.occurredOn,
@@ -293,7 +348,7 @@ export default function SmartInboxScreen() {
         amountMinor: draft.feeMinor,
         currency: settings.currency,
         categoryId: 'fees',
-        accountId: resolvedAccountId,
+        accountId,
         description: `${draft.description || 'MFS'} fee`,
         note: draft.trxId ? `TrxID: ${draft.trxId}` : '',
         occurredOn: draft.occurredOn,
@@ -322,14 +377,16 @@ export default function SmartInboxScreen() {
     setBusy(true);
     try {
       for (const d of bulkTargets) {
-        const resolvedAccountId = d.accountId;
+        const accountId = d.accountId;
+        const categoryId = d.categoryId;
+        if (accountId == null || categoryId == null) continue;
         await repo.insertTransaction({
           id: `tx_cap_${Crypto.randomUUID()}`,
           type: d.type,
           amountMinor: d.amountMinor,
           currency: settings.currency,
-          categoryId: d.categoryId ?? 'other',
-          accountId: resolvedAccountId,
+          categoryId,
+          accountId,
           description: d.description,
           note: d.trxId ? `TrxID: ${d.trxId}` : '',
           occurredOn: d.occurredOn,
@@ -343,7 +400,7 @@ export default function SmartInboxScreen() {
             amountMinor: d.feeMinor,
             currency: settings.currency,
             categoryId: 'fees',
-            accountId: resolvedAccountId,
+            accountId,
             description: `${d.description || 'MFS'} fee`,
             note: d.trxId ? `TrxID: ${d.trxId}` : '',
             occurredOn: d.occurredOn,
@@ -367,7 +424,10 @@ export default function SmartInboxScreen() {
     setBusy(true);
     try {
       hapticLight();
-      await repo.clearPendingDrafts('pending');
+      // Marked dismissed (raw text blanked), not deleted: the same messages must not return on the next sync.
+      for (const d of drafts) {
+        await repo.updatePendingDraftStatus(d.id, 'dismissed');
+      }
       bumpDataVersion();
       await loadInbox();
     } finally {
@@ -378,20 +438,39 @@ export default function SmartInboxScreen() {
   const updateEditingCategory = async (categoryId: string) => {
     if (!editingDraft) return;
     hapticSelection();
-    const updated = { ...editingDraft, categoryId };
-    setEditingDraft(updated);
-    setDrafts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+    setEditingDraft({ ...editingDraft, categoryId });
+    await repo.updatePendingDraft(editingDraft.id, { categoryId });
+    await loadInbox();
   };
 
   const updateEditingAccount = async (accountId: string) => {
     if (!editingDraft) return;
     hapticSelection();
-    const updated = { ...editingDraft, accountId };
-    setEditingDraft(updated);
-    setDrafts((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+    setEditingDraft({ ...editingDraft, accountId });
+    await repo.updatePendingDraft(editingDraft.id, { accountId });
+    await loadInbox();
+  };
+
+  const confirmEditingAmount = async () => {
+    if (!editingDraft) return;
+    const parsed = parseMoneyInput(amountDraft);
+    if (!parsed.ok || parsed.minor === null || parsed.minor <= 0) {
+      setAmountError(t('inbox.amountInvalid'));
+      return;
+    }
+    hapticSelection();
+    const description = stripForeignEstimateMarker(editingDraft.description);
+    setAmountError(null);
+    setEditingDraft({ ...editingDraft, amountMinor: parsed.minor, description });
+    await repo.updatePendingDraft(editingDraft.id, { amountMinor: parsed.minor, description });
+    await loadInbox();
   };
 
   const nativeCapable = isNativeCaptureSupported();
+  const editBlockers = editingDraft
+    ? draftBlockers(editingDraft, liveWalletIds, liveCategoryIds)
+    : null;
+  const editIsDuplicate = editingDraft ? duplicateIds.has(editingDraft.id) : false;
 
   return (
     <Screen scroll edges={['top', 'bottom', 'left', 'right']} bottomSpacer>
@@ -532,7 +611,8 @@ export default function SmartInboxScreen() {
             const cat = draft.categoryId ? categoriesById.get(draft.categoryId) : undefined;
             const acc = draft.accountId ? accountsById.get(draft.accountId) : undefined;
             const isDuplicate = duplicateIds.has(draft.id);
-            const needsWallet = !canApproveDraft(draft);
+            const blockers = draftBlockers(draft, liveWalletIds, liveCategoryIds);
+            const cannotApprove = !canApproveDraft(draft, liveWalletIds, liveCategoryIds);
             const isIncome = draft.type === 'income';
             const dateLabel =
               draft.occurredOn === todayLocalDate()
@@ -666,7 +746,7 @@ export default function SmartInboxScreen() {
                   </AppText>
                 ) : null}
 
-                {needsWallet ? (
+                {blockers.wallet ? (
                   <View style={styles.draftActions}>
                     <AppText variant="caption" color="textSecondary" style={{ flex: 1 }}>
                       {t('inbox.walletNeededNote')}
@@ -676,7 +756,42 @@ export default function SmartInboxScreen() {
                       title={t('inbox.chooseWalletCta')}
                       variant="secondary"
                       size="sm"
-                      onPress={() => setEditingDraft(draft)}
+                      onPress={() => openEditor(draft)}
+                    />
+                  </View>
+                ) : null}
+
+                {blockers.category ? (
+                  <View style={styles.draftActions}>
+                    <AppText variant="caption" color="textSecondary" style={{ flex: 1 }}>
+                      {t('inbox.categoryNeededNote')}
+                    </AppText>
+                    <Button
+                      testID={`inbox-choose-category-${draft.id}`}
+                      title={t('inbox.chooseCategoryCta')}
+                      variant="secondary"
+                      size="sm"
+                      onPress={() => openEditor(draft)}
+                    />
+                  </View>
+                ) : null}
+
+                {blockers.amount ? (
+                  <View style={styles.draftActions}>
+                    <AppText
+                      variant="caption"
+                      color="danger"
+                      style={{ flex: 1 }}
+                      testID={`inbox-amount-check-${draft.id}`}
+                    >
+                      {t('inbox.amountCheckNote')}
+                    </AppText>
+                    <Button
+                      testID={`inbox-check-amount-${draft.id}`}
+                      title={t('inbox.checkAmountCta')}
+                      variant="secondary"
+                      size="sm"
+                      onPress={() => openEditor(draft)}
                     />
                   </View>
                 ) : null}
@@ -694,13 +809,13 @@ export default function SmartInboxScreen() {
                     title={t('inbox.editCta')}
                     variant="secondary"
                     size="sm"
-                    onPress={() => setEditingDraft(draft)}
+                    onPress={() => openEditor(draft)}
                   />
                   <Button
                     testID={`inbox-approve-${draft.id}`}
                     title={isDuplicate ? t('inbox.saveAnywayCta') : t('inbox.approveCta')}
                     size="sm"
-                    disabled={needsWallet}
+                    disabled={cannotApprove}
                     onPress={() => void handleApproveDraft(draft)}
                     style={{ flex: 1 }}
                   />
@@ -788,6 +903,30 @@ export default function SmartInboxScreen() {
       >
         {editingDraft ? (
           <View style={{ gap: theme.spacing.md }}>
+            {editBlockers?.amount ? (
+              <View style={{ gap: theme.spacing.xs }}>
+                <AppText variant="caption" color="danger">
+                  {t('inbox.amountCheckNote')}
+                </AppText>
+                <Field
+                  testID="inbox-edit-amount"
+                  label={t('common.amount')}
+                  value={amountDraft}
+                  onChangeText={(v) => {
+                    setAmountDraft(v);
+                    setAmountError(null);
+                  }}
+                  keyboardType="decimal-pad"
+                  error={amountError}
+                />
+                <Button
+                  testID="inbox-edit-confirm-amount"
+                  title={t('inbox.confirmAmountCta')}
+                  variant="secondary"
+                  onPress={() => void confirmEditingAmount()}
+                />
+              </View>
+            ) : null}
             <View style={{ gap: theme.spacing.xs }}>
               <AppText variant="label" color="textSecondary">
                 {t('common.category')}
@@ -821,9 +960,15 @@ export default function SmartInboxScreen() {
                 ))}
               </View>
             </View>
+            {editIsDuplicate ? (
+              <AppText variant="caption" color="danger" testID="inbox-edit-duplicate">
+                {t('inbox.duplicateNote')}
+              </AppText>
+            ) : null}
             <Button
-              title={t('inbox.approveCta')}
-              disabled={!canApproveDraft(editingDraft)}
+              testID="inbox-edit-approve"
+              title={editIsDuplicate ? t('inbox.saveAnywayCta') : t('inbox.approveCta')}
+              disabled={!canApproveDraft(editingDraft, liveWalletIds, liveCategoryIds)}
               onPress={() => {
                 const target = editingDraft;
                 setEditingDraft(null);

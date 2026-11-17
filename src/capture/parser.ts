@@ -85,12 +85,15 @@ function stripBalanceTail(text: string): string {
     .trim();
 }
 
-interface ExtractedAmountResult {
-  amountMinor: number;
-  foreignLabel: string | null;
-}
+/** An amount in another currency (USD, EUR, GBP). It is never converted: no rate is invented. */
+const FOREIGN_AMOUNT_RE = /(?:[$€£]|\b(?:usd|eur|gbp|us\$))\s*\d|\d\s*(?:usd|eur|gbp)\b/i;
 
-function extractMoneyWithMeta(rawText: string, source: CaptureSource): ExtractedAmountResult | null {
+type AmountExtraction =
+  | { status: 'ok'; amountMinor: number }
+  | { status: 'foreign' }
+  | { status: 'none' };
+
+function extractMoneyWithMeta(rawText: string, source: CaptureSource): AmountExtraction {
   const normalized = normalizeDigits(rawText);
   const candidateText = source === 'ocr_receipt' ? normalized : stripBalanceTail(normalized);
   const searchPool = candidateText.length > 0 ? candidateText : normalized;
@@ -104,7 +107,7 @@ function extractMoneyWithMeta(rawText: string, source: CaptureSource): Extracted
     for (let i = totalMatches.length - 1; i >= 0; i -= 1) {
       const parsed = parseMoneyInput(totalMatches[i][1]);
       if (parsed.ok && parsed.minor !== null && parsed.minor > 0) {
-        return { amountMinor: parsed.minor, foreignLabel: null };
+        return { status: 'ok', amountMinor: parsed.minor };
       }
     }
   }
@@ -114,16 +117,18 @@ function extractMoneyWithMeta(rawText: string, source: CaptureSource): Extracted
     if (!match) continue;
     const parsed = parseMoneyInput(match[1]);
     if (parsed.ok && parsed.minor !== null && parsed.minor > 0) {
-      return { amountMinor: parsed.minor, foreignLabel: null };
+      return { status: 'ok', amountMinor: parsed.minor };
     }
   }
 
-  // A foreign-currency amount (USD) is never converted: no rate is invented, so no draft is made.
-  return null;
+  // A foreign-currency amount is never converted: no draft is made, but the caller is told it was skipped.
+  if (FOREIGN_AMOUNT_RE.test(normalized)) return { status: 'foreign' };
+  return { status: 'none' };
 }
 
 export function extractMoneyMinorFromText(rawText: string, source: CaptureSource): number | null {
-  return extractMoneyWithMeta(rawText, source)?.amountMinor ?? null;
+  const r = extractMoneyWithMeta(rawText, source);
+  return r.status === 'ok' ? r.amountMinor : null;
 }
 
 export function extractDateFromText(rawText: string, fallback: LocalDate): LocalDate {
@@ -397,13 +402,8 @@ function polishMerchantTitle(name: string): string {
   return name.trim();
 }
 
-function cleanMerchantDescription(
-  rawText: string,
-  matchedAccount: Account | null,
-  foreignLabel: string | null = null
-): string {
-  const suffix = foreignLabel ? ` (${foreignLabel})` : '';
-  const withSuffix = (base: string) => `${polishMerchantTitle(base)}${suffix}`;
+function cleanMerchantDescription(rawText: string, matchedAccount: Account | null): string {
+  const withSuffix = (base: string) => polishMerchantTitle(base);
   const cleanText = stripPromoFooter(rawText);
 
   const billerMatch = /\bBiller\s*:\s*([^\r\n]+)/i.exec(cleanText);
@@ -516,20 +516,37 @@ export function buildCaptureFingerprint(params: {
   return `fp:${params.occurredOn}:${params.type}:${params.amountMinor}:${params.accountId ?? 'none'}:${slug || 'tx'}`;
 }
 
+/** One message parsed: a draft, or `skippedForeign` when its only amount was in a foreign currency. */
+export interface SingleParseResult {
+  draft: NewPendingDraft | null;
+  skippedForeign: boolean;
+}
+
 export function parseSingleCaptureMessage(
   rawText: string,
   source: CaptureSource,
   context: CaptureParserContext = {},
   idSeed: string = `cap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 ): NewPendingDraft | null {
+  return parseSingleCaptureMessageDetailed(rawText, source, context, idSeed).draft;
+}
+
+export function parseSingleCaptureMessageDetailed(
+  rawText: string,
+  source: CaptureSource,
+  context: CaptureParserContext = {},
+  idSeed: string = `cap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+): SingleParseResult {
+  const none: SingleParseResult = { draft: null, skippedForeign: false };
   const { cleanBody, metaDate, metaTime, metaSender } = extractSmsHeaderMeta(rawText);
   const trimmed = cleanBody;
-  if (!trimmed) return null;
-  if (NON_TRANSACTION_NOISE_RE.test(trimmed)) return null;
+  if (!trimmed) return none;
+  if (NON_TRANSACTION_NOISE_RE.test(trimmed)) return none;
 
   const extracted = extractMoneyWithMeta(trimmed, source);
-  if (!extracted || extracted.amountMinor <= 0) return null;
-  const { amountMinor, foreignLabel } = extracted;
+  if (extracted.status === 'foreign') return { draft: null, skippedForeign: true };
+  if (extracted.status !== 'ok' || extracted.amountMinor <= 0) return none;
+  const { amountMinor } = extracted;
 
   const accounts = context.accounts ?? [];
   const defaultDate = metaDate ?? context.defaultDate ?? todayLocalDate();
@@ -564,7 +581,7 @@ export function parseSingleCaptureMessage(
   const occurredTime = extractTimeFromText(trimmed) ?? metaTime ?? currentLocalTime();
   const matchedAccount = matchAccountFromText(trimmed, accounts, effectiveSender);
   const categoryId = matchCategoryIdFromText(trimmed, type);
-  const description = cleanMerchantDescription(trimmed, matchedAccount, foreignLabel);
+  const description = cleanMerchantDescription(trimmed, matchedAccount);
 
   const fingerprint = buildCaptureFingerprint({
     trxId: uniqueTrxId,
@@ -576,20 +593,23 @@ export function parseSingleCaptureMessage(
   });
 
   return {
-    id: idSeed,
-    source,
-    fingerprint,
-    draftKind: 'transaction',
-    type,
-    amountMinor,
-    feeMinor,
-    categoryId,
-    accountId: matchedAccount?.id ?? null,
-    description,
-    rawText: trimmed.slice(0, 600),
-    trxId: displayRef,
-    occurredOn,
-    occurredTime,
+    draft: {
+      id: idSeed,
+      source,
+      fingerprint,
+      draftKind: 'transaction',
+      type,
+      amountMinor,
+      feeMinor,
+      categoryId,
+      accountId: matchedAccount?.id ?? null,
+      description,
+      rawText: trimmed.slice(0, 600),
+      trxId: displayRef,
+      occurredOn,
+      occurredTime,
+    },
+    skippedForeign: false,
   };
 }
 
@@ -748,18 +768,38 @@ export function parseCaptureDocument(
   source: CaptureSource,
   context: CaptureParserContext = {}
 ): NewPendingDraft[] {
+  return parseCaptureDocumentDetailed(rawInput, source, context).drafts;
+}
+
+/** A parsed document: the drafts, and how many messages were skipped for a foreign-currency amount. */
+export interface DocumentParseResult {
+  drafts: NewPendingDraft[];
+  skippedForeign: number;
+}
+
+export function parseCaptureDocumentDetailed(
+  rawInput: string,
+  source: CaptureSource,
+  context: CaptureParserContext = {}
+): DocumentParseResult {
   const trimmed = rawInput.trim();
-  if (!trimmed) return [];
+  if (!trimmed) return { drafts: [], skippedForeign: 0 };
 
   if (source === 'statement_csv' || (trimmed.includes(',') && /date/i.test(trimmed.split(/\r?\n/)[0] ?? ''))) {
     const csvDrafts = parseStatementCsv(trimmed, source, context);
-    if (csvDrafts.length > 0) return csvDrafts;
+    if (csvDrafts.length > 0) return { drafts: csvDrafts, skippedForeign: 0 };
   }
 
   if (source === 'ocr_receipt') {
-    const single = parseSingleCaptureMessage(trimmed, source, context);
-    return single ? [single] : [];
+    const single = parseSingleCaptureMessageDetailed(trimmed, source, context);
+    return {
+      drafts: single.draft ? [single.draft] : [],
+      skippedForeign: single.skippedForeign ? 1 : 0,
+    };
   }
+
+  // Each strategy counts its own foreign-currency skips; only the strategy whose drafts are returned counts.
+  let mostForeign = 0;
 
   const datedLineRegex =
     /(\b20\d{2}[-/]\d{1,2}[-/]\d{1,2}\b|\b\d{1,2}[/-]\d{1,2}[/-](?:20)?\d{2}\b|\b\d{1,2}[\s-]+[A-Za-z]{3,9}[\s,-]+(?:20)?\d{2}\b)/;
@@ -774,11 +814,14 @@ export function parseCaptureDocument(
     });
     if (looksLikeMultiBlockMessages) {
       const out: NewPendingDraft[] = [];
+      let foreign = 0;
       for (let i = 0; i < blocks.length; i += 1) {
-        const item = parseSingleCaptureMessage(blocks[i], source, context, `cap_blk_${Date.now()}_${i}`);
-        if (item) out.push(item);
+        const item = parseSingleCaptureMessageDetailed(blocks[i], source, context, `cap_blk_${Date.now()}_${i}`);
+        if (item.draft) out.push(item.draft);
+        if (item.skippedForeign) foreign += 1;
       }
-      if (out.length > 0) return out;
+      if (out.length > 0) return { drafts: out, skippedForeign: foreign };
+      mostForeign = Math.max(mostForeign, foreign);
     }
   }
 
@@ -793,9 +836,10 @@ export function parseCaptureDocument(
   const datedRows = lines.filter((l) => datedLineRegex.test(normalizeDigits(l)));
   if (datedRows.length >= 2) {
     const results: NewPendingDraft[] = [];
+    let foreign = 0;
     for (let i = 0; i < datedRows.length; i += 1) {
       const row = datedRows[i];
-      const parsed = parseSingleCaptureMessage(
+      const res = parseSingleCaptureMessageDetailed(
         row,
         source,
         {
@@ -804,6 +848,8 @@ export function parseCaptureDocument(
         },
         `cap_doc_${Date.now()}_${i}`
       );
+      const parsed = res.draft;
+      if (res.skippedForeign) foreign += 1;
       if (parsed) {
         if (!parsed.accountId && docAccountHint) {
           parsed.accountId = docAccountHint.id;
@@ -811,18 +857,23 @@ export function parseCaptureDocument(
         results.push(parsed);
       }
     }
-    if (results.length > 0) return results;
+    if (results.length > 0) return { drafts: results, skippedForeign: foreign };
+    mostForeign = Math.max(mostForeign, foreign);
   }
 
   if (blocks.length > 1) {
     const out: NewPendingDraft[] = [];
+    let foreign = 0;
     for (let i = 0; i < blocks.length; i += 1) {
-      const item = parseSingleCaptureMessage(blocks[i], source, context, `cap_blk_${Date.now()}_${i}`);
-      if (item) out.push(item);
+      const item = parseSingleCaptureMessageDetailed(blocks[i], source, context, `cap_blk_${Date.now()}_${i}`);
+      if (item.draft) out.push(item.draft);
+      if (item.skippedForeign) foreign += 1;
     }
-    if (out.length > 0) return out;
+    if (out.length > 0) return { drafts: out, skippedForeign: foreign };
+    mostForeign = Math.max(mostForeign, foreign);
   }
 
-  const single = parseSingleCaptureMessage(trimmed, source, context);
-  return single ? [single] : [];
+  const single = parseSingleCaptureMessageDetailed(trimmed, source, context);
+  if (single.draft) return { drafts: [single.draft], skippedForeign: 0 };
+  return { drafts: [], skippedForeign: Math.max(mostForeign, single.skippedForeign ? 1 : 0) };
 }

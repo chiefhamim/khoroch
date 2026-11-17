@@ -1075,6 +1075,27 @@ export class MemoryRepo implements Repo {
     });
   }
 
+  async updatePendingDraft(
+    id: string,
+    patch: {
+      accountId?: string | null;
+      categoryId?: string | null;
+      description?: string;
+      amountMinor?: number;
+    }
+  ): Promise<void> {
+    const existing = this.pendingDrafts.get(id);
+    if (!existing) return;
+    if (patch.amountMinor !== undefined && !(patch.amountMinor > 0)) return;
+    this.pendingDrafts.set(id, {
+      ...existing,
+      accountId: patch.accountId !== undefined ? patch.accountId : existing.accountId,
+      categoryId: patch.categoryId !== undefined ? patch.categoryId : existing.categoryId,
+      description: patch.description !== undefined ? patch.description : existing.description,
+      amountMinor: patch.amountMinor !== undefined ? patch.amountMinor : existing.amountMinor,
+    });
+  }
+
   async clearPendingDrafts(status?: PendingDraftStatus): Promise<void> {
     if (!status) {
       this.pendingDrafts.clear();

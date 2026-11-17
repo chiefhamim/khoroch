@@ -504,6 +504,16 @@ describe('SQLite migrations v1 -> v2 (additive only)', () => {
       ]);
       expect(inserted).toBe(1);
       expect(await repo.listPendingDrafts({ status: 'pending' })).toHaveLength(1);
+
+      // updatePendingDraft changes only the fields in the patch (existing columns).
+      await repo.updatePendingDraft('cap-1', { accountId: 'acc_x', categoryId: 'food_dining' });
+      await repo.updatePendingDraft('cap-1', { amountMinor: 40_000, description: 'Lunch' });
+      await repo.updatePendingDraft('cap-1', { amountMinor: 0 });
+      const [edited] = await repo.listPendingDrafts({ status: 'pending' });
+      expect(edited.accountId).toBe('acc_x');
+      expect(edited.categoryId).toBe('food_dining');
+      expect(edited.amountMinor).toBe(40_000);
+      expect(edited.description).toBe('Lunch');
     } finally {
       close();
     }

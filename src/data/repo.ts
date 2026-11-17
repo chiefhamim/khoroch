@@ -148,6 +148,16 @@ export interface Repo {
   listPendingDrafts(opts?: { status?: PendingDraftStatus }): Promise<PendingDraft[]>;
   upsertPendingDrafts(drafts: NewPendingDraft[]): Promise<number>;
   updatePendingDraftStatus(id: string, status: PendingDraftStatus): Promise<void>;
+  /** Changes the wallet, category, description or amount of a pending draft. Omitted fields stay as they are. */
+  updatePendingDraft(
+    id: string,
+    patch: {
+      accountId?: string | null;
+      categoryId?: string | null;
+      description?: string;
+      amountMinor?: number;
+    }
+  ): Promise<void>;
   clearPendingDrafts(status?: PendingDraftStatus): Promise<void>;
 }
 

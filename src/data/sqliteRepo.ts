@@ -1747,6 +1747,38 @@ export class SqliteRepo implements Repo {
     );
   }
 
+  async updatePendingDraft(
+    id: string,
+    patch: {
+      accountId?: string | null;
+      categoryId?: string | null;
+      description?: string;
+      amountMinor?: number;
+    }
+  ): Promise<void> {
+    if (patch.amountMinor !== undefined && !(patch.amountMinor > 0)) return;
+    // Existing columns only; a field that is not in the patch keeps its stored value.
+    await this.db.runAsync(
+      `UPDATE pending_drafts SET
+         account_id = CASE WHEN ? = 1 THEN ? ELSE account_id END,
+         category_id = CASE WHEN ? = 1 THEN ? ELSE category_id END,
+         description = CASE WHEN ? = 1 THEN ? ELSE description END,
+         amount_minor = CASE WHEN ? = 1 THEN ? ELSE amount_minor END
+       WHERE id = ?`,
+      [
+        patch.accountId !== undefined ? 1 : 0,
+        patch.accountId ?? null,
+        patch.categoryId !== undefined ? 1 : 0,
+        patch.categoryId ?? null,
+        patch.description !== undefined ? 1 : 0,
+        patch.description ?? '',
+        patch.amountMinor !== undefined ? 1 : 0,
+        patch.amountMinor ?? 0,
+        id,
+      ]
+    );
+  }
+
   async clearPendingDrafts(status?: PendingDraftStatus): Promise<void> {
     if (status) {
       await this.db.runAsync(`DELETE FROM pending_drafts WHERE status = ?`, [status]);

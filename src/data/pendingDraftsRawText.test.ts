@@ -31,3 +31,23 @@ describe('pending draft raw text', () => {
     expect(await repo.upsertPendingDrafts([{ ...base, id: 'c', fingerprint: 'fp:a' }])).toBe(0);
   });
 });
+
+describe('updatePendingDraft', () => {
+  it('changes only the fields in the patch and ignores a non-positive amount', async () => {
+    const repo = new MemoryRepo();
+    await repo.upsertPendingDrafts([{ ...base, id: 'a', fingerprint: 'fp:a', description: 'Old (USD 1.00)' }]);
+    await repo.updatePendingDraft('a', { accountId: 'acc_cash' });
+    await repo.updatePendingDraft('a', { categoryId: 'food_dining' });
+    await repo.updatePendingDraft('a', { amountMinor: 0 });
+    let [d] = await repo.listPendingDrafts();
+    expect([d.accountId, d.categoryId, d.amountMinor, d.description]).toEqual([
+      'acc_cash',
+      'food_dining',
+      10_000,
+      'Old (USD 1.00)',
+    ]);
+    await repo.updatePendingDraft('a', { amountMinor: 12_300, description: 'Old' });
+    [d] = await repo.listPendingDrafts();
+    expect([d.amountMinor, d.description, d.accountId]).toEqual([12_300, 'Old', 'acc_cash']);
+  });
+});

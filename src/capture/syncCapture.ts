@@ -7,11 +7,13 @@ import {
   drainCapturedNotifications,
   recognizeImageText,
 } from './nativeCapture';
-import { parseCaptureDocument, parseSingleCaptureMessage } from './parser';
+import { parseCaptureDocumentDetailed, parseSingleCaptureMessageDetailed } from './parser';
 
 export interface CaptureSyncResult {
   addedCount: number;
   sharedKind: 'text' | 'image' | null;
+  /** Messages skipped because their amount was in a foreign currency. */
+  skippedForeignCount: number;
 }
 
 /**
@@ -26,6 +28,7 @@ export async function syncDeviceCaptures(repo: Repo): Promise<CaptureSyncResult>
   ]);
 
   const toInsert: NewPendingDraft[] = [];
+  let skippedForeignCount = 0;
 
   for (let i = 0; i < notifications.length; i += 1) {
     const n = notifications[i];
@@ -33,35 +36,38 @@ export async function syncDeviceCaptures(repo: Repo): Promise<CaptureSyncResult>
     const senderHint = [n.appName, n.title].filter(Boolean).join(' ');
     const d = new Date(n.postedAt || Date.now());
     const postedDate = formatLocalDate(d.getFullYear(), d.getMonth() + 1, d.getDate());
-    const draft = parseSingleCaptureMessage(
+    const res = parseSingleCaptureMessageDetailed(
       body,
       'notification',
       { accounts, defaultDate: postedDate, senderHint },
       `cap_noti_${n.postedAt}_${i}`
     );
-    if (draft) {
-      toInsert.push(draft);
+    if (res.draft) {
+      toInsert.push(res.draft);
     }
+    if (res.skippedForeign) skippedForeignCount += 1;
   }
 
   let sharedKind: 'text' | 'image' | null = null;
   if (shared) {
     sharedKind = shared.kind;
     if (shared.kind === 'text') {
-      const drafts = parseCaptureDocument(shared.value, 'share_text', {
+      const res = parseCaptureDocumentDetailed(shared.value, 'share_text', {
         accounts,
         defaultDate: todayLocalDate(),
       });
-      toInsert.push(...drafts);
+      toInsert.push(...res.drafts);
+      skippedForeignCount += res.skippedForeign;
     } else if (shared.kind === 'image') {
       try {
         const ocrText = await recognizeImageText(shared.value);
         if (ocrText.trim()) {
-          const drafts = parseCaptureDocument(ocrText, 'ocr_receipt', {
+          const res = parseCaptureDocumentDetailed(ocrText, 'ocr_receipt', {
             accounts,
             defaultDate: todayLocalDate(),
           });
-          toInsert.push(...drafts);
+          toInsert.push(...res.drafts);
+          skippedForeignCount += res.skippedForeign;
         }
       } catch {
         // Leave cleanly without throwing if OCR fails on unreadable shared media.
@@ -70,12 +76,12 @@ export async function syncDeviceCaptures(repo: Repo): Promise<CaptureSyncResult>
   }
 
   if (toInsert.length === 0) {
-    return { addedCount: 0, sharedKind };
+    return { addedCount: 0, sharedKind, skippedForeignCount };
   }
 
   const addedCount = await repo.upsertPendingDrafts(toInsert);
   if (addedCount > 0) {
     bumpDataVersion();
   }
-  return { addedCount, sharedKind };
+  return { addedCount, sharedKind, skippedForeignCount };
 }

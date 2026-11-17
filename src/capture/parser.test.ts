@@ -2,7 +2,9 @@ import { describe, expect, it } from '@jest/globals';
 import type { Account } from '@/domain/types';
 import {
   parseCaptureDocument,
+  parseCaptureDocumentDetailed,
   parseSingleCaptureMessage,
+  parseSingleCaptureMessageDetailed,
   parseStatementCsv,
 } from './parser';
 
@@ -292,5 +294,40 @@ describe('Bangladesh finance capture parser', () => {
     expect(drafts[1].amountMinor).toBe(1_000_000);
     expect(drafts[2].accountId).toBe('acc_card');
     expect(drafts[2].amountMinor).toBe(60_000);
+  });
+});
+
+describe('foreign-currency messages', () => {
+  const usd =
+    '$ 0.90 transacted at GITHUB, INC. +18774484820 US on 09-11-26 @03:19 PM using card#***3829. Balance TK 926.32. BRAC Bank.';
+  const bdt =
+    'TK 600.00 transacted at GOOGLE *GOOGLE ONE on 09-11-26 @05:23 PM using card#***3829. Balance TK 316.32. BRAC Bank.';
+
+  it('reports a skipped foreign-currency message instead of silently returning nothing', () => {
+    const res = parseSingleCaptureMessageDetailed(usd, 'notification', { accounts: MOCK_ACCOUNTS });
+    expect(res.draft).toBeNull();
+    expect(res.skippedForeign).toBe(true);
+    expect(parseSingleCaptureMessageDetailed(bdt, 'notification', { accounts: MOCK_ACCOUNTS }).skippedForeign).toBe(
+      false
+    );
+  });
+
+  it('does not count noise or empty text as foreign', () => {
+    const noise = 'Use OTP: 295718 for transaction of USD 0.00 at GITHUB, INC. using Card#**3829.';
+    expect(parseSingleCaptureMessageDetailed(noise, 'notification').skippedForeign).toBe(false);
+    expect(parseSingleCaptureMessageDetailed('hello there', 'notification').skippedForeign).toBe(false);
+  });
+
+  it('counts foreign messages in a pasted document, alongside the drafts it made', () => {
+    const pasted = [usd, bdt, usd.replace('0.90', '12.00')].join('\n\n');
+    const res = parseCaptureDocumentDetailed(pasted, 'share_text', { accounts: MOCK_ACCOUNTS });
+    expect(res.drafts).toHaveLength(1);
+    expect(res.skippedForeign).toBe(2);
+  });
+
+  it('counts a single pasted foreign message', () => {
+    const res = parseCaptureDocumentDetailed(usd, 'share_text', { accounts: MOCK_ACCOUNTS });
+    expect(res.drafts).toHaveLength(0);
+    expect(res.skippedForeign).toBe(1);
   });
 });
