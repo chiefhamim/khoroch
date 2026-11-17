@@ -1150,8 +1150,22 @@ export function buildBackupPreview(payload: BackupFilePayload): BackupPreview {
   };
 }
 
+/**
+ * Restores a backup. The app lock is never changed by an import: whether the lock is on is
+ * decided by the credential in secure storage on this device, so a backup (old, edited or from
+ * another phone) cannot switch it off or change its timeout. Those two settings keep their
+ * current values on this device. Exporting them is harmless and unchanged.
+ */
 export async function restoreBackupPayload(repo: Repo, payload: BackupFilePayload): Promise<void> {
-  await repo.replaceAllDataFromBackup(payload.data);
+  const current = await repo.getSettings();
+  await repo.replaceAllDataFromBackup({
+    ...payload.data,
+    settings: {
+      ...payload.data.settings,
+      appLockEnabled: current.appLockEnabled,
+      appLockTimeoutSec: current.appLockTimeoutSec,
+    },
+  });
 }
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;

@@ -747,6 +747,7 @@ export const en = {
   'overview.walletsNetHeader': 'Wallets · {amount} net',
   'overview.spendingPulseTitle': 'Spending pulse',
   'overview.perDayAmount': '{amount} / day',
+  'overview.safeTodayCycleEnded': 'Cycle ended',
   'overview.duePersonOwesYou': '{name} owes you {amount}',
   'overview.dueYouOwePerson': 'You owe {name} {amount}',
   'overview.dueYouWillGet': "You'll get {amount}",
@@ -1100,6 +1101,9 @@ export const en = {
   'lock.toastOff': 'App lock is off',
   'lock.toastChanged': 'PIN changed',
   'lock.saveError': 'Could not save the PIN. Please try again.',
+  'lock.storageError': 'Secure storage did not respond, so the app lock could not be checked. Try again.',
+  'lock.biometricChanged': 'Fingerprints or face on this phone changed, so fingerprint or face unlock was turned off. Use your PIN. You can turn it on again in Settings.',
+  'lock.toastOnNoBiometric': 'App lock is on. Fingerprint or face unlock was not set up.',
 } as const;
 
 export type TranslationKey = keyof typeof en;

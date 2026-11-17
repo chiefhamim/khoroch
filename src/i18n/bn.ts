@@ -760,6 +760,7 @@ export const bn: Record<TranslationKey, string> = {
   'overview.walletsNetHeader': 'ওয়ালেট · নিট স্থিতি {amount}',
   'overview.spendingPulseTitle': 'খরচের প্রবণতা',
   'overview.perDayAmount': 'দৈনিক {amount}',
+  'overview.safeTodayCycleEnded': 'চক্র শেষ',
   'overview.duePersonOwesYou': '{name}-এর নিকট পাওনা {amount}',
   'overview.dueYouOwePerson': '{name}-কে পরিশোধযোগ্য {amount}',
   'overview.dueYouWillGet': 'আপনি পাবেন {amount}',
@@ -1113,4 +1114,7 @@ export const bn: Record<TranslationKey, string> = {
   'lock.toastOff': 'অ্যাপ লক বন্ধ হয়েছে',
   'lock.toastChanged': 'পিন পরিবর্তন হয়েছে',
   'lock.saveError': 'পিন সংরক্ষণ করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
+  'lock.storageError': 'নিরাপদ সংরক্ষণস্থান সাড়া দেয়নি, তাই অ্যাপ লক যাচাই করা যায়নি। আবার চেষ্টা করুন।',
+  'lock.biometricChanged': 'এই ফোনের আঙুলের ছাপ বা মুখের তথ্য পরিবর্তিত হয়েছে, তাই আঙুলের ছাপ বা মুখ দিয়ে খোলা বন্ধ করা হয়েছে। আপনার পিন ব্যবহার করুন। সেটিংস থেকে আবার চালু করতে পারবেন।',
+  'lock.toastOnNoBiometric': 'অ্যাপ লক চালু হয়েছে। আঙুলের ছাপ বা মুখ দিয়ে খোলা চালু করা যায়নি।',
 };

@@ -2,9 +2,10 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { t, type TranslationKey } from '@/i18n';
 import { appLock, isAppLockSupported } from '@/security/appLock';
-import { authenticateBiometric, isBiometricAvailable } from '@/security/biometrics';
+import { isBiometricAvailable } from '@/security/biometrics';
 import { PIN_MIN_LENGTH, TIMEOUT_CHOICES_SEC } from '@/security/pin';
 import { useAppContext } from '@/state/AppContext';
+import { useLockState } from '@/state/LockContext';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
 import { AppText } from './AppText';
@@ -18,7 +19,7 @@ import { SettingsRow } from './SettingsRow';
 import { Sheet } from './Sheet';
 import { useToast } from './Toast';
 
-type Flow = 'enable' | 'change' | 'disable';
+type Flow = 'enable' | 'change' | 'disable' | 'timeout';
 type Step = 'verify' | 'new' | 'confirm' | 'options';
 
 const TIMEOUT_KEYS: Record<number, TranslationKey> = {
@@ -35,13 +36,15 @@ function timeoutLabel(sec: number): string {
 
 /**
  * Settings section for the app lock. Renders nothing where secure storage is unavailable
- * (web, or a build without the native module).
+ * (web, or a build without the native module). The lock counts as on whenever a credential
+ * exists in secure storage, whatever the stored setting says.
  */
 export function AppLockSettings() {
   const { settings, updateSetting } = useAppContext();
+  const lockState = useLockState();
   const { theme } = useTheme();
   const { showToast } = useToast();
-  const enabled = settings.appLockEnabled;
+  const enabled = lockState.enabled || settings.appLockEnabled;
 
   const [supported, setSupported] = useState(false);
   const [bioAvailable, setBioAvailable] = useState(false);
@@ -101,14 +104,19 @@ export function AppLockSettings() {
     setError(null);
     try {
       await appLock.setPin(firstPin);
+      let bioSetUp = true;
       if (flow === 'enable') {
-        await appLock.setBiometricEnabled(chosenBio);
+        if (chosenBio) bioSetUp = await appLock.enableBiometric(t('lock.biometricPrompt'));
+        else await appLock.disableBiometric().catch(() => {});
         await updateSetting('appLockEnabled', true);
       }
+      await lockState.refresh();
       await refreshBio();
       setFlow(null);
       showToast({
-        message: t(flow === 'enable' ? 'lock.toastOn' : 'lock.toastChanged'),
+        message: t(
+          flow !== 'enable' ? 'lock.toastChanged' : bioSetUp ? 'lock.toastOn' : 'lock.toastOnNoBiometric',
+        ),
         icon: 'circle-check',
         tone: 'accent',
       });
@@ -121,8 +129,9 @@ export function AppLockSettings() {
 
   const disable = async () => {
     try {
-      await appLock.clearAll();
+      await appLock.clearAll(); // rejects when the credential could not be removed
       await updateSetting('appLockEnabled', false);
+      await lockState.refresh();
       setBioOn(false);
       setFlow(null);
       showToast({ message: t('lock.toastOff'), icon: 'circle-check', tone: 'accent' });
@@ -154,21 +163,16 @@ export function AppLockSettings() {
     void save(false);
   };
 
-  const toggleBioChoice = async (next: boolean) => {
-    if (next) {
-      const ok = await authenticateBiometric(t('lock.biometricPrompt'), t('common.cancel'));
-      if (!ok) return;
-    }
-    setBioChoice(next);
-  };
-
   const toggleBioSetting = async (next: boolean) => {
     if (next) {
-      const ok = await authenticateBiometric(t('lock.biometricPrompt'), t('common.cancel'));
+      // Stores a fresh secret behind a strong fingerprint or face check (prompts once).
+      const ok = await appLock.enableBiometric(t('lock.biometricPrompt'));
       if (!ok) return;
+      setBioOn(true);
+      return;
     }
-    await appLock.setBiometricEnabled(next);
-    setBioOn(next);
+    await appLock.disableBiometric().catch(() => {});
+    setBioOn(false);
   };
 
   const sheetTitle =
@@ -176,7 +180,9 @@ export function AppLockSettings() {
       ? t('lock.setupTitle')
       : flow === 'change'
         ? t('lock.changeTitle')
-        : t('lock.disableTitle');
+        : flow === 'timeout'
+          ? t('lock.timeoutLabel')
+          : t('lock.disableTitle');
 
   return (
     <>
@@ -204,10 +210,7 @@ export function AppLockSettings() {
             label={t('lock.timeoutLabel')}
             value={timeoutLabel(settings.appLockTimeoutSec)}
             showChevron
-            onPress={() => {
-              hapticLight();
-              setTimeoutOpen(true);
-            }}
+            onPress={() => openFlow('timeout')}
           />
         ) : null}
         {enabled ? (
@@ -285,9 +288,15 @@ export function AppLockSettings() {
               title={t('lock.verifyTitle')}
               submitLabel={t('common.continue')}
               biometric={bioAvailable && bioOn}
+              onBiometricInvalidated={() => setBioOn(false)}
               onSuccess={() => {
-                if (flow === 'disable') void disable();
-                else {
+                if (flow === 'disable') {
+                  void disable();
+                } else if (flow === 'timeout') {
+                  // Verified: swap the verify sheet for the timeout choices.
+                  setFlow(null);
+                  setTimeoutOpen(true);
+                } else {
                   setPin('');
                   setStep('new');
                 }
@@ -348,7 +357,7 @@ export function AppLockSettings() {
                   testID="settings-app-lock-setup-bio-switch"
                   accessibilityLabel={t('lock.biometricToggle')}
                   value={bioChoice}
-                  onValueChange={(next) => void toggleBioChoice(next)}
+                  onValueChange={setBioChoice}
                 />
               }
             />

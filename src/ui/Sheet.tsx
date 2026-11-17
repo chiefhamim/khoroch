@@ -24,6 +24,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { t, useLocale } from "@/i18n";
+import { useIsLocked } from "@/state/LockContext";
 import { motion } from "@/theme/tokens";
 import { useTheme } from "@/theme/useTheme";
 import { AppText } from "./AppText";
@@ -55,6 +56,7 @@ export function Sheet({
   const { theme, reducedMotion } = useTheme();
   const insets = useSafeAreaInsets();
   useLocale();
+  const locked = useIsLocked();
 
   // Stay mounted while the closing animation plays (state adjusted during render, not in an effect).
   const [mounted, setMounted] = useState(visible);
@@ -137,7 +139,9 @@ export function Sheet({
   }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: backdrop.get() }));
 
-  if (!mounted) return null;
+  // Hide while the app lock is up: a Modal opened here would sit above the lock screen.
+  // Mounted state is kept, so the sheet comes back as it was after unlock.
+  if (!mounted || locked) return null;
 
   const bottomPad = footer
     ? theme.spacing.md

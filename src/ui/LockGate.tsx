@@ -1,133 +1,247 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Modal, StyleSheet, View } from 'react-native';
 import { runDeleteAllData } from '@/data/deleteAll';
 import { t } from '@/i18n';
 import { appLock, isAppLockSupported } from '@/security/appLock';
 import { isBiometricAvailable } from '@/security/biometrics';
-import { shouldLockAfterBackground } from '@/security/pin';
+import { monotonicMs, shouldLockAfterBackground } from '@/security/pin';
+import { setScreenCaptureBlocked } from '@/security/screenCapture';
+import { LockContext, type LockState } from '@/state/LockContext';
 import { useAppContext } from '@/state/AppContext';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
+import { Button } from './Button';
 import { LockScreen } from './LockScreen';
 
+type Phase = 'checking' | 'error' | 'locked' | 'open';
+
 /**
- * Wraps the app. While the lock is on, a full-screen Modal (above any open sheet) covers the app:
- * - at cold start and after the background timeout it shows the PIN screen;
- * - whenever the app leaves the foreground it shows a plain cover so the recent-apps preview
- *   never shows app content.
- * Children stay mounted underneath, so deep links and notification taps navigate as usual and
- * the user lands on the target after unlocking.
+ * Wraps the app and decides, from the secure store alone, whether the lock is on.
+ *
+ * - Cold start: the app (and so the router's navigator) is NOT mounted until the lock check has
+ *   finished and the user is unlocked. The children are rendered in one fixed place and, once
+ *   mounted, are never unmounted or moved again, so there is still exactly one navigator and one
+ *   navigation container (that lives above this component in expo-router).
+ * - After the background timeout the app stays mounted underneath and a full-screen Modal shows
+ *   the PIN screen. Sheets hide themselves while locked (see useIsLocked).
+ * - Whenever the app leaves the foreground a plain cover Modal hides the content.
+ * - A failed secure-store read keeps the app locked and shows Retry. The lock is switched off
+ *   automatically only when a read succeeded and found no credential.
  */
 export function LockGate({ children }: { children: React.ReactNode }) {
   const { repo, settings, updateSetting, refreshSettings } = useAppContext();
   const { theme } = useTheme();
-  const enabled = settings.appLockEnabled;
-  const timeoutSec = settings.appLockTimeoutSec;
 
-  const [locked, setLocked] = useState(enabled);
+  const [phase, setPhase] = useState<Phase>('checking');
+  const [everOpen, setEverOpen] = useState(false);
+  const [enabled, setEnabled] = useState(false);
   const [covered, setCovered] = useState(false);
-  const [checked, setChecked] = useState(!enabled);
-  const [supported, setSupported] = useState(true);
   const [biometric, setBiometric] = useState(false);
-  const backgroundedAt = useRef<number | null>(null);
-  const timeoutRef = useRef(timeoutSec);
-  const lockedRef = useRef(locked);
-  useEffect(() => {
-    timeoutRef.current = timeoutSec;
-    lockedRef.current = locked;
-  });
 
-  // Verify the lock can be enforced here. A missing native module or missing credential
-  // (for example a backup imported from another phone) must never trap the user.
+  const phaseRef = useRef(phase);
+  const settingsRef = useRef(settings);
+  const updateSettingRef = useRef(updateSetting);
+  const backgroundedAt = useRef<{ wall: number; mono: number } | null>(null);
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    phaseRef.current = phase;
+    settingsRef.current = settings;
+    updateSettingRef.current = updateSetting;
+  });
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
+
+  /** Re-reads the biometric preference. Called every time the app locks. */
+  const refreshBiometric = useCallback(async () => {
+    const pref = await appLock.getBiometricEnabled();
+    const available = pref ? await isBiometricAvailable() : false;
+    if (aliveRef.current) setBiometric(available);
+  }, []);
+
+  const openApp = useCallback(() => {
+    setEverOpen(true);
+    setPhase('open');
+  }, []);
+
+  const syncSettingOff = useCallback(() => {
+    if (settingsRef.current.appLockEnabled) {
+      void updateSettingRef.current('appLockEnabled', false);
+    }
+  }, []);
+
+  /** Cold start and Retry. */
+  const runCheck = useCallback(async () => {
+    const supported = await isAppLockSupported();
+    if (!aliveRef.current) return;
+    if (!supported) {
+      setEnabled(false);
+      openApp();
+      return;
+    }
+    const state = await appLock.credentialState();
+    if (!aliveRef.current) return;
+    if (state === 'error') {
+      setPhase('error'); // stay locked: a failed read is never "no lock"
+      return;
+    }
+    if (state === 'absent') {
+      setEnabled(false);
+      syncSettingOff(); // only here: the read worked and found nothing
+      openApp();
+      return;
+    }
+    setEnabled(true);
+    if (!settingsRef.current.appLockEnabled) {
+      void updateSettingRef.current('appLockEnabled', true); // a credential exists, so the lock is on
+    }
+    setBiometric(false);
+    await refreshBiometric();
+    if (aliveRef.current) setPhase('locked');
+  }, [openApp, refreshBiometric, syncSettingOff]);
+
+  useEffect(() => {
+    void Promise.resolve().then(runCheck);
+  }, [runCheck]);
+
+  /** Lock again (background timeout). Closed first, then verified. */
+  const lockNow = useCallback(async () => {
+    setBiometric(false);
+    setPhase('locked');
+    const state = await appLock.credentialState();
+    if (!aliveRef.current) return;
+    if (state === 'error') {
+      setPhase('error');
+      return;
+    }
+    if (state === 'absent') {
+      setEnabled(false);
+      syncSettingOff();
+      openApp();
+      return;
+    }
+    await refreshBiometric();
+  }, [openApp, refreshBiometric, syncSettingOff]);
+
+  const refresh = useCallback(async () => {
+    const state = await appLock.credentialState();
+    if (!aliveRef.current) return;
+    if (state === 'present') setEnabled(true);
+    else if (state === 'absent') setEnabled(false);
+    // 'error': keep what we know, the lock stays on
+  }, []);
+
   useEffect(() => {
     if (!enabled) return;
-    let alive = true;
-    void (async () => {
-      const ok = await isAppLockSupported();
-      const hasPin = ok ? await appLock.hasCredential() : false;
-      const bioPref = ok && hasPin ? await appLock.getBiometricEnabled() : false;
-      const bio = bioPref ? await isBiometricAvailable() : false;
-      if (!alive) return;
-      setSupported(ok);
-      setBiometric(bio);
-      if (!ok || !hasPin) {
-        setLocked(false);
-        if (ok && !hasPin) void updateSetting('appLockEnabled', false);
-      }
-      setChecked(true);
-    })();
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
-
-  useEffect(() => {
-    if (!enabled || !supported) return;
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
         const left = backgroundedAt.current;
         backgroundedAt.current = null;
-        if (left !== null && shouldLockAfterBackground(left, Date.now(), timeoutRef.current)) {
-          setLocked(true);
+        const timeoutSec = settingsRef.current.appLockTimeoutSec;
+        // Wall time can be moved by the user, monotonic time cannot (but pauses in deep sleep).
+        // Lock when either says the timeout has passed.
+        if (
+          left !== null &&
+          phaseRef.current === 'open' &&
+          (shouldLockAfterBackground(left.wall, Date.now(), timeoutSec) ||
+            shouldLockAfterBackground(left.mono, monotonicMs(), timeoutSec))
+        ) {
+          void lockNow();
         }
         setCovered(false);
         return;
       }
-      if (!lockedRef.current && backgroundedAt.current === null) {
-        backgroundedAt.current = Date.now();
+      if (phaseRef.current === 'open' && backgroundedAt.current === null) {
+        backgroundedAt.current = { wall: Date.now(), mono: monotonicMs() };
       }
       setCovered(true);
     });
     return () => sub.remove();
-  }, [enabled, supported]);
+  }, [enabled, lockNow]);
+
+  // Block screenshots and the recents snapshot from app start while the lock is (or may be) on.
+  const blockCapture =
+    enabled || phase === 'error' || (phase === 'checking' && settings.appLockEnabled);
+  useEffect(() => {
+    void setScreenCaptureBlocked(blockCapture);
+  }, [blockCapture]);
 
   const handleUnlocked = useCallback(() => {
     backgroundedAt.current = null;
-    setLocked(false);
     setCovered(false);
-  }, []);
+    openApp();
+  }, [openApp]);
 
   const handleEraseAll = useCallback(async () => {
     await runDeleteAllData(repo);
-    await appLock.clearAll();
+    await appLock.clearAll(); // rejects if the credential could not be removed
     await updateSetting('appLockEnabled', false);
     await refreshSettings();
+    setEnabled(false);
     handleUnlocked();
   }, [repo, updateSetting, refreshSettings, handleUnlocked]);
 
-  const visible = enabled && supported && (locked || covered || !checked);
+  const ctx = useMemo<LockState>(
+    () => ({ locked: phase !== 'open', enabled, refresh }),
+    [phase, enabled, refresh],
+  );
+
+  const showModal = phase === 'locked' || phase === 'error' || (everOpen && phase === 'checking') || (enabled && covered);
+  const coverStyle = [styles.cover, { backgroundColor: theme.colors.bg }];
+
+  let modalBody: React.ReactNode;
+  if (phase === 'locked') {
+    modalBody = (
+      <LockScreen biometric={biometric} onUnlocked={handleUnlocked} onEraseAll={handleEraseAll} />
+    );
+  } else if (phase === 'error') {
+    modalBody = (
+      <View
+        testID="lock-error"
+        style={[
+          coverStyle,
+          { padding: theme.geometry.screenMargin, gap: theme.spacing.lg },
+        ]}
+      >
+        <AppText variant="headline" accessibilityRole="header">
+          {t('app.name')}
+        </AppText>
+        <AppText variant="body" color="textSecondary" style={styles.centerText}>
+          {t('lock.storageError')}
+        </AppText>
+        <Button testID="lock-retry" title={t('common.retry')} onPress={() => {
+            setPhase('checking');
+            void runCheck();
+          }} />
+      </View>
+    );
+  } else {
+    modalBody = (
+      <View testID="lock-cover" style={coverStyle}>
+        <AppText variant="headline">{t('app.name')}</AppText>
+      </View>
+    );
+  }
 
   return (
-    <>
-      {children}
-      {visible ? (
-        <Modal
-          visible
-          animationType="none"
-          statusBarTranslucent
-          onRequestClose={() => {}}
-        >
-          {locked && checked ? (
-            <LockScreen
-              biometric={biometric}
-              onUnlocked={handleUnlocked}
-              onEraseAll={handleEraseAll}
-            />
-          ) : (
-            <View
-              testID="lock-cover"
-              style={[styles.cover, { backgroundColor: theme.colors.bg }]}
-            >
-              <AppText variant="headline">{t('app.name')}</AppText>
-            </View>
-          )}
+    <LockContext.Provider value={ctx}>
+      {everOpen ? children : null}
+      {!everOpen && phase === 'checking' ? (
+        <View testID="lock-checking" style={[StyleSheet.absoluteFill, coverStyle]} />
+      ) : null}
+      {showModal ? (
+        <Modal visible animationType="none" statusBarTranslucent onRequestClose={() => {}}>
+          {modalBody}
         </Modal>
       ) : null}
-    </>
+    </LockContext.Provider>
   );
 }
 
 const styles = StyleSheet.create({
   cover: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  centerText: { textAlign: 'center' },
 });

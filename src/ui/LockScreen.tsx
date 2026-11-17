@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { t } from '@/i18n';
+import { LockedScope } from '@/state/LockContext';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
 import { Button } from './Button';
@@ -76,6 +77,7 @@ export function LockScreen({ biometric, onUnlocked, onEraseAll }: LockScreenProp
       </ScrollView>
 
       {onEraseAll ? (
+        <LockedScope>
         <Sheet
           testID="lock-forgot-sheet"
           visible={forgotOpen}
@@ -105,6 +107,7 @@ export function LockScreen({ biometric, onUnlocked, onEraseAll }: LockScreenProp
             onPress={() => void erase()}
           />
         </Sheet>
+        </LockedScope>
       ) : null}
     </View>
   );

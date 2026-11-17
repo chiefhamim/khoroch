@@ -352,7 +352,12 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       expect(await dstSqlite.repo.listAllDayReviews()).toEqual(
         await srcSqlite.repo.listAllDayReviews()
       );
-      expect(await dstSqlite.repo.getSettings()).toEqual(await srcSqlite.repo.getSettings());
+      // An import never carries the app lock over: this device keeps its own values.
+      expect(await dstSqlite.repo.getSettings()).toEqual({
+        ...(await srcSqlite.repo.getSettings()),
+        appLockEnabled: false,
+        appLockTimeoutSec: 0,
+      });
       expect((await dstSqlite.repo.getSettings()).pinnedAmounts).toEqual({
         expense: [20_000, 50_000],
         income: [1_000_000],
@@ -389,7 +394,11 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       expect(await memSrc.listAllTransactionsForBackup()).toEqual(memSnapshotBefore.txs);
       expect(await memSrc.getAllBudgets()).toEqual(memSnapshotBefore.budgets);
       expect(await memSrc.listAllDayReviews()).toEqual(memSnapshotBefore.reviews);
-      expect(await memSrc.getSettings()).toEqual(memSnapshotBefore.settings);
+      expect(await memSrc.getSettings()).toEqual({
+        ...memSnapshotBefore.settings,
+        appLockEnabled: false,
+        appLockTimeoutSec: 0,
+      });
     } finally {
       srcSqlite.close();
       dstSqlite.close();
@@ -621,6 +630,31 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     } finally {
       sqlite.close();
     }
+  });
+
+  it('never changes the app lock settings on import, even from an old backup saying lock off', async () => {
+    const src = new MemoryRepo();
+    await seedComplexState(src);
+    const raw = JSON.parse(await exportBackupJson(src, '2026-11-13T10:00:00.000Z'));
+    raw.data.settings.appLockEnabled = false; // old backup: lock off, timeout 0
+    raw.data.settings.appLockTimeoutSec = 0;
+
+    // This device has the lock on (a credential exists) with a 5 minute timeout.
+    const device = new MemoryRepo();
+    await device.setSetting('appLockEnabled', true);
+    await device.setSetting('appLockTimeoutSec', 300);
+    await restoreBackupPayload(device, parseAndValidateBackup(JSON.stringify(raw)));
+    const after = await device.getSettings();
+    expect(after.appLockEnabled).toBe(true);
+    expect(after.appLockTimeoutSec).toBe(300);
+    expect(after.theme).toBe('dark'); // other settings still restore
+
+    // And a backup saying lock on cannot switch it on where there is no lock.
+    const plain = new MemoryRepo();
+    await restoreBackupPayload(plain, parseAndValidateBackup(await exportBackupJson(src, '2026-11-13T10:00:00.000Z')));
+    const plainAfter = await plain.getSettings();
+    expect(plainAfter.appLockEnabled).toBe(false);
+    expect(plainAfter.appLockTimeoutSec).toBe(0);
   });
 
   it('rejects backups larger than 20 MB before JSON.parse', () => {

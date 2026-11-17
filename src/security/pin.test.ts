@@ -4,6 +4,7 @@ import {
   constantTimeEqual,
   hashPin,
   isValidPinFormat,
+  lockoutRemainingMs,
   lockoutSecondsFor,
   remainingLockoutSec,
   shouldLockAfterBackground,
@@ -64,8 +65,14 @@ describe('hashPin and verifyPin', () => {
     expect(await verifyPin('24', rec, digest)).toBe(false);
   });
 
-  it('uses a sensible default iteration count', () => {
-    expect(DEFAULT_PIN_ITERATIONS).toBeGreaterThanOrEqual(1000);
+  it('uses a small default round count (protection is the Keystore and the attempt limit)', () => {
+    expect(DEFAULT_PIN_ITERATIONS).toBeGreaterThanOrEqual(50);
+    expect(DEFAULT_PIN_ITERATIONS).toBeLessThanOrEqual(200);
+  });
+
+  it('still verifies an older 2000-round record', async () => {
+    const rec = { saltHex: salt, iterations: 2000, hashHex: await hashPin('2468', salt, 2000, digest) };
+    expect(await verifyPin('2468', rec, digest)).toBe(true);
   });
 });
 
@@ -108,5 +115,23 @@ describe('shouldLockAfterBackground', () => {
   it('fails closed when the clock went backwards or the time is unknown', () => {
     expect(shouldLockAfterBackground(T, T - 5_000, 300)).toBe(true);
     expect(shouldLockAfterBackground(null, T, 300)).toBe(true);
+  });
+});
+
+describe('lockoutRemainingMs (wall-clock rules, used only after an app restart)', () => {
+  const state = { lastAttemptAtMs: 1_000_000, waitSec: 30 };
+  it('counts the wait down from the last attempt', () => {
+    expect(lockoutRemainingMs(state, 1_000_000)).toEqual({ remainingMs: 30_000, restarted: false });
+    expect(lockoutRemainingMs(state, 1_010_000)).toEqual({ remainingMs: 20_000, restarted: false });
+    expect(lockoutRemainingMs(state, 1_030_000)).toEqual({ remainingMs: 0, restarted: false });
+  });
+  it('restarts the full wait when wall time is earlier than the last attempt', () => {
+    expect(lockoutRemainingMs(state, 500_000)).toEqual({ remainingMs: 30_000, restarted: true });
+  });
+  it('has no wait when none was set', () => {
+    expect(lockoutRemainingMs({ lastAttemptAtMs: 5, waitSec: 0 }, 10)).toEqual({
+      remainingMs: 0,
+      restarted: false,
+    });
   });
 });

@@ -1,9 +1,19 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- lazy require so a missing native module cannot crash startup */
 import { Platform } from 'react-native';
 
+type SecureStoreModule = typeof import('expo-secure-store');
 type LocalAuthModule = typeof import('expo-local-authentication');
 
-function load(): LocalAuthModule | null {
+function loadSecureStore(): SecureStoreModule | null {
+  if (Platform.OS !== 'android' && Platform.OS !== 'ios') return null;
+  try {
+    return require('expo-secure-store') as SecureStoreModule;
+  } catch {
+    return null;
+  }
+}
+
+function loadLocalAuth(): LocalAuthModule | null {
   if (Platform.OS !== 'android' && Platform.OS !== 'ios') return null;
   try {
     return require('expo-local-authentication') as LocalAuthModule;
@@ -12,31 +22,25 @@ function load(): LocalAuthModule | null {
   }
 }
 
-/** True when the device has biometric hardware with at least one enrolled fingerprint or face. */
+/**
+ * True when this phone has a strong (Android Class 3) fingerprint or face enrolled, which is what
+ * the biometric-protected secret in secure storage needs. The unlock itself is done by reading
+ * that secret (see appLock.biometricUnlock), never by trusting a yes/no prompt result.
+ */
 export async function isBiometricAvailable(): Promise<boolean> {
-  const mod = load();
-  if (!mod) return false;
+  const store = loadSecureStore();
   try {
-    return (await mod.hasHardwareAsync()) && (await mod.isEnrolledAsync());
+    if (store && typeof store.canUseBiometricAuthentication === 'function') {
+      return Boolean(store.canUseBiometricAuthentication());
+    }
   } catch {
     return false;
   }
-}
-
-/** Resolves true only on a successful biometric match. Device PIN fallback is disabled. */
-export async function authenticateBiometric(
-  promptMessage: string,
-  cancelLabel: string,
-): Promise<boolean> {
-  const mod = load();
+  const mod = loadLocalAuth();
   if (!mod) return false;
   try {
-    const res = await mod.authenticateAsync({
-      promptMessage,
-      cancelLabel,
-      disableDeviceFallback: true,
-    });
-    return res.success === true;
+    if (!(await mod.hasHardwareAsync())) return false;
+    return (await mod.getEnrolledLevelAsync()) >= mod.SecurityLevel.BIOMETRIC_STRONG;
   } catch {
     return false;
   }

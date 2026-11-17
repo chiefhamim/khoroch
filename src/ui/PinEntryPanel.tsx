@@ -2,15 +2,17 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, StyleSheet, View } from 'react-native';
 import { t } from '@/i18n';
 import { appLock as defaultLock } from '@/security/appLock';
-import { authenticateBiometric } from '@/security/biometrics';
-import { PIN_MAX_LENGTH, PIN_MIN_LENGTH } from '@/security/pin';
+import { PIN_MAX_LENGTH, PIN_MIN_LENGTH, monotonicMs } from '@/security/pin';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from './AppIcon';
 import { AppText } from './AppText';
 import { Button } from './Button';
 import { PinPad } from './PinPad';
 
-type LockApi = Pick<typeof defaultLock, 'checkPin' | 'getLockoutRemainingSec' | 'resetAttempts'>;
+type LockApi = Pick<
+  typeof defaultLock,
+  'checkPin' | 'getLockoutRemainingSec' | 'biometricUnlock'
+>;
 
 export interface PinEntryPanelProps {
   title: string;
@@ -20,6 +22,8 @@ export interface PinEntryPanelProps {
   biometric?: boolean;
   /** Prompt for biometrics once as soon as the panel appears. */
   autoBiometric?: boolean;
+  /** Called when the phone's fingerprints or face changed and biometric unlock was turned off. */
+  onBiometricInvalidated?: () => void;
   onForgot?: () => void;
   lock?: LockApi;
   testID?: string;
@@ -33,6 +37,7 @@ export function PinEntryPanel({
   onSuccess,
   biometric = false,
   autoBiometric = false,
+  onBiometricInvalidated,
   onForgot,
   lock = defaultLock,
   testID = 'pin-entry',
@@ -42,20 +47,24 @@ export function PinEntryPanel({
   const [busy, setBusy] = useState(false);
   const [shakeKey, setShakeKey] = useState(0);
   const [errorText, setErrorText] = useState<string | null>(null);
-  const [lockedUntil, setLockedUntil] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
+  // The countdown runs on the monotonic clock, so changing the device clock cannot end it.
+  const [waitEndsAt, setWaitEndsAt] = useState(0);
+  const [tick, setTick] = useState(() => monotonicMs());
+  const [bioOff, setBioOff] = useState(false);
   const successRef = useRef(onSuccess);
+  const invalidatedRef = useRef(onBiometricInvalidated);
   useEffect(() => {
     successRef.current = onSuccess;
+    invalidatedRef.current = onBiometricInvalidated;
   });
 
-  const remainingSec = lockedUntil > 0 ? Math.max(0, Math.ceil((lockedUntil - now) / 1000)) : 0;
+  const remainingSec = waitEndsAt > 0 ? Math.max(0, Math.ceil((waitEndsAt - tick) / 1000)) : 0;
   const waiting = remainingSec > 0;
 
   const startWait = useCallback((sec: number) => {
-    const at = Date.now();
-    setNow(at);
-    setLockedUntil(at + sec * 1000);
+    const at = monotonicMs();
+    setTick(at);
+    setWaitEndsAt(at + sec * 1000);
   }, []);
 
   // A wait that started before an app restart is still running.
@@ -71,7 +80,7 @@ export function PinEntryPanel({
 
   useEffect(() => {
     if (!waiting) return;
-    const id = setInterval(() => setNow(Date.now()), 1000);
+    const id = setInterval(() => setTick(monotonicMs()), 1000);
     return () => clearInterval(id);
   }, [waiting]);
 
@@ -112,7 +121,9 @@ export function PinEntryPanel({
         const msg =
           res.status === 'wrong'
             ? t('lock.wrongPinLeft', { count: res.attemptsLeft })
-            : t('lock.wrongPin');
+            : res.status === 'error'
+              ? t('lock.storageError')
+              : t('lock.wrongPin');
         setErrorText(msg);
         AccessibilityInfo.announceForAccessibility(msg);
       } finally {
@@ -129,20 +140,29 @@ export function PinEntryPanel({
   };
 
   const tryBiometric = useCallback(async () => {
-    const ok = await authenticateBiometric(t('lock.biometricPrompt'), t('common.cancel'));
-    if (ok) {
-      await lock.resetAttempts();
+    const res = await lock.biometricUnlock(t('lock.biometricPrompt'));
+    if (res === 'ok') {
       successRef.current();
+    } else if (res === 'invalidated') {
+      setBioOff(true);
+      setErrorText(t('lock.biometricChanged'));
+      invalidatedRef.current?.();
+    } else if (res === 'off') {
+      setBioOff(true);
+    } else if (res === 'error') {
+      setErrorText(t('lock.storageError'));
     }
   }, [lock]);
 
+  const showBiometric = biometric && !bioOff;
+
   const autoDone = useRef(false);
   useEffect(() => {
-    if (autoBiometric && biometric && !autoDone.current) {
+    if (autoBiometric && showBiometric && !autoDone.current) {
       autoDone.current = true;
       void tryBiometric();
     }
-  }, [autoBiometric, biometric, tryBiometric]);
+  }, [autoBiometric, showBiometric, tryBiometric]);
 
   const message = waiting ? t('lock.waitMessage', { seconds: remainingSec }) : errorText;
 
@@ -181,7 +201,7 @@ export function PinEntryPanel({
         onPress={() => void submit(pin)}
         disabled={busy || waiting || pin.length < PIN_MIN_LENGTH}
       />
-      {biometric ? (
+      {showBiometric ? (
         <Button
           testID={`${testID}-biometric`}
           title={t('lock.biometricButton')}
