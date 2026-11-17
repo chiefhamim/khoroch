@@ -34,7 +34,7 @@ export interface MoneyProps {
   roundToWhole?: boolean;
   showDecimals?: boolean;
   hidden?: boolean;
-  /** Animates numeric changes over ~400ms (defaults true for hero/display amounts). */
+  /** Animates numeric changes over `motion.countMs`; only honoured for hero/display variants (default on). */
   animate?: boolean;
   style?: StyleProp<TextStyle>;
   numberOfLines?: number;
@@ -103,7 +103,7 @@ export function TakaSign({ numberFontSize, symbol, color, testID }: TakaSignProp
 
 /**
  * Formats integer minor units with a dedicated Hind Siliguri `TakaSign`, tabular numerals,
- * omitted `.00` unless `showDecimals` is enabled, optional compact display, and ~400ms count-up on change.
+ * omitted `.00` unless `showDecimals` is enabled, optional compact display, and `motion.countMs` count-up on change (hero/display only).
  */
 export function Money({
   amountMinor,
@@ -135,8 +135,10 @@ export function Money({
   const resolvedShowDecimals =
     showDecimals ?? (roundToWhole ? false : storeShowPoisha);
 
+  // Count-up runs on the JS thread, so it is limited to hero and display amounts (never list rows).
   const shouldAnimate =
-    (animate ?? (variant === 'hero' || variant === 'display')) &&
+    (variant === 'hero' || variant === 'display') &&
+    (animate ?? true) &&
     !reducedMotion &&
     !resolvedHidden;
 

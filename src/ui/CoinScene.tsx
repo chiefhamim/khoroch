@@ -5,13 +5,15 @@ import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withDelay,
-  withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { motion } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
+
+const EASE_IN_OUT = Easing.bezier(...motion.easing.inOut);
 
 function useFloat(amp: number, ms: number, delay: number, reduced: boolean) {
   const v = useSharedValue(0);
@@ -20,12 +22,9 @@ function useFloat(amp: number, ms: number, delay: number, reduced: boolean) {
     v.set(
       withDelay(
         delay,
-        withRepeat(
-          withSequence(
-            withTiming(1, { duration: ms, easing: Easing.inOut(Easing.sin) }),
-            withTiming(0, { duration: ms, easing: Easing.inOut(Easing.sin) })
-          ),
-          -1
+        withSequence(
+          withTiming(1, { duration: ms, easing: EASE_IN_OUT }),
+          withTiming(0, { duration: ms, easing: EASE_IN_OUT })
         )
       )
     );

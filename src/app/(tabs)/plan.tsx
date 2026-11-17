@@ -482,7 +482,7 @@ export default function PlanScreen() {
                         styles.divider,
                         {
                           backgroundColor: theme.colors.separator,
-                          marginLeft: 68,
+                          marginLeft: theme.geometry.dividerInset,
                           marginRight: theme.spacing.lg,
                         },
                       ]}
@@ -599,7 +599,7 @@ export default function PlanScreen() {
                           styles.divider,
                           {
                             backgroundColor: theme.colors.separator,
-                            marginLeft: 68,
+                            marginLeft: theme.geometry.dividerInset,
                             marginRight: theme.spacing.lg,
                           },
                         ]}

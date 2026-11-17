@@ -29,6 +29,7 @@ export const bn: Record<TranslationKey, string> = {
   'common.saving': 'সংরক্ষণ হচ্ছে',
   'common.cancel': 'বাতিল',
   'common.close': 'বন্ধ করুন',
+  'common.clear': 'মুছুন',
   'common.delete': 'মুছে ফেলুন',
   'common.confirm': 'নিশ্চিত করুন',
   'common.edit': 'সম্পাদনা',

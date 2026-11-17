@@ -9,7 +9,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { getLocale } from '@/i18n';
+import { getLocale, t, useLocale } from '@/i18n';
 import { containsBengali, mapFontToBangla } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { PressableScale } from '@/ui/PressableScale';
@@ -48,6 +48,7 @@ export function Field({
   ...rest
 }: FieldProps) {
   const { theme } = useTheme();
+  useLocale();
   const [focused, setFocused] = useState(false);
 
   const borderColor = error
@@ -128,7 +129,7 @@ export function Field({
           <PressableScale
             pressScale={0.88}
             accessibilityRole="button"
-            accessibilityLabel="Clear"
+            accessibilityLabel={t('common.clear')}
             hitSlop={10}
             onPress={onClear}
             style={styles.clearBtn}

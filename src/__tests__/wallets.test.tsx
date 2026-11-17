@@ -4,7 +4,7 @@ import { fireEvent, render, waitFor } from '@testing-library/react-native';
 import ManageWalletsScreen from '@/app/wallets/index';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { addDays, todayLocalDate } from '@/domain/dates';
-import { setLocale } from '@/i18n';
+import { setLocale, t } from '@/i18n';
 import { AppContext } from '@/state/AppContext';
 import { ThemeProvider } from '@/theme/ThemeProvider';
 import { ToastProvider } from '@/ui/Toast';
@@ -173,7 +173,7 @@ describe('ManageWalletsScreen and WalletEditorSheet', () => {
       expect(view.getByTestId('tag-older-entries-sheet')).toBeTruthy();
     });
     expect(view.getByText('গতকাল')).toBeTruthy();
-    await fireEvent.press(view.getByLabelText('Close'));
+    await fireEvent.press(view.getAllByLabelText(t('common.close')).at(-1)!);
 
     await fireEvent.press(view.getByTestId('wallet-edit-acc_card'));
     await waitFor(() => {

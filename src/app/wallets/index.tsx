@@ -14,7 +14,7 @@ import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
-import { containsBengali } from '@/theme/tokens';
+import { containsBengali, geometry } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppIcon } from '@/ui/AppIcon';
 import { AppText, estimateSingleLineMinWidth } from '@/ui/AppText';
@@ -340,7 +340,7 @@ export default function ManageWalletsScreen() {
                     style={{
                       height: 1,
                       backgroundColor: theme.colors.separator,
-                      marginLeft: 68,
+                      marginLeft: theme.geometry.dividerInset,
                       marginRight: theme.spacing.lg,
                     }}
                   />
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   },
   startingBalanceButton: {
     alignSelf: 'flex-start',
-    marginLeft: 68,
+    marginLeft: geometry.dividerInset,
     marginBottom: 8,
     minWidth: 0,
   },

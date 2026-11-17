@@ -40,7 +40,7 @@ export function ListRow({
 }: ListRowProps) {
   const { theme, reducedMotion } = useTheme();
   const minHeight = compact ? theme.touch.min : theme.geometry.listRowHeight;
-  const resolvedInset = dividerInset ?? (left ? 68 : theme.spacing.lg);
+  const resolvedInset = dividerInset ?? (left ? theme.geometry.dividerInset : theme.spacing.lg);
 
   const rowInner = (
     <View>

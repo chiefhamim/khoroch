@@ -23,6 +23,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { t, useLocale } from "@/i18n";
+import { motion } from "@/theme/tokens";
 import { useTheme } from "@/theme/useTheme";
 import { AppText } from "./AppText";
 import { IconButton } from "./IconButton";
@@ -52,6 +54,7 @@ export function Sheet({
 }: SheetProps) {
   const { theme, reducedMotion } = useTheme();
   const insets = useSafeAreaInsets();
+  useLocale();
 
   // Stay mounted while the closing animation plays (state adjusted during render, not in an effect).
   const [mounted, setMounted] = useState(visible);
@@ -70,7 +73,7 @@ export function Sheet({
       }
       translateY.set(sheetHeight.get());
       backdrop.set(
-        withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: motion.sheetOpenMs, easing: EASE_OUT }),
       );
       translateY.set(withSpring(0, OPEN_SPRING));
       return;
@@ -82,12 +85,15 @@ export function Sheet({
       return;
     }
     backdrop.set(
-      withTiming(0, { duration: 200, easing: Easing.out(Easing.quad) }),
+      withTiming(0, {
+        duration: motion.sheetBackdropCloseMs,
+        easing: EASE_OUT,
+      }),
     );
     translateY.set(
       withTiming(
         sheetHeight.get(),
-        { duration: 220, easing: Easing.out(Easing.cubic) },
+        { duration: motion.sheetCloseMs, easing: EASE_OUT },
         (finished) => {
           if (finished) runOnJS(setMounted)(false);
         },
@@ -116,7 +122,7 @@ export function Sheet({
         runOnJS(requestClose)();
       } else {
         translateY.set(withSpring(0, OPEN_SPRING));
-        backdrop.set(withTiming(1, { duration: 160 }));
+        backdrop.set(withTiming(1, { duration: motion.sheetSnapBackMs }));
       }
     },
   });
@@ -175,7 +181,7 @@ export function Sheet({
           <Animated.View style={[styles.backdrop, backdropStyle]}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close sheet"
+              accessibilityLabel={t("common.close")}
               onPress={onClose}
               style={[styles.backdrop, { backgroundColor: theme.colors.scrim }]}
             />
@@ -249,7 +255,7 @@ export function Sheet({
                           icon="x"
                           size={34}
                           iconSize={18}
-                          accessibilityLabel="Close"
+                          accessibilityLabel={t("common.close")}
                           onPress={onClose}
                         />
                       </View>
@@ -280,6 +286,7 @@ export function Sheet({
 }
 
 const OFFSCREEN = 900;
+const EASE_OUT = Easing.bezier(...motion.easing.out);
 
 function setMountedLater(set: (v: boolean) => void) {
   requestAnimationFrame(() => set(false));

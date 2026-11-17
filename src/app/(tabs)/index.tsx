@@ -1331,7 +1331,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                         styles.divider,
                         {
                           backgroundColor: theme.colors.separator,
-                          marginLeft: 64,
+                          marginLeft: theme.geometry.dividerInsetNoTile,
                           marginRight: theme.spacing.lg,
                         },
                       ]}

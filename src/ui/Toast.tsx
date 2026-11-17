@@ -10,6 +10,7 @@ import React, {
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, { FadeInUp, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { motion } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { PressableScale } from '@/ui/PressableScale';
 import { AppIcon, type AppIconName } from './AppIcon';
@@ -165,7 +166,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToast({ ...options, id });
     timerRef.current = setTimeout(() => {
       setToast((curr) => (curr?.id === id ? null : curr));
-    }, options.durationMs ?? 2400);
+    }, options.durationMs ?? motion.toastMs);
   }, []);
 
   useEffect(() => {
@@ -181,8 +182,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       {toast ? (
         <Animated.View
-          entering={reducedMotion ? undefined : FadeInUp.duration(180).springify()}
-          exiting={reducedMotion ? undefined : FadeOutDown.duration(150)}
+          entering={reducedMotion ? undefined : FadeInUp.duration(motion.toastEnterMs).springify()}
+          exiting={reducedMotion ? undefined : FadeOutDown.duration(motion.toastExitMs)}
           pointerEvents="box-none"
           style={[styles.overlay, { bottom: Math.max(insets.bottom, 16) + 72 }]}
         >

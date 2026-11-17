@@ -21,6 +21,7 @@ export const en = {
   'common.saving': 'Saving',
   'common.cancel': 'Cancel',
   'common.close': 'Close',
+  'common.clear': 'Clear',
   'common.delete': 'Delete',
   'common.confirm': 'Confirm',
   'common.edit': 'Edit',

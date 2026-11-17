@@ -127,3 +127,11 @@ Format:
   2. Use WhatsApp deep link (`whatsapp://send` / `wa.me`) with `Share.share` fallback, and system `Share.share` (+ `expo-clipboard` pre-copy) for Messenger in `src/app/people/[id].tsx`.
   3. Keep `src/voice/parser.ts` pure: return `feeMinor: null` + `asksFee: true` on `cash out` (prefilled `0` in review UI), hint missing wallets (`missingWalletHint`), and create new `Person` records only when the user confirms Save in `src/app/quick-entry.tsx`.
 - Easy to reverse? Yes — localized to v4 schema/backup normalization, `people/[id].tsx` share handlers, and `quick-entry.tsx` draft submission.
+
+## 2026-11-17 (orchestrated plan, docs/PLAN.md)
+- Owner asked for full automation with no gate after each phase; phases now run on without stopping. Phone-data safety rules in AGENTS.md still apply.
+- Minimum Android version: option A (keep minSdk 24, Android 7.0), as PLAN.md recommended, plus the performance budget.
+- Phase 1 research grouped into six files in docs/research/ instead of one per segment, to limit cost. Habits and "top 3 logs" there are hypotheses, not findings.
+- UI rulebook is docs/UI-FOUNDATION.md; where it disagrees with docs/ui-overhaul/DESIGN.md, tokens.ts and the rulebook win.
+- Build order: UI foundation audit fixes first, then the backlog in docs/SYNTHESIS.md section 5.
+- Live reload: Metro runs without CI=1 (CI mode disables reload) and with APP_VARIANT=dev; the phone is on USB (serial R5CY23M7E6L). The Android SDK is at C:\Users\User\android-dev\sdk, not %LOCALAPPDATA%\Android\Sdk.

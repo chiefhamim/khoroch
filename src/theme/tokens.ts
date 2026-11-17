@@ -120,6 +120,14 @@ export const geometry = {
   smallButtonHeight: 40,
   sheetHandleWidth: 36,
   sheetHandleHeight: 4,
+  /** Divider left inset for rows that start with an icon tile. */
+  dividerInset: 68,
+  /** Divider left inset for rows whose leading element is narrower than a tile. */
+  dividerInsetNoTile: 64,
+  chipHeight: 32,
+  tabPillHeight: 34,
+  searchBoxHeight: 44,
+  kpiSparklineHeight: 24,
 } as const;
 
 export const radius = {
@@ -149,8 +157,29 @@ export const motion = {
   normal: 200,
   slow: 250,
   staggerMs: 40,
-  countMs: 400,
+  countMs: 300,
+  /** Card enter animation duration. */
+  enterMs: 230,
+  /** Hard ceiling for stagger delay plus duration. */
+  enterCeilingMs: 300,
+  /** Number of cards that stagger on screen enter; later cards appear with no delay. */
+  staggerCount: 3,
+  /** Toast display time before auto-dismiss. */
+  toastMs: 2400,
+  toastEnterMs: 180,
+  toastExitMs: 150,
+  sheetOpenMs: 220,
+  sheetCloseMs: 220,
+  sheetBackdropCloseMs: 200,
+  sheetSnapBackMs: 160,
+  /** Cubic-bezier control points [x1, y1, x2, y2] for `Easing.bezier(...easing.out)`. */
+  easing: {
+    out: [0, 0, 0.2, 1],
+    inOut: [0.4, 0, 0.2, 1],
+  },
 } as const;
+
+export type MotionBezier = readonly [number, number, number, number];
 
 export const typography = {
   hero: {
