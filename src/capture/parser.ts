@@ -47,8 +47,6 @@ const SORTED_KEYWORDS = [...CATEGORY_KEYWORDS].sort(
   (a, b) => b.keyword.length - a.keyword.length
 );
 
-const USD_APPROX_BDT_RATE = 122;
-
 const NON_TRANSACTION_NOISE_RE =
   /\b(?:otp|one\s*time\s*password|verification\s*code|pass\s*code|pin\s*code|valid\s*for\s*\d+\s*min|account\s*binding|month-end\s*balance|your\s+tq\s+limit|successfully\s+enrolled|successfully\s+registered|endorse\s+up\s+to|home\s+packages|will\s+be\s+delivered|you\s+are\s+enlisted|us\$\s*200\s*খরচ|get\s+tk\.?\s*\d+\s+bonus|win\s+tk\.?\s*\d+)\b|অবশিষ্ট\s*ভলিউম|বিশেষ\s*অফার|লোনের\s*যোগ্য|জিতে\s*নিন\s*[০-৯0-9,]+\s*(?:বোনাস|টাকা|রিওয়ার্ড)|বোনাস\s*রিওয়ার্ড/i;
 
@@ -80,9 +78,6 @@ const PRIORITY_AMOUNT_PATTERNS: readonly RegExp[] = [
   /\b(?:tk\.?|bdt|৳)\s*([\d,]+(?:\.\d{1,2})?)/i,
   /([\d,]+(?:\.\d{1,2})?)\s*(?:tk\.?|bdt|taka|৳)\b/i,
 ];
-
-const USD_AMOUNT_RE =
-  /(?:US\s*)?(?:\$|USD)\s*([\d,]+(?:\.\d{1,2})?)|\b([\d,]+(?:\.\d{2}))\s+transacted\b/i;
 
 function stripBalanceTail(text: string): string {
   return text
@@ -123,18 +118,7 @@ function extractMoneyWithMeta(rawText: string, source: CaptureSource): Extracted
     }
   }
 
-  const usdMatch = USD_AMOUNT_RE.exec(searchPool);
-  if (usdMatch) {
-    const numStr = usdMatch[1] ?? usdMatch[2];
-    const parsed = parseMoneyInput(numStr);
-    if (parsed.ok && parsed.minor !== null && parsed.minor > 0) {
-      return {
-        amountMinor: Math.round(parsed.minor * USD_APPROX_BDT_RATE),
-        foreignLabel: `USD ${(parsed.minor / 100).toFixed(2)}`,
-      };
-    }
-  }
-
+  // A foreign-currency amount (USD) is never converted: no rate is invented, so no draft is made.
   return null;
 }
 

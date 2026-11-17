@@ -213,10 +213,8 @@ describe('Bangladesh finance capture parser', () => {
     const githubUsd =
       '$ 0.90 transacted at GITHUB, INC. +18774484820 US on 09-11-26 @03:19 PM using card#***3829. Balance TK 926.32. BRAC Bank.';
     const dUsd = parseSingleCaptureMessage(githubUsd, 'notification', { accounts: MOCK_ACCOUNTS });
-    expect(dUsd?.type).toBe('expense');
-    expect(dUsd?.accountId).toBe('acc_card');
-    expect(dUsd?.categoryId).toBe('subscriptions');
-    expect(dUsd?.description).toContain('GitHub (USD 0.90)');
+    // No invented exchange rate: a USD-only message makes no draft.
+    expect(dUsd).toBeNull();
 
     const bblToBkash =
       '[2026-10-15 14:25] [BRAC BANK]\nTk 2,000.00 has been transferred from your BBL A/C: 1**0001 to BKASH wallet: 01764995074. Available balance is Tk 144.09. Queries: call 16221.';

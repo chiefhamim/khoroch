@@ -1696,7 +1696,12 @@ export class SqliteRepo implements Repo {
   }
 
   async updatePendingDraftStatus(id: string, status: PendingDraftStatus): Promise<void> {
-    await this.db.runAsync(`UPDATE pending_drafts SET status = ? WHERE id = ?`, [status, id]);
+    // Once a draft is approved or dismissed, the original message text is blanked (the row stays so the
+    // fingerprint still blocks the same message from coming back).
+    await this.db.runAsync(
+      `UPDATE pending_drafts SET status = ?, raw_text = CASE WHEN ? = 'pending' THEN raw_text ELSE '' END WHERE id = ?`,
+      [status, status, id]
+    );
   }
 
   async clearPendingDrafts(status?: PendingDraftStatus): Promise<void> {

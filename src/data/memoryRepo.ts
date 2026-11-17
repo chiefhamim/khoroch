@@ -1036,7 +1036,11 @@ export class MemoryRepo implements Repo {
   async updatePendingDraftStatus(id: string, status: PendingDraftStatus): Promise<void> {
     const existing = this.pendingDrafts.get(id);
     if (!existing) return;
-    this.pendingDrafts.set(id, { ...existing, status });
+    this.pendingDrafts.set(id, {
+      ...existing,
+      status,
+      rawText: status === 'pending' ? existing.rawText : '',
+    });
   }
 
   async clearPendingDrafts(status?: PendingDraftStatus): Promise<void> {

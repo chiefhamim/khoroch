@@ -278,3 +278,11 @@ Beyond A to E:
 - Date pickers: `DateTimeSheet` now defaults its week start from the app context (`getEffectiveWeekStart`) when the caller passes none, and keeps Saturday outside the context. That covers every user at once (DateField, TimeField, DueEntrySheet, TransactionForm, FastTransactionEntry, WalletEditorSheet, Ledger and Insights range fields, quick entry); DayBookView still passes it explicitly.
 - Insights: the weekly note now sits after the range caption, which keeps its negative margin under the preset row.
 - The daily wage serial queue is module-level (`dailyWageQueue`, exported for the test) so one queue serves the whole app session. Trade-off: a task that never settles would block later wage records until the app restarts.
+
+## 2026-11-17 Capture C1 (safety fixes)
+- Approve never defaults a wallet: a draft with no wallet shows "Choose wallet", Approve is disabled until one is picked (`canApproveDraft` in `src/capture/draftChecks.ts`).
+- "Approve all" is now "Approve clear ones (N)", behind a confirm sheet that states N. Eligible: wallet and category matched, a real transaction id (5 to 24 letters or digits, not "Ref" or "Card"), not a scanned receipt, not a likely duplicate. The spec's `confidence` column does not exist before C12, so "has a real TrxID" stands in for "high".
+- Likely duplicate: a saved, non-deleted entry with the same TrxID in its note, or the same type, amount and day (and wallet when the draft's wallet is known). Day, not the spec's 10 minutes, per the task. The draft stays; its Approve button becomes "Save anyway".
+- USD: the spec wants a draft with an empty amount, but `pending_drafts.amount_minor` is `CHECK (> 0)` and a schema change is out of scope, so a USD-only message makes no draft. Revisit in C12.
+- Raw text: `updatePendingDraftStatus` blanks `raw_text` as soon as a draft is approved or dismissed (the spec says 7 days, which needs a timestamp column; C12). The row stays so the fingerprint still blocks the same message.
+- Sender allow-list is not touched (C14).

@@ -12,9 +12,12 @@ import {
   openNotificationListenerSettings,
   recognizeImageText,
 } from '@/capture/nativeCapture';
+import { canApproveDraft, findLikelyDuplicateDraftIds, isBulkApprovable } from '@/capture/draftChecks';
 import { parseCaptureDocument } from '@/capture/parser';
 import { syncDeviceCaptures } from '@/capture/syncCapture';
+import type { Repo } from '@/data/repo';
 import {
+  addDays,
   formatFriendlyTime,
   formatShortDate,
   isDevice24HourClock,
@@ -66,6 +69,18 @@ async function readTextUri(uri: string): Promise<string> {
   }
 }
 
+async function loadDuplicateIds(repo: Repo, pending: readonly PendingDraft[]): Promise<Set<string>> {
+  if (pending.length === 0) return new Set();
+  let first = pending[0].occurredOn;
+  let last = first;
+  for (const d of pending) {
+    if (d.occurredOn < first) first = d.occurredOn;
+    if (d.occurredOn > last) last = d.occurredOn;
+  }
+  const saved = await repo.listTransactionsInRange(first, addDays(last, 1));
+  return findLikelyDuplicateDraftIds(pending, saved);
+}
+
 export default function SmartInboxScreen() {
   useLocale();
   const { repo, settings } = useAppContext();
@@ -83,6 +98,8 @@ export default function SmartInboxScreen() {
   const [editingDraft, setEditingDraft] = useState<PendingDraft | null>(null);
   const [visibleCount, setVisibleCount] = useState(40);
   const [expandedRawId, setExpandedRawId] = useState<string | null>(null);
+  const [duplicateIds, setDuplicateIds] = useState<ReadonlySet<string>>(new Set());
+  const [approveAllOpen, setApproveAllOpen] = useState(false);
   const use24Hour = isDevice24HourClock();
 
   const loadInbox = useCallback(async () => {
@@ -92,6 +109,7 @@ export default function SmartInboxScreen() {
       repo.listCategories({ includeArchived: false }),
       isNotificationListenerEnabled(),
     ]);
+    setDuplicateIds(await loadDuplicateIds(repo, pending));
     setDrafts(pending);
     setAccounts(accs);
     setCategories(cats);
@@ -107,7 +125,9 @@ export default function SmartInboxScreen() {
         repo.listCategories({ includeArchived: false }),
         isNotificationListenerEnabled(),
       ]);
+      const dupes = await loadDuplicateIds(repo, pending);
       if (!active) return;
+      setDuplicateIds(dupes);
       setDrafts(pending);
       setAccounts(accs);
       setCategories(cats);
@@ -132,6 +152,10 @@ export default function SmartInboxScreen() {
 
   const accountsById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
   const categoriesById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
+  const bulkTargets = useMemo(
+    () => drafts.filter((d) => isBulkApprovable(d, duplicateIds)),
+    [drafts, duplicateIds]
+  );
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -240,7 +264,13 @@ export default function SmartInboxScreen() {
       categories.find((c) => c.kind === draft.type)?.id ??
       (draft.type === 'income' ? 'other_income' : 'other');
     const resolvedCategoryId = draft.categoryId ?? fallbackCat;
-    const resolvedAccountId = draft.accountId ?? accounts[0]?.id ?? null;
+    if (!canApproveDraft(draft)) {
+      // No wallet matched: the user must pick one. Never default to the first wallet.
+      showToast({ message: t('inbox.walletNeededNote'), icon: 'info' });
+      setEditingDraft(draft);
+      return;
+    }
+    const resolvedAccountId = draft.accountId;
 
     await repo.insertTransaction({
       id: `tx_cap_${Crypto.randomUUID()}`,
@@ -287,11 +317,12 @@ export default function SmartInboxScreen() {
   };
 
   const handleApproveAll = async () => {
-    if (busy || drafts.length === 0) return;
+    if (busy || bulkTargets.length === 0) return;
+    setApproveAllOpen(false);
     setBusy(true);
     try {
-      for (const d of drafts) {
-        const resolvedAccountId = d.accountId ?? accounts[0]?.id ?? null;
+      for (const d of bulkTargets) {
+        const resolvedAccountId = d.accountId;
         await repo.insertTransaction({
           id: `tx_cap_${Crypto.randomUUID()}`,
           type: d.type,
@@ -485,19 +516,23 @@ export default function SmartInboxScreen() {
                 disabled={busy}
                 onPress={() => void handleDismissAll()}
               />
-              <Button
-                testID="inbox-approve-all"
-                title={t('inbox.approveAllCta', { count: drafts.length })}
-                size="sm"
-                loading={busy}
-                onPress={() => void handleApproveAll()}
-              />
+              {bulkTargets.length > 0 ? (
+                <Button
+                  testID="inbox-approve-all"
+                  title={t('inbox.approveAllCta', { count: bulkTargets.length })}
+                  size="sm"
+                  loading={busy}
+                  onPress={() => setApproveAllOpen(true)}
+                />
+              ) : null}
             </View>
           </View>
 
           {drafts.slice(0, visibleCount).map((draft) => {
             const cat = draft.categoryId ? categoriesById.get(draft.categoryId) : undefined;
-            const acc = draft.accountId ? accountsById.get(draft.accountId) : accounts[0];
+            const acc = draft.accountId ? accountsById.get(draft.accountId) : undefined;
+            const isDuplicate = duplicateIds.has(draft.id);
+            const needsWallet = !canApproveDraft(draft);
             const isIncome = draft.type === 'income';
             const dateLabel =
               draft.occurredOn === todayLocalDate()
@@ -625,6 +660,27 @@ export default function SmartInboxScreen() {
                   </View>
                 ) : null}
 
+                {isDuplicate ? (
+                  <AppText variant="caption" color="danger" testID={`inbox-duplicate-${draft.id}`}>
+                    {t('inbox.duplicateNote')}
+                  </AppText>
+                ) : null}
+
+                {needsWallet ? (
+                  <View style={styles.draftActions}>
+                    <AppText variant="caption" color="textSecondary" style={{ flex: 1 }}>
+                      {t('inbox.walletNeededNote')}
+                    </AppText>
+                    <Button
+                      testID={`inbox-choose-wallet-${draft.id}`}
+                      title={t('inbox.chooseWalletCta')}
+                      variant="secondary"
+                      size="sm"
+                      onPress={() => setEditingDraft(draft)}
+                    />
+                  </View>
+                ) : null}
+
                 <View style={styles.draftActions}>
                   <Button
                     testID={`inbox-dismiss-${draft.id}`}
@@ -642,8 +698,9 @@ export default function SmartInboxScreen() {
                   />
                   <Button
                     testID={`inbox-approve-${draft.id}`}
-                    title={t('inbox.approveCta')}
+                    title={isDuplicate ? t('inbox.saveAnywayCta') : t('inbox.approveCta')}
                     size="sm"
+                    disabled={needsWallet}
                     onPress={() => void handleApproveDraft(draft)}
                     style={{ flex: 1 }}
                   />
@@ -700,6 +757,29 @@ export default function SmartInboxScreen() {
         />
       </Sheet>
 
+      {/* Approve-all confirmation: states the count, lists nothing that needs a look */}
+      <Sheet
+        visible={approveAllOpen}
+        onClose={() => setApproveAllOpen(false)}
+        title={t('inbox.approveAllTitle', { count: bulkTargets.length })}
+      >
+        <View style={{ gap: theme.spacing.md }}>
+          <AppText variant="body" color="textSecondary">
+            {t('inbox.approveAllBody', { count: bulkTargets.length })}
+          </AppText>
+          <Button
+            testID="inbox-approve-all-confirm"
+            title={t('inbox.approveAllConfirm', { count: bulkTargets.length })}
+            onPress={() => void handleApproveAll()}
+          />
+          <Button
+            title={t('common.cancel')}
+            variant="ghost"
+            onPress={() => setApproveAllOpen(false)}
+          />
+        </View>
+      </Sheet>
+
       {/* Quick Category/Wallet Reassignment Sheet */}
       <Sheet
         visible={editingDraft !== null}
@@ -743,6 +823,7 @@ export default function SmartInboxScreen() {
             </View>
             <Button
               title={t('inbox.approveCta')}
+              disabled={!canApproveDraft(editingDraft)}
               onPress={() => {
                 const target = editingDraft;
                 setEditingDraft(null);
