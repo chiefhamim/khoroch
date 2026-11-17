@@ -12,6 +12,7 @@ import {
   normalizeBanglaFontKey,
   normalizeExpenseColorKey,
   normalizeHomeSections,
+  normalizeDailyWage,
   normalizePinnedAmounts,
   normalizeIncomeColorKey,
   normalizeReminderDays,
@@ -152,6 +153,7 @@ function sanitizeSettingsForExport(s: Settings): Settings {
         ? s.lastUsedAccountId
         : null,
     pinnedAmounts: normalizePinnedAmounts(s.pinnedAmounts),
+    dailyWage: normalizeDailyWage(s.dailyWage),
   };
 }
 
@@ -782,6 +784,13 @@ function validateSettingsObject(raw: unknown): Settings {
   ) {
     throw new Error('Settings: invalid appLockTimeoutSec.');
   }
+  if (
+    obj.dailyWage !== undefined &&
+    obj.dailyWage !== null &&
+    normalizeDailyWage(obj.dailyWage) === null
+  ) {
+    throw new Error('Settings: invalid dailyWage.');
+  }
 
   return {
     onboardingDone: obj.onboardingDone,
@@ -819,6 +828,7 @@ function validateSettingsObject(raw: unknown): Settings {
         ? obj.lastUsedAccountId
         : null,
     pinnedAmounts: normalizePinnedAmounts(obj.pinnedAmounts),
+    dailyWage: normalizeDailyWage(obj.dailyWage),
   };
 }
 

@@ -119,6 +119,7 @@ export interface TransactionFormProps {
   recentTransactions?: Transaction[];
   pinnedAmounts?: PinnedAmounts;
   onPinnedAmountsChange?: (next: PinnedAmounts) => void;
+  onSetDailyWage?: () => void;
   initialMode?: TransactionEntryMode;
   initialValues?: {
     type?: TransactionType;
@@ -522,6 +523,7 @@ export function TransactionForm(props: TransactionFormProps) {
         recentTransactions={props.recentTransactions}
         pinnedAmounts={props.pinnedAmounts}
         onPinnedAmountsChange={props.onPinnedAmountsChange}
+        onSetDailyWage={props.onSetDailyWage}
         onClose={props.onClose ?? (() => undefined)}
         onSubmit={props.onSubmit}
         onSubmitAndAddAnother={props.onSubmitAndAddAnother}

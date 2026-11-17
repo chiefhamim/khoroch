@@ -69,6 +69,8 @@ export interface FastTransactionEntryProps {
   /** Pinned quick amounts. Presets and the Pin amount action show only when a change handler is given. */
   pinnedAmounts?: PinnedAmounts;
   onPinnedAmountsChange?: (next: PinnedAmounts) => void;
+  /** Given only while no daily wage is set: shows a "Set daily wage" chip on the Received side. */
+  onSetDailyWage?: () => void;
   weekStartsOn?: WeekStartDay;
   onClose: () => void;
   onSubmit: (values: FastEntryValues) => Promise<void>;
@@ -194,6 +196,7 @@ export function FastTransactionEntry({
   recentTransactions = [],
   pinnedAmounts,
   onPinnedAmountsChange,
+  onSetDailyWage,
   weekStartsOn,
   onClose,
   onSubmit,
@@ -696,6 +699,7 @@ export function FastTransactionEntry({
                   if (parsedAmount !== null) onPinnedAmountsChange?.(pinAmount(pinned, type, parsedAmount));
                 }}
                 onRemove={(minor) => onPinnedAmountsChange?.(unpinAmount(pinned, type, minor))}
+                onSetDailyWage={isIncome ? onSetDailyWage : undefined}
               />
             ) : null}
             <Keypad value={amountText} onChange={setAmountText} keyHeight={48} variant="tonal" testID="fast-keypad" />

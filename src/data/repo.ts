@@ -172,4 +172,5 @@ export const DEFAULT_SETTINGS: Settings = {
   speechDisclosureAccepted: false,
   lastUsedAccountId: null,
   pinnedAmounts: { expense: [], income: [] },
+  dailyWage: null,
 };

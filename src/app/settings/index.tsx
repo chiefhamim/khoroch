@@ -21,6 +21,8 @@ import {
 import { runDeleteAllData } from '@/data/deleteAll';
 import { buildSampleTransactions } from '@/data/sampleData';
 import { formatShortDate, todayLocalDate } from '@/domain/dates';
+import { formatMoney } from '@/domain/money';
+import { toBnDigits } from '@/i18n/displayText';
 import { formatCycleLabel, getPeriod } from '@/domain/period';
 import {
   ACCENT_THEMES,
@@ -70,6 +72,7 @@ import { AVATAR_PHOTO_SETS } from '@/ui/avatarPhotos';
 import { Banner } from '@/ui/Banner';
 import { Button } from '@/ui/Button';
 import { Chip } from '@/ui/Chip';
+import { DailyWageSheet } from '@/ui/DailyWageSheet';
 import { DayOfMonthGrid } from '@/ui/DayOfMonthGrid';
 import { DayToggles } from '@/ui/DayToggles';
 import { Field } from '@/ui/Field';
@@ -159,6 +162,7 @@ export default function SettingsScreen() {
   const [cycleDayDraft, setCycleDayDraft] = useState(settings.monthStartDay);
 
   const [appearanceSheetOpen, setAppearanceSheetOpen] = useState(false);
+  const [dailyWageSheetOpen, setDailyWageSheetOpen] = useState(false);
 
   const [reminderExplainOpen, setReminderExplainOpen] = useState(false);
 
@@ -661,6 +665,22 @@ export default function SettingsScreen() {
             hapticLight();
             setCycleDayDraft(settings.monthStartDay);
             setCycleSheetOpen(true);
+          }}
+        />
+        <SettingsRow
+          testID="settings-daily-wage-row"
+          label={t('settings.dailyWageRow')}
+          value={
+            settings.dailyWage
+              ? locale === 'bn'
+                ? toBnDigits(formatMoney(settings.dailyWage.amountMinor, settings.currency))
+                : formatMoney(settings.dailyWage.amountMinor, settings.currency)
+              : t('settings.dailyWageNotSet')
+          }
+          showChevron
+          onPress={() => {
+            hapticLight();
+            setDailyWageSheetOpen(true);
           }}
         />
         <SettingsRow
@@ -1223,6 +1243,8 @@ export default function SettingsScreen() {
           })}
         </Surface>
       </Sheet>
+
+      <DailyWageSheet visible={dailyWageSheetOpen} onClose={() => setDailyWageSheetOpen(false)} />
 
       {/* Cycle Start Sheet */}
       <Sheet

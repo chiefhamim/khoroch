@@ -302,6 +302,7 @@ async function seedComplexState(repo: MemoryRepo | SqliteRepo) {
   await repo.setSetting('speechDisclosureAccepted', true);
   await repo.setSetting('lastUsedAccountId', 'bkash');
   await repo.setSetting('pinnedAmounts', { expense: [20_000, 50_000], income: [1_000_000] });
+  await repo.setSetting('dailyWage', { amountMinor: 80_000, categoryId: 'salary', accountId: 'bkash' });
 }
 
 describe('backup export, validation, and restore (TEST-CASES §C)', () => {
@@ -362,6 +363,11 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
       expect((await dstSqlite.repo.getSettings()).pinnedAmounts).toEqual({
         expense: [20_000, 50_000],
         income: [1_000_000],
+      });
+      expect((await dstSqlite.repo.getSettings()).dailyWage).toEqual({
+        amountMinor: 80_000,
+        categoryId: 'salary',
+        accountId: 'bkash',
       });
 
       // Also verify MemoryRepo export -> deleteAllData() -> restore parity (TEST-CASES §C)
@@ -482,6 +488,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     delete v1Raw.data.settings.speechDisclosureAccepted;
     delete v1Raw.data.settings.lastUsedAccountId;
     delete (v1Raw.data.settings as { pinnedAmounts?: unknown }).pinnedAmounts;
+    delete (v1Raw.data.settings as { dailyWage?: unknown }).dailyWage;
     delete v1Raw.data.settings.avatarColorKey;
     delete v1Raw.data.settings.hideAmountsOnOpen;
     delete v1Raw.data.settings.showPoisha;
@@ -512,6 +519,7 @@ describe('backup export, validation, and restore (TEST-CASES §C)', () => {
     expect(migratedV1.data.settings.speechDisclosureAccepted).toBe(false);
     expect(migratedV1.data.settings.lastUsedAccountId).toBeNull();
     expect(migratedV1.data.settings.pinnedAmounts).toEqual({ expense: [], income: [] });
+    expect(migratedV1.data.settings.dailyWage).toBeNull();
     expect(migratedV1.data.settings.avatarColorKey).toBe('accent');
     expect(migratedV1.data.settings.hideAmountsOnOpen).toBe(false);
     expect(migratedV1.data.settings.showPoisha).toBe(false);

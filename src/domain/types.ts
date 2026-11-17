@@ -531,6 +531,33 @@ export function normalizePinnedAmounts(raw: unknown): PinnedAmounts {
   return { expense: normalizePinnedList(rec.expense), income: normalizePinnedList(rec.income) };
 }
 
+/** The amount a person usually earns on a working day, with where it is filed. Null when unset. */
+export interface DailyWage {
+  amountMinor: number;
+  /** Income category the one-tap entry is filed under. */
+  categoryId: string;
+  /** Wallet the wage is received into, or null for no wallet. */
+  accountId: string | null;
+}
+
+/** Reads a stored or imported daily wage; anything invalid reads as unset. */
+export function normalizeDailyWage(raw: unknown): DailyWage | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const rec = raw as { amountMinor?: unknown; categoryId?: unknown; accountId?: unknown };
+  if (
+    typeof rec.amountMinor !== 'number' ||
+    !Number.isSafeInteger(rec.amountMinor) ||
+    rec.amountMinor <= 0 ||
+    rec.amountMinor > MAX_AMOUNT_MINOR
+  ) {
+    return null;
+  }
+  if (typeof rec.categoryId !== 'string' || rec.categoryId.trim().length === 0) return null;
+  const accountId =
+    typeof rec.accountId === 'string' && rec.accountId.trim().length > 0 ? rec.accountId : null;
+  return { amountMinor: rec.amountMinor, categoryId: rec.categoryId, accountId };
+}
+
 export interface Settings {
   onboardingDone: boolean;
   name: string;
@@ -559,6 +586,8 @@ export interface Settings {
   speechDisclosureAccepted: boolean;
   lastUsedAccountId: string | null;
   pinnedAmounts: PinnedAmounts;
+  /** One-tap "Worked today" income; null until the person sets it. */
+  dailyWage: DailyWage | null;
 }
 
 export interface Period {

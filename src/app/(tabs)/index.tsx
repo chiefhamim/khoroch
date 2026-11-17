@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import * as Crypto from 'expo-crypto';
+import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { isSavingsAssetKind, resolveWalletColorHex } from '@/domain/accounts';
 import { formatUtilizationPct } from '@/domain/calc';
+import { buildWageEntry, hasWageRecordedOn } from '@/domain/dailyWage';
 import {
   addDays,
+  currentLocalTime,
   formatFriendlyTime,
   formatShortDate,
   formatWeekdayShortDate,
@@ -17,7 +20,8 @@ import { formatHomeDuesSummaryLine } from '@/domain/dues';
 import type { LocalDate } from '@/domain/types';
 import { t, useLocale } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
-import { bumpDataVersion } from '@/state/dataVersion';
+import { toBnDigits } from '@/i18n/displayText';
+import { bumpDataVersion, useDataVersionStore } from '@/state/dataVersion';
 import { usePrivacyStore } from '@/state/privacyStore';
 import { useAccounts } from '@/state/useAccounts';
 import { useDashboard } from '@/state/useDashboard';
@@ -46,6 +50,8 @@ import { Surface } from '@/ui/Surface';
 import { WalletAvatar } from '@/ui/WalletAvatar';
 import { ProfileAvatar } from '@/ui/ProfileAvatar';
 import { PressableScale } from '@/ui/PressableScale';
+import { hapticLight } from '@/ui/haptics';
+import { useToast } from '@/ui/Toast';
 
 const OVERVIEW_FALLBACKS: Record<string, string> = {
   'overview.heroTabBudget': 'Budget plan',
@@ -176,6 +182,84 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     youWillGet: (amount) => t('overview.dueYouWillGet', { amount }),
     youOwe: (amount) => t('overview.dueYouOwe', { amount }),
   });
+
+  // "Worked today": one tap records the saved daily wage as income for today.
+  const { showToast } = useToast();
+  const dataVersion = useDataVersionStore((s) => s.dataVersion);
+  const dailyWage = settings.dailyWage;
+  const wageCategory = dailyWage ? categoriesById.get(dailyWage.categoryId) : undefined;
+  const wageUsable =
+    dailyWage !== null &&
+    wageCategory !== undefined &&
+    wageCategory.kind === 'income' &&
+    wageCategory.archivedAt === null;
+  const [wageRecorded, setWageRecorded] = useState(false);
+  const wageBusyRef = useRef(false);
+  useEffect(() => {
+    if (!wageUsable) return;
+    let active = true;
+    repo
+      .listTransactionsInRange(today, addDays(today, 1))
+      .then((rows) => {
+        if (active && !wageBusyRef.current) setWageRecorded(hasWageRecordedOn(rows, today));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [repo, today, dataVersion, wageUsable]);
+  const wageAmountText =
+    dailyWage === null
+      ? ''
+      : hideAmounts
+        ? HIDDEN_AMOUNT_TEXT
+        : locale === 'bn'
+          ? toBnDigits(formatMoney(dailyWage.amountMinor, settings.currency, { showPoisha }))
+          : formatMoney(dailyWage.amountMinor, settings.currency, { showPoisha });
+  const recordWage = async () => {
+    if (!dailyWage || !wageCategory || wageBusyRef.current || wageRecorded) return;
+    wageBusyRef.current = true;
+    // Swap the button for the quiet line at once so a second tap cannot land.
+    setWageRecorded(true);
+    const id = Crypto.randomUUID();
+    const wallet = dailyWage.accountId !== null ? accountsById.get(dailyWage.accountId) : undefined;
+    const accountId =
+      dailyWage.accountId === null
+        ? null
+        : accountsLoading || (wallet !== undefined && wallet.archivedAt == null)
+          ? dailyWage.accountId
+          : null;
+    try {
+      await repo.insertTransaction(
+        buildWageEntry({
+          id,
+          wage: { ...dailyWage, accountId },
+          categoryName: wageCategory.name,
+          currency: settings.currency,
+          day: today,
+          time: currentLocalTime(),
+        })
+      );
+      hapticLight();
+      bumpDataVersion();
+      showToast({
+        message: t('dailyWage.savedToast'),
+        icon: 'circle-check',
+        tone: 'accent',
+        actionLabel: t('common.undo'),
+        onAction: () => {
+          void repo
+            .softDeleteTransaction(id)
+            .then(() => bumpDataVersion())
+            .catch(() => {});
+        },
+      });
+    } catch {
+      setWageRecorded(false);
+    } finally {
+      wageBusyRef.current = false;
+    }
+  };
 
   const hour = hourOverride ?? new Date().getHours();
   const greeting = buildGreeting(hour);
@@ -913,6 +997,63 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           </PressableScale>
         </View>
 
+        {wageUsable ? (
+          <View
+            testID="overview-wage-row"
+            style={[
+              styles.wageRow,
+              {
+                height: theme.geometry.buttonHeight + 2 * theme.spacing.sm,
+                paddingHorizontal: theme.spacing.lg,
+                borderBottomColor: theme.colors.separator,
+              },
+            ]}
+          >
+            {wageRecorded ? (
+              <View
+                testID="overview-wage-recorded"
+                accessible
+                accessibilityLabel={t('overview.wageRecorded')}
+                style={[styles.wageRecorded, { gap: theme.spacing.sm }]}
+              >
+                <AppIcon name="circle-check" size={16} color={theme.colors.income} />
+                <AppText variant="label" color="textSecondary">
+                  {t('overview.wageRecorded')}
+                </AppText>
+              </View>
+            ) : (
+              <PressableScale
+                pressScale={0.97}
+                testID="overview-worked-today-btn"
+                accessibilityRole="button"
+                accessibilityLabel={t('overview.workedTodayA11y', { amount: wageAmountText })}
+                onPress={() => void recordWage()}
+                style={[
+                  styles.wageButton,
+                  theme.elevation.e1,
+                  {
+                    minHeight: theme.touch.min,
+                    borderRadius: theme.radius.button,
+                    backgroundColor: theme.colors.surface,
+                    paddingHorizontal: theme.spacing.lg,
+                    gap: theme.spacing.sm,
+                  },
+                ]}
+              >
+                <AppIcon name="hand-coins" size={18} color={theme.colors.text} />
+                <AppText
+                  variant="label"
+                  numberOfLines={1}
+                  tabularNums
+                  style={styles.semiBold}
+                >
+                  {t('overview.workedToday', { amount: wageAmountText })}
+                </AppText>
+              </PressableScale>
+            )}
+          </View>
+        ) : null}
+
         {todayTransactions.length === 0 ? (
           <View
             style={[
@@ -1611,6 +1752,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderBottomWidth: 1,
     gap: 8,
+  },
+  wageRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+  },
+  wageButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wageRecorded: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   daybookEmptyRow: {
     flexDirection: 'row',

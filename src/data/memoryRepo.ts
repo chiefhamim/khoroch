@@ -16,6 +16,7 @@ import {
   normalizeBanglaFontKey,
   normalizeExpenseColorKey,
   normalizeHomeSections,
+  normalizeDailyWage,
   normalizePinnedAmounts,
   normalizeIncomeColorKey,
   normalizeReminderSettings,
@@ -105,6 +106,7 @@ function cloneSettings(s: Settings): Settings {
     homeSections: normalizeHomeSections(s.homeSections),
     reminder: normalizeReminderSettings(s.reminder, DEFAULT_SETTINGS.reminder),
     pinnedAmounts: normalizePinnedAmounts(s.pinnedAmounts),
+    dailyWage: normalizeDailyWage(s.dailyWage),
   };
 }
 

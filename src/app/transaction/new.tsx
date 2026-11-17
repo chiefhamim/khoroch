@@ -14,6 +14,7 @@ import { t } from '@/i18n';
 import { useAppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { useTheme } from '@/theme/useTheme';
+import { DailyWageSheet } from '@/ui/DailyWageSheet';
 import { DueEntrySheet } from '@/ui/DueEntrySheet';
 import { ErrorState } from '@/ui/ErrorState';
 import { hapticSuccess } from '@/ui/haptics';
@@ -37,6 +38,7 @@ export default function NewTransactionScreen() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [retryTick, setRetryTick] = useState(0);
+  const [wageSheetOpen, setWageSheetOpen] = useState(false);
   const [duePrefill, setDuePrefill] = useState<{
     amountMinor: number | null;
     accountId: string | null;
@@ -241,12 +243,14 @@ export default function NewTransactionScreen() {
           recentTransactions={recentTransactions}
           pinnedAmounts={settings.pinnedAmounts}
           onPinnedAmountsChange={(next) => void updateSetting('pinnedAmounts', next)}
+          onSetDailyWage={settings.dailyWage ? undefined : () => setWageSheetOpen(true)}
           onClose={handleClose}
           onCreateCategory={handleCreateCategory}
           onSubmit={handleSubmit}
           onSubmitAndAddAnother={handleSubmitAndAddAnother}
           onSubmitTransfer={handleSubmitTransfer}
         />
+        <DailyWageSheet visible={wageSheetOpen} onClose={() => setWageSheetOpen(false)} />
         <DueEntrySheet
           visible={duePrefill !== null}
           onClose={() => setDuePrefill(null)}

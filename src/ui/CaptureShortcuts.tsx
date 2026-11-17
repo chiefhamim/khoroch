@@ -49,6 +49,8 @@ export interface CaptureShortcutsProps {
   onSelectAmount: (amountMinor: number) => void;
   onPin: () => void;
   onRemove: (amountMinor: number) => void;
+  /** When given, a "Set daily wage" chip leads the row (Received side, no wage set yet). */
+  onSetDailyWage?: () => void;
 }
 
 /**
@@ -68,6 +70,7 @@ export function CaptureShortcuts({
   onSelectAmount,
   onPin,
   onRemove,
+  onSetDailyWage,
 }: CaptureShortcutsProps) {
   const { theme } = useTheme();
   const amountText = useAmountText(currency);
@@ -86,6 +89,18 @@ export function CaptureShortcuts({
           alignItems: 'center',
         }}
       >
+        {onSetDailyWage ? (
+          <Chip
+            testID="set-daily-wage-chip"
+            variant="sunken"
+            icon="hand-coins"
+            label={t('dailyWage.setChip')}
+            onPress={() => {
+              hapticSelection();
+              onSetDailyWage();
+            }}
+          />
+        ) : null}
         {entries.map((entry) => {
           const name = categoriesById.get(entry.categoryId ?? '')?.name ?? '';
           return (
