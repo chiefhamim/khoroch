@@ -31,6 +31,7 @@ import { resolveInsightsWindow } from '@/domain/insights';
 import { formatMoney, parseMoneyInput } from '@/domain/money';
 import type {
   Account,
+  CurrencyCode,
   LocalDate,
   Transaction,
   TransactionType,
@@ -195,6 +196,75 @@ interface ActivitySection {
   };
   data: LedgerRowItem[];
 }
+
+type ActivityRowProps = {
+  kind: 'transfer' | 'income' | 'expense';
+  id: string;
+  title: string;
+  subtitle: string;
+  icon: React.ComponentProps<typeof IconTile>['icon'];
+  colorKey: React.ComponentProps<typeof IconTile>['colorKey'];
+  amountMinor: number;
+  currency: CurrencyCode;
+  badge?: string;
+  showDivider: boolean;
+};
+
+const ActivityRow = React.memo(function ActivityRow({
+  kind,
+  id,
+  title,
+  subtitle,
+  icon,
+  colorKey,
+  amountMinor,
+  currency,
+  badge,
+  showDivider,
+}: ActivityRowProps) {
+  const router = useRouter();
+  const isTransfer = kind === 'transfer';
+  const isIncome = kind === 'income';
+  return (
+    <ListRow
+      testID={isTransfer ? `activity-transfer-${id}` : `activity-tx-${id}`}
+      title={title}
+      subtitle={subtitle}
+      left={<IconTile icon={icon} colorKey={colorKey} size="md" />}
+      right={
+        isTransfer ? (
+          <View style={activityRowStyles.transferAmtCol}>
+            <Money amountMinor={amountMinor} currency={currency} variant="bodyStrong" color="text" />
+            <AppText variant="caption" color="textTertiary">
+              {badge}
+            </AppText>
+          </View>
+        ) : (
+          <Money
+            amountMinor={amountMinor}
+            currency={currency}
+            variant="bodyStrong"
+            color={isIncome ? 'income' : 'expense'}
+            prefix={isIncome ? '+' : '−'}
+          />
+        )
+      }
+      showDivider={showDivider}
+      onPress={() =>
+        router.push({
+          pathname: isTransfer ? '/transfer/[id]' : '/transaction/[id]',
+          params: { id },
+        })
+      }
+    />
+  );
+});
+
+const activityRowStyles = StyleSheet.create({
+  transferAmtCol: {
+    alignItems: 'flex-end',
+  },
+});
 
 function AllEntriesScreen({ header }: { header: React.ReactNode }) {
   const { repo, settings } = useAppContext();
@@ -656,6 +726,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
               hapticSelection();
               setAccountId(undefined);
             }}
+            hitSlop={{ top: theme.spacing.xs, bottom: theme.spacing.xs }}
             style={({ pressed }) => [
               styles.underlineTab,
               {
@@ -686,6 +757,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                   hapticSelection();
                   setAccountId(selected ? undefined : w.id);
                 }}
+                hitSlop={{ top: theme.spacing.xs, bottom: theme.spacing.xs }}
                 style={({ pressed }) => [
                   styles.underlineTab,
                   {
@@ -717,6 +789,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
             hapticLight();
             setPeriodSheetOpen(true);
           }}
+          hitSlop={{ top: theme.spacing.sm, bottom: theme.spacing.sm }}
           style={({ pressed }) => [
             styles.periodPill,
             {
@@ -871,7 +944,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
           keyboardDismissMode="on-drag"
           keyboardShouldPersistTaps="handled"
           initialNumToRender={16}
-          maxToRenderPerBatch={16}
+          maxToRenderPerBatch={12}
           windowSize={9}
           // Fabric on Android throws IndexOutOfBoundsException in ReactClippingViewManager when clipped subviews update
           removeClippedSubviews={false}
@@ -894,21 +967,17 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                   style={[
                     styles.sectionHeader,
                     {
-                      backgroundColor: theme.colors.accentSoft,
-                      borderColor: theme.colors.cardBorder,
-                      borderWidth: 1,
-                      borderBottomWidth: 0,
-                      borderTopLeftRadius: theme.radius.card,
-                      borderTopRightRadius: theme.radius.card,
-                      paddingVertical: 11,
+                      paddingVertical: theme.spacing.sm,
                       paddingHorizontal: theme.spacing.lg,
                     },
                   ]}
                 >
                   <AppText
                     variant="label"
+                    color="textSecondary"
                     numberOfLines={1}
-                    style={{ flex: 1, fontFamily: 'Manrope_700Bold', letterSpacing: 0.3 }}
+                    ellipsizeMode="clip"
+                    style={styles.sectionHeaderLabel}
                   >
                     {sectionDateLabel}
                   </AppText>
@@ -918,34 +987,16 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                     currency={settings.currency}
                     prefix={netMinor > 0 ? '+' : netMinor < 0 ? '−' : ''}
                     color={netColor}
-                    style={{ fontFamily: 'Manrope_700Bold' }}
                   />
                 </View>
                 <View
-                  style={{
-                    height: 1,
-                    marginHorizontal: 1,
-                    backgroundColor: theme.colors.separator,
-                  }}
+                  style={[styles.sectionHairline, { backgroundColor: theme.colors.separator }]}
                 />
               </View>
             );
           }}
           renderItem={({ item, index, section }) => {
             const isLast = index === section.data.length - 1;
-            const cardRadiusStyle = {
-              backgroundColor: theme.colors.surface,
-              borderColor: theme.colors.cardBorder,
-              borderLeftWidth: 1,
-              borderRightWidth: 1,
-              borderTopWidth: 0,
-              borderBottomWidth: isLast ? 1 : 0,
-              borderTopLeftRadius: 0,
-              borderTopRightRadius: 0,
-              borderBottomLeftRadius: isLast ? theme.radius.card : 0,
-              borderBottomRightRadius: isLast ? theme.radius.card : 0,
-              overflow: 'hidden' as const,
-            };
 
             if (item.kind === 'transfer') {
               const tr = item.transfer;
@@ -980,43 +1031,18 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
               );
 
               return (
-                <View style={cardRadiusStyle}>
-                  <ListRow
-                    testID={`activity-transfer-${tr.id}`}
-                    title={t('activity.transferTitle', {
-                      from: fromName,
-                      to: toName,
-                    })}
-                    subtitle={subParts.join(' · ')}
-                    left={
-                      <IconTile
-                        icon="arrow-left-right"
-                        colorKey="gray"
-                        size="md"
-                      />
-                    }
-                    right={
-                      <View style={styles.transferAmtCol}>
-                        <Money
-                          amountMinor={tr.amountMinor}
-                          currency={settings.currency}
-                          variant="bodyStrong"
-                          color="text"
-                        />
-                        <AppText variant="caption" color="textTertiary">
-                          {t('activity.transferBadge')}
-                        </AppText>
-                      </View>
-                    }
-                    showDivider={!isLast}
-                    onPress={() =>
-                      router.push({
-                        pathname: '/transfer/[id]',
-                        params: { id: tr.id },
-                      })
-                    }
-                  />
-                </View>
+                <ActivityRow
+                  kind="transfer"
+                  id={tr.id}
+                  title={t('activity.transferTitle', { from: fromName, to: toName })}
+                  subtitle={subParts.join(' · ')}
+                  icon="arrow-left-right"
+                  colorKey="gray"
+                  amountMinor={tr.amountMinor}
+                  currency={settings.currency}
+                  badge={t('activity.transferBadge')}
+                  showDivider={!isLast}
+                />
               );
             }
 
@@ -1032,39 +1058,19 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                 ? formatFriendlyTime(tx.occurredTime, use24Hour)
                 : formatShortDate(tx.occurredOn, locale)
             );
-            const isIncome = tx.type === 'income';
 
             return (
-              <View style={cardRadiusStyle}>
-                <ListRow
-                  testID={`activity-tx-${tx.id}`}
-                  title={tx.description.trim() || catLabel}
-                  subtitle={subtitleParts.join(' · ')}
-                  left={
-                    <IconTile
-                      icon={cat?.icon ?? 'shapes'}
-                      colorKey={cat?.colorKey ?? 'gray'}
-                      size="md"
-                    />
-                  }
-                  right={
-                    <Money
-                      amountMinor={tx.amountMinor}
-                      currency={tx.currency}
-                      variant="bodyStrong"
-                      color={isIncome ? 'income' : 'expense'}
-                      prefix={isIncome ? '+' : '−'}
-                    />
-                  }
-                  showDivider={!isLast}
-                  onPress={() =>
-                    router.push({
-                      pathname: '/transaction/[id]',
-                      params: { id: tx.id },
-                    })
-                  }
-                />
-              </View>
+              <ActivityRow
+                kind={tx.type === 'income' ? 'income' : 'expense'}
+                id={tx.id}
+                title={tx.description.trim() || catLabel}
+                subtitle={subtitleParts.join(' · ')}
+                icon={cat?.icon ?? 'shapes'}
+                colorKey={cat?.colorKey ?? 'gray'}
+                amountMinor={tx.amountMinor}
+                currency={tx.currency}
+                showDivider={!isLast}
+              />
             );
           }}
           onEndReachedThreshold={0.4}
@@ -1245,6 +1251,7 @@ function AllEntriesScreen({ header }: { header: React.ReactNode }) {
                   <PressableScale pressScale={0.98}
                     key={w.id}
                     testID={`filter-wallet-${w.id}`}
+                    hitSlop={{ top: theme.spacing.xs, bottom: theme.spacing.xs }}
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                     onPress={() => {
@@ -1484,6 +1491,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  sectionHeaderLabel: {
+    flex: 1,
+  },
+  sectionHairline: {
+    height: StyleSheet.hairlineWidth,
   },
   sectionDateText: {
     letterSpacing: 0.6,

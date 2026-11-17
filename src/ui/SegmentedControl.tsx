@@ -13,6 +13,7 @@ import { PressableScale } from "@/ui/PressableScale";
 export interface SegmentedOption<T extends string> {
   value: T;
   label: string;
+  testID?: string;
 }
 
 export interface SegmentedControlProps<T extends string> {
@@ -20,6 +21,8 @@ export interface SegmentedControlProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   size?: "md" | "sm";
+  /** "hero" renders on the dark HeroCard fill using the hero palette. */
+  tone?: "default" | "hero";
   disabled?: boolean;
   testID?: string;
 }
@@ -29,13 +32,15 @@ export function SegmentedControl<T extends string>({
   value,
   onChange,
   size = "md",
+  tone = "default",
   disabled = false,
   testID,
 }: SegmentedControlProps<T>) {
   const { theme, reducedMotion } = useTheme();
   const isCompact = size === "sm";
   const padding = 3;
-  const itemMinHeight = isCompact ? 32 : theme.touch.min - padding * 2;
+  const isHero = tone === "hero";
+  const itemMinHeight = isCompact ? theme.geometry.chipVisualHeight : theme.touch.min - padding * 2;
 
   const [layouts, setLayouts] = useState<
     Record<string, { x: number; width: number }>
@@ -69,10 +74,10 @@ export function SegmentedControl<T extends string>({
         styles.container,
         isCompact && styles.compactNoShrink,
         {
-          backgroundColor: theme.colors.surfaceSunken,
-          borderRadius: 999,
+          backgroundColor: isHero ? theme.colors.heroLine : theme.colors.surfaceSunken,
+          borderRadius: theme.radius.pill,
           borderWidth: 1,
-          borderColor: theme.colors.cardBorder,
+          borderColor: isHero ? theme.colors.heroLine : theme.colors.cardBorder,
           padding,
           gap: 2,
           opacity: disabled ? 0.55 : 1,
@@ -88,9 +93,13 @@ export function SegmentedControl<T extends string>({
             {
               top: padding,
               bottom: padding,
-              borderRadius: 999,
+              borderRadius: theme.radius.pill,
               // Dark mode: a solid light thumb so the selection is unmistakable.
-              backgroundColor: theme.scheme === "dark" ? theme.colors.ink : theme.colors.surfaceRaised,
+              backgroundColor: isHero
+                ? theme.colors.heroText
+                : theme.scheme === "dark"
+                  ? theme.colors.ink
+                  : theme.colors.surfaceRaised,
             },
             thumbStyle,
           ]}
@@ -102,6 +111,7 @@ export function SegmentedControl<T extends string>({
           <PressableScale
             pressScale={0.96}
             key={`${opt.value}:${opt.label}`}
+            testID={opt.testID}
             disabled={disabled}
             hitSlop={isCompact ? 6 : undefined}
             accessibilityRole="button"
@@ -140,7 +150,17 @@ export function SegmentedControl<T extends string>({
           >
             <AppText
               variant={isCompact ? "caption" : "label"}
-              color={active ? (theme.scheme === "dark" ? "onInk" : "text") : "textSecondary"}
+              color={
+                isHero
+                  ? active
+                    ? "hero"
+                    : "heroTextSecondary"
+                  : active
+                    ? theme.scheme === "dark"
+                      ? "onInk"
+                      : "text"
+                    : "textSecondary"
+              }
               numberOfLines={1}
               style={[
                 styles.label,

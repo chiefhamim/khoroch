@@ -1,46 +1,16 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import Animated, {
-  Easing,
-  useAnimatedStyle,
-  useSharedValue,
-  withDelay,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
 import Svg, { Circle, Defs, Ellipse, LinearGradient, RadialGradient, Rect, Stop } from 'react-native-svg';
-import { motion } from '@/theme/tokens';
 import { useTheme } from '@/theme/useTheme';
 import { AppText } from './AppText';
 
-const EASE_IN_OUT = Easing.bezier(...motion.easing.inOut);
-
-function useFloat(amp: number, ms: number, delay: number, reduced: boolean) {
-  const v = useSharedValue(0);
-  useEffect(() => {
-    if (reduced) return;
-    v.set(
-      withDelay(
-        delay,
-        withSequence(
-          withTiming(1, { duration: ms, easing: EASE_IN_OUT }),
-          withTiming(0, { duration: ms, easing: EASE_IN_OUT })
-        )
-      )
-    );
-  }, [v, ms, delay, reduced]);
-  return useAnimatedStyle(() => ({ transform: [{ translateY: -amp * v.get() }] }));
-}
 
 const COIN = 132;
 const EDGE = 9;
 
 /** A glossy gold taka coin floating over a colourful gradient, with two glass amount chips. */
 export function CoinScene({ height = 270 }: { height?: number }) {
-  const { theme, reducedMotion } = useTheme();
-  const coinFloat = useFloat(8, 2200, 0, reducedMotion);
-  const chipA = useFloat(6, 1900, 300, reducedMotion);
-  const chipB = useFloat(6, 2500, 700, reducedMotion);
+  const { theme } = useTheme();
 
   return (
     <View
@@ -83,7 +53,7 @@ export function CoinScene({ height = 270 }: { height?: number }) {
       </Svg>
 
       {/* Coin */}
-      <Animated.View style={[styles.center, coinFloat]}>
+      <View style={styles.center}>
         <Svg width={COIN + 40} height={COIN + EDGE + 56}>
           <Defs>
             <RadialGradient id="coin-face" cx="34%" cy="28%" r="80%">
@@ -150,21 +120,21 @@ export function CoinScene({ height = 270 }: { height?: number }) {
             {'৳'}
           </AppText>
         </View>
-      </Animated.View>
+      </View>
 
       {/* Glass chips */}
-      <Animated.View style={[styles.chip, styles.chipIn, chipA]}>
+      <View style={[styles.chip, styles.chipIn]}>
         <View style={[styles.dot, { backgroundColor: '#34D399' }]} />
         <AppText variant="label" style={styles.chipText}>
           {'+৳ 500'}
         </AppText>
-      </Animated.View>
-      <Animated.View style={[styles.chip, styles.chipOut, chipB]}>
+      </View>
+      <View style={[styles.chip, styles.chipOut]}>
         <View style={[styles.dot, { backgroundColor: '#FB7185' }]} />
         <AppText variant="label" style={styles.chipText}>
           {'−৳ 120'}
         </AppText>
-      </Animated.View>
+      </View>
     </View>
   );
 }

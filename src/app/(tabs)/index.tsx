@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { isSavingsAssetKind, resolveWalletColorHex } from '@/domain/accounts';
 import { formatUtilizationPct } from '@/domain/calc';
 import {
@@ -150,18 +149,6 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   const effectiveHeroMode: 'budget' | 'net_worth' | 'wallets' =
     userHeroMode ?? (hasWallets && overallBudgetMinor === null ? 'wallets' : 'budget');
 
-  // Sliding indicator for the 3-mode hero switcher.
-  const modeIndex = effectiveHeroMode === 'budget' ? 0 : effectiveHeroMode === 'net_worth' ? 1 : 2;
-  const tabSlide = useSharedValue(modeIndex);
-  useEffect(() => {
-    tabSlide.set(
-      reducedMotion ? modeIndex : withTiming(modeIndex, { duration: 300, easing: Easing.bezier(0.22, 1, 0.36, 1) })
-    );
-  }, [modeIndex, reducedMotion, tabSlide]);
-  const tabPillStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: tabSlide.get() * 87 }],
-  }));
-
   const { overview: duesOverview } = usePeople();
   const duesSummaryLine = formatHomeDuesSummaryLine(duesOverview, settings.currency, undefined, {
     personOwesYou: (name, amount) => t('overview.duePersonOwesYou', { name, amount }),
@@ -287,15 +274,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 styles.stripRow,
                 {
                   gap: theme.spacing.sm,
-                  backgroundColor:
-                    theme.mode === 'light' && theme.colors.heroText === '#14161D'
-                      ? 'rgba(255, 255, 255, 0.55)'
-                      : 'rgba(255, 255, 255, 0.065)',
-                  borderRadius: 16,
+                  backgroundColor: theme.colors.heroStrip,
+                  borderRadius: theme.radius.lg,
                   borderWidth: 1,
                   borderColor: theme.colors.heroLine,
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
+                  paddingHorizontal: theme.spacing.md,
+                  paddingVertical: theme.spacing.sm + 2,
                 },
               ]}
             >
@@ -404,12 +388,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 styles.stripRow,
                 {
                   gap: theme.spacing.sm,
-                  backgroundColor: theme.mode === 'light' && theme.colors.heroText === '#14161D' ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.065)',
-                  borderRadius: 16,
+                  backgroundColor: theme.colors.heroStrip,
+                  borderRadius: theme.radius.lg,
                   borderWidth: 1,
                   borderColor: theme.colors.heroLine,
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
+                  paddingHorizontal: theme.spacing.md,
+                  paddingVertical: theme.spacing.sm + 2,
                 },
               ]}
             >
@@ -519,6 +503,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               accessibilityRole="button"
               accessibilityLabel={t('overview.setBudgetCta')}
               onPress={() => router.push('/(tabs)/plan' as never)}
+              hitSlop={{ top: theme.spacing.sm, bottom: theme.spacing.sm }}
               style={({ pressed }) => [
                 styles.noBudgetRow,
                 {
@@ -538,10 +523,6 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           </>
   );
 
-  const netWorthDeckBg =
-    theme.mode === 'light' && theme.colors.heroText === '#14161D'
-      ? 'rgba(255, 255, 255, 0.55)'
-      : 'rgba(255, 255, 255, 0.065)';
   const duesNetSigned = netWorth.netDuesMinor - netWorth.cardDebtMinor;
   const netWorthBody = (
     <>
@@ -581,12 +562,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           styles.stripRow,
           {
             gap: theme.spacing.sm,
-            backgroundColor: netWorthDeckBg,
-            borderRadius: 16,
+            backgroundColor: theme.colors.heroStrip,
+            borderRadius: theme.radius.lg,
             borderWidth: 1,
             borderColor: theme.colors.heroLine,
-            paddingHorizontal: 12,
-            paddingVertical: 10,
+            paddingHorizontal: theme.spacing.md,
+            paddingVertical: theme.spacing.sm + 2,
           },
         ]}
       >
@@ -709,122 +690,18 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         style={{ gap: theme.spacing.md }}
       >
         <View style={styles.heroTopRow}>
-          <View
+          <SegmentedControl<'budget' | 'net_worth' | 'wallets'>
             testID="overview-hero-switcher"
-            style={[
-              styles.heroTabs,
-              {
-                backgroundColor: theme.colors.heroLine,
-                borderWidth: 1,
-                borderColor: theme.colors.heroLine,
-              },
+            size="sm"
+            tone="hero"
+            value={effectiveHeroMode}
+            onChange={setUserHeroMode}
+            options={[
+              { value: 'budget', label: tr('overview.heroTabBudget'), testID: 'overview-hero-tab-budget' },
+              { value: 'net_worth', label: t('overview.heroTabNetWorth'), testID: 'overview-hero-tab-networth' },
+              { value: 'wallets', label: tr('overview.heroTabWallets'), testID: 'overview-hero-tab-wallets' },
             ]}
-          >
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.heroPill,
-                { backgroundColor: theme.colors.heroText },
-                tabPillStyle,
-              ]}
-            />
-            <PressableScale
-              pressScale={0.97}
-              testID="overview-hero-tab-budget"
-              accessibilityRole="button"
-              accessibilityState={{ selected: effectiveHeroMode === 'budget' }}
-              onPress={() => setUserHeroMode('budget')}
-              style={[
-                styles.heroTab,
-                {
-                  borderRadius: 999,
-                  backgroundColor: 'transparent',
-                },
-              ]}
-            >
-              <AppText
-                variant="tab"
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.85}
-                style={[
-                  styles.heroTabLabel,
-                  {
-                    color:
-                      effectiveHeroMode === 'budget'
-                        ? theme.colors.hero
-                        : theme.colors.heroTextSecondary,
-                  },
-                ]}
-              >
-                {tr('overview.heroTabBudget')}
-              </AppText>
-            </PressableScale>
-            <PressableScale
-              pressScale={0.97}
-              testID="overview-hero-tab-networth"
-              accessibilityRole="button"
-              accessibilityState={{ selected: effectiveHeroMode === 'net_worth' }}
-              onPress={() => setUserHeroMode('net_worth')}
-              style={[
-                styles.heroTab,
-                {
-                  borderRadius: 999,
-                  backgroundColor: 'transparent',
-                },
-              ]}
-            >
-              <AppText
-                variant="tab"
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.85}
-                style={[
-                  styles.heroTabLabel,
-                  {
-                    color:
-                      effectiveHeroMode === 'net_worth'
-                        ? theme.colors.hero
-                        : theme.colors.heroTextSecondary,
-                  },
-                ]}
-              >
-                {t('overview.heroTabNetWorth')}
-              </AppText>
-            </PressableScale>
-            <PressableScale
-              pressScale={0.97}
-              testID="overview-hero-tab-wallets"
-              accessibilityRole="button"
-              accessibilityState={{ selected: effectiveHeroMode === 'wallets' }}
-              onPress={() => setUserHeroMode('wallets')}
-              style={[
-                styles.heroTab,
-                {
-                  borderRadius: 999,
-                  backgroundColor: 'transparent',
-                },
-              ]}
-            >
-              <AppText
-                variant="tab"
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.85}
-                style={[
-                  styles.heroTabLabel,
-                  {
-                    color:
-                      effectiveHeroMode === 'wallets'
-                        ? theme.colors.hero
-                        : theme.colors.heroTextSecondary,
-                  },
-                ]}
-              >
-                {tr('overview.heroTabWallets')}
-              </AppText>
-            </PressableScale>
-          </View>
+          />
 
           <View style={[styles.heroTopRight, { gap: theme.spacing.xs }]}>
             {effectiveHeroMode === 'budget' &&
@@ -1130,7 +1007,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                         {HIDDEN_AMOUNT_TEXT}
                       </AppText>
                     ) : entry.isDue ? (
-                      <Text accessibilityLabel={entry.formattedBalance} numberOfLines={1}>
+                      <Text accessibilityLabel={entry.formattedBalance} numberOfLines={1} ellipsizeMode="clip">
                         <Money
                           variant="bodyStrong"
                           amountMinor={Math.abs(entry.balanceMinor)}
@@ -1549,37 +1426,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
-  },
-  heroTabs: {
-    width: 266,
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 34,
-    borderRadius: 999,
-    padding: 3,
-    gap: 2,
-  },
-  heroPill: {
-    position: 'absolute',
-    top: 2,
-    left: 3,
-    width: 86,
-    height: 28,
-    borderRadius: 999,
-  },
-  heroTab: {
-    flex: 1,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
-    borderRadius: 999,
-  },
-  heroTabLabel: {
-    alignSelf: 'stretch',
-    textAlign: 'center',
-    fontFamily: 'Manrope_700Bold',
-    fontSize: 11.5,
   },
   heroTopRight: {
     flex: 1,

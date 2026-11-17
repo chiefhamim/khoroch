@@ -293,7 +293,7 @@ export function SpendingChart({
       ) : null}
 
       {stats.total > 0 ? (
-        <View style={[styles.statRow, { gap: theme.spacing.sm }]}>
+        <View style={styles.statRow}>
           {[
             { key: 'total', label: t('overview.chartTotal'), minor: stats.total, sub: null as string | null },
             {
@@ -314,27 +314,35 @@ export function SpendingChart({
               minor: stats.peak?.spentMinor ?? 0,
               sub: stats.peak?.label ?? null,
             },
-          ].map((tile) => (
+          ].map((tile, idx) => (
             <View
               key={tile.key}
               style={[
                 styles.statTile,
-                { backgroundColor: theme.colors.surfaceSunken, borderRadius: theme.radius.md },
+                { gap: theme.spacing.xs },
+                idx > 0
+                  ? {
+                      borderLeftWidth: StyleSheet.hairlineWidth,
+                      borderLeftColor: theme.colors.separator,
+                      paddingLeft: theme.spacing.md,
+                    }
+                  : null,
               ]}
             >
-              <AppText variant="caption" color="textSecondary" numberOfLines={1}>
+              <AppText variant="label" color="textSecondary" numberOfLines={1} ellipsizeMode="clip">
                 {tile.label}
               </AppText>
               <Money
                 amountMinor={tile.minor}
                 currency={currency}
-                variant="bodyStrong"
+                variant="headline"
+                allowCompact
                 numberOfLines={1}
                 hidden={hideAmounts}
                 animate={false}
               />
               {tile.sub ? (
-                <AppText variant="caption" color="textTertiary" numberOfLines={1}>
+                <AppText variant="caption" color="textSecondary" numberOfLines={1} ellipsizeMode="clip">
                   {localizeDisplayText(tile.sub, getLocale())}
                 </AppText>
               ) : null}
@@ -438,10 +446,9 @@ export function SpendingChart({
                   y1={refY}
                   x2={plotWidth}
                   y2={refY}
-                  stroke={theme.colors.accent}
-                  strokeOpacity={0.45}
-                  strokeWidth={1}
-                  strokeDasharray="4 4"
+                  stroke={theme.colors.textTertiary}
+                  strokeOpacity={0.6}
+                  strokeWidth={StyleSheet.hairlineWidth}
                 />
                 <SvgText
                   x={plotWidth}
@@ -617,7 +624,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   statRow: { flexDirection: 'row' },
-  statTile: { flex: 1, paddingHorizontal: 10, paddingVertical: 8, gap: 2 },
+  statTile: { flex: 1 },
   svgContainer: {
     width: '100%',
     height: CHART_HEIGHT,

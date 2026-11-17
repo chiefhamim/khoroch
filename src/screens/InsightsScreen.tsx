@@ -345,6 +345,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
             hapticLight();
             setPeriodSheetOpen(true);
           }}
+          hitSlop={{ top: theme.spacing.sm, bottom: theme.spacing.sm }}
           style={({ pressed }) => [
             styles.periodDropdown,
             {
@@ -961,6 +962,7 @@ export function InsightsContent({ todayOverride, showBack = false }: InsightsCon
                   toExcl: selectedBar.period.endExcl,
                 })
               }
+              hitSlop={{ top: theme.spacing.sm, bottom: theme.spacing.sm }}
               style={[
                 styles.tooltipBox,
                 {

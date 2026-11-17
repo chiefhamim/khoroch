@@ -135,3 +135,6 @@ Format:
 - UI rulebook is docs/UI-FOUNDATION.md; where it disagrees with docs/ui-overhaul/DESIGN.md, tokens.ts and the rulebook win.
 - Build order: UI foundation audit fixes first, then the backlog in docs/SYNTHESIS.md section 5.
 - Live reload: Metro runs without CI=1 (CI mode disables reload) and with APP_VARIANT=dev; the phone is on USB (serial R5CY23M7E6L). The Android SDK is at C:\Users\User\android-dev\sdk, not %LOCALAPPDATA%\Android\Sdk.
+- Reviewer findings on 9aeefbb, applied: card enter is now ease-out timing (a spring with a duration ran about 1.5x long); the onboarding coin scene is static; the sheet backdrop is hidden from TalkBack when a header close button exists.
+- Deliberate exception to UI-FOUNDATION section 8: the Money count-up stays on the JS thread (about 18 re-renders of one Text, hero and display amounts only, 300 ms). A UI-thread version needs an animated TextInput and worklet formatting; not worth the regression risk now.
+- Sheet open and close stay at 220 ms tokens (within the 300 ms ceiling) rather than motion.normal 200.

@@ -16,6 +16,9 @@ const BANNED_ICON_NAMES = new Set([
   'ellipsis-vertical',
 ]);
 
+// ProgressRing uses strokeDasharray only to draw one solid progress arc, not a dashed line.
+const DASH_ALLOWED_FILES = new Set(['ProgressRing.tsx']);
+
 function collectSourceFiles(dir: string, out: string[] = []): string[] {
   const entries = fs.readdirSync(dir, { withFileTypes: true });
   for (const entry of entries) {
@@ -82,6 +85,13 @@ describe('AGENTS.md §4b no-ellipsis & banned-icon enforcement', () => {
             const rel = path.relative(SRC_DIR, filePath);
             violations.push(`${rel}:${formatLineCol(sf, node.getStart(sf))} ${reason} -> ${JSON.stringify(node.text)}`);
           }
+        } else if (
+          ts.isJsxAttribute(node) &&
+          node.name.getText(sf) === 'strokeDasharray' &&
+          !DASH_ALLOWED_FILES.has(path.basename(filePath))
+        ) {
+          const rel = path.relative(SRC_DIR, filePath);
+          violations.push(`${rel}:${formatLineCol(sf, node.getStart(sf))} uses strokeDasharray (no dashed or dotted lines)`);
         } else if (ts.isJsxText(node)) {
           const reason = checkTextValue(node.getText(sf));
           if (reason) {

@@ -124,8 +124,10 @@ export const geometry = {
   dividerInset: 68,
   /** Divider left inset for rows whose leading element is narrower than a tile. */
   dividerInsetNoTile: 64,
-  chipHeight: 32,
-  tabPillHeight: 34,
+  /** Visual height only: the control still needs a 48dp touch target via minHeight touch.min or hitSlop. */
+  chipVisualHeight: 32,
+  /** Visual height only: the control still needs a 48dp touch target via minHeight touch.min or hitSlop. */
+  tabPillVisualHeight: 34,
   searchBoxHeight: 44,
   kpiSparklineHeight: 24,
 } as const;
@@ -178,8 +180,6 @@ export const motion = {
     inOut: [0.4, 0, 0.2, 1],
   },
 } as const;
-
-export type MotionBezier = readonly [number, number, number, number];
 
 export const typography = {
   hero: {
@@ -526,6 +526,8 @@ export interface ColorPalette {
   heroText: string;
   heroTextSecondary: string;
   heroLine: string;
+  /** Translucent fill for the stat strip inside the hero card. */
+  heroStrip: string;
   heroBar: string;
   scrim: string;
 }
@@ -623,6 +625,7 @@ export function getPalette(
         heroText: '#14161D',
         heroTextSecondary: '#555B6B',
         heroLine: 'rgba(20, 22, 29, 0.12)',
+        heroStrip: 'rgba(255, 255, 255, 0.55)',
         heroBar: spec.heroBar,
       }
     : {
@@ -630,6 +633,7 @@ export function getPalette(
         heroText: '#FAFAFA',
         heroTextSecondary: '#A1A1AA',
         heroLine: 'rgba(250, 250, 250, 0.12)',
+        heroStrip: 'rgba(255, 255, 255, 0.065)',
         heroBar: accent === 'graphite' ? '#FAFAFA' : spec.accent,
       };
 

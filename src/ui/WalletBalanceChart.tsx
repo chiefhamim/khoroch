@@ -156,7 +156,6 @@ export function WalletBalanceChart({
               y2={metrics.zeroY}
               stroke={theme.colors.separator}
               strokeWidth={1}
-              strokeDasharray="4 4"
             />
           ) : (
             <Line

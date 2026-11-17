@@ -182,6 +182,8 @@ export function Sheet({
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t("common.close")}
+              // With a header the X button is the close control; hide the duplicate from TalkBack.
+              importantForAccessibility={title || headerRight ? "no-hide-descendants" : "auto"}
               onPress={onClose}
               style={[styles.backdrop, { backgroundColor: theme.colors.scrim }]}
             />
