@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { isSavingsAssetKind, resolveWalletColorHex } from '@/domain/accounts';
 import { formatUtilizationPct } from '@/domain/calc';
@@ -10,11 +10,7 @@ import {
   formatWeekdayShortDate,
   isDevice24HourClock,
 } from '@/domain/dates';
-import {
-  formatMoney,
-  HIDDEN_AMOUNT_TEXT,
-  MISSING_METRIC_DASH,
-} from '@/domain/money';
+import { formatMoney, HIDDEN_AMOUNT_TEXT } from '@/domain/money';
 import { remainingDays } from '@/domain/period';
 import { formatHomeDuesSummaryLine } from '@/domain/dues';
 import type { LocalDate } from '@/domain/types';
@@ -72,6 +68,14 @@ function tr(key: string, params?: Record<string, string | number>): string {
   return template;
 }
 
+/** Candidate type sizes for amounts in the three-column hero strips, largest first. */
+const STRIP_FIT = ['bodyStrong', 'label'] as const;
+/** Candidate type sizes for the large hero amount, largest first. */
+const HERO_FIT = ['hero', 'display', 'title'] as const;
+/** Candidate type sizes for wallet tile balances, largest first. */
+const WALLET_TILE_FIT = ['headline', 'bodyStrong', 'label'] as const;
+const STRIP_COLUMNS = 3;
+
 function buildGreeting(hour: number): string {
   if (hour < 12) return t('overview.goodMorning');
   if (hour < 17) return t('overview.goodAfternoon');
@@ -124,6 +128,17 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
   };
   const { width: winW } = useWindowDimensions();
   const [userHeroMode, setUserHeroMode] = useState<'budget' | 'net_worth' | 'wallets' | null>(null);
+  // Measured widths (dp) that let every amount pick a size that fits on one line.
+  const [heroMeasuredW, setHeroMeasuredW] = useState<number | null>(null);
+  const [walletGridW, setWalletGridW] = useState<number | null>(null);
+  const onHeroLayout = (e: LayoutChangeEvent) => {
+    const w = Math.floor(e.nativeEvent.layout.width);
+    setHeroMeasuredW((prev) => (prev === w ? prev : w));
+  };
+  const onWalletGridLayout = (e: LayoutChangeEvent) => {
+    const w = Math.floor(e.nativeEvent.layout.width);
+    setWalletGridW((prev) => (prev === w ? prev : w));
+  };
 
   const { hideAmounts, toggleHideAmounts } = usePrivacyStore();
   const {
@@ -215,15 +230,25 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
     0
   );
 
-  // The hero amount keeps one line and a fixed card height: it shrinks a little for very large sums.
-  const heroAvail = winW - 2 * theme.geometry.screenMargin - 2 * theme.spacing.xl - 14;
-  const heroAmountStyle = (minor: number) => {
-    const abs = Math.abs(minor);
-    const whole = String(Math.floor(abs / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    const chars = whole.length + (abs % 100 !== 0 ? 3 : 0) + 2;
-    const size = Math.max(26, Math.min(36, Math.floor(heroAvail / (chars * 0.62))));
-    return { fontSize: size, lineHeight: Math.round(size * 1.11) };
-  };
+  // Inner width of the hero card (the top row spans it); estimated from the window until measured.
+  const heroInnerW =
+    heroMeasuredW ?? winW - 2 * theme.geometry.screenMargin - 2 * theme.spacing.xl - 2;
+  // Strip column width: strip inner width, minus the column gaps, split evenly, minus the divider
+  // (1) and its padding so the narrowest (divided) columns are covered.
+  const stripDividerPad = theme.spacing.sm;
+  const stripColW = Math.max(
+    0,
+    Math.floor(
+      (heroInnerW - 2 - 2 * theme.spacing.md - (STRIP_COLUMNS - 1) * theme.spacing.sm) / STRIP_COLUMNS
+    ) -
+      1 -
+      stripDividerPad
+  );
+  // Wallet tiles: two columns separated by the card gap; inner width excludes the tile padding.
+  const walletTileW =
+    walletGridW !== null ? Math.floor((walletGridW - theme.geometry.cardGap) / 2) : null;
+  const walletTileInnerW =
+    walletTileW !== null ? Math.max(0, walletTileW - 2 * theme.spacing.md) : undefined;
 
   const noticeCount =
     (summary.ignoredOtherCurrencyCount > 0 ? 1 : 0) +
@@ -260,8 +285,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             <Money
               testID="hero-wallets-total"
               variant="hero"
-              numberOfLines={1}
-              style={heroAmountStyle(Math.abs(accountsOverview.totalMinor))}
+              fitWidth={heroInnerW}
+              fitVariants={HERO_FIT}
               amountMinor={Math.abs(accountsOverview.totalMinor)}
               prefix={accountsOverview.totalMinor < 0 ? '−' : ''}
               currency={settings.currency}
@@ -289,6 +314,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 </AppText>
                 <Money
                   variant="bodyStrong"
+                  fitWidth={stripColW}
+                  fitVariants={STRIP_FIT}
                   amountMinor={Math.abs(liquidCashMfsMinor)}
                   prefix={liquidCashMfsMinor < 0 ? '−' : ''}
                   currency={settings.currency}
@@ -300,7 +327,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 style={[
                   styles.stripCol,
                   styles.stripColBorder,
-                  { borderLeftColor: theme.colors.heroLine },
+                  { borderLeftColor: theme.colors.heroLine, paddingLeft: stripDividerPad },
                 ]}
               >
                 <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
@@ -308,6 +335,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 </AppText>
                 <Money
                   variant="bodyStrong"
+                  fitWidth={stripColW}
+                  fitVariants={STRIP_FIT}
                   amountMinor={Math.abs(liquidBankCardMinor)}
                   prefix={liquidBankCardMinor < 0 ? '−' : ''}
                   currency={settings.currency}
@@ -319,7 +348,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 style={[
                   styles.stripCol,
                   styles.stripColBorder,
-                  { borderLeftColor: theme.colors.heroLine },
+                  { borderLeftColor: theme.colors.heroLine, paddingLeft: stripDividerPad },
                 ]}
               >
                 <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
@@ -327,6 +356,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 </AppText>
                 <Money
                   variant="bodyStrong"
+                  fitWidth={stripColW}
+                  fitVariants={STRIP_FIT}
                   amountMinor={netWorth.savingsAssetsMinor}
                   currency={settings.currency}
                   color="heroBar"
@@ -348,8 +379,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             <Money
               testID="hero-remaining-amount"
               variant="hero"
-              numberOfLines={1}
-              style={heroAmountStyle(Math.abs(summary.remainingMinor))}
+              fitWidth={heroInnerW}
+              fitVariants={HERO_FIT}
               amountMinor={Math.abs(summary.remainingMinor)}
               currency={settings.currency}
               color="heroText"
@@ -404,27 +435,26 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 {summary.safeToSpendPerDayMinor !== null ? (
                   <Money
                     variant="bodyStrong"
+                    fitWidth={stripColW}
+                    fitVariants={STRIP_FIT}
                     amountMinor={summary.safeToSpendPerDayMinor}
                     currency={settings.currency}
                     color="heroBar"
                     hidden={hideAmounts}
                   />
                 ) : (
-                  <View>
-                    <AppText variant="bodyStrong" color="heroText">
-                      {MISSING_METRIC_DASH}
-                    </AppText>
-                    <AppText variant="tab" color="heroTextSecondary">
-                      {remainingDaysCount <= 0 ? 'Cycle ended' : 'No budget'}
-                    </AppText>
-                  </View>
+                  <AppText variant="label" color="heroText">
+                    {remainingDaysCount <= 0
+                      ? t('overview.safeTodayCycleEnded')
+                      : t('overview.noBudgetSet')}
+                  </AppText>
                 )}
               </View>
               <View
                 style={[
                   styles.stripCol,
                   styles.stripColBorder,
-                  { borderLeftColor: theme.colors.heroLine },
+                  { borderLeftColor: theme.colors.heroLine, paddingLeft: stripDividerPad },
                 ]}
               >
                 <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
@@ -432,6 +462,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 </AppText>
                 <Money
                   variant="bodyStrong"
+                  fitWidth={stripColW}
+                  fitVariants={STRIP_FIT}
                   amountMinor={summary.spentMinor}
                   currency={settings.currency}
                   color="heroText"
@@ -442,7 +474,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 style={[
                   styles.stripCol,
                   styles.stripColBorder,
-                  { borderLeftColor: theme.colors.heroLine },
+                  { borderLeftColor: theme.colors.heroLine, paddingLeft: stripDividerPad },
                 ]}
               >
                 {hasWallets ? (
@@ -453,6 +485,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     <Money
                       testID="hero-wallets-total"
                       variant="bodyStrong"
+                      fitWidth={stripColW}
+                      fitVariants={STRIP_FIT}
                       amountMinor={Math.abs(accountsOverview.totalMinor)}
                       prefix={accountsOverview.totalMinor < 0 ? '−' : ''}
                       currency={settings.currency}
@@ -467,6 +501,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     </AppText>
                     <Money
                       variant="bodyStrong"
+                      fitWidth={stripColW}
+                      fitVariants={STRIP_FIT}
                       amountMinor={summary.incomeMinor}
                       currency={settings.currency}
                       color="heroText"
@@ -487,8 +523,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             <Money
               testID="hero-spent-no-budget"
               variant="hero"
-              numberOfLines={1}
-              style={heroAmountStyle(summary.spentMinor)}
+              fitWidth={heroInnerW}
+              fitVariants={HERO_FIT}
               amountMinor={summary.spentMinor}
               currency={settings.currency}
               color="heroText"
@@ -533,8 +569,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
       <Money
         testID="hero-networth-total"
         variant="hero"
-        numberOfLines={1}
-        style={heroAmountStyle(Math.abs(netWorth.netWorthMinor))}
+        fitWidth={heroInnerW}
+        fitVariants={HERO_FIT}
         amountMinor={Math.abs(netWorth.netWorthMinor)}
         prefix={netWorth.netWorthMinor < 0 ? '−' : ''}
         currency={settings.currency}
@@ -551,7 +587,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           </AppText>
           {billsCommitment.unpaidCount > 0 && billsCommitment.uncommittedSafePerDayMinor !== null ? (
             <AppText variant="caption" color="heroTextSecondary" numberOfLines={1}>
-              {`${t('overview.afterBillsLabel')}: ${hideAmounts ? HIDDEN_AMOUNT_TEXT : formatMoney(billsCommitment.uncommittedSafePerDayMinor, settings.currency, { showPoisha: false })}/d`}
+              {`${t('overview.afterBillsLabel')}: ${hideAmounts ? HIDDEN_AMOUNT_TEXT : t('overview.perDayAmount', { amount: formatMoney(billsCommitment.uncommittedSafePerDayMinor, settings.currency, { showPoisha: false }) })}`}
             </AppText>
           ) : null}
         </View>
@@ -577,6 +613,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           </AppText>
           <Money
             variant="bodyStrong"
+            fitWidth={stripColW}
+            fitVariants={STRIP_FIT}
             amountMinor={Math.abs(netWorth.liquidAssetsMinor)}
             prefix={netWorth.liquidAssetsMinor < 0 ? '−' : ''}
             currency={settings.currency}
@@ -588,7 +626,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           style={[
             styles.stripCol,
             styles.stripColBorder,
-            { borderLeftColor: theme.colors.heroLine },
+            { borderLeftColor: theme.colors.heroLine, paddingLeft: stripDividerPad },
           ]}
         >
           <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
@@ -596,6 +634,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           </AppText>
           <Money
             variant="bodyStrong"
+            fitWidth={stripColW}
+            fitVariants={STRIP_FIT}
             amountMinor={Math.abs(netWorth.savingsAssetsMinor)}
             currency={settings.currency}
             color="heroBar"
@@ -606,7 +646,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           style={[
             styles.stripCol,
             styles.stripColBorder,
-            { borderLeftColor: theme.colors.heroLine },
+            { borderLeftColor: theme.colors.heroLine, paddingLeft: stripDividerPad },
           ]}
         >
           <AppText variant="label" color="heroTextSecondary" numberOfLines={1}>
@@ -614,6 +654,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
           </AppText>
           <Money
             variant="bodyStrong"
+            fitWidth={stripColW}
+            fitVariants={STRIP_FIT}
             amountMinor={Math.abs(duesNetSigned)}
             prefix={duesNetSigned > 0 ? '+' : duesNetSigned < 0 ? '−' : ''}
             currency={settings.currency}
@@ -689,7 +731,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
         }
         style={{ gap: theme.spacing.md }}
       >
-        <View style={styles.heroTopRow}>
+        <View testID="overview-hero-top-row" style={styles.heroTopRow} onLayout={onHeroLayout}>
           <SegmentedControl<'budget' | 'net_worth' | 'wallets'>
             testID="overview-hero-switcher"
             size="sm"
@@ -927,16 +969,13 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
             </PressableScale>
           </View>
 
-          <Surface testID="overview-wallets-list" padded={false}>
+          <View testID="overview-wallets-list" style={{ gap: theme.geometry.cardGap }}>
             {barEntries.length > 0 && totalAbsBalance > 0 ? (
               <View
                 testID="overview-wallets-proportion-bar"
                 style={[
                   styles.proportionBarRow,
                   {
-                    paddingHorizontal: theme.spacing.lg,
-                    paddingTop: theme.spacing.md,
-                    paddingBottom: theme.spacing.xs,
                     gap: 3,
                   },
                 ]}
@@ -965,7 +1004,10 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
               </View>
             ) : null}
 
-            <View style={[styles.walletGrid, { padding: theme.spacing.md, gap: theme.spacing.sm }]}>
+            <View
+              style={[styles.walletGrid, { gap: theme.geometry.cardGap }]}
+              onLayout={onWalletGridLayout}
+            >
               {accountsOverview.balances.map((entry) => {
                 const acc = entry.account;
                 const brandHex = resolveWalletColorHex(acc);
@@ -982,6 +1024,8 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                     style={[
                       styles.walletGridTile,
                       {
+                        width: walletTileW ?? '48%',
+                        padding: theme.spacing.md,
                         backgroundColor: theme.colors.surfaceSunken,
                         borderRadius: theme.radius.md,
                         borderColor: theme.colors.cardBorder,
@@ -1010,9 +1054,26 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                         {HIDDEN_AMOUNT_TEXT}
                       </AppText>
                     ) : entry.isDue ? (
-                      <Text accessibilityLabel={entry.formattedBalance} numberOfLines={1} ellipsizeMode="clip">
+                      <View
+                        accessible
+                        accessibilityLabel={entry.formattedBalance}
+                        style={styles.walletDueRow}
+                      >
                         <Money
                           variant="bodyStrong"
+                          fitWidth={
+                            walletTileInnerW !== undefined
+                              ? Math.max(
+                                  0,
+                                  walletTileInnerW -
+                                    estimateSingleLineMinWidth(
+                                      ` ${t('wallets.dueSuffix')}`,
+                                      theme.typography.caption.fontSize
+                                    )
+                                )
+                              : undefined
+                          }
+                          fitVariants={WALLET_TILE_FIT}
                           amountMinor={Math.abs(entry.balanceMinor)}
                           currency={settings.currency}
                           color="danger"
@@ -1025,10 +1086,12 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                         >
                           {` ${t('wallets.dueSuffix')}`}
                         </Text>
-                      </Text>
+                      </View>
                     ) : (
                       <Money
                         variant="bodyStrong"
+                        fitWidth={walletTileInnerW}
+                        fitVariants={WALLET_TILE_FIT}
                         amountMinor={Math.abs(entry.balanceMinor)}
                         prefix={entry.balanceMinor < 0 ? '−' : ''}
                         currency={settings.currency}
@@ -1039,7 +1102,7 @@ export function OverviewContent({ todayOverride, hourOverride }: OverviewContent
                 );
               })}
             </View>
-          </Surface>
+          </View>
         </View>
       ) : !accountsLoading ? (
         <Surface
@@ -1456,7 +1519,6 @@ const styles = StyleSheet.create({
   },
   stripColBorder: {
     borderLeftWidth: 1,
-    paddingLeft: 10,
   },
   noBudgetRow: {
     flexDirection: 'row',
@@ -1502,12 +1564,12 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   walletGridTile: {
-    width: '48.2%',
-    flexGrow: 1,
-    minWidth: 136,
-    padding: 12,
     borderWidth: StyleSheet.hairlineWidth,
     gap: 4,
+  },
+  walletDueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
   },
   walletGridTop: {
     flexDirection: 'row',

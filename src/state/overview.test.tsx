@@ -1,8 +1,11 @@
 import React from 'react';
+import { StyleSheet } from 'react-native';
 import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { OverviewContent } from '@/app/(tabs)/index';
 import { MemoryRepo } from '@/data/memoryRepo';
 import { t } from '@/i18n';
+import { bn } from '@/i18n/bn';
+import { en } from '@/i18n/en';
 import { AppContext } from '@/state/AppContext';
 import { bumpDataVersion } from '@/state/dataVersion';
 import { ThemeProvider } from '@/theme/ThemeProvider';
@@ -456,5 +459,67 @@ describe('Overview Scenario A integration', () => {
     await waitFor(() => {
       expect(view.getByText(t('overview.leftToSpend'))).toBeTruthy();
     });
+  });
+
+  it('gives hero strip amounts a fitWidth after layout so a long wallets total never wraps', async () => {
+    const repo = await seedScenarioARepo();
+    await repo.insertAccount({
+      id: 'acc_card',
+      name: 'Card',
+      kind: 'credit_card',
+      colorKey: '#334155',
+      openingBalanceMinor: -49_779_490,
+      openingDate: '2026-11-01',
+      includeInTotal: true,
+      sortOrder: 0,
+    });
+    const settings = await repo.getSettings();
+    const view = await render(
+      <AppContext.Provider
+        value={{
+          repo,
+          backend: 'memory',
+          settings,
+          updateSetting: async (k, v) => {
+            await repo.setSetting(k, v);
+          },
+          refreshSettings: async () => {},
+        }}
+      >
+        <ThemeProvider preference="dark">
+          <OverviewContent todayOverride="2026-11-13" hourOverride={14} />
+        </ThemeProvider>
+      </AppContext.Provider>
+    );
+
+    await waitFor(() => {
+      expect(view.getByTestId('hero-wallets-total')).toBeTruthy();
+    });
+    const sizeOf = (id: string) =>
+      StyleSheet.flatten(view.getByTestId(id).props.style).fontSize as number;
+
+    const wideSize = sizeOf('hero-wallets-total');
+    expect(wideSize).toBeGreaterThan(0);
+    expect(view.getByTestId('hero-wallets-total').props.numberOfLines).toBe(1);
+
+    // A 300dp hero card leaves a column far too narrow for "497,794.90" at body size.
+    await act(async () => {
+      fireEvent(view.getByTestId('overview-hero-top-row'), 'layout', {
+        nativeEvent: { layout: { width: 300, height: 40, x: 0, y: 0 } },
+      });
+    });
+    await waitFor(() => {
+      expect(sizeOf('hero-wallets-total')).toBeLessThan(wideSize);
+    });
+    expect(view.getByTestId('hero-wallets-total').props.numberOfLines).toBe(1);
+    // The exact amount stays available to screen readers.
+    expect(view.getByTestId('hero-wallets-total').props.accessibilityLabel).toContain('497,794.90');
+  });
+
+  it('has a text state (no dash) for the missing safe-today value in both languages', () => {
+    expect(en['overview.safeTodayCycleEnded']).toBe('Cycle ended');
+    expect(bn['overview.safeTodayCycleEnded'].length).toBeGreaterThan(0);
+    expect(en['overview.noBudgetSet']).toBe('No budget set');
+    expect(bn['overview.noBudgetSet'].length).toBeGreaterThan(0);
   });
 });
